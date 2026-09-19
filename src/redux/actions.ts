@@ -25,7 +25,6 @@ import { assertNumber } from 'netmd-js/dist/utils';
 import { Capability, NetMDService, Codec, MinidiscSpec, ExploitCapability } from '../services/interfaces/netmd';
 import { getSimpleServices, ServiceConstructionInfo } from '../services/interface-service-manager';
 import { checkFactoryCapability } from './factory/factory-actions';
-import { s16LEToSamplesArray, Shazam } from 'shazam-api';
 import { connectDeviceSession, getApplicationClient, releaseDeviceSession } from '../application/runtime';
 import { applyDeviceSnapshot } from './application-adapter';
 import { MetadataImportError } from '../domain/metadata-import';
@@ -757,6 +756,7 @@ export function openRecognizeTrackDialog(selectedTracks: number[]) {
 export function recognizeTracks(_trackEntries: TitleEntry[], mode: 'exploits' | 'line-in', inputModeConfiguration?: { deviceId?: string }) {
     const trackEntries = [..._trackEntries];
     return async function (dispatch: AppDispatch, getState: () => RootState) {
+        const { s16LEToSamplesArray, Shazam } = await import('shazam-api');
         const shazam = new Shazam();
 
         // Bypass CORS

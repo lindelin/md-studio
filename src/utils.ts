@@ -2,7 +2,6 @@ import { AppDispatch, RootState } from './redux/store';
 import { Mutex } from 'async-mutex';
 import * as mm from 'music-metadata';
 import { Disc, Track } from './services/interfaces/netmd';
-import { createWorker } from '@ffmpeg/ffmpeg';
 import { ForcedEncodingFormat } from './redux/convert-dialog-feature';
 import { HiMDKBPSToFrameSize } from 'himd-js';
 import { ExportParams } from './services/audio/audio-export';
@@ -430,6 +429,7 @@ export function getTracks(disc: Disc): Track[] {
 }
 
 export async function ffmpegTranscode(data: Uint8Array, inputFormat: string, outputParameters: string) {
+    const { createWorker } = await import('@ffmpeg/ffmpeg');
     const ffmpegProcess = createWorker({
         logger: (payload: any) => {
             console.log(payload.action, payload.message);

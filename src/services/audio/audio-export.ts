@@ -1,6 +1,7 @@
-import { createWorker, setLogging } from '@ffmpeg/ffmpeg';
 import { CodecFamily } from '../interfaces/netmd';
 import { getPublicPathFor } from '../../utils';
+
+type FfmpegWorker = ReturnType<(typeof import('@ffmpeg/ffmpeg'))['createWorker']>;
 
 export interface LogPayload {
     message: string;
@@ -23,12 +24,13 @@ export interface AudioExportService {
 }
 
 export abstract class DefaultFfmpegAudioExportService implements AudioExportService {
-    public ffmpegProcess?: ReturnType<typeof createWorker>;
+    public ffmpegProcess?: FfmpegWorker;
     public loglines: { action: string; message: string }[] = [];
     public inFileName: string = ``;
     public outFileNameNoExt: string = ``;
 
     async init() {
+        const { setLogging } = await import('@ffmpeg/ffmpeg');
         setLogging(true);
     }
 
@@ -48,6 +50,7 @@ export abstract class DefaultFfmpegAudioExportService implements AudioExportServ
     }
 
     async loadFfmpeg() {
+        const { createWorker } = await import('@ffmpeg/ffmpeg');
         this.ffmpegProcess = createWorker({
             logger: (payload: LogPayload) => {
                 this.loglines.push(payload);
