@@ -955,11 +955,11 @@ export function convertAndUpload(
     } = {}
 ) {
     return async function (dispatch: AppDispatch, getState: () => RootState): Promise<void> {
-        const deviceCapabilities = getState().main.deviceCapabilities;
+        const deviceCapabilities = getApplicationClient().getWorkspaceSnapshot().device?.capabilities ?? [];
         const usesAtrac1Upload = files.some((e) => e.forcedEncoding?.codec === 'SPS' || e.forcedEncoding?.codec === 'SPM');
-        const usesMonoUploadExploit = format.codec === 'SPM' && !deviceCapabilities.includes(Capability.nativeMonoUpload);
+        const usesMonoUploadExploit = format.codec === 'SPM' && !deviceCapabilities.includes('track.uploadMono');
         if (!options.preflightComplete && usesAtrac1Upload) {
-            if (!deviceCapabilities.includes(Capability.factoryMode)) {
+            if (!deviceCapabilities.includes('advanced.factory')) {
                 const message = 'This device cannot enter Homebrew mode, so ATRAC1 upload is unavailable.';
                 window.alert(message);
                 finishRejectedImportWrite(serviceRegistry.taskManager, options.taskId, {
@@ -1005,7 +1005,7 @@ export function convertAndUpload(
 
         if (!options.preflightComplete && usesMonoUploadExploit) {
             // SP MONO is a homebrew feature
-            if (!deviceCapabilities.includes(Capability.factoryMode)) {
+            if (!deviceCapabilities.includes('advanced.factory')) {
                 const message = 'This device cannot enter Homebrew mode, so SP MONO upload is unavailable.';
                 window.alert(message);
                 finishRejectedImportWrite(serviceRegistry.taskManager, options.taskId, {

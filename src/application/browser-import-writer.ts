@@ -1,5 +1,5 @@
 import serviceRegistry from '../services/registry';
-import { Capability, type Codec } from '../services/interfaces/netmd';
+import type { Codec } from '../services/interfaces/netmd';
 import type { TitledFile } from '../utils';
 import { ApplicationError } from './contracts';
 import { createDeferredFile, isAdaptiveFile, isDeferredFile } from './deferred-file';
@@ -29,9 +29,8 @@ export class BrowserImportWriter implements ImportWriter {
 
     async start(request: ImportWriteRequest, queue: ImportQueue, tasks: TaskManager) {
         const selected = queue.resolveSelection(request.ids, request.expectedRevision);
-        const service = serviceRegistry.netmdService;
         const application = serviceRegistry.application;
-        if (!service || !application) {
+        if (!application) {
             throw new ApplicationError('NO_DISC', 'Connect a MiniDisc device before starting a write task.');
         }
         const device = application.readSnapshot() ?? (await application.refresh());
@@ -51,11 +50,10 @@ export class BrowserImportWriter implements ImportWriter {
         );
         assertImportPreviewWritable(preview);
         const format = preview.selectedFormat;
-        const capabilities = await service.getServiceCapabilities();
         assertImportWritePolicy({
             selected,
             format,
-            nativeMonoUpload: capabilities.includes(Capability.nativeMonoUpload),
+            nativeMonoUpload: device.capabilities.includes('track.uploadMono'),
             allowInteractiveHomebrew:
                 request.interactiveHomebrewAuthorization === INTERACTIVE_HOMEBREW_AUTHORIZATION,
         });

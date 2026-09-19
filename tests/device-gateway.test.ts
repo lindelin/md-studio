@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { NetMDDeviceGateway } from '../src/application/device-gateway.ts';
-import { DefaultMinidiscSpec, type MinidiscSpec, type NetMDService } from '../src/services/interfaces/netmd.ts';
+import { Capability, DefaultMinidiscSpec, type MinidiscSpec, type NetMDService } from '../src/services/interfaces/netmd.ts';
 
 describe('NetMDDeviceGateway', () => {
     it('publishes a serializable recording profile with every device snapshot', async () => {
@@ -13,7 +13,7 @@ describe('NetMDDeviceGateway', () => {
                 return 'Test device';
             },
             async getServiceCapabilities() {
-                return [];
+                return [Capability.nativeMonoUpload];
             },
         } as unknown as NetMDService;
         const gateway = new NetMDDeviceGateway(service, new DefaultMinidiscSpec());
@@ -23,6 +23,7 @@ describe('NetMDDeviceGateway', () => {
         assert.equal(snapshot.recording.specName, 'MD');
         assert.equal(snapshot.recording.availableFormats[2].userFriendlyName, 'LP2');
         assert.equal(snapshot.recording.availableFormats[2].secondsPerDefaultUnit, 2);
+        assert.equal(snapshot.capabilities.includes('track.uploadMono'), true);
         assert.doesNotThrow(() => JSON.stringify(snapshot));
     });
 
