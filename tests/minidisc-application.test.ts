@@ -671,6 +671,7 @@ describe('MiniDiscApplication', () => {
     it('validates and finalizes browser-authorized recovery track exports', async () => {
         const { gateway, calls } = makeGateway();
         const actions: string[] = [];
+        const finalization = { error: undefined as Error | undefined };
         const application = new MiniDiscApplication(gateway, undefined, {
             async readInfo() {
                 return { firmwareVersion: 'S1.600', capabilities: ['downloadAtrac'] };
@@ -691,7 +692,10 @@ describe('MiniDiscApplication', () => {
                 onProgress({ read: 2, total: 2, action: 'READ', sector: '10' });
                 return { data: new Uint8Array([index]), extension: 'aea' };
             },
-            async finalizeTrackDownload() { actions.push('finalize'); },
+            async finalizeTrackDownload() {
+                actions.push('finalize');
+                if (finalization.error) throw finalization.error;
+            },
         });
         await application.refresh();
         const files: number[] = [];
@@ -716,16 +720,28 @@ describe('MiniDiscApplication', () => {
             'progress:2',
             'finalize',
         ]);
+        const recognitionError = new Error('recognition failed');
+        finalization.error = new Error('cleanup failed');
         await assert.rejects(
             () =>
                 application.runAdvancedTrackDownloadSession(
                     false,
                     INTERACTIVE_ADVANCED_AUTHORIZATION,
-                    async () => { throw new Error('recognition failed'); }
+                    async () => { throw recognitionError; }
                 ),
-            /recognition failed/
+            (error) => error === recognitionError
         );
         assert.deepEqual(actions.slice(-2), ['prepare:false', 'finalize']);
+
+        await assert.rejects(
+            () =>
+                application.runAdvancedTrackDownloadSession(
+                    false,
+                    INTERACTIVE_ADVANCED_AUTHORIZATION,
+                    async () => 'read-complete'
+                ),
+            /cleanup failed/
+        );
     });
 
     it('runs browser uploads inside one revisioned application transaction', async () => {

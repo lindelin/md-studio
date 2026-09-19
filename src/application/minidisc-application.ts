@@ -326,11 +326,20 @@ export class MiniDiscApplication {
             await this.requireExploitCapability(gateway, 'downloadAtrac');
             await this.gateway.controlPlayback({ action: 'stop' }).catch(() => undefined);
             await gateway.prepareTrackDownload(useSlowerExploit);
+            let value: T | undefined;
+            let primaryError: unknown;
             try {
-                return await operation((index, options, onProgress) => gateway.readTrack(index, options, onProgress));
-            } finally {
-                await gateway.finalizeTrackDownload();
+                value = await operation((index, options, onProgress) => gateway.readTrack(index, options, onProgress));
+            } catch (error) {
+                primaryError = error;
             }
+            try {
+                await gateway.finalizeTrackDownload();
+            } catch (error) {
+                primaryError ??= error;
+            }
+            if (primaryError) throw primaryError;
+            return value as T;
         });
     }
 
