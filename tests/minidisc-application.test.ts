@@ -590,6 +590,16 @@ describe('MiniDiscApplication', () => {
             'progress:2',
             'finalize',
         ]);
+        await assert.rejects(
+            () =>
+                application.runAdvancedTrackDownloadSession(
+                    false,
+                    INTERACTIVE_ADVANCED_AUTHORIZATION,
+                    async () => { throw new Error('recognition failed'); }
+                ),
+            /recognition failed/
+        );
+        assert.deepEqual(actions.slice(-2), ['prepare:false', 'finalize']);
     });
 
     it('runs the destructive self-test as one revisioned transaction and leaves a verified empty disc', async () => {

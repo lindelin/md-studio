@@ -108,6 +108,12 @@ export function getApplicationClient() {
                     serviceRegistry.taskManager,
                     sink,
                     handleBadSector
+                ),
+            (useSlowerExploit, operation) =>
+                getApplicationRuntime().runAdvancedTrackDownloadSession(
+                    useSlowerExploit,
+                    INTERACTIVE_ADVANCED_AUTHORIZATION,
+                    operation
                 )
         );
     }

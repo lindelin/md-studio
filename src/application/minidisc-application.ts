@@ -8,6 +8,7 @@ import {
     type AdvancedTrackData,
     type AdvancedTrackReadOptions,
     type AdvancedTrackReadProgress,
+    type AdvancedTrackReader,
     type ApplicationCapability,
     type DestructiveConfirmation,
     type DiagnosticProgress,
@@ -239,29 +240,40 @@ export class MiniDiscApplication {
         onProgress: (index: number, progress: AdvancedTrackReadProgress) => void,
         onTrack: (index: number, data: AdvancedTrackData) => void | Promise<void>
     ): Promise<number> {
-        return this.serial(async () => {
-            this.requireInteractiveAdvancedAuthorization(interactiveAuthorization);
-            this.requireCapability('advanced.factory');
+        return this.runAdvancedTrackDownloadSession(useSlowerExploit, interactiveAuthorization, async (readTrack) => {
             const disc = this.requireDisc();
             const knownIndexes = new Set(disc.groups.flatMap((group) => group.tracks.map((track) => track.index)));
             const selectedIndexes = this.validateUniqueIndexes(indexes, knownIndexes, 'track');
+            let completed = 0;
+            for (const index of selectedIndexes) {
+                if (options.shouldCancel()) break;
+                const data = await readTrack(index, options, (progress) => onProgress(index, progress));
+                await onTrack(index, data);
+                completed += 1;
+                if (options.shouldCancel()) break;
+            }
+            return completed;
+        });
+    }
+
+    runAdvancedTrackDownloadSession<T>(
+        useSlowerExploit: boolean,
+        interactiveAuthorization: typeof INTERACTIVE_ADVANCED_AUTHORIZATION,
+        operation: (readTrack: AdvancedTrackReader) => Promise<T>
+    ): Promise<T> {
+        return this.serial(async () => {
+            this.requireInteractiveAdvancedAuthorization(interactiveAuthorization);
+            this.requireCapability('advanced.factory');
+            this.requireDisc();
             const gateway = this.requireAdvancedGateway();
             await this.requireExploitCapability(gateway, 'downloadAtrac');
-            let completed = 0;
             await this.gateway.controlPlayback({ action: 'stop' }).catch(() => undefined);
             await gateway.prepareTrackDownload(useSlowerExploit);
             try {
-                for (const index of selectedIndexes) {
-                    if (options.shouldCancel()) break;
-                    const data = await gateway.readTrack(index, options, (progress) => onProgress(index, progress));
-                    await onTrack(index, data);
-                    completed += 1;
-                    if (options.shouldCancel()) break;
-                }
+                return await operation((index, options, onProgress) => gateway.readTrack(index, options, onProgress));
             } finally {
                 await gateway.finalizeTrackDownload();
             }
-            return completed;
         });
     }
 

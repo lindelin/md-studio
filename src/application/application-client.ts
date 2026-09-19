@@ -3,7 +3,7 @@ import type { ImportQueue, ImportQueueInput, ImportQueueSnapshot } from './impor
 import type { TaskSnapshot } from './task-manager';
 import type { TrackExportRequest, TrackExportSink } from './track-export';
 import type { WorkspaceSnapshot, WorkspaceStore } from './workspace-store';
-import type { AdvancedMemoryKind, AdvancedMemoryRegion } from './contracts';
+import type { AdvancedMemoryKind, AdvancedMemoryRegion, AdvancedTrackReader } from './contracts';
 import type { AdvancedBadSectorHandler, AdvancedTrackExportRequest } from './advanced-track-export';
 
 export type LocalAdvancedMemorySink = (
@@ -25,6 +25,10 @@ export interface ApplicationClient {
         sink: TrackExportSink,
         handleBadSector: AdvancedBadSectorHandler
     ): Promise<TaskSnapshot>;
+    runLocalAdvancedTrackDownloadSession<T>(
+        useSlowerExploit: boolean,
+        operation: (readTrack: AdvancedTrackReader) => Promise<T>
+    ): Promise<T>;
     getWorkspaceSnapshot(): WorkspaceSnapshot;
     subscribe(listener: () => void): () => void;
 }
@@ -43,7 +47,11 @@ export class InProcessApplicationClient implements ApplicationClient {
             request: AdvancedTrackExportRequest,
             sink: TrackExportSink,
             handleBadSector: AdvancedBadSectorHandler
-        ) => Promise<TaskSnapshot>
+        ) => Promise<TaskSnapshot>,
+        private readonly localAdvancedTrackDownloadSession: <T>(
+            useSlowerExploit: boolean,
+            operation: (readTrack: AdvancedTrackReader) => Promise<T>
+        ) => Promise<T>
     ) {}
 
     execute = (command: ApplicationCommand) => this.commands.execute(command);
@@ -57,6 +65,10 @@ export class InProcessApplicationClient implements ApplicationClient {
         sink: TrackExportSink,
         handleBadSector: AdvancedBadSectorHandler
     ) => this.localAdvancedTrackExport(request, sink, handleBadSector);
+    runLocalAdvancedTrackDownloadSession = <T>(
+        useSlowerExploit: boolean,
+        operation: (readTrack: AdvancedTrackReader) => Promise<T>
+    ) => this.localAdvancedTrackDownloadSession(useSlowerExploit, operation);
     getWorkspaceSnapshot = this.workspace.getSnapshot;
     subscribe = this.workspace.subscribe;
 }

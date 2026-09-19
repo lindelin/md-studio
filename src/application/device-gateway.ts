@@ -226,6 +226,9 @@ export class NetMDAdvancedDeviceGateway implements AdvancedDeviceGateway {
         return factory.exploitDownloadTrack(index, options.nerawDownload, onProgress, {
             shouldCancelImmediately: options.shouldCancel,
             handleBadSector: options.handleBadSector,
+            startSeconds: options.startSeconds,
+            secondsToRead: options.secondsToRead,
+            writeHeader: options.writeHeader,
         });
     }
 

@@ -87,12 +87,21 @@ export interface AdvancedTrackReadOptions {
     nerawDownload: boolean;
     shouldCancel: () => boolean;
     handleBadSector: (address: string, count: number, seconds: number) => Promise<AdvancedBadSectorDecision>;
+    startSeconds?: number;
+    secondsToRead?: number;
+    writeHeader?: boolean;
 }
 
 export interface AdvancedTrackData {
     data: Uint8Array;
     extension: string;
 }
+
+export type AdvancedTrackReader = (
+    index: number,
+    options: AdvancedTrackReadOptions,
+    onProgress: (progress: AdvancedTrackReadProgress) => void
+) => Promise<AdvancedTrackData>;
 
 export interface DiagnosticProgress {
     completed: number;

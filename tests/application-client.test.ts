@@ -5,6 +5,14 @@ import { ImportQueue } from '../src/application/import-queue.ts';
 import { SettingsStore } from '../src/application/settings-store.ts';
 import { TaskManager } from '../src/application/task-manager.ts';
 import { WorkspaceStore } from '../src/application/workspace-store.ts';
+import type { AdvancedTrackReader } from '../src/application/contracts.ts';
+
+async function runAdvancedSession<T>(
+    _useSlowerExploit: boolean,
+    operation: (readTrack: AdvancedTrackReader) => Promise<T>
+) {
+    return operation(async () => ({ data: new Uint8Array(), extension: 'aea' }));
+}
 
 describe('InProcessApplicationClient', () => {
     it('offers one command and subscription interface for browser UI state', async () => {
@@ -23,7 +31,8 @@ describe('InProcessApplicationClient', () => {
             imports,
             async () => tasks.create('export', 'Local export'),
             async () => tasks.create('advanced.memory-export', 'Memory export'),
-            async () => tasks.create('advanced.track-export', 'Advanced export')
+            async () => tasks.create('advanced.track-export', 'Advanced export'),
+            runAdvancedSession
         );
         const initial = client.getWorkspaceSnapshot();
         let notifications = 0;
@@ -61,7 +70,8 @@ describe('InProcessApplicationClient', () => {
             imports,
             async () => tasks.create('export', 'Local export'),
             async () => tasks.create('advanced.memory-export', 'Memory export'),
-            async () => tasks.create('advanced.track-export', 'Advanced export')
+            async () => tasks.create('advanced.track-export', 'Advanced export'),
+            runAdvancedSession
         );
         const payload = { browserFile: true };
 
@@ -95,7 +105,8 @@ describe('InProcessApplicationClient', () => {
                 return tasks.create('track-export', 'Local export');
             },
             async () => tasks.create('advanced.memory-export', 'Memory export'),
-            async () => tasks.create('advanced.track-export', 'Advanced export')
+            async () => tasks.create('advanced.track-export', 'Advanced export'),
+            runAdvancedSession
         );
 
         const task = await client.startLocalTrackExport({ indexes: [0, 2], convertToWav: true }, async () => {});
@@ -122,7 +133,8 @@ describe('InProcessApplicationClient', () => {
                 requestedKinds.push(kind);
                 return tasks.create('advanced.memory-export', 'Memory export');
             },
-            async () => tasks.create('advanced.track-export', 'Advanced export')
+            async () => tasks.create('advanced.track-export', 'Advanced export'),
+            runAdvancedSession
         );
 
         const task = await client.startLocalAdvancedMemoryExport('firmware', async () => {});
@@ -145,7 +157,8 @@ describe('InProcessApplicationClient', () => {
             async (request) => {
                 indexes.push(request.indexes);
                 return tasks.create('advanced.track-export', 'Advanced export');
-            }
+            },
+            runAdvancedSession
         );
 
         const task = await client.startLocalAdvancedTrackExport(
@@ -156,5 +169,35 @@ describe('InProcessApplicationClient', () => {
 
         assert.deepEqual(indexes, [[1]]);
         assert.equal(task.kind, 'advanced.track-export');
+    });
+
+    it('keeps an interactive advanced read session inside the local client boundary', async () => {
+        const tasks = new TaskManager();
+        const imports = new ImportQueue();
+        const workspace = new WorkspaceStore(tasks, imports, new SettingsStore(null));
+        const sessionModes: boolean[] = [];
+        const client = new InProcessApplicationClient(
+            { async execute() { return { ok: true }; } },
+            workspace,
+            imports,
+            async () => tasks.create('track-export', 'Local export'),
+            async () => tasks.create('advanced.memory-export', 'Memory export'),
+            async () => tasks.create('advanced.track-export', 'Advanced export'),
+            async (slower, operation) => {
+                sessionModes.push(slower);
+                return operation(async () => ({ data: Uint8Array.from([7]), extension: 'aea' }));
+            }
+        );
+
+        const extension = await client.runLocalAdvancedTrackDownloadSession(true, async (readTrack) =>
+            (await readTrack(0, {
+                nerawDownload: false,
+                shouldCancel: () => false,
+                handleBadSector: async () => 'abort',
+            }, () => {})).extension
+        );
+
+        assert.equal(extension, 'aea');
+        assert.deepEqual(sessionModes, [true]);
     });
 });
