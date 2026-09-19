@@ -3,8 +3,9 @@ import { HiMDCodecName } from 'himd-js';
 import { enableBatching } from 'redux-batched-actions';
 import { savePreference, loadPreference } from '../utils';
 import { isOneOf, isUploadFormat } from '../preferences';
+import type { ImportTitleFormat } from '../application/import-title';
 
-export type TitleFormatType = 'filename' | 'title' | 'album-title' | 'artist-title' | 'artist-album-title' | 'title-artist';
+export type TitleFormatType = ImportTitleFormat;
 export type ForcedEncodingFormat = { codec: 'SPM' | 'SPS' | HiMDCodecName; bitrate: number } | null;
 
 export interface ConvertDialogFeature {

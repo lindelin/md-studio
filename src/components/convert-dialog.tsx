@@ -2,7 +2,6 @@ import React, { SyntheticEvent, useCallback, useEffect, useMemo, useRef, useStat
 import { useDispatch } from '../frontend-utils';
 import {
     getMetadataFromFile,
-    removeExtension,
     secondsToHumanReadable,
     getATRACWAVEncoding,
     getATRACOMAEncoding,
@@ -73,6 +72,7 @@ import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import { LeftInNondefaultCodecs } from './main-rows';
+import { formatImportTitle } from '../application/import-title';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
@@ -425,40 +425,14 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
             const snapshot = serviceRegistry.importQueue.snapshot();
             serviceRegistry.importQueue.updateMany(
                 queuedFiles.map((file) => {
-                    const sourceTitle = file.sourceTitle ?? file.title;
-                    const sourceArtist = file.sourceArtist ?? file.artist ?? '';
-                    const sourceAlbum = file.sourceAlbum ?? file.album ?? '';
-                    let rawTitle = '';
-                    switch (selectedFormat) {
-                        case 'title':
-                            rawTitle = sourceTitle;
-                            break;
-                        case 'artist-title':
-                            rawTitle = `${sourceArtist} - ${sourceTitle}`;
-                            break;
-                        case 'title-artist':
-                            rawTitle = `${sourceTitle} - ${sourceArtist}`;
-                            break;
-                        case 'album-title':
-                            rawTitle = `${sourceAlbum} - ${sourceTitle}`;
-                            break;
-                        case 'artist-album-title':
-                            rawTitle = `${sourceArtist} - ${sourceAlbum} - ${sourceTitle}`;
-                            break;
-                        case 'filename':
-                            rawTitle = removeExtension(file.name);
-                            break;
-                    }
-                    const halfWidth = minidiscSpec.sanitizeHalfWidthTitle(rawTitle);
-                    const fullWidth = minidiscSpec.sanitizeFullWidthTitle(rawTitle);
-                    const halfAsFull = minidiscSpec.sanitizeFullWidthTitle(halfWidth);
                     return {
                         id: file.id,
-                        changes: {
-                            title: halfWidth,
-                            fullWidthTitle:
-                                allowFullWidth && deviceSupportsFullWidth && fullWidth !== halfAsFull ? fullWidth : '',
-                        },
+                        changes: formatImportTitle(
+                            file,
+                            selectedFormat,
+                            minidiscSpec,
+                            allowFullWidth && deviceSupportsFullWidth
+                        ),
                     };
                 }),
                 snapshot.revision
