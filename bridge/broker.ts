@@ -1,6 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import { BRIDGE_PROTOCOL_VERSION, parseBridgeMessage, type BridgeHello, type BridgeRequest } from '../src/application/bridge-protocol.ts';
+import {
+    BRIDGE_PROTOCOL_VERSION,
+    parseBridgeMessage,
+    type BridgeFileResponse,
+    type BridgeHello,
+    type BridgeRequest,
+} from '../src/application/bridge-protocol.ts';
 import type { ApplicationCommand, CommandResult } from '../src/application/command-bus.ts';
+import type { FileChunkProvider } from './local-file-registry.ts';
 
 export interface BridgePeer {
     send(data: string): void;
@@ -17,6 +24,8 @@ export class LocalBridgeBroker {
     private readonly pending = new Map<string, PendingRequest>();
     private readonly connectionWaiters = new Set<{ resolve: () => void; reject: (error: Error) => void; timeout: NodeJS.Timeout }>();
 
+    constructor(private readonly files?: FileChunkProvider) {}
+
     attach(peer: BridgePeer) {
         return () => {
             if (this.activePeer !== peer) return;
@@ -25,7 +34,7 @@ export class LocalBridgeBroker {
         };
     }
 
-    handleMessage(peer: BridgePeer, raw: string) {
+    async handleMessage(peer: BridgePeer, raw: string) {
         const message = parseBridgeMessage(JSON.parse(raw));
         if (message.type === 'hello') {
             this.validateHello(message);
@@ -38,6 +47,35 @@ export class LocalBridgeBroker {
                 waiter.resolve();
             }
             this.connectionWaiters.clear();
+            return;
+        }
+        if (message.type === 'file.request') {
+            if (peer !== this.activePeer) return;
+            let response: BridgeFileResponse;
+            try {
+                if (!this.files) throw new Error('Local file transfer is unavailable.');
+                const chunk = await this.files.readChunk(message.handle, message.offset, message.length);
+                response = {
+                    type: 'file.response',
+                    protocolVersion: BRIDGE_PROTOCOL_VERSION,
+                    id: message.id,
+                    ok: true,
+                    name: chunk.name,
+                    mimeType: chunk.mimeType,
+                    size: chunk.size,
+                    offset: chunk.offset,
+                    data: Buffer.from(chunk.data).toString('base64'),
+                };
+            } catch (error) {
+                response = {
+                    type: 'file.response',
+                    protocolVersion: BRIDGE_PROTOCOL_VERSION,
+                    id: message.id,
+                    ok: false,
+                    error: error instanceof Error ? error.message : String(error),
+                };
+            }
+            peer.send(JSON.stringify(response));
             return;
         }
         if (message.type !== 'response' || peer !== this.activePeer) return;

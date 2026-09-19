@@ -7,6 +7,11 @@ import type { MiniDiscApplication } from '../application/minidisc-application';
 import type { ApplicationCommandBus } from '../application/command-bus';
 import { TaskManager } from '../application/task-manager';
 import { ImportQueue } from '../application/import-queue';
+import type { ImportWriter } from '../application/import-queue';
+
+export interface ImportPayloadResolver {
+    resolve(reference: string): Promise<File>;
+}
 
 interface ServiceRegistry {
     netmdService?: NetMDService;
@@ -20,6 +25,8 @@ interface ServiceRegistry {
     commandBus?: ApplicationCommandBus;
     taskManager: TaskManager;
     importQueue: ImportQueue;
+    importPayloadResolver?: ImportPayloadResolver;
+    importWriter?: ImportWriter;
 }
 
 const ServiceRegistry: ServiceRegistry = { taskManager: new TaskManager(), importQueue: new ImportQueue() };

@@ -19,8 +19,10 @@ import { sleep } from './utils';
 import { SettingsResetErrorBoundary } from './components/settings-reset-error-boundary';
 import { startLocalApplicationBridge } from './application/browser-bridge';
 import { readRawPreference } from './preferences';
+import { BrowserImportWriter } from './application/browser-import-writer';
 serviceRegistry.mediaRecorderService = new MediaRecorderService();
 serviceRegistry.mediaSessionService = new BrowserMediaSessionService(store);
+serviceRegistry.importWriter = new BrowserImportWriter(store.dispatch);
 startLocalApplicationBridge();
 
 Object.defineProperty(window, 'wmdVersion', {

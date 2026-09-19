@@ -1,6 +1,6 @@
 import type { ApplicationCommand, CommandResult } from './command-bus';
 
-export const BRIDGE_PROTOCOL_VERSION = 1;
+export const BRIDGE_PROTOCOL_VERSION = 2;
 
 export interface BridgeHello {
     type: 'hello';
@@ -22,12 +22,43 @@ export interface BridgeResponse {
     result: CommandResult;
 }
 
-export type BridgeMessage = BridgeHello | BridgeRequest | BridgeResponse;
+export interface BridgeFileRequest {
+    type: 'file.request';
+    protocolVersion: typeof BRIDGE_PROTOCOL_VERSION;
+    id: string;
+    handle: string;
+    offset: number;
+    length: number;
+}
+
+export type BridgeFileResponse =
+    | {
+          type: 'file.response';
+          protocolVersion: typeof BRIDGE_PROTOCOL_VERSION;
+          id: string;
+          ok: true;
+          name: string;
+          mimeType: string;
+          size: number;
+          offset: number;
+          data: string;
+      }
+    | {
+          type: 'file.response';
+          protocolVersion: typeof BRIDGE_PROTOCOL_VERSION;
+          id: string;
+          ok: false;
+          error: string;
+      };
+
+export type BridgeMessage = BridgeHello | BridgeRequest | BridgeResponse | BridgeFileRequest | BridgeFileResponse;
 
 export function parseBridgeMessage(value: unknown): BridgeMessage {
     if (!value || typeof value !== 'object') throw new Error('Bridge message must be an object.');
     const message = value as Partial<BridgeMessage>;
     if (message.protocolVersion !== BRIDGE_PROTOCOL_VERSION) throw new Error('Unsupported bridge protocol version.');
-    if (!['hello', 'request', 'response'].includes(String(message.type))) throw new Error('Unknown bridge message type.');
+    if (!['hello', 'request', 'response', 'file.request', 'file.response'].includes(String(message.type))) {
+        throw new Error('Unknown bridge message type.');
+    }
     return message as BridgeMessage;
 }

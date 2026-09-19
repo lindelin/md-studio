@@ -31,7 +31,10 @@ export function startLocalBridgeServer(broker: LocalBridgeBroker, options: Local
         const detach = broker.attach(socket);
         socket.on('message', (data) => {
             try {
-                broker.handleMessage(socket, data.toString());
+                void broker.handleMessage(socket, data.toString()).catch((error) => {
+                    console.error('Rejected invalid browser bridge message:', error);
+                    socket.close(1008, 'Invalid bridge message');
+                });
             } catch (error) {
                 console.error('Rejected invalid browser bridge message:', error);
                 socket.close(1008, 'Invalid bridge message');

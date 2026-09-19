@@ -46,4 +46,21 @@ describe('ImportQueue', () => {
         assert.equal('payload' in added.items[0], false);
         assert.equal(queue.resolvePayload(added.items[0].id), payload);
     });
+
+    it('resolves a revision-checked write selection in queue order', () => {
+        const queue = new ImportQueue();
+        const payloadA = { name: 'payload-a' };
+        const payloadB = { name: 'payload-b' };
+        const added = queue.add([input('A.flac', payloadA), input('B.flac', payloadB)]);
+        const selection = queue.resolveSelection([added.items[1].id, added.items[0].id], added.revision);
+        assert.deepEqual(
+            selection.map(({ item }) => item.title),
+            ['A', 'B']
+        );
+        assert.deepEqual(
+            selection.map(({ payload }) => payload),
+            [payloadA, payloadB]
+        );
+        assert.throws(() => queue.resolveSelection(undefined, 0), /changed after this command/);
+    });
 });

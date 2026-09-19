@@ -9,7 +9,7 @@ import type {
 import type { MiniDiscApplication } from './minidisc-application';
 import type { TaskSnapshot } from './task-manager';
 import { TaskManager } from './task-manager';
-import type { ImportQueueInput, ImportQueueSnapshot, ImportTrackMetadata } from './import-queue';
+import type { ImportQueueInput, ImportQueueSnapshot, ImportTrackMetadata, ImportWriteRequest, ImportWriter } from './import-queue';
 import { ImportQueue } from './import-queue';
 
 export type ApplicationCommand =
@@ -42,7 +42,8 @@ export type ApplicationCommand =
     | { type: 'import.update'; id: string; changes: Partial<ImportTrackMetadata>; expectedRevision?: number }
     | { type: 'import.move'; id: string; destinationIndex: number; expectedRevision?: number }
     | { type: 'import.remove'; ids: string[]; expectedRevision?: number }
-    | { type: 'import.clear'; expectedRevision?: number };
+    | { type: 'import.clear'; expectedRevision?: number }
+    | ({ type: 'import.write' } & ImportWriteRequest);
 
 export interface CommandSuccess {
     ok: true;
@@ -63,7 +64,8 @@ export class ApplicationCommandBus {
     constructor(
         private readonly application: MiniDiscApplication,
         private readonly tasks: TaskManager,
-        private readonly imports: ImportQueue
+        private readonly imports: ImportQueue,
+        private readonly importWriter?: ImportWriter
     ) {}
 
     async execute(command: ApplicationCommand): Promise<CommandResult> {
@@ -92,6 +94,10 @@ export class ApplicationCommandBus {
             }
             if (command.type === 'import.clear') {
                 return { ok: true, importQueue: this.imports.clear(command.expectedRevision) };
+            }
+            if (command.type === 'import.write') {
+                if (!this.importWriter) throw new Error('Audio writing is unavailable in this application environment.');
+                return { ok: true, task: await this.importWriter.start(command, this.imports, this.tasks) };
             }
 
             let snapshot: DeviceSnapshot;

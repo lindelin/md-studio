@@ -9,7 +9,12 @@ export function bindApplicationRuntime() {
     }
     const application = new MiniDiscApplication(new NetMDDeviceGateway(serviceRegistry.netmdService, serviceRegistry.netmdSpec));
     serviceRegistry.application = application;
-    serviceRegistry.commandBus = new ApplicationCommandBus(application, serviceRegistry.taskManager, serviceRegistry.importQueue);
+    serviceRegistry.commandBus = new ApplicationCommandBus(
+        application,
+        serviceRegistry.taskManager,
+        serviceRegistry.importQueue,
+        serviceRegistry.importWriter
+    );
     return application;
 }
 

@@ -1,4 +1,5 @@
 import { ApplicationError } from './contracts';
+import type { TaskManager, TaskSnapshot } from './task-manager';
 
 export type ImportSourceKind = 'browser-file' | 'local-path' | 'library';
 
@@ -32,6 +33,24 @@ export interface ImportQueueSnapshot {
 export interface ImportQueueInput {
     source: ImportSourceDescriptor;
     metadata: ImportTrackMetadata;
+    payload?: unknown;
+}
+
+export interface ImportWriteRequest {
+    ids?: string[];
+    format?: { codec: string; bitrate: number };
+    enableReplayGain?: boolean;
+    enableGapless?: boolean;
+    removeOnSuccess?: boolean;
+    expectedRevision?: number;
+}
+
+export interface ImportWriter {
+    start(request: ImportWriteRequest, queue: ImportQueue, tasks: TaskManager): Promise<TaskSnapshot>;
+}
+
+export interface ResolvedImportQueueItem {
+    item: ImportQueueItem;
     payload?: unknown;
 }
 
@@ -109,6 +128,20 @@ export class ImportQueue {
             throw new ApplicationError('INVALID_INPUT', `Import item ${id} has no local payload.`, { id });
         }
         return this.payloads.get(id) as T;
+    }
+
+    resolveSelection(ids?: string[], expectedRevision?: number): ResolvedImportQueueItem[] {
+        this.assertRevision(expectedRevision);
+        const requestedIds = ids ?? this.items.map((item) => item.id);
+        if (requestedIds.length === 0) throw new ApplicationError('INVALID_INPUT', 'The import queue is empty.');
+        const uniqueIds = new Set(requestedIds);
+        if (uniqueIds.size !== requestedIds.length) {
+            throw new ApplicationError('INVALID_INPUT', 'An import item was supplied more than once.');
+        }
+        for (const id of uniqueIds) this.requireIndex(id);
+        return this.items
+            .filter((item) => uniqueIds.has(item.id))
+            .map((item) => ({ item: structuredClone(item), payload: this.payloads.get(item.id) }));
     }
 
     attachPayload(id: string, payload: unknown) {

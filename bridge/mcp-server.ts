@@ -3,9 +3,11 @@ import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import * as z from 'zod/v4';
 import type { ApplicationCommand, CommandResult } from '../src/application/command-bus.ts';
 import { LocalBridgeBroker } from './broker.ts';
+import { LocalFileRegistry } from './local-file-registry.ts';
 import { startLocalBridgeServer } from './websocket-server.ts';
 
-const broker = new LocalBridgeBroker();
+const localFiles = new LocalFileRegistry();
+const broker = new LocalBridgeBroker(localFiles);
 const bridge = startLocalBridgeServer(broker, {
     host: process.env.MINIDISC_BRIDGE_HOST,
     port: process.env.MINIDISC_BRIDGE_PORT ? Number(process.env.MINIDISC_BRIDGE_PORT) : undefined,
@@ -275,7 +277,35 @@ function createServer() {
                 expectedRevision: z.number().int().nonnegative().optional(),
             }),
         },
-        async ({ inputs, expectedRevision }) => execute({ type: 'import.add', inputs, expectedRevision })
+        async ({ inputs, expectedRevision }) => {
+            const stagedHandles: string[] = [];
+            try {
+                const stagedInputs = await Promise.all(
+                    inputs.map(async (input) => {
+                        if (input.source.kind !== 'local-path') return input;
+                        const staged = await localFiles.register(input.source.reference);
+                        stagedHandles.push(staged.handle);
+                        return {
+                            ...input,
+                            source: {
+                                ...input.source,
+                                name: input.source.name || staged.name,
+                                reference: staged.reference,
+                                size: staged.size,
+                                mimeType: input.source.mimeType || staged.mimeType,
+                            },
+                        };
+                    })
+                );
+                return await execute({ type: 'import.add', inputs: stagedInputs, expectedRevision });
+            } catch (error) {
+                for (const handle of stagedHandles) localFiles.revoke(handle);
+                return {
+                    content: [{ type: 'text' as const, text: error instanceof Error ? error.message : String(error) }],
+                    isError: true,
+                };
+            }
+        }
     );
     server.registerTool(
         'minidisc_update_import',
@@ -330,6 +360,24 @@ function createServer() {
             inputSchema: z.object({ expectedRevision: z.number().int().nonnegative().optional() }),
         },
         async ({ expectedRevision }) => execute({ type: 'import.clear', expectedRevision })
+    );
+    server.registerTool(
+        'minidisc_write_imports',
+        {
+            description:
+                'Start a background write task for queued imports. Read the returned task with minidisc_get_task until it completes.',
+            inputSchema: z.object({
+                ids: z.array(z.string().min(1)).min(1).optional(),
+                format: z
+                    .object({ codec: z.string().min(1), bitrate: z.number().int().positive() })
+                    .optional(),
+                enableReplayGain: z.boolean().optional(),
+                enableGapless: z.boolean().optional(),
+                removeOnSuccess: z.boolean().optional(),
+                expectedRevision: z.number().int().nonnegative().optional(),
+            }),
+        },
+        async (input) => execute({ type: 'import.write', ...input })
     );
 
     return server;

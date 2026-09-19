@@ -1189,7 +1189,8 @@ export function flushDevice() {
 export function convertAndUpload(
     files: TitledFile[],
     format: Codec,
-    additionalParameters: { enableReplayGain: boolean; enableGapless: boolean }
+    additionalParameters: { enableReplayGain: boolean; enableGapless: boolean },
+    options: { taskId?: string } = {}
 ) {
     return async function (dispatch: AppDispatch, getState: () => RootState) {
         const deviceCapabilities = getState().main.deviceCapabilities;
@@ -1264,13 +1265,16 @@ export function convertAndUpload(
             ])
         );
 
-        const writeTask = serviceRegistry.taskManager.create(
-            'disc.write',
-            `Write ${files.length} track${files.length === 1 ? '' : 's'} to MiniDisc`,
-            files.length,
-            'tracks'
-        );
-        serviceRegistry.taskManager.start(writeTask.id, 'preparing');
+        const writeTask = options.taskId
+            ? serviceRegistry.taskManager.get(options.taskId)
+            : serviceRegistry.taskManager.create(
+                  'disc.write',
+                  `Write ${files.length} track${files.length === 1 ? '' : 's'} to MiniDisc`,
+                  files.length,
+                  'tracks'
+              );
+        if (writeTask.status === 'queued') serviceRegistry.taskManager.start(writeTask.id, 'preparing');
+        else if (writeTask.status !== 'running') throw new Error(`Write task ${writeTask.id} is no longer active.`);
 
         let lastUploadProgress = new Date().getTime(),
             lastConvertProgress = lastUploadProgress;
