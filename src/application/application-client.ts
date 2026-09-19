@@ -10,6 +10,7 @@ import type {
     AdvancedUploadService,
     DeviceSnapshot,
     DeviceUploadService,
+    PlaybackSession,
 } from './contracts';
 import type { AdvancedBadSectorHandler, AdvancedTrackExportRequest } from './advanced-track-export';
 import type { ExportParams } from '../services/audio/audio-export';
@@ -42,6 +43,10 @@ export interface ApplicationClient {
         operation: (uploadService: DeviceUploadService, advancedUploadService?: AdvancedUploadService) => Promise<T>,
         expectedDeviceVersion?: { sessionId: string; revision: number }
     ): Promise<{ value: T; snapshot: DeviceSnapshot }>;
+    runLocalPlaybackCaptureSession<T>(
+        expectedDeviceVersion: { sessionId: string; revision: number },
+        operation: (playback: PlaybackSession) => Promise<T>
+    ): Promise<T>;
     createLocalLibraryFileProcessor(filePath: string): (params: ExportParams) => Promise<ArrayBuffer>;
     getWorkspaceSnapshot(): WorkspaceSnapshot;
     subscribe(listener: () => void): () => void;
@@ -71,7 +76,11 @@ export class InProcessApplicationClient implements ApplicationClient {
             operation: (uploadService: DeviceUploadService, advancedUploadService?: AdvancedUploadService) => Promise<T>,
             expectedDeviceVersion?: { sessionId: string; revision: number }
         ) => Promise<{ value: T; snapshot: DeviceSnapshot }>,
-        private readonly localLibraryFileProcessor?: (filePath: string) => (params: ExportParams) => Promise<ArrayBuffer>
+        private readonly localLibraryFileProcessor?: (filePath: string) => (params: ExportParams) => Promise<ArrayBuffer>,
+        private readonly localPlaybackCaptureSession?: <T>(
+            expectedDeviceVersion: { sessionId: string; revision: number },
+            operation: (playback: PlaybackSession) => Promise<T>
+        ) => Promise<T>
     ) {}
 
     execute = (command: ApplicationCommand) => this.commands.execute(command);
@@ -94,6 +103,15 @@ export class InProcessApplicationClient implements ApplicationClient {
         operation: (uploadService: DeviceUploadService, advancedUploadService?: AdvancedUploadService) => Promise<T>,
         expectedDeviceVersion?: { sessionId: string; revision: number }
     ) => this.localDeviceUploadSession(requiredExploitCapabilities, operation, expectedDeviceVersion);
+    runLocalPlaybackCaptureSession = <T>(
+        expectedDeviceVersion: { sessionId: string; revision: number },
+        operation: (playback: PlaybackSession) => Promise<T>
+    ) => {
+        if (!this.localPlaybackCaptureSession) {
+            throw new Error('Browser playback capture is unavailable in this application environment.');
+        }
+        return this.localPlaybackCaptureSession(expectedDeviceVersion, operation);
+    };
     createLocalLibraryFileProcessor = (filePath: string) => {
         if (!this.localLibraryFileProcessor) {
             throw new Error('The local library is unavailable in this application environment.');

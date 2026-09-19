@@ -10,6 +10,7 @@ import type {
     AdvancedUploadService,
     DeviceSnapshot,
     DeviceUploadService,
+    PlaybackSession,
 } from '../src/application/contracts.ts';
 
 async function runAdvancedSession<T>(
@@ -262,6 +263,47 @@ describe('InProcessApplicationClient', () => {
 
         assert.equal(value.value, 'done');
         assert.deepEqual(capabilities, [['uploadAtrac1']]);
+    });
+
+    it('keeps browser playback capture inside the local client boundary', async () => {
+        const tasks = new TaskManager();
+        const imports = new ImportQueue();
+        const workspace = new WorkspaceStore(tasks, imports, new SettingsStore(null));
+        const events: string[] = [];
+        const client = new InProcessApplicationClient(
+            { async execute() { return { ok: true }; } },
+            workspace,
+            imports,
+            async () => tasks.create('track-export', 'Local export'),
+            async () => tasks.create('advanced.memory-export', 'Memory export'),
+            async () => tasks.create('advanced.track-export', 'Advanced export'),
+            runAdvancedSession,
+            runUploadSession,
+            undefined,
+            async (version, operation) => {
+                assert.deepEqual(version, { sessionId: 'session', revision: 3 });
+                const playback: PlaybackSession = {
+                    async control(command) {
+                        events.push(command.action);
+                    },
+                    async readPosition() {
+                        return [0, 0, 0, 2];
+                    },
+                };
+                return operation(playback);
+            }
+        );
+
+        const position = await client.runLocalPlaybackCaptureSession(
+            { sessionId: 'session', revision: 3 },
+            async (playback) => {
+                await playback.control({ action: 'play' });
+                return playback.readPosition();
+            }
+        );
+
+        assert.deepEqual(position, [0, 0, 0, 2]);
+        assert.deepEqual(events, ['play']);
     });
 
     it('captures browser-only library audio processing behind the local client boundary', async () => {

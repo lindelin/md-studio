@@ -863,25 +863,57 @@ export function recognizeTracks(_trackEntries: TitleEntry[], mode: 'exploits' | 
                     } else {
                         const deviceId = inputModeConfiguration!.deviceId!;
                         dispatch(songRecognitionProgressDialogActions.setCurrentStepTotal(100));
-
-                        const { mediaRecorderService, netmdService } = serviceRegistry;
-                        await netmdService?.stop();
-                        await netmdService?.gotoTrack(track.index);
-                        await netmdService?.gotoTime(
-                            track.index,
-                            Math.floor(optimalStartSeconds / 3600),
-                            Math.floor((optimalStartSeconds % 3600) / 60),
-                            optimalStartSeconds % 60,
-                            0
+                        const mediaRecorderService = serviceRegistry.mediaRecorderService;
+                        if (!mediaRecorderService) throw new Error('The browser audio recording service is unavailable.');
+                        const client = getApplicationClient();
+                        const device = client.getWorkspaceSnapshot().device;
+                        if (!device) throw new Error('The MiniDisc device disconnected before recognition started.');
+                        const rawWav = await client.runLocalPlaybackCaptureSession(
+                            { sessionId: device.sessionId, revision: device.revision },
+                            async (playback) => {
+                                let recordingStarted = false;
+                                await playback.control({ action: 'stop' });
+                                await playback.control({ action: 'gotoTrack', index: track.index });
+                                const seek = timeToSeekArgs(optimalStartSeconds);
+                                await playback.control({
+                                    action: 'seek',
+                                    index: track.index,
+                                    hour: seek[0],
+                                    minute: seek[1],
+                                    second: seek[2],
+                                    frame: seek[3],
+                                });
+                                await playback.control({ action: 'play' });
+                                await mediaRecorderService.initStream(deviceId);
+                                try {
+                                    await mediaRecorderService.startRecording();
+                                    recordingStarted = true;
+                                    await sleepWithProgressCallback(
+                                        SECONDS_TO_READ * 1000,
+                                        (percentage: number) => {
+                                            dispatch(
+                                                songRecognitionProgressDialogActions.setCurrentStepProgress(percentage)
+                                            );
+                                        },
+                                        () => getState().songRecognitionProgressDialog.cancelled
+                                    );
+                                    await mediaRecorderService.stopRecording();
+                                    recordingStarted = false;
+                                    return new Promise<Uint8Array>((resolve) =>
+                                        mediaRecorderService.recorder.exportWAV(async (blob: Blob) =>
+                                            resolve(new Uint8Array(await blob.arrayBuffer()))
+                                        )
+                                    );
+                                } finally {
+                                    if (recordingStarted) {
+                                        await mediaRecorderService
+                                            .stopRecording()
+                                            .catch((error) => console.error('Could not stop recognition recording.', error));
+                                    }
+                                    await mediaRecorderService.closeStream();
+                                }
+                            }
                         );
-                        await netmdService?.play();
-                        await mediaRecorderService?.initStream(deviceId);
-                        await mediaRecorderService?.startRecording();
-                        await sleepWithProgressCallback(SECONDS_TO_READ * 1000, (perc: number) => {
-                            dispatch(songRecognitionProgressDialogActions.setCurrentStepProgress(perc));
-                        });
-                        await mediaRecorderService?.stopRecording();
-                        await netmdService?.stop();
                         dispatch(
                             batchActions([
                                 songRecognitionProgressDialogActions.setCurrentStepProgress(-1),
@@ -889,11 +921,7 @@ export function recognizeTracks(_trackEntries: TitleEntry[], mode: 'exploits' | 
                                 songRecognitionProgressDialogActions.setCurrentStep(1),
                             ])
                         );
-                        const rawWav = await new Promise<Uint8Array>((res) =>
-                            mediaRecorderService!.recorder.exportWAV(async (blob: Blob) => res(new Uint8Array(await blob.arrayBuffer())))
-                        );
                         rawSamples = await ffmpegTranscode(rawWav, 'wav', '-ar 16000 -ac 1 -f s16le');
-                        await mediaRecorderService?.closeStream();
                     }
                     dispatch(batchActions([songRecognitionProgressDialogActions.setCurrentStepProgress(-1)]));
 

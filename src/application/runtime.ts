@@ -158,7 +158,9 @@ export function getApplicationClient() {
                 ),
             (filePath) => {
                 return serviceRegistry.libraryCatalog.createFileProcessor(filePath.split('/'));
-            }
+            },
+            (expectedDeviceVersion, operation) =>
+                getApplicationRuntime().runPlaybackCaptureSession(expectedDeviceVersion, operation)
         );
     }
     return serviceRegistry.applicationClient;
