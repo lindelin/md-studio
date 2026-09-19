@@ -107,7 +107,7 @@ export class LibraryCatalog {
     private activeService?: LibraryService;
     private refreshInFlight?: Promise<LibraryCatalogSnapshot>;
 
-    constructor(private readonly resolveService: () => LibraryService) {}
+    constructor(private readonly resolveService: () => LibraryService | Promise<LibraryService>) {}
 
     getSnapshot = () => this.snapshot;
 
@@ -138,7 +138,7 @@ export class LibraryCatalog {
         this.activeService = undefined;
         this.publish({ status: 'loading', database: null, error: null });
         try {
-            const service = this.resolveService();
+            const service = await this.resolveService();
             const database: unknown = await service.getDatabase();
             validateLocalDatabase(database);
             this.activeService = service;

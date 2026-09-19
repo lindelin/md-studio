@@ -21,7 +21,7 @@ describe('LibraryCatalog', () => {
                 '01 - Track.flac': { artist: 'Artist', album: 'Album', title: 'Track', duration: 123.5, trackIndex: 1 },
             },
         };
-        const catalog = new LibraryCatalog(() => serviceWithDatabase(database));
+        const catalog = new LibraryCatalog(async () => serviceWithDatabase(database));
         const states: string[] = [];
         catalog.subscribe((snapshot) => states.push(snapshot.status));
 

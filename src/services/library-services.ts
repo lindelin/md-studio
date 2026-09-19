@@ -1,21 +1,22 @@
 import { CustomParameterInfo, CustomParameters, isAllValid } from '../custom-parameters';
-import { LibraryService } from './library/library';
-import { RemoteLibraryService } from './library/remote-library';
+import type { LibraryService } from './library/library';
 import { ApplicationError } from '../application/contracts';
 
-export interface LibraryServicePrototype<T extends LibraryService> {
+type LibraryServiceConstructor = new (parameters: CustomParameters) => LibraryService;
+
+export interface LibraryServicePrototype {
     id: string;
-    create: new (parameters: CustomParameters) => T;
+    load: () => Promise<LibraryServiceConstructor>;
     customParameters?: CustomParameterInfo[];
     name: string;
     description?: string;
 }
 
-export const LibraryServices: LibraryServicePrototype<LibraryService>[] = [
+export const LibraryServices: LibraryServicePrototype[] = [
     {
         id: 'remote-library',
         name: 'Remote Library',
-        create: RemoteLibraryService,
+        load: async () => (await import('./library/remote-library')).RemoteLibraryService,
         customParameters: [
             {
                 userFriendlyName: 'Server Address',
@@ -37,7 +38,7 @@ export const LibraryServices: LibraryServicePrototype<LibraryService>[] = [
     },
 ];
 
-export function createLibraryService(index: number, parameters: CustomParameters): LibraryService {
+export async function createLibraryService(index: number, parameters: CustomParameters): Promise<LibraryService> {
     const prototype = LibraryServices[index];
     if (!prototype) {
         throw new ApplicationError(
@@ -48,5 +49,6 @@ export function createLibraryService(index: number, parameters: CustomParameters
     if (!isAllValid(prototype.customParameters, parameters)) {
         throw new ApplicationError('INVALID_INPUT', `The configuration for ${prototype.name} is invalid.`);
     }
-    return new prototype.create(parameters);
+    const Constructor = await prototype.load();
+    return new Constructor(parameters);
 }
