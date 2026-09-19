@@ -13,6 +13,7 @@ import { AtracRecoveryConfig } from 'netmd-exploits';
 import { getApplicationClient } from '../../application/runtime';
 import { applyDeviceSnapshot } from '../application-adapter';
 import { INTERACTIVE_ADVANCED_AUTHORIZATION } from '../../application/interactive-authorization';
+import { executeSessionEndingCommand } from '../../application/device-session-transition';
 
 function decodeBase64(data: string) {
     const binary = atob(data);
@@ -146,13 +147,11 @@ export function runTetris() {
     return async function(dispatch: AppDispatch) {
         if (!window.confirm('Run device-side Tetris homebrew code? This temporarily changes the device operating state.')) return;
         const client = getApplicationClient();
-        const result = await client.execute({
+        await executeSessionEndingCommand(client, {
             type: 'advanced.runTetris',
             confirmation: { confirmed: true, reason: 'Confirmed in the advanced maintenance UI.' },
             interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
         });
-        if (!result.ok) throw new Error(result.error.message);
-        await client.disconnectLocalDevice(false);
         dispatch(appStateActions.setMainView('WELCOME'));
     };
 }
@@ -486,14 +485,12 @@ export function enterHiMDUnrestrictedMode() {
         dispatch(appStateActions.setLoading(true));
         try {
             const client = getApplicationClient();
-            const result = await client.execute({
+            await executeSessionEndingCommand(client, {
                 type: 'advanced.enableHimdFullMode',
                 confirmation: { confirmed: true, reason: 'Confirmed in the advanced maintenance UI.' },
                 interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
             });
-            if (!result.ok) throw new Error(result.error.message);
             window.alert('Loaded. Please insert a HiMD disc.');
-            await client.disconnectLocalDevice(false);
             dispatch(appStateActions.setMainView('WELCOME'));
         } finally {
             dispatch(appStateActions.setLoading(false));
@@ -533,13 +530,11 @@ export function enterServiceMode() {
     return async function(dispatch: AppDispatch) {
         if (!window.confirm('Enter device service mode? The current MiniDisc session will end and the device state will change.')) return;
         const client = getApplicationClient();
-        const result = await client.execute({
+        await executeSessionEndingCommand(client, {
             type: 'advanced.enterServiceMode',
             confirmation: { confirmed: true, reason: 'Confirmed in the advanced maintenance UI.' },
             interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
         });
-        if (!result.ok) throw new Error(result.error.message);
-        await client.disconnectLocalDevice(false);
         dispatch(appStateActions.setMainView('WELCOME'));
     }
 }
