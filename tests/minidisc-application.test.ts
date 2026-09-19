@@ -329,6 +329,8 @@ describe('MiniDiscApplication', () => {
                 sectorsRead.push(index);
                 return new Uint8Array(2352).fill(index);
             },
+            async writeTocSector() {},
+            async flushToc() {},
         });
         await application.refresh();
 
@@ -345,6 +347,48 @@ describe('MiniDiscApplication', () => {
         assert.equal(toc.sha256, createHash('sha256').update(decoded).digest('hex'));
         assert.equal(application.readSnapshot()?.revision, 0);
         assert.deepEqual(calls, ['read']);
+    });
+
+    it('validates and serializes destructive raw TOC writes before refreshing the disc', async () => {
+        const { gateway, calls } = makeGateway();
+        const written: { index: number; firstByte: number }[] = [];
+        let flushed = 0;
+        const application = new MiniDiscApplication(gateway, undefined, {
+            async readInfo() {
+                return { firmwareVersion: 'S1.600', capabilities: [] };
+            },
+            async readTocSector() {
+                return new Uint8Array(2352);
+            },
+            async writeTocSector(index, data) {
+                written.push({ index, firstByte: data[0] });
+            },
+            async flushToc() {
+                flushed += 1;
+            },
+        });
+        await application.refresh();
+        const data = new Uint8Array(2352 * 6);
+        for (let index = 0; index < 6; index += 1) data.fill(index + 1, index * 2352, (index + 1) * 2352);
+
+        await assert.rejects(() => application.writeRawToc(Buffer.from(data).toString('base64')), {
+            code: 'CONFIRMATION_REQUIRED',
+        });
+        const snapshot = await application.writeRawToc(
+            Buffer.from(data).toString('base64'),
+            { confirmed: true, reason: 'Confirmed in the advanced maintenance UI.' },
+            0
+        );
+
+        assert.deepEqual(written, [
+            { index: 0, firstByte: 1 },
+            { index: 1, firstByte: 2 },
+            { index: 2, firstByte: 3 },
+            { index: 3, firstByte: 4 },
+        ]);
+        assert.equal(flushed, 1);
+        assert.equal(snapshot.revision, 1);
+        assert.deepEqual(calls, ['read', 'read']);
     });
 
     it('runs the destructive self-test as one revisioned transaction and leaves a verified empty disc', async () => {

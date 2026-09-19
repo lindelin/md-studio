@@ -41,6 +41,12 @@ export type ApplicationCommand =
     | { type: 'metadata.applyCsv'; text: string; includedTrackIndexes: number[]; expectedRevision?: number }
     | { type: 'advanced.inspect' }
     | { type: 'advanced.readToc' }
+    | {
+          type: 'advanced.writeToc';
+          dataBase64: string;
+          confirmation?: DestructiveConfirmation;
+          expectedRevision?: number;
+      }
     | { type: 'settings.get' }
     | { type: 'settings.update'; changes: UserSettingsUpdate; expectedRevision?: number }
     | { type: 'track.renameMany'; updates: TrackMetadataUpdate[]; expectedRevision?: number }
@@ -252,6 +258,13 @@ export class ApplicationCommandBus {
                     snapshot = await application.applyMetadataImport(
                         command.text,
                         command.includedTrackIndexes,
+                        command.expectedRevision
+                    );
+                    break;
+                case 'advanced.writeToc':
+                    snapshot = await application.writeRawToc(
+                        command.dataBase64,
+                        command.confirmation,
                         command.expectedRevision
                     );
                     break;

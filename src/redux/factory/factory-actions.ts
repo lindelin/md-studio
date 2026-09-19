@@ -12,10 +12,19 @@ import { downloadTracks, exportCSV } from '../actions';
 import JSZip from 'jszip';
 import { AtracRecoveryConfig } from 'netmd-exploits';
 import { getApplicationClient } from '../../application/runtime';
+import { applyDeviceSnapshot } from '../application-adapter';
 
 function decodeBase64(data: string) {
     const binary = atob(data);
     return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+function encodeBase64(data: Uint8Array) {
+    let binary = '';
+    for (let offset = 0; offset < data.byteLength; offset += 32_768) {
+        binary += String.fromCharCode(...data.subarray(offset, Math.min(offset + 32_768, data.byteLength)));
+    }
+    return btoa(binary);
 }
 
 function resolveExploitCapabilities(names: string[]) {
@@ -90,14 +99,27 @@ export function editFragmentMode(index: number, mode: number) {
 
 export function writeModifiedTOC() {
     return async function(dispatch: AppDispatch, getState: () => RootState) {
+        if (!window.confirm('Write the edited TOC to the disc? A malformed TOC can make every track unreadable.')) return;
         dispatch(appStateActions.setLoading(true));
-        const toc = getState().factory.toc!;
-        const sectors = reconstructTOC(toc, false);
-        for (let i = 0; i < 4; i++) {
-            await serviceRegistry.netmdFactoryService!.writeUTOCSector(i, sectors[i]!);
+        try {
+            const toc = getState().factory.toc!;
+            const sectors = reconstructTOC(toc, false);
+            const data = new Uint8Array(2352 * 6);
+            for (let index = 0; index < 6; index += 1) data.set(sectors[index]!, index * 2352);
+            const client = getApplicationClient();
+            const result = await client.execute({
+                type: 'advanced.writeToc',
+                dataBase64: encodeBase64(data),
+                confirmation: { confirmed: true, reason: 'Confirmed in the advanced TOC editor.' },
+                expectedRevision: client.getWorkspaceSnapshot().device?.revision,
+            });
+            if (!result.ok) throw new Error(result.error.message);
+            if (!result.snapshot) throw new Error('Writing the advanced TOC did not return the device state.');
+            applyDeviceSnapshot(dispatch, result.snapshot);
+            dispatch(factoryActions.setModified(false));
+        } finally {
+            dispatch(appStateActions.setLoading(false));
         }
-        await serviceRegistry.netmdFactoryService!.flushUTOCCacheToDisc();
-        dispatch(batchActions([appStateActions.setLoading(false), factoryActions.setModified(false)]));
     };
 }
 

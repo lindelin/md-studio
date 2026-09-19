@@ -76,6 +76,27 @@ describe('ApplicationCommandBus import writing', () => {
         assert.equal(result.ok && result.snapshot?.revision, 7);
     });
 
+    it('routes confirmed raw TOC writes through the application boundary', async () => {
+        let receivedBytes = '';
+        const application = {
+            async writeRawToc(dataBase64: string) {
+                receivedBytes = dataBase64;
+                return { revision: 8 };
+            },
+        } as unknown as MiniDiscApplication;
+        const bus = new ApplicationCommandBus(application, new TaskManager(), new ImportQueue());
+
+        const result = await bus.execute({
+            type: 'advanced.writeToc',
+            dataBase64: 'dG9j',
+            confirmation: { confirmed: true, reason: 'Confirmed in test.' },
+            expectedRevision: 7,
+        });
+
+        assert.equal(receivedBytes, 'dG9j');
+        assert.equal(result.ok && result.snapshot?.revision, 8);
+    });
+
     it('rejects unknown runtime commands instead of reporting a false success', async () => {
         const bus = new ApplicationCommandBus({} as MiniDiscApplication, new TaskManager(), new ImportQueue());
         const result = await bus.execute({ type: 'unknown.command' } as any);

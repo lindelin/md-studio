@@ -74,6 +74,8 @@ export interface SelfTestResult {
 export interface AdvancedDeviceGateway {
     readInfo(): Promise<AdvancedDeviceInfo>;
     readTocSector(index: number): Promise<Uint8Array>;
+    writeTocSector(index: number, data: Uint8Array): Promise<void>;
+    flushToc(): Promise<void>;
 }
 
 export type PlaybackCommand =

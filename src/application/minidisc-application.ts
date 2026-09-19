@@ -120,6 +120,30 @@ export class MiniDiscApplication {
         });
     }
 
+    writeRawToc(dataBase64: string, confirmation?: DestructiveConfirmation, expectedRevision?: number) {
+        return this.mutate('advanced.factory', expectedRevision, async () => {
+            this.requireConfirmation(
+                confirmation,
+                'Writing a raw TOC can make every track on the disc unreadable and requires explicit confirmation.'
+            );
+            const sectorSize = 2352;
+            const sectorCount = 6;
+            const writableSectorCount = 4;
+            const data = decodeBase64(dataBase64);
+            if (data.byteLength !== sectorSize * sectorCount) {
+                throw new ApplicationError('INVALID_INPUT', 'A raw TOC must contain exactly six 2352-byte sectors.', {
+                    expectedBytes: sectorSize * sectorCount,
+                    actualBytes: data.byteLength,
+                });
+            }
+            const gateway = this.requireAdvancedGateway();
+            for (let index = 0; index < writableSectorCount; index += 1) {
+                await gateway.writeTocSector(index, data.slice(index * sectorSize, (index + 1) * sectorSize));
+            }
+            await gateway.flushToc();
+        });
+    }
+
     applyMetadataImport(text: string, includedTrackIndexes: number[], expectedRevision?: number) {
         return this.mutate('metadata.edit', expectedRevision, async (disc) => {
             const plan = createMetadataImportPlan(text, disc);
@@ -563,4 +587,13 @@ function encodeBase64(data: Uint8Array) {
         binary += String.fromCharCode(...data.subarray(offset, Math.min(offset + 32_768, data.byteLength)));
     }
     return btoa(binary);
+}
+
+function decodeBase64(data: string) {
+    try {
+        const binary = atob(data);
+        return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    } catch {
+        throw new ApplicationError('INVALID_INPUT', 'The raw TOC is not valid Base64 data.');
+    }
 }

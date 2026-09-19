@@ -162,6 +162,16 @@ export class NetMDAdvancedDeviceGateway implements AdvancedDeviceGateway {
         return this.getFactoryService().then((factory) => factory.readUTOCSector(index));
     }
 
+    async writeTocSector(index: number, data: Uint8Array) {
+        const factory = await this.getFactoryService();
+        await factory.writeUTOCSector(index, data);
+    }
+
+    async flushToc() {
+        const factory = await this.getFactoryService();
+        await factory.flushUTOCCacheToDisc();
+    }
+
     private async getFactoryService() {
         if (this.factoryService) return this.factoryService;
         const factory = await this.service.factory();
