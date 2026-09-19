@@ -5,6 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath } from 'node:url';
 
 const browserDependency = (path: string) => fileURLToPath(new URL(`./node_modules/${path}`, import.meta.url));
+const sourceFile = (path: string) => fileURLToPath(new URL(`./src/${path}`, import.meta.url));
 
 let base = process.env.PUBLIC_URL ?? '/';
 if(!base.endsWith("/")) base += '/';
@@ -20,7 +21,7 @@ export default () => {
         events: browserDependency('events/events.js'),
         process: browserDependency('process/browser.js'),
         stream: browserDependency('stream-browserify/index.js'),
-        util: browserDependency('util/util.js'),
+        util: sourceFile('shims/node-util.ts'),
       },
     },
     plugins: [
