@@ -205,11 +205,15 @@ export function pair(serviceInstance: NetMDService, spec: MinidiscSpec) {
         );
 
         try {
-            await getApplicationClient().initializeLocalMediaServices();
-
             const session = await connectDeviceSession(serviceInstance, spec);
             if (session.cachedConnectionError) console.error(session.cachedConnectionError);
             if (session.application) {
+                // Device browsing does not require an encoder. Warm browser
+                // media services after the session is usable so a missing or
+                // broken encoder cannot block read-only device access.
+                void getApplicationClient()
+                    .initializeLocalMediaServices()
+                    .catch((error) => console.error('Could not initialize local media services.', error));
                 dispatch(
                     batchActions([
                         appStateActions.setMainView('MAIN'),
