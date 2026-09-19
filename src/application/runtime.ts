@@ -5,7 +5,7 @@ import { MiniDiscApplication } from './minidisc-application';
 import { InProcessApplicationClient } from './application-client';
 import { INTERACTIVE_ADVANCED_AUTHORIZATION } from './interactive-authorization';
 import { BrowserAdvancedTrackExporter } from './advanced-track-export';
-import { createLibraryService } from '../services/library-services';
+import type { AdaptiveFile } from '../utils';
 
 export function bindApplicationRuntime() {
     if (!serviceRegistry.netmdService || !serviceRegistry.netmdSpec) {
@@ -39,7 +39,38 @@ export function ensureApplicationCommandBus() {
             serviceRegistry.settingsStore,
             serviceRegistry.workspaceStore,
             serviceRegistry.trackRecorder,
-            serviceRegistry.libraryCatalog
+            serviceRegistry.libraryCatalog,
+            (paths, expectedLibraryRevision) => {
+                const selections = serviceRegistry.libraryCatalog.resolveTracks(paths, expectedLibraryRevision);
+                return selections.map((selection) => {
+                    const processFile = serviceRegistry.libraryCatalog.createFileProcessor(
+                        selection.path,
+                        expectedLibraryRevision
+                    );
+                    const payload: AdaptiveFile = {
+                        name: selection.name,
+                        ...selection.metadata,
+                        getForEncoding: processFile,
+                    };
+                    return {
+                        source: {
+                            kind: 'library' as const,
+                            name: selection.name,
+                            reference: selection.path.join('/'),
+                        },
+                        metadata: {
+                            title: selection.metadata.title,
+                            sourceTitle: selection.metadata.title,
+                            artist: selection.metadata.artist,
+                            sourceArtist: selection.metadata.artist,
+                            album: selection.metadata.album,
+                            sourceAlbum: selection.metadata.album,
+                            duration: selection.metadata.duration,
+                        },
+                        payload,
+                    };
+                });
+            }
         );
     }
     serviceRegistry.commandBus.configureAdapters(
@@ -124,9 +155,7 @@ export function getApplicationClient() {
                     operation
                 ),
             (filePath) => {
-                const settings = serviceRegistry.settingsStore.getSnapshot().values;
-                const libraryService = createLibraryService(settings.libraryService, settings.libraryServiceConfig);
-                return (params) => libraryService.processLocalLibraryFile(filePath, params);
+                return serviceRegistry.libraryCatalog.createFileProcessor(filePath.split('/'));
             }
         );
     }

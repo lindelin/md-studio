@@ -73,13 +73,31 @@ describe('ApplicationCommandBus import writing', () => {
             undefined,
             undefined,
             undefined,
-            catalog
+            catalog,
+            (paths, expectedLibraryRevision) =>
+                catalog.resolveTracks(paths, expectedLibraryRevision).map((selection) => ({
+                    source: { kind: 'library', name: selection.name, reference: selection.path.join('/') },
+                    metadata: { title: selection.metadata.title, duration: selection.metadata.duration },
+                    payload: { local: true },
+                }))
         );
 
-        const result = await bus.execute({ type: 'library.refresh' });
+        const result = await bus.execute({ type: 'library.refreshSummary' });
+        const page = await bus.execute({ type: 'library.list', limit: 10, expectedRevision: 1 });
+        const imported = await bus.execute({
+            type: 'library.import',
+            paths: [['track.wav']],
+            expectedLibraryRevision: 1,
+            expectedImportRevision: 0,
+        });
 
-        assert.equal(result.ok && result.library?.status, 'ready');
-        assert.deepEqual(result.ok && result.library?.database, database);
+        assert.equal(result.ok && result.libraryState?.status, 'ready');
+        assert.equal(result.ok && result.libraryState?.entryCount, 1);
+        assert.deepEqual(page.ok && page.libraryPage?.items, [
+            { kind: 'track', name: 'track.wav', artist: 'Artist', album: 'Album', title: 'Track', duration: 3 },
+        ]);
+        assert.equal(imported.ok && imported.importQueue?.items[0].kind, 'library');
+        assert.equal(imported.ok && imported.importQueue?.items[0].title, 'Track');
     });
 
     it('returns a structured disconnected error only for commands that need a device', async () => {

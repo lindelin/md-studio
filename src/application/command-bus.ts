@@ -28,7 +28,9 @@ import { SettingsStore, type SettingsSnapshot, type UserSettingsUpdate } from '.
 import { ApplicationError } from './contracts';
 import type { WorkspaceSnapshot, WorkspaceStore } from './workspace-store';
 import { INTERACTIVE_ADVANCED_AUTHORIZATION } from './interactive-authorization';
-import type { LibraryCatalog, LibraryCatalogSnapshot } from './library-catalog';
+import type { LibraryCatalog, LibraryCatalogPage, LibraryCatalogSnapshot, LibraryCatalogState } from './library-catalog';
+
+export type LibraryImportFactory = (paths: string[][], expectedLibraryRevision?: number) => ImportQueueInput[];
 
 export type ApplicationCommand =
     | { type: 'workspace.get' }
@@ -80,6 +82,15 @@ export type ApplicationCommand =
     | { type: 'settings.update'; changes: UserSettingsUpdate; expectedRevision?: number }
     | { type: 'library.get' }
     | { type: 'library.refresh' }
+    | { type: 'library.status' }
+    | { type: 'library.refreshSummary' }
+    | { type: 'library.list'; path?: string[]; offset?: number; limit?: number; expectedRevision?: number }
+    | {
+          type: 'library.import';
+          paths: string[][];
+          expectedLibraryRevision?: number;
+          expectedImportRevision?: number;
+      }
     | { type: 'track.renameMany'; updates: TrackMetadataUpdate[]; expectedRevision?: number }
     | { type: 'track.renameHimdMany'; updates: HiMDTrackMetadataUpdate[]; expectedRevision?: number }
     | { type: 'track.move'; sourceIndex: number; destinationIndex: number; expectedRevision?: number }
@@ -122,6 +133,8 @@ export interface CommandSuccess {
     advancedToc?: AdvancedTocDump;
     settings?: SettingsSnapshot;
     library?: LibraryCatalogSnapshot;
+    libraryState?: LibraryCatalogState;
+    libraryPage?: LibraryCatalogPage;
     workspace?: WorkspaceSnapshot;
 }
 
@@ -142,7 +155,8 @@ export class ApplicationCommandBus {
         private readonly settings = new SettingsStore(null),
         private readonly workspace?: WorkspaceStore,
         private trackRecorder?: TrackRecorder,
-        private readonly libraryCatalog?: LibraryCatalog
+        private readonly libraryCatalog?: LibraryCatalog,
+        private readonly libraryImportFactory?: LibraryImportFactory
     ) {}
 
     attachApplication(application: MiniDiscApplication | undefined) {
@@ -191,6 +205,39 @@ export class ApplicationCommandBus {
             if (command.type === 'library.refresh') {
                 if (!this.libraryCatalog) throw new Error('The library catalog is unavailable in this application environment.');
                 return { ok: true, library: structuredClone(await this.libraryCatalog.refresh()) };
+            }
+            if (command.type === 'library.status') {
+                if (!this.libraryCatalog) throw new Error('The library catalog is unavailable in this application environment.');
+                return { ok: true, libraryState: structuredClone(this.libraryCatalog.getState()) };
+            }
+            if (command.type === 'library.refreshSummary') {
+                if (!this.libraryCatalog) throw new Error('The library catalog is unavailable in this application environment.');
+                await this.libraryCatalog.refresh();
+                return { ok: true, libraryState: structuredClone(this.libraryCatalog.getState()) };
+            }
+            if (command.type === 'library.list') {
+                if (!this.libraryCatalog) throw new Error('The library catalog is unavailable in this application environment.');
+                return {
+                    ok: true,
+                    libraryPage: this.libraryCatalog.list(
+                        command.path,
+                        command.offset,
+                        command.limit,
+                        command.expectedRevision
+                    ),
+                };
+            }
+            if (command.type === 'library.import') {
+                if (!this.libraryImportFactory) {
+                    throw new Error('Library audio import is unavailable in this application environment.');
+                }
+                return {
+                    ok: true,
+                    importQueue: this.imports.add(
+                        this.libraryImportFactory(command.paths, command.expectedLibraryRevision),
+                        command.expectedImportRevision
+                    ),
+                };
             }
             if (command.type === 'import.add') {
                 return { ok: true, importQueue: this.imports.add(command.inputs, command.expectedRevision) };

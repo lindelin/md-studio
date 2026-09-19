@@ -60,6 +60,44 @@ function createServer() {
         async () => execute({ type: 'disc.refresh' })
     );
     server.registerTool(
+        'minidisc_refresh_library',
+        {
+            description:
+                'Refresh the configured audio library without requiring a MiniDisc. Returns bounded status and entry count; use minidisc_list_library to browse it.',
+            inputSchema: z.object({}),
+        },
+        async () => execute({ type: 'library.refreshSummary' })
+    );
+    server.registerTool(
+        'minidisc_list_library',
+        {
+            description:
+                'List one bounded page in the refreshed audio library. Pass directory names as path segments and retain revision across pages.',
+            inputSchema: z.object({
+                path: z.array(z.string().min(1).max(1024)).max(64).optional(),
+                offset: z.number().int().nonnegative().optional(),
+                limit: z.number().int().min(1).max(200).optional(),
+                expectedRevision: z.number().int().nonnegative().optional(),
+            }),
+        },
+        async ({ path, offset, limit, expectedRevision }) =>
+            execute({ type: 'library.list', path, offset, limit, expectedRevision })
+    );
+    server.registerTool(
+        'minidisc_import_library_tracks',
+        {
+            description:
+                'Add selected tracks from the refreshed audio library to the shared import queue. Each path is an array of exact directory and file names returned by minidisc_list_library.',
+            inputSchema: z.object({
+                paths: z.array(z.array(z.string().min(1).max(1024)).min(1).max(64)).min(1).max(500),
+                expectedLibraryRevision: z.number().int().nonnegative().optional(),
+                expectedImportRevision: z.number().int().nonnegative().optional(),
+            }),
+        },
+        async ({ paths, expectedLibraryRevision, expectedImportRevision }) =>
+            execute({ type: 'library.import', paths, expectedLibraryRevision, expectedImportRevision })
+    );
+    server.registerTool(
         'minidisc_get_settings',
         {
             description:

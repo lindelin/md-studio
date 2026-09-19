@@ -51,6 +51,59 @@ describe('LibraryCatalog', () => {
         assert.equal(snapshot.revision, 1);
     });
 
+    it('lists bounded deterministic pages and rejects stale or invalid paths', async () => {
+        const catalog = new LibraryCatalog(() =>
+            serviceWithDatabase({
+                Zeta: {},
+                Alpha: {
+                    '02.flac': { artist: 'Artist', album: 'Album', title: 'Two', duration: 2, trackIndex: 2 },
+                    '01.flac': { artist: 'Artist', album: 'Album', title: 'One', duration: 1, trackIndex: 1 },
+                },
+                'root.flac': { artist: 'Artist', album: '', title: 'Root', duration: 3 },
+            })
+        );
+        await catalog.refresh();
+
+        const root = catalog.list([], 0, 2, 1);
+        const album = catalog.list(['Alpha'], 1, 1, 1);
+
+        assert.deepEqual(root.items.map((item) => [item.kind, item.name]), [
+            ['directory', 'Alpha'],
+            ['directory', 'Zeta'],
+        ]);
+        assert.equal(root.total, 3);
+        assert.equal(root.nextOffset, 2);
+        assert.deepEqual(album.items.map((item) => item.name), ['02.flac']);
+        assert.equal(album.nextOffset, undefined);
+        assert.throws(() => catalog.list(['missing']), /does not exist/i);
+        assert.throws(
+            () => catalog.list([], 0, 100, 0),
+            (error: unknown) => (error as { code?: string }).code === 'STALE_REVISION'
+        );
+        assert.throws(() => catalog.list([], 0, 201), /page size/i);
+    });
+
+    it('binds selected audio to the service instance that produced the catalog revision', async () => {
+        const processed: string[] = [];
+        const service: LibraryService = {
+            async getDatabase() {
+                return { Album: { 'track.flac': { artist: 'Artist', album: 'Album', title: 'Track', duration: 4 } } };
+            },
+            async processLocalLibraryFile(path) {
+                processed.push(path);
+                return Uint8Array.from([9]).buffer;
+            },
+        };
+        const catalog = new LibraryCatalog(() => service);
+        await catalog.refresh();
+
+        const processFile = catalog.createFileProcessor(['Album', 'track.flac'], 1);
+        const result = await processFile({ format: { codec: 'PCM', bitrate: 1411 } });
+
+        assert.deepEqual(processed, ['Album/track.flac']);
+        assert.deepEqual([...new Uint8Array(result)], [9]);
+    });
+
     it('bounds hostile or accidentally recursive catalog shapes', () => {
         let database: Record<string, unknown> = {};
         const root = database;
