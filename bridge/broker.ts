@@ -87,7 +87,7 @@ export class LocalBridgeBroker {
     }
 
     private validateHello(message: BridgeHello) {
-        if (message.client !== 'webminidisc-app') throw new Error('Unknown local bridge client.');
+        if (message.client !== 'minidisc-workspace-app') throw new Error('Unknown local bridge client.');
     }
 
     private rejectPending(error: Error) {

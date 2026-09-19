@@ -1,34 +1,34 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <link rel="icon" href="/favicon.ico" />
-    <link rel="canonical" href="https://web.minidisc.wiki/" />
-    <link rel="stylesheet" href="src/fonts/fonts.css">
-    <link rel="stylesheet" href="src/index.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta
-      name="description"
-      content="Copy audio to your NetMD MiniDisc device using only a web browser. Replace SonicStage, improve audio quality, and unlock new features."
-    />
-    <link rel="apple-touch-icon" href="/MiniDisc192.png" />
-    <title>Web MiniDisc Pro - Version 1.5.4</title>
-  </head>
-  <body>
-    <script>
-    try {
-      if (location.protocol !== 'file:' && location.protocol !== 'https:' && !location.host.match(/^localhost/gm)) {
-        // Make sure we're on https/file, or WebUSB won't work.
-        location.replace(`https:${location.href.substring(location.protocol.length)}`);
-        console.log('Redirecting to https....');
-      }
-    } catch (err) {
-      console.log(err)
-    }
-    </script>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
-    <script type="module" src="src/index.tsx"></script>
-  </body>
+    <head>
+        <meta charset="utf-8" />
+        <link rel="icon" href="/favicon.ico" />
+        <link rel="canonical" href="https://web.minidisc.wiki/" />
+        <link rel="stylesheet" href="src/fonts/fonts.css" />
+        <link rel="stylesheet" href="src/index.css" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#000000" />
+        <meta
+            name="description"
+            content="Copy audio to your NetMD MiniDisc device using only a web browser. Replace SonicStage, improve audio quality, and unlock new features."
+        />
+        <link rel="apple-touch-icon" href="/MiniDisc192.png" />
+        <title>MiniDisc Workspace</title>
+    </head>
+    <body>
+        <script>
+            try {
+                if (location.protocol !== 'file:' && location.protocol !== 'https:' && !location.host.match(/^localhost/gm)) {
+                    // Make sure we're on https/file, or WebUSB won't work.
+                    location.replace(`https:${location.href.substring(location.protocol.length)}`);
+                    console.log('Redirecting to https....');
+                }
+            } catch (err) {
+                console.log(err);
+            }
+        </script>
+        <noscript>You need to enable JavaScript to run this app.</noscript>
+        <div id="root"></div>
+        <script type="module" src="src/index.tsx"></script>
+    </body>
 </html>

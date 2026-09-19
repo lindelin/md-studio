@@ -33,7 +33,7 @@ export class BrowserApplicationBridge {
             const hello: BridgeHello = {
                 type: 'hello',
                 protocolVersion: BRIDGE_PROTOCOL_VERSION,
-                client: 'webminidisc-app',
+                client: 'minidisc-workspace-app',
             };
             socket.send(JSON.stringify(hello));
         });

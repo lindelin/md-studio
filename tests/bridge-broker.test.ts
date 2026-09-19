@@ -13,7 +13,10 @@ describe('LocalBridgeBroker', () => {
             },
         };
         broker.attach(peer);
-        broker.handleMessage(peer, JSON.stringify({ type: 'hello', protocolVersion: BRIDGE_PROTOCOL_VERSION, client: 'webminidisc-app' }));
+        broker.handleMessage(
+            peer,
+            JSON.stringify({ type: 'hello', protocolVersion: BRIDGE_PROTOCOL_VERSION, client: 'minidisc-workspace-app' })
+        );
         const resultPromise = broker.execute({ type: 'disc.refresh' });
         assert.equal(request?.command.type, 'disc.refresh');
         broker.handleMessage(
@@ -35,7 +38,10 @@ describe('LocalBridgeBroker', () => {
         const broker = new LocalBridgeBroker();
         const peer: BridgePeer = { send() {} };
         const detach = broker.attach(peer);
-        broker.handleMessage(peer, JSON.stringify({ type: 'hello', protocolVersion: BRIDGE_PROTOCOL_VERSION, client: 'webminidisc-app' }));
+        broker.handleMessage(
+            peer,
+            JSON.stringify({ type: 'hello', protocolVersion: BRIDGE_PROTOCOL_VERSION, client: 'minidisc-workspace-app' })
+        );
         const pending = broker.execute({ type: 'task.list' });
         detach();
         await assert.rejects(pending, /disconnected/);
@@ -56,7 +62,10 @@ describe('LocalBridgeBroker', () => {
         broker.attach(peer);
         const connected = broker.waitForConnection(100);
 
-        broker.handleMessage(peer, JSON.stringify({ type: 'hello', protocolVersion: BRIDGE_PROTOCOL_VERSION, client: 'webminidisc-app' }));
+        broker.handleMessage(
+            peer,
+            JSON.stringify({ type: 'hello', protocolVersion: BRIDGE_PROTOCOL_VERSION, client: 'minidisc-workspace-app' })
+        );
 
         await connected;
         assert.equal(broker.isConnected(), true);

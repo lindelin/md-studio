@@ -1,7 +1,7 @@
 {
-    "name": "webminidisc-pro",
+    "name": "minidisc-workspace",
     "private": true,
-    "version": "1.6.0",
+    "version": "0.1.0",
     "license": "GPL-2.0",
     "type": "module",
     "scripts": {
@@ -78,5 +78,6 @@
         "vite": "^6.3.5",
         "vite-plugin-node-polyfills": "^0.23.0",
         "vite-plugin-pwa": "^0.21.1"
-    }
+    },
+    "description": "A local-first MiniDisc workspace with a modern UI and shared automation API"
 }

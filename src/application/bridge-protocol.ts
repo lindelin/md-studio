@@ -5,7 +5,7 @@ export const BRIDGE_PROTOCOL_VERSION = 1;
 export interface BridgeHello {
     type: 'hello';
     protocolVersion: typeof BRIDGE_PROTOCOL_VERSION;
-    client: 'webminidisc-app';
+    client: 'minidisc-workspace-app';
 }
 
 export interface BridgeRequest {

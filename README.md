@@ -1,108 +1,87 @@
-# Web MiniDisc Pro
+# MiniDisc Workspace
 
-Copy audio to your NetMD MiniDisc device using only a web browser. Replace SonicStage, improve audio quality, and unlock new features. 
+MiniDisc Workspace is a local-first application for organizing, writing, playing, and exporting MiniDisc media. It is being rebuilt around a shared application command layer so the browser UI, MCP server, and CLI use the same device state, validation, task progress, and safety rules.
 
-Live @ [https://web.minidisc.wiki/](https://web.minidisc.wiki/).
+The project is under active reconstruction. The stable NetMD and HiMD protocol implementations are retained while device orchestration and the user interface are separated from the legacy Redux actions.
 
-Full user guide @ [the MiniDisc Wiki](https://www.minidisc.wiki/guides/webminidisc/start)
+## Current capabilities
+
+-   USB NetMD, restricted and full HiMD, DRM-free Network Walkman, Remote NetMD, and MockMD connections
+-   Disc, track, group, half-width, full-width, and HiMD metadata editing
+-   Playback control, track ordering, deletion, erase, eject, HiMD format, and device flush
+-   Audio import, browser-side transcoding, NetMD upload, supported-device download, recording, and factory tools inherited from Web MiniDisc Pro
+-   Revision-checked application commands and observable long-running tasks
+-   Local MCP tools and a scriptable CLI over a loopback-only browser bridge
+-   Safe preference loading that isolates a damaged setting instead of clearing the complete browser store
 
 ## Requirements
 
-- a NetMD recorder
-- USB cable (most use USB Mini-B)
-- Chromium web browser (Google Chrome, Microsoft Edge, Brave, etc.) or any other browser that supports both WASM and WebUSB
+-   Node.js 20 or newer and npm
+-   A Chromium-based browser with WebUSB support
+-   A compatible MiniDisc device and USB cable for hardware operations
+-   On Windows, a compatible WinUSB driver for the device; the MiniDisc Wiki has current [Windows setup instructions](https://www.minidisc.wiki/guides/webminidisc/requirements#windows)
 
-## Installation
+MockMD is available for development without hardware.
 
-### macOS
-_it just works ®_ ... no need to download or install any software. Safari is not currently supported; please use a Chromium browser instead.
+## Run locally
 
-Some macOS-specific issues are documented in the [troubleshooting page](https://www.minidisc.wiki/guides/webminidisc/troubleshooting) of the user guide.
+```text
+npm ci
+npm run dev
+```
 
-For macOS developers, see [here](#development-on-macos).
+Open the local URL printed by Vite. The runtime preparation step is cross-platform and copies the required encoder and worker assets before development and production builds.
 
-### Linux
-Follow the instructions from the [user guide here](https://www.minidisc.wiki/guides/webminidisc/requirements#linux) or [the linux-minidisc project here](https://github.com/glaubitz/linux-minidisc/tree/master/netmd/etc) to grant your user access to the device. If you skip this step you'll likely get an *Access denied* message when trying to connect.
+Useful commands:
 
-If you use a "packaged" version of Chromium, such as from the Ubuntu Store, you will encounter more issues. [Refer to the user guide for more details.](https://www.minidisc.wiki/guides/webminidisc/requirements#packaged_browsers)
+```text
+npm test
+npm run build
+npm run mcp
+npm run cli -- status
+npm run cli -- tasks
+npm run cli -- imports
+```
 
-### Windows
-The Windows USB stack requires a driver to be installed before using Web MiniDisc Pro. The driver installation requires Administrator privileges. 
+The CLI also accepts a complete application command:
 
-[See the full details in the user guide here.](https://www.minidisc.wiki/guides/webminidisc/requirements#windows) - it is usually as simple as using [Zadig to install the driver.](https://zadig.akeo.ie/)
+```text
+npm run cli -- command '{"type":"playback.control","command":{"action":"play"}}'
+```
 
-Note: restart your browser after installation.
+On Windows PowerShell, a JSON file is usually easier to quote:
 
-### Chrome OS
-Works without any addtional set up - tested with 91 stable (91.0.4472.102). If your user account or device is managed (by your school or company) you may run into issues. If you are using a personal Google account on a personal Chromebook you should be good to go.
+```text
+npm run cli -- --file command.json
+```
 
------
-## Differences between [Web Minidisc](https://github.com/cybercase/webminidisc) and Web Minidisc Pro
-Web MiniDisc Pro was forked from the original Web MiniDisc to provide a more advanced workflow for interacting with NetMD devices. 
+## Local MCP bridge
 
-In addition to the standard NetMD features that Web MiniDisc provides, Web MiniDisc Pro also features:
-- The ability to connect to NetMD units available on the local network with the help of [Remote NetMD](https://github.com/asivery/remote-netmd-server)
-- Downloading tracks from the player via standard NetMD commands (Sony MZ-RH1 only)
-- Improved handling of pre-encoded ATRAC3 tracks
-- Song Recognition
-- The ability to use an external ATRAC3 encoder for better audio quality when using LP modes
+`npm run mcp` starts an MCP server over standard input/output and a WebSocket bridge on `127.0.0.1:47123`. Keep the browser app open; local development pages connect automatically. Device operations continue to run in the browser, which owns the WebUSB session.
 
-*The following features depend on Factory mode commands. See [netmd-exploits](https://github.com/asivery/netmd-exploits/) for a list of supported devices*
-- Downloading tracks from any Sony (or Aiwa) NetMD device
-- Firmware and RAM dumping 
-- TOC manipulation
-- Tetris
+The MCP tools cover device status, disc and track metadata, groups, playback, deletion and erase with explicit confirmation, HiMD maintenance, task state, and the ordered import plan. Destructive commands require both `confirmed: true` and a non-empty reason. Mutating tools accept `expectedRevision` so a command prepared from stale disc state is rejected before it writes.
 
------
-## Development
+Set `MINIDISC_BRIDGE_TOKEN` to require a token, and store the same value in the browser preference `minidiscLocalBridgeToken`. The bridge listens on loopback and accepts local browser origins by default.
 
-Development discussion and coordination happens through the [MiniDisc.wiki Discord server](https://minidisc.wiki/discord) in the #research channel
+## Architecture
 
-### How to build
+```text
+New browser UI ─┐
+Local MCP ──────┼── Application command layer ── NetMD / HiMD services ── Device
+CLI ────────────┘              │
+                         tasks and imports
+```
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app), so you can run:
-- `npm i` to install the required node modules (`--legacy-peer-deps` might be required for newer node.js versions)
-- `npm start` to start the development server
-- `npm build` to build for production
+The application layer owns validation, revisions, destructive confirmation, serialization, task state, and device snapshots. Redux currently adapts legacy screens to that layer while the replacement UI is developed.
 
-WASM modules are provided in the `public/` directory. However, if you wish to build those binaries yourself, instructions are provided in the `extra/` directory.
+## Safety
 
------
-### Development on macOS
+Treat real discs as valuable media. Delete, erase, and HiMD format operations require explicit confirmation. Automated callers should refresh the disc first and send the returned revision with each prepared mutation.
 
-#### Install Xcode Build Tools CLI & Homebrew
-In macOS Terminal run:
-- `xcode-select install` - to install XCode Command Line Tools
-- `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"` - to install Homebrew
+## License and upstream credit
 
-After homebrew is finished installing,
+MiniDisc Workspace is licensed under the [GNU General Public License v2.0](LICENSE).
 
-#### Install gcc & libvips
+It is derived from [Web MiniDisc Pro](https://github.com/asivery/webminidisc) by Asivery and contributors, which in turn was derived from [Web MiniDisc](https://github.com/cybercase/webminidisc). Their protocol work, device support, encoder integration, and contributor history remain foundational to this project. The Git history and GPL license are retained.
 
-In macOS Terminal: `brew install --build-from-source gcc`, wait for it to finish then run `brew install vips` (this command may install gcc again from an available pre-built binary, if one exists for your current macOS version, this is normal behaviour as gcc is needed for vips to work).
-
-#### Proceeding with installation
-
-With the above prerequisites done, you can continue the build process as described in the [How to Build](#how-to-build) section
-
------
-### How to contribute
-If there's a feature you'd like to see implemented in Web MiniDisc Pro, feel free to submit a pull request.
-
-### Bugs and issues
-Feel free to submit any issues as a GitHub issue. Web MiniDisc Pro is a hobby project and the developers cannot make guarantees about timeliness of bugfixes. If you have the skills to implement fixes yourself, we're more than happy to review pull requests.
-
-### Forks
-Web MiniDisc Pro and its predecessors are GPL licensed. You are free to fork or clone and create your own instance. However we ask that you:
-- Change the name and description so that users do not confuse your fork with the upstream project
-- Update bug reporting links to your own repo rather than this upstream one
-- Remove the included reference to the LP encoding server provided by the MiniDisc Wiki project, or contact them for permission to include it
-
-## Credits
-- [FFmpeg](https://www.ffmpeg.org/) *and* [ffmpegjs](https://github.com/ffmpegjs/FFmpeg) *to read audio files (wav, mp3, ogg, mp4, etc...).*
-- [Atracdenc](https://github.com/dcherednik/atracdenc/) *to support atrac3 encoding (lp2, lp4 audio formats).*
-- [Emscripten](https://emscripten.org/) *to run both FFmpeg and Atracdenc in the browser.*
-- [netmd-js](https://github.com/cybercase/netmd-js) *to send commands to NetMD devices using Javascript*
-- [material-ui](https://material-ui.com/) *to build the user interface.*
-- [linux-minidisc](https://github.com/linux-minidisc/linux-minidisc) *to build the netmd-js library.*
-- [netmd-exploits](https://github.com/asivery/netmd-exploits/) *For factory mode commands and track dumping*
+Major upstream projects include [netmd-js](https://github.com/cybercase/netmd-js), [netmd-exploits](https://github.com/asivery/netmd-exploits), [himd-js](https://github.com/asivery/himd-js), [linux-minidisc](https://github.com/linux-minidisc/linux-minidisc), [FFmpeg](https://ffmpeg.org/), and [Atracdenc](https://github.com/dcherednik/atracdenc). See `package-lock.json` for the complete dependency graph.

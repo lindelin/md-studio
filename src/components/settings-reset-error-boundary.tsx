@@ -33,7 +33,7 @@ export class SettingsResetErrorBoundary extends React.Component<
                     lineHeight: 1.5,
                 }}
             >
-                <h1>Web MiniDisc could not start</h1>
+                <h1>MiniDisc Workspace could not start</h1>
                 <p>Reload the app first. If the problem continues, reset only this app's saved settings.</p>
                 <pre style={{ overflow: 'auto', padding: 16, background: 'rgba(127, 127, 127, 0.15)' }}>{message}</pre>
                 <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>

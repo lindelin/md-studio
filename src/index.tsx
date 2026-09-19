@@ -24,7 +24,7 @@ serviceRegistry.mediaSessionService = new BrowserMediaSessionService(store);
 startLocalApplicationBridge();
 
 Object.defineProperty(window, 'wmdVersion', {
-    value: '1.6.0',
+    value: '0.1.0',
     writable: false,
 });
 
