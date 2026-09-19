@@ -6,6 +6,19 @@ import type { MiniDiscApplication } from '../src/application/minidisc-applicatio
 import { TaskManager } from '../src/application/task-manager.ts';
 
 describe('ApplicationCommandBus import writing', () => {
+    it('rejects unknown runtime commands instead of reporting a false success', async () => {
+        const bus = new ApplicationCommandBus({} as MiniDiscApplication, new TaskManager(), new ImportQueue());
+        const result = await bus.execute({ type: 'unknown.command' } as any);
+        assert.deepEqual(result, {
+            ok: false,
+            error: {
+                code: 'INVALID_COMMAND',
+                message: 'Unknown application command: unknown.command',
+                details: undefined,
+            },
+        });
+    });
+
     it('starts a background write through the injected application adapter', async () => {
         const tasks = new TaskManager();
         const imports = new ImportQueue();

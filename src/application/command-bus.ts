@@ -171,6 +171,12 @@ export class ApplicationCommandBus {
                 case 'playback.control':
                     snapshot = await this.application.controlPlayback(command.command);
                     break;
+                default: {
+                    const invalid = command as { type?: unknown };
+                    const error = new Error(`Unknown application command: ${String(invalid.type)}`) as Error & { code: string };
+                    error.code = 'INVALID_COMMAND';
+                    throw error;
+                }
             }
             return { ok: true, snapshot };
         } catch (error) {

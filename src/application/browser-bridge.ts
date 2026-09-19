@@ -1,6 +1,7 @@
 import serviceRegistry from '../services/registry';
 import {
     BRIDGE_PROTOCOL_VERSION,
+    BRIDGE_FILE_CHUNK_SIZE,
     parseBridgeMessage,
     type BridgeFileRequest,
     type BridgeFileResponse,
@@ -126,7 +127,7 @@ export class BrowserApplicationBridge {
         const handle = reference.startsWith('bridge-file:') ? reference.slice('bridge-file:'.length) : '';
         if (!handle) throw new Error('The import does not contain a valid local bridge file handle.');
 
-        const chunkSize = 1024 * 1024;
+        const chunkSize = BRIDGE_FILE_CHUNK_SIZE;
         let offset = 0;
         let name = 'audio';
         let mimeType = 'application/octet-stream';
@@ -152,7 +153,7 @@ export class BrowserApplicationBridge {
 
     async write(outputHandle: string, name: string, data: Uint8Array) {
         const fileId = globalThis.crypto.randomUUID();
-        const chunkSize = 1024 * 1024;
+        const chunkSize = BRIDGE_FILE_CHUNK_SIZE;
         let offset = 0;
         let completedPath: string | undefined;
         do {

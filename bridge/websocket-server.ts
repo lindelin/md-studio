@@ -18,6 +18,7 @@ export function startLocalBridgeServer(broker: LocalBridgeBroker, options: Local
     const server = new WebSocketServer({
         host,
         port,
+        maxPayload: 2 * 1024 * 1024,
         verifyClient(info, done) {
             const originAllowed = Boolean(info.origin && allowedOrigins.some((pattern) => pattern.test(info.origin)));
             const requestUrl = new URL(info.req.url ?? '/', `http://${host}:${port}`);
