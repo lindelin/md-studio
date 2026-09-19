@@ -31,7 +31,6 @@ import { checkFactoryCapability, initializeFactoryMode } from './factory/factory
 import { LibraryServices } from '../services/library-services';
 import { s16LEToSamplesArray, Shazam } from 'shazam-api';
 import { bindApplicationRuntime, getApplicationClient, getApplicationRuntime, releaseDeviceSession } from '../application/runtime';
-import type { DeviceSnapshot } from '../application/contracts';
 import { applyDeviceSnapshot } from './application-adapter';
 import { MetadataImportError } from '../domain/metadata-import';
 import { resolveGroupedTrackMove } from '../domain/disc-layout';
@@ -40,6 +39,20 @@ import type { TaskSnapshot } from '../application/task-manager';
 import { convertImportAudio } from '../application/audio-conversion-pipeline';
 import { ImportUploadSessionError, runImportUploadSession } from '../application/import-upload-session';
 import { finishRejectedImportWrite } from '../application/import-write-task';
+import type { ApplicationCommand } from '../application/command-bus';
+import type { PlaybackCommand } from '../application/contracts';
+
+async function executeDeviceCommand(dispatch: AppDispatch, command: ApplicationCommand) {
+    const result = await getApplicationClient().execute(command);
+    if (!result.ok) throw new Error(result.error.message);
+    if (!result.snapshot) throw new Error(`Command ${command.type} did not return the device state.`);
+    applyDeviceSnapshot(dispatch, result.snapshot);
+    return result.snapshot;
+}
+
+function currentDeviceRevision() {
+    return getApplicationClient().getWorkspaceSnapshot().device?.revision;
+}
 
 export function requestTaskCancellation(id: string) {
     return async function () {
@@ -58,25 +71,26 @@ export function disconnectDevice(finalize = true) {
 
 export function control(action: 'play' | 'stop' | 'next' | 'prev' | 'goto' | 'pause' | 'seek', params?: unknown) {
     return async function (dispatch: AppDispatch) {
+        let command: PlaybackCommand;
         switch (action) {
             case 'play':
-                await getApplicationRuntime().controlPlayback({ action: 'play' });
+                command = { action: 'play' };
                 break;
             case 'stop':
-                await getApplicationRuntime().controlPlayback({ action: 'stop' });
+                command = { action: 'stop' };
                 break;
             case 'next':
-                await getApplicationRuntime().controlPlayback({ action: 'next' });
+                command = { action: 'next' };
                 break;
             case 'prev':
-                await getApplicationRuntime().controlPlayback({ action: 'previous' });
+                command = { action: 'previous' };
                 break;
             case 'pause':
-                await getApplicationRuntime().controlPlayback({ action: 'pause' });
+                command = { action: 'pause' };
                 break;
             case 'goto': {
                 const trackNumber = assertNumber(params, 'Invalid track number for "goto" command');
-                await getApplicationRuntime().controlPlayback({ action: 'gotoTrack', index: trackNumber });
+                command = { action: 'gotoTrack', index: trackNumber };
                 break;
             }
             case 'seek': {
@@ -87,22 +101,23 @@ export function control(action: 'play' | 'stop' | 'next' | 'prev' | 'goto' | 'pa
                 const trackNumber = assertNumber(typedParams.trackNumber, 'Invalid track number for "seek" command');
                 const time = assertNumber(typedParams.time, 'Invalid time for "seek" command');
                 const timeArgs = timeToSeekArgs(time);
-                await getApplicationRuntime().controlPlayback({
+                command = {
                     action: 'seek',
                     index: trackNumber,
                     hour: timeArgs[0],
                     minute: timeArgs[1],
                     second: timeArgs[2],
                     frame: timeArgs[3],
-                });
+                };
                 break;
             }
         }
+        await executeDeviceCommand(dispatch, { type: 'playback.control', command });
         // CAVEAT: change-track might take a up to a few seconds to complete.
         // We wait 500ms and let the monitor do further updates
         await sleep(500);
         try {
-            applyDeviceSnapshot(dispatch, await getApplicationRuntime().refresh());
+            await executeDeviceCommand(dispatch, { type: 'disc.refresh' });
         } catch (e) {
             console.log('control: Cannot get device status');
         }
@@ -113,12 +128,11 @@ export function renameGroup({ groupIndex, newName, newFullWidthName }: { groupIn
     return async function (dispatch: AppDispatch) {
         dispatch(appStateActions.setLoading(true));
         try {
-            const snapshot = await getApplicationRuntime().renameGroup({
-                index: groupIndex,
-                title: newName,
-                fullWidthTitle: newFullWidthName,
+            await executeDeviceCommand(dispatch, {
+                type: 'group.rename',
+                update: { index: groupIndex, title: newName, fullWidthTitle: newFullWidthName },
+                expectedRevision: currentDeviceRevision(),
             });
-            applyDeviceSnapshot(dispatch, snapshot);
         } finally {
             dispatch(appStateActions.setLoading(false));
         }
@@ -129,7 +143,12 @@ export function groupTracks(indexes: number[]) {
     return async function (dispatch: AppDispatch) {
         const begin = indexes[0];
         const length = indexes[indexes.length - 1] - begin + 1;
-        applyDeviceSnapshot(dispatch, await getApplicationRuntime().createGroup(begin, length));
+        await executeDeviceCommand(dispatch, {
+            type: 'group.create',
+            firstTrack: begin,
+            trackCount: length,
+            expectedRevision: currentDeviceRevision(),
+        });
     };
 }
 
@@ -137,7 +156,11 @@ export function deleteGroups(indexes: number[]) {
     return async function (dispatch: AppDispatch) {
         dispatch(appStateActions.setLoading(true));
         try {
-            applyDeviceSnapshot(dispatch, await getApplicationRuntime().deleteGroups(indexes));
+            await executeDeviceCommand(dispatch, {
+                type: 'group.deleteMany',
+                indexes,
+                expectedRevision: currentDeviceRevision(),
+            });
         } finally {
             dispatch(appStateActions.setLoading(false));
         }
@@ -149,12 +172,18 @@ export function dragDropTrack(sourceList: number, sourceIndex: number, targetLis
         if (sourceList === targetList && sourceIndex === targetIndex) return;
         dispatch(appStateActions.setLoading(true));
         try {
-            const application = getApplicationRuntime();
-            const snapshot = application.readSnapshot() ?? (await application.refresh());
+            const client = getApplicationClient();
+            const snapshot =
+                client.getWorkspaceSnapshot().device ?? (await executeDeviceCommand(dispatch, { type: 'disc.refresh' }));
             if (!snapshot.disc) return;
             const move = resolveGroupedTrackMove(snapshot.disc, sourceList, sourceIndex, targetList, targetIndex);
             if (move.sourceIndex === move.destinationIndex) return;
-            applyDeviceSnapshot(dispatch, await application.moveTrack(move.sourceIndex, move.destinationIndex, snapshot.revision));
+            await executeDeviceCommand(dispatch, {
+                type: 'track.move',
+                sourceIndex: move.sourceIndex,
+                destinationIndex: move.destinationIndex,
+                expectedRevision: snapshot.revision,
+            });
         } finally {
             dispatch(appStateActions.setLoading(false));
         }
@@ -234,8 +263,7 @@ export function listContent(dropCache: boolean = false) {
     return async function (dispatch: AppDispatch) {
         dispatch(appStateActions.setLoading(true));
         try {
-            const snapshot: DeviceSnapshot = await getApplicationRuntime().refresh(dropCache);
-            applyDeviceSnapshot(dispatch, snapshot);
+            await executeDeviceCommand(dispatch, { type: 'disc.refresh', dropCache });
         } finally {
             dispatch(appStateActions.setLoading(false));
         }
@@ -246,14 +274,15 @@ export function renameTrack(...entries: { index: number; newName: string; newFul
     return async function (dispatch: AppDispatch) {
         dispatch(batchActions([renameDialogActions.setVisible(false), appStateActions.setLoading(true)]));
         try {
-            const snapshot = await getApplicationRuntime().renameTracks(
-                entries.map(({ index, newName, newFullWidthName }) => ({
+            await executeDeviceCommand(dispatch, {
+                type: 'track.renameMany',
+                updates: entries.map(({ index, newName, newFullWidthName }) => ({
                     index,
                     title: newName,
                     fullWidthTitle: newFullWidthName,
-                }))
-            );
-            applyDeviceSnapshot(dispatch, snapshot);
+                })),
+                expectedRevision: currentDeviceRevision(),
+            });
         } catch (err) {
             console.error(err);
             dispatch(
@@ -272,7 +301,11 @@ export function himdRenameTrack(...entries: { index: number; title?: string; alb
     return async function (dispatch: AppDispatch) {
         dispatch(batchActions([renameDialogActions.setVisible(false), appStateActions.setLoading(true)]));
         try {
-            applyDeviceSnapshot(dispatch, await getApplicationRuntime().renameHiMDTracks(entries));
+            await executeDeviceCommand(dispatch, {
+                type: 'track.renameHimdMany',
+                updates: entries,
+                expectedRevision: currentDeviceRevision(),
+            });
         } catch (err) {
             console.error(err);
             dispatch(
@@ -289,11 +322,12 @@ export function himdRenameTrack(...entries: { index: number; title?: string; alb
 
 export function renameDisc({ newName, newFullWidthName }: { newName: string; newFullWidthName?: string }) {
     return async function (dispatch: AppDispatch) {
-        const snapshot = await getApplicationRuntime().renameDisc(
-            newName.replace(/\/\//g, ' /'), // Make sure the title doesn't interfere with the groups
-            newFullWidthName?.replace(/／／/g, '／')
-        );
-        applyDeviceSnapshot(dispatch, snapshot);
+        await executeDeviceCommand(dispatch, {
+            type: 'disc.rename',
+            title: newName.replace(/\/\//g, ' /'),
+            fullWidthTitle: newFullWidthName?.replace(/／／/g, '／'),
+            expectedRevision: currentDeviceRevision(),
+        });
         dispatch(renameDialogActions.setVisible(false));
     };
 }
@@ -308,11 +342,15 @@ export function deleteTracks(indexes: number[]) {
         }
         dispatch(appStateActions.setLoading(true));
         try {
-            const snapshot = await getApplicationRuntime().deleteTracks(indexes, {
-                confirmed: true,
-                reason: 'Confirmed in the MiniDisc Workspace user interface',
+            await executeDeviceCommand(dispatch, {
+                type: 'track.deleteMany',
+                indexes,
+                confirmation: {
+                    confirmed: true,
+                    reason: 'Confirmed in the MiniDisc Workspace user interface',
+                },
+                expectedRevision: currentDeviceRevision(),
             });
-            applyDeviceSnapshot(dispatch, snapshot);
         } finally {
             dispatch(appStateActions.setLoading(false));
         }
@@ -327,11 +365,14 @@ export function wipeDisc() {
         }
         dispatch(appStateActions.setLoading(true));
         try {
-            const snapshot = await getApplicationRuntime().eraseDisc({
-                confirmed: true,
-                reason: 'Confirmed in the MiniDisc Workspace user interface',
+            await executeDeviceCommand(dispatch, {
+                type: 'disc.erase',
+                confirmation: {
+                    confirmed: true,
+                    reason: 'Confirmed in the MiniDisc Workspace user interface',
+                },
+                expectedRevision: currentDeviceRevision(),
             });
-            applyDeviceSnapshot(dispatch, snapshot);
         } finally {
             dispatch(appStateActions.setLoading(false));
         }
@@ -346,13 +387,14 @@ export function formatToHiMD() {
         }
         dispatch(appStateActions.setLoading(true));
         try {
-            applyDeviceSnapshot(
-                dispatch,
-                await getApplicationRuntime().formatToHiMD({
+            await executeDeviceCommand(dispatch, {
+                type: 'disc.formatHimd',
+                confirmation: {
                     confirmed: true,
                     reason: 'Confirmed in the MiniDisc Workspace user interface',
-                })
-            );
+                },
+                expectedRevision: currentDeviceRevision(),
+            });
         } finally {
             dispatch(appStateActions.setLoading(false));
         }
@@ -361,14 +403,18 @@ export function formatToHiMD() {
 
 export function ejectDisc() {
     return async function (dispatch: AppDispatch) {
-        applyDeviceSnapshot(dispatch, await getApplicationRuntime().ejectDisc());
+        await executeDeviceCommand(dispatch, { type: 'disc.eject', expectedRevision: currentDeviceRevision() });
     };
 }
 
 export function moveTrack(srcIndex: number, destIndex: number) {
     return async function (dispatch: AppDispatch) {
-        const snapshot = await getApplicationRuntime().moveTrack(srcIndex, destIndex);
-        applyDeviceSnapshot(dispatch, snapshot);
+        await executeDeviceCommand(dispatch, {
+            type: 'track.move',
+            sourceIndex: srcIndex,
+            destinationIndex: destIndex,
+            expectedRevision: currentDeviceRevision(),
+        });
     };
 }
 
@@ -413,16 +459,16 @@ export function downloadTracks(
     callback?: (blob: Blob, name: string) => void
 ) {
     return async function (dispatch: AppDispatch): Promise<void> {
-        const application = getApplicationRuntime();
         const request = {
             indexes,
             convertToWav: convertOutputToWav,
-            expectedRevision: application.readSnapshot()?.revision,
+            expectedRevision: currentDeviceRevision(),
         };
         let task;
         try {
             if (callback) {
                 if (!serviceRegistry.trackExporter) throw new Error('Track export is unavailable in this application environment.');
+                const application = getApplicationRuntime();
                 task = await serviceRegistry.trackExporter.start(
                     request,
                     application,
@@ -454,13 +500,12 @@ export function downloadTracks(
 
 export function recordTracks(indexes: number[], deviceId: string) {
     return async function (dispatch: AppDispatch): Promise<void> {
-        const application = getApplicationRuntime();
         try {
             const result = await getApplicationClient().execute({
                 type: 'track.record',
                 indexes,
                 deviceId,
-                expectedRevision: application.readSnapshot()?.revision,
+                expectedRevision: currentDeviceRevision(),
             });
             if (!result.ok) throw new Error(result.error.message);
             if (!result.task) throw new Error('Audio-input recording could not be started.');
@@ -606,7 +651,10 @@ export function exportCSV(callback: (blob: Blob, name: string) => void = downloa
         void _getState;
         dispatch(appStateActions.setLoading(true));
         try {
-            const exported = await getApplicationRuntime().exportMetadataCsv();
+            const result = await getApplicationClient().execute({ type: 'metadata.exportCsv' });
+            if (!result.ok) throw new Error(result.error.message);
+            const exported = result.metadataCsv;
+            if (!exported) throw new Error('Metadata export did not return a CSV document.');
             callback(new Blob([exported.text]), exported.fileName);
         } finally {
             dispatch(appStateActions.setLoading(false));
@@ -619,9 +667,12 @@ export function importCSV(file: File) {
         const text = new TextDecoder('utf-8').decode(await file.arrayBuffer());
         dispatch(appStateActions.setLoading(true));
         try {
-            const application = getApplicationRuntime();
-            const expectedRevision = application.readSnapshot()?.revision;
-            const plan = await application.planMetadataImport(text);
+            const client = getApplicationClient();
+            const expectedRevision = client.getWorkspaceSnapshot().device?.revision;
+            const planned = await client.execute({ type: 'metadata.planCsv', text });
+            if (!planned.ok) throw new MetadataImportError(planned.error.message);
+            const plan = planned.metadataPlan;
+            if (!plan) throw new Error('Metadata import did not return a validation plan.');
             if (
                 !plan.trackCountMatches &&
                 !window.confirm(
@@ -654,10 +705,15 @@ export function importCSV(file: File) {
                 }
                 includedTrackIndexes.add(track.trackIndex);
             }
-            applyDeviceSnapshot(
-                dispatch,
-                await application.applyMetadataImport(text, [...includedTrackIndexes], expectedRevision)
-            );
+            const applied = await client.execute({
+                type: 'metadata.applyCsv',
+                text,
+                includedTrackIndexes: [...includedTrackIndexes],
+                expectedRevision,
+            });
+            if (!applied.ok) throw new Error(applied.error.message);
+            if (!applied.snapshot) throw new Error('Metadata import did not return the device state.');
+            applyDeviceSnapshot(dispatch, applied.snapshot);
         } catch (error) {
             if (error instanceof MetadataImportError) {
                 window.alert(error.message);
@@ -881,7 +937,7 @@ export function flushDevice() {
     return async function (dispatch: AppDispatch) {
         dispatch(appStateActions.setLoading(true));
         try {
-            applyDeviceSnapshot(dispatch, await getApplicationRuntime().flush());
+            await executeDeviceCommand(dispatch, { type: 'device.flush', expectedRevision: currentDeviceRevision() });
         } finally {
             dispatch(appStateActions.setLoading(false));
         }
