@@ -7,52 +7,64 @@ import { actions as appStateActions } from '../app-feature';
 import serviceRegistry from '../../services/registry';
 import { convertToWAV, createDownloadTrackName, downloadBlob, getTracks, Promised } from '../../utils';
 import { concatUint8Arrays } from 'netmd-js/dist/utils';
-import { NetMDFactoryService, ExploitCapability, Capability } from '../../services/interfaces/netmd';
+import { ExploitCapability, Capability } from '../../services/interfaces/netmd';
 import { parseTOC, getTitleByTrackNumber, reconstructTOC, updateFlagAllFragmentsOfTrack, ModeFlag, ToC } from 'netmd-tocmanip';
 import { downloadTracks, exportCSV } from '../actions';
 import JSZip from 'jszip';
 import { AtracRecoveryConfig } from 'netmd-exploits';
+import { getApplicationRuntime } from '../../application/runtime';
+
+function decodeBase64(data: string) {
+    const binary = atob(data);
+    return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+function resolveExploitCapabilities(names: string[]) {
+    return names
+        .map((name) => ExploitCapability[name as keyof typeof ExploitCapability])
+        .filter((capability): capability is ExploitCapability => typeof capability === 'number');
+}
 
 export function initializeFactoryMode() {
     return async function(dispatch: AppDispatch) {
-        if (serviceRegistry.netmdFactoryService === undefined) {
-            dispatch(appStateActions.setLoading(true));
-            serviceRegistry.netmdFactoryService = (await serviceRegistry.netmdService!.factory()) as NetMDFactoryService;
-            const firmwareVersion = await serviceRegistry.netmdFactoryService!.getDeviceFirmware();
-            const capabilities = await serviceRegistry.netmdFactoryService!.getExploitCapabilities();
-
+        if (serviceRegistry.netmdFactoryService !== undefined) return;
+        dispatch(appStateActions.setLoading(true));
+        try {
+            const info = await getApplicationRuntime().inspectAdvancedDevice();
             dispatch(
                 batchActions([
-                    factoryActions.setExploitCapabilities(capabilities),
-                    factoryActions.setFirmwareVersion(firmwareVersion),
-                    appStateActions.setLoading(false),
+                    factoryActions.setExploitCapabilities(resolveExploitCapabilities(info.capabilities)),
+                    factoryActions.setFirmwareVersion(info.firmwareVersion),
                 ])
             );
+        } finally {
+            dispatch(appStateActions.setLoading(false));
         }
     };
 }
 
 export function readToc() {
     return async function(dispatch: AppDispatch) {
-        await initializeFactoryMode()(dispatch);
         dispatch(appStateActions.setLoading(true));
-        const newToc = parseTOC(
-            await serviceRegistry.netmdFactoryService!.readUTOCSector(0),
-            await serviceRegistry.netmdFactoryService!.readUTOCSector(1),
-            await serviceRegistry.netmdFactoryService!.readUTOCSector(2),
-            await serviceRegistry.netmdFactoryService!.readUTOCSector(3),
-        );
-        const firmwareVersion = await serviceRegistry.netmdFactoryService!.getDeviceFirmware();
-        const capabilities = await serviceRegistry.netmdFactoryService!.getExploitCapabilities();
-        dispatch(
-            batchActions([
-                factoryActions.setToc(newToc),
-                factoryActions.setExploitCapabilities(capabilities),
-                factoryActions.setFirmwareVersion(firmwareVersion),
-                factoryActions.setModified(false),
-                appStateActions.setLoading(false),
-            ])
-        );
+        try {
+            const application = getApplicationRuntime();
+            const [info, tocDump] = await Promise.all([application.inspectAdvancedDevice(), application.readRawToc()]);
+            const data = decodeBase64(tocDump.dataBase64);
+            const sectors = Array.from({ length: tocDump.sectorCount }, (_, index) =>
+                data.slice(index * tocDump.sectorSize, (index + 1) * tocDump.sectorSize)
+            );
+            const newToc = parseTOC(...sectors);
+            dispatch(
+                batchActions([
+                    factoryActions.setToc(newToc),
+                    factoryActions.setExploitCapabilities(resolveExploitCapabilities(info.capabilities)),
+                    factoryActions.setFirmwareVersion(info.firmwareVersion),
+                    factoryActions.setModified(false),
+                ])
+            );
+        } finally {
+            dispatch(appStateActions.setLoading(false));
+        }
     };
 }
 
@@ -81,7 +93,7 @@ export function writeModifiedTOC() {
 }
 
 export function runTetris() {
-    return async function(dispatch: AppDispatch, getState: () => RootState) {
+    return async function() {
         await serviceRegistry.netmdFactoryService!.runTetris();
     };
 }
@@ -188,7 +200,7 @@ export function downloadToc(callback: (blob: Blob, name: string) => void = downl
 }
 
 export function uploadToc(file: File) {
-    return async function(dispatch: AppDispatch, getState: () => RootState) {
+    return async function(dispatch: AppDispatch) {
         if (file.size !== 2352 * 6) {
             window.alert('Not a valid TOC file');
             return;
@@ -210,7 +222,7 @@ let badSectorPromise: ((a: { response: BadSectorResponse; rememberForTheRestOfDo
 let sessionStoredBadSectorHandling: null | BadSectorResponse = null;
 
 export function reportBadSectorReponse(response: BadSectorResponse, rememberForTheRestOfDownload: boolean, rememberForTheRestOfSession: boolean) {
-    return async function(dispatch: AppDispatch, getState: () => RootState) {
+    return async function(dispatch: AppDispatch) {
         if (!badSectorPromise) {
             throw new Error('Invalid state!');
         }
@@ -286,7 +298,7 @@ export function exploitDownloadTracks(
 
             let storedBadSectorHandling: null | BadSectorResponse = null;
 
-            let trackData = await serviceRegistry.netmdFactoryService!.exploitDownloadTrack(
+            const trackData = await serviceRegistry.netmdFactoryService!.exploitDownloadTrack(
                 trackIndex,
                 nerawDownload,
                 ({ total, read, action, sector }: { read: number; total: number; action: 'READ' | 'SEEK' | 'CHUNK'; sector?: string }) => {
@@ -355,7 +367,7 @@ export async function checkFactoryCapability(dispatch: AppDispatch, capability: 
 }
 
 export function enableFactoryRippingModeInMainUi() {
-    return async function(dispatch: AppDispatch, getState: () => RootState) {
+    return async function(dispatch: AppDispatch) {
         if (!(await checkFactoryCapability(dispatch, ExploitCapability.downloadAtrac))) {
             window.alert(
                 'Cannot enable homebrew mode ripping in main UI.\nThis device is not supported yet.\nStay tuned for future updates.'
@@ -441,7 +453,7 @@ export function toggleSPUploadSpeedup() {
 }
 
 export function enterHiMDUnrestrictedMode() {
-    return async function(dispatch: AppDispatch, getState: () => RootState) {
+    return async function(dispatch: AppDispatch) {
         if (
             !window.confirm(
                 'Warning: To enable the unrestricted mode the device will be temporarily exploited by running non-Sony code on them. The developers of Web Minidisc Pro aren\'t responsible for damaged devices. Do you want to continue?'
@@ -477,7 +489,7 @@ export function writeRecoveryTOC() {
 }
 
 export function enterServiceMode() {
-    return async function(dispatch: AppDispatch, getState: () => RootState) {
+    return async function(dispatch: AppDispatch) {
         dispatch(appStateActions.setMainView('WELCOME'));
         await serviceRegistry.netmdFactoryService!.enterServiceMode();
     }

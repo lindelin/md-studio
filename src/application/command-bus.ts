@@ -1,5 +1,7 @@
 import type {
     DestructiveConfirmation,
+    AdvancedDeviceInfo,
+    AdvancedTocDump,
     DeviceSnapshot,
     GroupMetadataUpdate,
     HiMDTrackMetadataUpdate,
@@ -31,6 +33,8 @@ export type ApplicationCommand =
     | { type: 'metadata.exportCsv' }
     | { type: 'metadata.planCsv'; text: string }
     | { type: 'metadata.applyCsv'; text: string; includedTrackIndexes: number[]; expectedRevision?: number }
+    | { type: 'advanced.inspect' }
+    | { type: 'advanced.readToc' }
     | { type: 'track.renameMany'; updates: TrackMetadataUpdate[]; expectedRevision?: number }
     | { type: 'track.renameHimdMany'; updates: HiMDTrackMetadataUpdate[]; expectedRevision?: number }
     | { type: 'track.move'; sourceIndex: number; destinationIndex: number; expectedRevision?: number }
@@ -67,6 +71,8 @@ export interface CommandSuccess {
     importQueue?: ImportQueueSnapshot;
     metadataCsv?: MetadataCsvExport;
     metadataPlan?: MetadataImportPlan;
+    advancedInfo?: AdvancedDeviceInfo;
+    advancedToc?: AdvancedTocDump;
 }
 
 export interface CommandFailure {
@@ -131,6 +137,12 @@ export class ApplicationCommandBus {
             }
             if (command.type === 'metadata.planCsv') {
                 return { ok: true, metadataPlan: await this.application.planMetadataImport(command.text) };
+            }
+            if (command.type === 'advanced.inspect') {
+                return { ok: true, advancedInfo: await this.application.inspectAdvancedDevice() };
+            }
+            if (command.type === 'advanced.readToc') {
+                return { ok: true, advancedToc: await this.application.readRawToc() };
             }
 
             let snapshot: DeviceSnapshot;

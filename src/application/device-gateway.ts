@@ -1,5 +1,19 @@
-import type { DeviceGateway, ApplicationCapability, GroupMetadataUpdate, HiMDTrackMetadataUpdate, PlaybackCommand } from './contracts';
-import { Capability, type Group, type MinidiscSpec, type NetMDService } from '../services/interfaces/netmd';
+import type {
+    AdvancedDeviceGateway,
+    DeviceGateway,
+    ApplicationCapability,
+    GroupMetadataUpdate,
+    HiMDTrackMetadataUpdate,
+    PlaybackCommand,
+} from './contracts';
+import {
+    Capability,
+    ExploitCapability,
+    type Group,
+    type MinidiscSpec,
+    type NetMDFactoryService,
+    type NetMDService,
+} from '../services/interfaces/netmd';
 
 const capabilityNames: Record<Capability, ApplicationCapability> = {
     [Capability.contentList]: 'content.read',
@@ -119,5 +133,38 @@ export class NetMDDeviceGateway implements DeviceGateway {
 
     private sanitizeFullWidthTitle(title?: string) {
         return title === undefined ? undefined : this.spec.sanitizeFullWidthTitle(title);
+    }
+}
+
+export class NetMDAdvancedDeviceGateway implements AdvancedDeviceGateway {
+    private factoryService?: NetMDFactoryService;
+
+    constructor(
+        private readonly service: NetMDService,
+        existingFactoryService?: NetMDFactoryService,
+        private readonly onInitialize?: (factoryService: NetMDFactoryService) => void
+    ) {
+        this.factoryService = existingFactoryService;
+    }
+
+    async readInfo() {
+        const factory = await this.getFactoryService();
+        return {
+            firmwareVersion: await factory.getDeviceFirmware(),
+            capabilities: (await factory.getExploitCapabilities()).map((capability) => ExploitCapability[capability]),
+        };
+    }
+
+    async readTocSector(index: number) {
+        return this.getFactoryService().then((factory) => factory.readUTOCSector(index));
+    }
+
+    private async getFactoryService() {
+        if (this.factoryService) return this.factoryService;
+        const factory = await this.service.factory();
+        if (!factory) throw new Error('The connected device did not provide an advanced maintenance session.');
+        this.factoryService = factory;
+        this.onInitialize?.(factory);
+        return factory;
     }
 }

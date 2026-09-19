@@ -1,5 +1,7 @@
 import {
     ApplicationError,
+    type AdvancedDeviceGateway,
+    type AdvancedTocDump,
     type ApplicationCapability,
     type DestructiveConfirmation,
     type DeviceGateway,
@@ -28,10 +30,16 @@ export class MiniDiscApplication {
     private readonly listeners = new Set<(snapshot: DeviceSnapshot) => void>();
     private readonly gateway: DeviceGateway;
     private readonly operations: DeviceOperationCoordinator;
+    private readonly advancedGateway?: AdvancedDeviceGateway;
 
-    constructor(gateway: DeviceGateway, operations = new DeviceOperationCoordinator()) {
+    constructor(
+        gateway: DeviceGateway,
+        operations = new DeviceOperationCoordinator(),
+        advancedGateway?: AdvancedDeviceGateway
+    ) {
         this.gateway = gateway;
         this.operations = operations;
+        this.advancedGateway = advancedGateway;
     }
 
     refresh(dropCache = false) {
@@ -66,6 +74,45 @@ export class MiniDiscApplication {
 
     exportMetadataCsv() {
         return this.serial(async () => serializeMetadataCsv(this.requireDisc()));
+    }
+
+    inspectAdvancedDevice() {
+        return this.serial(async () => {
+            this.requireCapability('advanced.factory');
+            return this.requireAdvancedGateway().readInfo();
+        });
+    }
+
+    readRawToc(): Promise<AdvancedTocDump> {
+        return this.serial(async () => {
+            this.requireCapability('advanced.factory');
+            this.requireDisc();
+            const gateway = this.requireAdvancedGateway();
+            const sectorSize = 2352;
+            const sectorCount = 6;
+            const sectors: Uint8Array[] = [];
+            for (let index = 0; index < sectorCount; index += 1) {
+                const sector = await gateway.readTocSector(index);
+                if (sector.byteLength !== sectorSize) {
+                    throw new ApplicationError('INVALID_INPUT', `The device returned an invalid TOC sector ${index}.`, {
+                        index,
+                        expectedBytes: sectorSize,
+                        actualBytes: sector.byteLength,
+                    });
+                }
+                sectors.push(sector);
+            }
+            const data = new Uint8Array(sectorSize * sectorCount);
+            sectors.forEach((sector, index) => data.set(sector, index * sectorSize));
+            const digest = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', data));
+            return {
+                sectorSize,
+                sectorCount,
+                byteLength: data.byteLength,
+                sha256: Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join(''),
+                dataBase64: encodeBase64(data),
+            };
+        });
     }
 
     applyMetadataImport(text: string, includedTrackIndexes: number[], expectedRevision?: number) {
@@ -326,6 +373,15 @@ export class MiniDiscApplication {
         return disc;
     }
 
+    private requireAdvancedGateway() {
+        if (!this.advancedGateway) {
+            throw new ApplicationError('CAPABILITY_REQUIRED', 'Advanced device maintenance is unavailable in this session.', {
+                capability: 'advanced.factory',
+            });
+        }
+        return this.advancedGateway;
+    }
+
     private validateUniqueIndexes(indexes: number[], knownIndexes: Set<number>, kind: 'track' | 'group') {
         if (indexes.length === 0) throw new ApplicationError('INVALID_INPUT', `At least one ${kind} is required.`);
         const uniqueIndexes = [...new Set(indexes)];
@@ -359,4 +415,12 @@ export class MiniDiscApplication {
     private serial<T>(operation: () => Promise<T>): Promise<T> {
         return this.operations.run(operation);
     }
+}
+
+function encodeBase64(data: Uint8Array) {
+    let binary = '';
+    for (let offset = 0; offset < data.byteLength; offset += 32_768) {
+        binary += String.fromCharCode(...data.subarray(offset, Math.min(offset + 32_768, data.byteLength)));
+    }
+    return btoa(binary);
 }

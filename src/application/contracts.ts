@@ -46,6 +46,24 @@ export interface DestructiveConfirmation {
     reason: string;
 }
 
+export interface AdvancedDeviceInfo {
+    firmwareVersion: string;
+    capabilities: string[];
+}
+
+export interface AdvancedTocDump {
+    sectorSize: number;
+    sectorCount: number;
+    byteLength: number;
+    sha256: string;
+    dataBase64: string;
+}
+
+export interface AdvancedDeviceGateway {
+    readInfo(): Promise<AdvancedDeviceInfo>;
+    readTocSector(index: number): Promise<Uint8Array>;
+}
+
 export type PlaybackCommand =
     | { action: 'play' | 'pause' | 'stop' | 'next' | 'previous' }
     | { action: 'gotoTrack'; index: number }

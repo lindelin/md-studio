@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { describe, it } from 'node:test';
 import { ApplicationError, type DeviceGateway, type TrackMetadataUpdate } from '../src/application/contracts.ts';
 import { MiniDiscApplication } from '../src/application/minidisc-application.ts';
@@ -33,7 +34,15 @@ function makeGateway() {
             return {
                 deviceName: 'MockMD',
                 status: structuredClone(status),
-                capabilities: ['content.read', 'metadata.edit', 'metadata.himd', 'playback.control', 'disc.eject', 'disc.formatHimd'],
+                capabilities: [
+                    'content.read',
+                    'metadata.edit',
+                    'metadata.himd',
+                    'playback.control',
+                    'disc.eject',
+                    'disc.formatHimd',
+                    'advanced.factory',
+                ],
                 disc: structuredClone(disc),
             };
         },
@@ -304,5 +313,34 @@ describe('MiniDiscApplication', () => {
         assert.equal(snapshot.status.state, 'playing');
         assert.equal(snapshot.revision, 0);
         assert.deepEqual(calls, ['read', 'playback:play', 'read']);
+    });
+
+    it('reads advanced device information and a checksummed six-sector TOC without mutating the disc', async () => {
+        const { gateway, calls } = makeGateway();
+        const sectorsRead: number[] = [];
+        const application = new MiniDiscApplication(gateway, undefined, {
+            async readInfo() {
+                return { firmwareVersion: 'S1.600', capabilities: ['downloadAtrac', 'readRam'] };
+            },
+            async readTocSector(index) {
+                sectorsRead.push(index);
+                return new Uint8Array(2352).fill(index);
+            },
+        });
+        await application.refresh();
+
+        const info = await application.inspectAdvancedDevice();
+        const toc = await application.readRawToc();
+        const decoded = Buffer.from(toc.dataBase64, 'base64');
+
+        assert.deepEqual(info, { firmwareVersion: 'S1.600', capabilities: ['downloadAtrac', 'readRam'] });
+        assert.deepEqual(sectorsRead, [0, 1, 2, 3, 4, 5]);
+        assert.equal(toc.sectorSize, 2352);
+        assert.equal(toc.sectorCount, 6);
+        assert.equal(toc.byteLength, 2352 * 6);
+        assert.equal(decoded.length, toc.byteLength);
+        assert.equal(toc.sha256, createHash('sha256').update(decoded).digest('hex'));
+        assert.equal(application.readSnapshot()?.revision, 0);
+        assert.deepEqual(calls, ['read']);
     });
 });

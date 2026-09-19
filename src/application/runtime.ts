@@ -1,6 +1,6 @@
 import serviceRegistry from '../services/registry';
 import { ApplicationCommandBus } from './command-bus';
-import { NetMDDeviceGateway } from './device-gateway';
+import { NetMDAdvancedDeviceGateway, NetMDDeviceGateway } from './device-gateway';
 import { MiniDiscApplication } from './minidisc-application';
 
 export function bindApplicationRuntime() {
@@ -9,7 +9,14 @@ export function bindApplicationRuntime() {
     }
     const application = new MiniDiscApplication(
         new NetMDDeviceGateway(serviceRegistry.netmdService, serviceRegistry.netmdSpec),
-        serviceRegistry.operationCoordinator
+        serviceRegistry.operationCoordinator,
+        new NetMDAdvancedDeviceGateway(
+            serviceRegistry.netmdService,
+            serviceRegistry.netmdFactoryService,
+            (factoryService) => {
+                serviceRegistry.netmdFactoryService = factoryService;
+            }
+        )
     );
     serviceRegistry.application = application;
     serviceRegistry.workspaceStore.attachApplication(application);

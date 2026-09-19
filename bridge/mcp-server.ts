@@ -51,6 +51,23 @@ function createServer() {
         async () => execute({ type: 'disc.refresh' })
     );
     server.registerTool(
+        'minidisc_get_advanced_device_info',
+        {
+            description: 'Read firmware and supported advanced maintenance capabilities from a factory-capable NetMD device.',
+            inputSchema: z.object({}),
+        },
+        async () => execute({ type: 'advanced.inspect' })
+    );
+    server.registerTool(
+        'minidisc_read_raw_toc',
+        {
+            description:
+                'Read all six raw UTOC sectors without modifying the disc. Returns bounded base64 data and a SHA-256 checksum.',
+            inputSchema: z.object({}),
+        },
+        async () => execute({ type: 'advanced.readToc' })
+    );
+    server.registerTool(
         'minidisc_rename_disc',
         {
             description: 'Rename the current disc and return its refreshed state.',
