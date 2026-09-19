@@ -61,6 +61,7 @@ export class MiniDiscApplication {
     refresh(dropCache = false) {
         return this.serial(async () => {
             const next = await this.gateway.readSnapshot(dropCache);
+            if (this.snapshot && hasDeviceContentChanged(this.snapshot, next)) this.revision += 1;
             return this.commitSnapshot({ ...next, sessionId: this.sessionId, revision: this.revision });
         });
     }
@@ -73,6 +74,7 @@ export class MiniDiscApplication {
             }
             const status = await this.gateway.readStatus();
             if (status.discPresent !== Boolean(this.snapshot.disc)) {
+                this.revision += 1;
                 const next = await this.gateway.readSnapshot(true);
                 return this.commitSnapshot({ ...next, sessionId: this.sessionId, revision: this.revision });
             }
@@ -852,6 +854,23 @@ export class MiniDiscApplication {
     private serial<T>(operation: () => Promise<T>): Promise<T> {
         return this.operations.run(operation);
     }
+}
+
+function hasDeviceContentChanged(
+    previous: DeviceSnapshot,
+    next: Omit<DeviceSnapshot, 'sessionId' | 'revision'>
+) {
+    return JSON.stringify({
+        deviceName: previous.deviceName,
+        capabilities: previous.capabilities,
+        recording: previous.recording,
+        disc: previous.disc,
+    }) !== JSON.stringify({
+        deviceName: next.deviceName,
+        capabilities: next.capabilities,
+        recording: next.recording,
+        disc: next.disc,
+    });
 }
 
 function encodeBase64(data: Uint8Array) {

@@ -129,7 +129,7 @@ function makeGateway() {
             return calculateImportPreview(new DefaultMinidiscSpec(), currentDisc, tracks, format);
         },
     };
-    return { gateway, calls };
+    return { gateway, calls, disc, status };
 }
 
 describe('MiniDiscApplication', () => {
@@ -256,7 +256,25 @@ describe('MiniDiscApplication', () => {
         gateway.readSnapshot = originalReadSnapshot;
 
         assert.equal(removed.disc, null);
+        assert.equal(removed.revision, 1);
         assert.deepEqual(calls.slice(-1), ['read']);
+    });
+
+    it('invalidates prepared commands when a refresh discovers external disc changes', async () => {
+        const { gateway, disc } = makeGateway();
+        const application = new MiniDiscApplication(gateway);
+        const initial = await application.refresh();
+
+        disc.title = 'Changed outside the application';
+        const refreshed = await application.refresh(true);
+
+        assert.equal(initial.revision, 0);
+        assert.equal(refreshed.revision, 1);
+        assert.equal(refreshed.disc?.title, 'Changed outside the application');
+        await assert.rejects(
+            () => application.renameDisc('Stale edit', undefined, initial.revision),
+            (error: any) => error.code === 'STALE_REVISION'
+        );
     });
 
     it('returns a stable session and increments the revision only after a successful mutation', async () => {
