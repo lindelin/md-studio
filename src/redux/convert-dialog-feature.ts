@@ -1,9 +1,8 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { HiMDCodecName } from 'himd-js';
 import { enableBatching } from 'redux-batched-actions';
-import { savePreference, loadPreference } from '../utils';
-import { isOneOf, isUploadFormat } from '../preferences';
 import type { ImportTitleFormat } from '../application/import-title';
+import { applicationSettings, type UserSettings } from '../application/settings-store';
 
 export type TitleFormatType = ImportTitleFormat;
 export type ForcedEncodingFormat = { codec: 'SPM' | 'SPS' | HiMDCodecName; bitrate: number } | null;
@@ -23,14 +22,11 @@ export interface ConvertDialogFeature {
     }[];
 }
 
+const sharedSettings = applicationSettings.getSnapshot().values;
 const initialState: ConvertDialogFeature = {
     visible: false,
-    format: loadPreference('uploadFormat', {}, isUploadFormat),
-    titleFormat: loadPreference(
-        'trackTitleFormat',
-        'filename',
-        isOneOf(['filename', 'title', 'album-title', 'artist-title', 'artist-album-title', 'title-artist'] as const)
-    ),
+    format: sharedSettings.uploadFormat,
+    titleFormat: sharedSettings.trackTitleFormat,
     titles: [],
 };
 
@@ -43,11 +39,9 @@ const slice = createSlice({
         },
         setFormat: (state, action: PayloadAction<ConvertDialogFeature['format']>) => {
             state.format = action.payload;
-            savePreference('uploadFormat', state.format);
         },
         setTitleFormat: (state, action: PayloadAction<TitleFormatType>) => {
             state.titleFormat = action.payload;
-            savePreference('trackTitleFormat', state.titleFormat);
         },
         setTitles: (
             state,
@@ -71,7 +65,10 @@ const slice = createSlice({
                 ...state.format,
                 [action.payload.spec]: action.payload.codec,
             };
-            savePreference('uploadFormat', state.format);
+        },
+        applySharedSettings: (state, action: PayloadAction<UserSettings>) => {
+            state.format = action.payload.uploadFormat;
+            state.titleFormat = action.payload.trackTitleFormat;
         },
     },
 });

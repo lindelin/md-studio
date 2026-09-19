@@ -1,6 +1,7 @@
-import { isBoolean, isOneOf, isPrimitiveRecord, loadPreference, savePreference } from '../preferences';
+import { isBoolean, isOneOf, isPrimitiveRecord, isUploadFormat, loadPreference, savePreference } from '../preferences';
 import { ApplicationError } from './contracts';
 import type { CustomParameters } from '../custom-parameters';
+import type { ImportTitleFormat } from './import-title';
 
 export interface UserSettings {
     colorTheme: 'dark' | 'light' | 'system';
@@ -18,6 +19,8 @@ export interface UserSettings {
     audioExportServiceConfig: CustomParameters;
     libraryService: number;
     libraryServiceConfig: CustomParameters;
+    uploadFormat: Record<string, [number, number]>;
+    trackTitleFormat: ImportTitleFormat;
 }
 
 export interface SettingsSnapshot {
@@ -43,11 +46,22 @@ const defaults: UserSettings = {
     audioExportServiceConfig: {},
     libraryService: -1,
     libraryServiceConfig: {},
+    uploadFormat: {},
+    trackTitleFormat: 'filename',
 };
 
 const booleanKeys = new Set<keyof UserSettings>(
     Object.keys(defaults).filter(
-        (key) => !['colorTheme', 'audioExportService', 'audioExportServiceConfig', 'libraryService', 'libraryServiceConfig'].includes(key)
+        (key) =>
+            ![
+                'colorTheme',
+                'audioExportService',
+                'audioExportServiceConfig',
+                'libraryService',
+                'libraryServiceConfig',
+                'uploadFormat',
+                'trackTitleFormat',
+            ].includes(key)
     ) as (keyof UserSettings)[]
 );
 
@@ -143,6 +157,13 @@ export class SettingsStore {
                 isPrimitiveRecord,
                 this.storage
             ),
+            uploadFormat: loadPreference('uploadFormat', defaults.uploadFormat, isUploadFormat, this.storage),
+            trackTitleFormat: loadPreference(
+                'trackTitleFormat',
+                defaults.trackTitleFormat,
+                isOneOf(['filename', 'title', 'album-title', 'artist-title', 'artist-album-title', 'title-artist'] as const),
+                this.storage
+            ),
         };
     }
 
@@ -164,6 +185,18 @@ export class SettingsStore {
         if (key === 'audioExportServiceConfig' || key === 'libraryServiceConfig') {
             if (!isPrimitiveRecord(value)) {
                 throw new ApplicationError('INVALID_INPUT', `${key} must contain only string, number, or boolean values.`);
+            }
+            return;
+        }
+        if (key === 'uploadFormat') {
+            if (!isUploadFormat(value)) {
+                throw new ApplicationError('INVALID_INPUT', 'uploadFormat must map device names to codec and bitrate indexes.');
+            }
+            return;
+        }
+        if (key === 'trackTitleFormat') {
+            if (!isOneOf(['filename', 'title', 'album-title', 'artist-title', 'artist-album-title', 'title-artist'] as const)(value)) {
+                throw new ApplicationError('INVALID_INPUT', 'trackTitleFormat is invalid.');
             }
             return;
         }

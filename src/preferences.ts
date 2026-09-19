@@ -143,7 +143,9 @@ export function isUploadFormat(value: unknown): value is Record<string, [number,
         !Array.isArray(value) &&
         Object.values(value).every(
             (entry) =>
-                Array.isArray(entry) && entry.length === 2 && entry.every((part) => typeof part === 'number' && Number.isFinite(part))
+                Array.isArray(entry) &&
+                entry.length === 2 &&
+                entry.every((part) => typeof part === 'number' && Number.isInteger(part) && part >= 0)
         )
     );
 }

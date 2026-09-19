@@ -191,7 +191,10 @@ export const slice = createSlice({
             state.factoryModeNERAWDownload = action.payload;
         },
         applySharedSettings: (state, action: PayloadAction<UserSettings>) => {
-            Object.assign(state, action.payload);
+            const appSettings: Partial<UserSettings> = { ...action.payload };
+            delete appSettings.uploadFormat;
+            delete appSettings.trackTitleFormat;
+            Object.assign(state, appSettings);
         },
     },
 });

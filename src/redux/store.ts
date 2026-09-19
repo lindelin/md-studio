@@ -5,7 +5,7 @@ import renameDialog from './rename-dialog-feature';
 import otherDeviceDialog from './other-device-feature';
 import errorDialog from './error-dialog-feature';
 import panicDialog, { actions as panicDialogActions } from './panic-dialog-feature';
-import convertDialog from './convert-dialog-feature';
+import convertDialog, { actions as convertDialogActions, type ConvertDialogFeature } from './convert-dialog-feature';
 import dumpDialog from './dump-dialog-feature';
 import recordDialog from './record-dialog-feature';
 import songRecognitionDialog from './song-recognition-dialog-feature';
@@ -25,7 +25,7 @@ import { batchActions, batchDispatchMiddleware } from 'redux-batched-actions';
 import { clearApplicationRuntime } from '../application/runtime';
 import { applicationSettings, type UserSettings } from '../application/settings-store';
 
-function sharedSettingsFromState(state: { appState: UserSettings }): UserSettings {
+function sharedSettingsFromState(state: { appState: Omit<UserSettings, 'uploadFormat' | 'trackTitleFormat'>; convertDialog: ConvertDialogFeature }): UserSettings {
     const source = state.appState;
     return {
         colorTheme: source.colorTheme,
@@ -43,6 +43,8 @@ function sharedSettingsFromState(state: { appState: UserSettings }): UserSetting
         audioExportServiceConfig: source.audioExportServiceConfig,
         libraryService: source.libraryService,
         libraryServiceConfig: source.libraryServiceConfig,
+        uploadFormat: state.convertDialog.format,
+        trackTitleFormat: state.convertDialog.titleFormat,
     };
 }
 
@@ -94,8 +96,17 @@ const applicationLifecycle: Middleware = () => (next) => (action) => {
 };
 const sharedSettingsPersistence: Middleware = (storeApi) => (next) => (action) => {
     const result = next(action);
-    if ((action as { type?: string }).type === appActions.applySharedSettings.toString()) return result;
-    const values = sharedSettingsFromState(storeApi.getState() as { appState: UserSettings });
+    if (
+        (action as { type?: string }).type === appActions.applySharedSettings.toString() ||
+        (action as { type?: string }).type === convertDialogActions.applySharedSettings.toString()
+    )
+        return result;
+    const values = sharedSettingsFromState(
+        storeApi.getState() as {
+            appState: Omit<UserSettings, 'uploadFormat' | 'trackTitleFormat'>;
+            convertDialog: ConvertDialogFeature;
+        }
+    );
     const current = applicationSettings.getSnapshot().values;
     const changes = Object.fromEntries(
         (Object.keys(values) as (keyof UserSettings)[])
@@ -115,9 +126,15 @@ const resetStateReducer: typeof reducer = function (...args) {
         // RunningChrome must reflect the actual browser type
         const initialAppState = buildInitialAppState();
         initialAppState.runningChrome = !!(navigator && navigator.usb);
+        const sharedSettings = applicationSettings.getSnapshot().values;
         return {
             ...initialState,
             appState: initialAppState,
+            convertDialog: {
+                ...initialState.convertDialog,
+                format: sharedSettings.uploadFormat,
+                titleFormat: sharedSettings.trackTitleFormat,
+            },
         };
     }
     return reducer(...args);
@@ -130,7 +147,10 @@ export const store = configureStore({
 });
 
 const initialState = Object.freeze(store.getState());
-applicationSettings.subscribe((snapshot) => store.dispatch(appActions.applySharedSettings(snapshot.values)));
+applicationSettings.subscribe((snapshot) => {
+    store.dispatch(appActions.applySharedSettings(snapshot.values));
+    store.dispatch(convertDialogActions.applySharedSettings(snapshot.values));
+});
 
 export type AppStore = typeof store;
 export type AppSubscribe = typeof store.subscribe;

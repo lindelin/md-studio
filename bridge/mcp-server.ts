@@ -125,6 +125,10 @@ function createServer() {
                         factoryModeUseSlowerExploit: z.boolean().optional(),
                         factoryModeShortcuts: z.boolean().optional(),
                         factoryModeNERAWDownload: z.boolean().optional(),
+                        uploadFormat: z.record(z.string(), z.tuple([z.number().int().nonnegative(), z.number().int().nonnegative()])).optional(),
+                        trackTitleFormat: z
+                            .enum(['filename', 'title', 'album-title', 'artist-title', 'artist-album-title', 'title-artist'])
+                            .optional(),
                     })
                     .refine((changes) => Object.keys(changes).length > 0, 'At least one setting is required.'),
                 expectedRevision: z.number().int().nonnegative().optional(),

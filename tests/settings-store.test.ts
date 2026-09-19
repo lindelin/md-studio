@@ -46,6 +46,8 @@ describe('SettingsStore', () => {
                 audioExportServiceConfig: { bitrate: 256, normalize: true },
                 libraryService: 1,
                 libraryServiceConfig: { endpoint: 'https://example.test/library' },
+                uploadFormat: { 'Mock NetMD': [1, 2] },
+                trackTitleFormat: 'artist-title',
             },
             0
         );
@@ -58,6 +60,8 @@ describe('SettingsStore', () => {
         assert.deepEqual(reloaded.values.audioExportServiceConfig, { bitrate: 256, normalize: true });
         assert.equal(reloaded.values.libraryService, 1);
         assert.deepEqual(reloaded.values.libraryServiceConfig, { endpoint: 'https://example.test/library' });
+        assert.deepEqual(reloaded.values.uploadFormat, { 'Mock NetMD': [1, 2] });
+        assert.equal(reloaded.values.trackTitleFormat, 'artist-title');
         assert.deepEqual(revisions, [1]);
     });
 
@@ -99,6 +103,14 @@ describe('SettingsStore', () => {
             () => settings.update({ libraryServiceConfig: { nested: {} } } as any),
             (error: unknown) => (error as ApplicationError).code === 'INVALID_INPUT'
         );
+        assert.throws(
+            () => settings.update({ uploadFormat: { Mock: [0, -1] } }),
+            (error: unknown) => (error as ApplicationError).code === 'INVALID_INPUT'
+        );
+        assert.throws(
+            () => settings.update({ trackTitleFormat: 'performer' } as any),
+            (error: unknown) => (error as ApplicationError).code === 'INVALID_INPUT'
+        );
         assert.equal(settings.getSnapshot().revision, 1);
         assert.equal(settings.getSnapshot().values.pageFullHeight, false);
     });
@@ -109,6 +121,8 @@ describe('SettingsStore', () => {
         storage.setItem('audioExportServiceConfig', JSON.stringify({ quality: 'high' }));
         storage.setItem('libraryService', JSON.stringify(0));
         storage.setItem('libraryServiceConfig', JSON.stringify({ nested: { invalid: true } }));
+        storage.setItem('uploadFormat', JSON.stringify({ Mock: [1.5, 0] }));
+        storage.setItem('trackTitleFormat', JSON.stringify('invalid-format'));
 
         const snapshot = new SettingsStore(storage).getSnapshot();
 
@@ -116,7 +130,11 @@ describe('SettingsStore', () => {
         assert.deepEqual(snapshot.values.audioExportServiceConfig, { quality: 'high' });
         assert.equal(snapshot.values.libraryService, 0);
         assert.deepEqual(snapshot.values.libraryServiceConfig, {});
+        assert.deepEqual(snapshot.values.uploadFormat, {});
+        assert.equal(snapshot.values.trackTitleFormat, 'filename');
         assert.equal(storage.getItem('audioExportService'), null);
         assert.equal(storage.getItem('libraryServiceConfig'), null);
+        assert.equal(storage.getItem('uploadFormat'), null);
+        assert.equal(storage.getItem('trackTitleFormat'), null);
     });
 });
