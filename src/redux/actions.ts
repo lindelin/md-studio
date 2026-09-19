@@ -21,16 +21,13 @@ import {
     secondsToHumanReadable,
     getTracks,
     ffmpegTranscode,
-    AdaptiveFile,
 } from '../utils';
-import { isDeferredFile } from '../application/deferred-file';
 import NotificationCompleteIconUrl from '../images/record-complete-notification-icon.png';
 import { assertNumber } from 'netmd-js/dist/utils';
 import { Capability, NetMDService, Codec, MinidiscSpec, ExploitCapability } from '../services/interfaces/netmd';
 import { getSimpleServices, ServiceConstructionInfo } from '../services/interface-service-manager';
 import { AudioServices, resolveAudioServiceIndex } from '../services/audio-export-service-manager';
 import { checkFactoryCapability, initializeFactoryMode } from './factory/factory-actions';
-import { ExportParams } from '../services/audio/audio-export';
 import { LibraryServices } from '../services/library-services';
 import { s16LEToSamplesArray, Shazam } from 'shazam-api';
 import { bindApplicationRuntime, ensureApplicationCommandBus, getApplicationRuntime, releaseDeviceSession } from '../application/runtime';
@@ -41,6 +38,7 @@ import { resolveGroupedTrackMove } from '../domain/disc-layout';
 import { DeviceSessionConnector } from '../application/device-session';
 import type { TaskSnapshot } from '../application/task-manager';
 import { allocateRecordingTitle } from '../domain/recording-title-budget';
+import { convertImportAudio, ImportAudioConversionError } from '../application/audio-conversion-pipeline';
 
 export function requestTaskCancellation(id: string) {
     return async function () {
@@ -967,7 +965,6 @@ export function convertAndUpload(
             lastConvertProgress = lastUploadProgress;
         const originalTitle = document.title;
         let totalBytesAllTracks = 0,
-            totalBytesCalc = 0,
             bytesSentFromPrevTracks = 0,
             bytesSentFromThisTrack = 0;
 
@@ -1073,105 +1070,21 @@ export function convertAndUpload(
         };
         updateTrack();
 
-        const conversionIterator = async function* (files: TitledFile[]) {
-            const converted: Promise<{ file: TitledFile; data: ArrayBuffer }>[] = [];
-
-            let i = 0;
-            function convertNext() {
-                if (i === files.length || hasUploadBeenCancelled()) {
-                    trackUpdate.converting = i;
-                    trackUpdate.titleConverting = ``;
-                    totalBytesAllTracks = totalBytesCalc;
-                    updateTrack();
-                    return;
-                }
-
-                const f = files[i];
-                trackUpdate.converting = i;
-                trackUpdate.titleConverting = f.title;
-                const j = i;
+        const conversionIterator = convertImportAudio(files, format, additionalParameters, audioExportService!, {
+            isCancelled: hasUploadBeenCancelled,
+            onTrackStarted: (index, _total, file) => {
+                trackUpdate.converting = index;
+                trackUpdate.titleConverting = file.title;
                 updateTrack();
-                i++;
-
-                if (f.forcedEncoding === null) {
-                    // This is not an ATRAC file
-                    converted[j] = (async () => {
-                        try {
-                            let audioExportFormat: ExportParams['format'];
-                            switch (format.codec) {
-                                case 'SPS':
-                                case 'SPM':
-                                    audioExportFormat = {
-                                        codec: 'PCM',
-                                        bitrate: 1411,
-                                    };
-                                    break;
-                                default:
-                                    audioExportFormat = {
-                                        codec: format.codec,
-                                        bitrate: format.bitrate,
-                                    };
-                                    break;
-                            }
-
-                            const exportParams: ExportParams = {
-                                format: audioExportFormat,
-                                enableReplayGain: additionalParameters.enableReplayGain,
-                                writeGapless: additionalParameters.enableGapless && j !== files.length - 1,
-                            };
-
-                            const inputFile = isDeferredFile(f.file) ? await f.file.getFile() : f.file;
-                            let data: ArrayBuffer;
-                            if ((inputFile as any).getForEncoding) {
-                                const file = inputFile as AdaptiveFile;
-                                data = await file.getForEncoding(exportParams);
-                            } else {
-                                const file = inputFile as File;
-                                await audioExportService!.prepare(file);
-                                data = await audioExportService!.export(
-                                    exportParams,
-                                    updateEncodeProgressCallback.bind(null, j, files.length)
-                                );
-                            }
-
-                            totalBytesCalc += data.byteLength;
-                            convertNext();
-                            return { file: f, data };
-                        } catch (err) {
-                            error = err;
-                            errorMessage = `${f.file.name}: Unsupported or unrecognized format`;
-                            throw err;
-                        }
-                    })();
-                } else {
-                    // This is already an ATRAC file - don't reencode.
-                    converted[j] = (async () => {
-                        try {
-                            const inputFile = isDeferredFile(f.file) ? await f.file.getFile() : f.file;
-                            if ((inputFile as any).getForEncoding) throw new Error('Adaptive files cannot be preencoded!');
-                            // Remove the WAV header.
-                            const file = inputFile as File;
-                            const data = (await file.arrayBuffer()).slice(f.bytesToSkip);
-                            totalBytesCalc += data.byteLength;
-                            convertNext();
-                            return { file: f, data };
-                        } catch (err) {
-                            error = err;
-                            errorMessage = `${f.file.name}: Could not read the pre-encoded track`;
-                            throw err;
-                        }
-                    })();
-                }
-            }
-            convertNext();
-
-            let j = 0;
-            while (j < converted.length) {
-                yield await converted[j];
-                delete converted[j];
-                j++;
-            }
-        };
+            },
+            onTrackProgress: updateEncodeProgressCallback,
+            onQueueFinished: (totalBytes, startedCount) => {
+                trackUpdate.converting = startedCount;
+                trackUpdate.titleConverting = '';
+                totalBytesAllTracks = totalBytes;
+                updateTrack();
+            },
+        });
 
         const disc = getState().main.disc;
         const usesHiMDTitles = getState().main.deviceCapabilities.includes(Capability.himdTitles);
@@ -1188,7 +1101,7 @@ export function convertAndUpload(
             uploadPrepared = true;
             if (isWriteTaskRunning()) serviceRegistry.taskManager.setPhase(writeTask.id, 'converting');
 
-            for await (const item of conversionIterator(files)) {
+            for await (const item of conversionIterator) {
                 if (hasUploadBeenCancelled()) {
                     break;
                 }
@@ -1261,7 +1174,10 @@ export function convertAndUpload(
         } catch (caughtError) {
             if (!error) {
                 error = caughtError;
-                errorMessage = 'The recording task stopped before all tracks were transferred.';
+                errorMessage =
+                    caughtError instanceof ImportAudioConversionError
+                        ? caughtError.message
+                        : 'The recording task stopped before all tracks were transferred.';
             }
         } finally {
             if (isWriteTaskRunning()) {
