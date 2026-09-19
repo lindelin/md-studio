@@ -12,6 +12,7 @@ function help() {
 
 Usage:
   npm run cli -- status
+  npm run cli -- workspace
   npm run cli -- tasks
   npm run cli -- imports
   npm run cli -- write <audio-file> [audio-file ...]
@@ -98,6 +99,8 @@ async function parseArguments(arguments_: string[]): Promise<ParsedArguments> {
         operation = { kind: 'command', command: JSON.parse(await readFile(commandFile, 'utf8')) as ApplicationCommand };
     } else if (positional[0] === 'status') {
         operation = { kind: 'command', command: { type: 'disc.refresh' } };
+    } else if (positional[0] === 'workspace') {
+        operation = { kind: 'command', command: { type: 'workspace.get' } };
     } else if (positional[0] === 'tasks') {
         operation = { kind: 'command', command: { type: 'task.list' } };
     } else if (positional[0] === 'imports') {

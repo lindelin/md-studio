@@ -5,6 +5,7 @@ import { ImportQueue, type ImportWriter } from '../src/application/import-queue.
 import type { MiniDiscApplication } from '../src/application/minidisc-application.ts';
 import { TaskManager } from '../src/application/task-manager.ts';
 import { SettingsStore } from '../src/application/settings-store.ts';
+import { WorkspaceStore } from '../src/application/workspace-store.ts';
 
 describe('ApplicationCommandBus import writing', () => {
     it('keeps settings and import planning available without a connected device', async () => {
@@ -25,6 +26,28 @@ describe('ApplicationCommandBus import writing', () => {
 
         assert.equal(updatedSettings.ok && updatedSettings.settings?.values.colorTheme, 'dark');
         assert.equal(addedImport.ok && addedImport.importQueue?.items[0]?.name, 'track.wav');
+    });
+
+    it('returns one disconnected workspace snapshot for UI and automation clients', async () => {
+        const tasks = new TaskManager();
+        const imports = new ImportQueue();
+        const settings = new SettingsStore(null);
+        const workspace = new WorkspaceStore(tasks, imports, settings);
+        const bus = new ApplicationCommandBus(undefined, tasks, imports, undefined, undefined, settings, workspace);
+        imports.add([
+            {
+                source: { kind: 'local-path', name: 'queued.wav', reference: 'bridge-file:queued' },
+                metadata: { title: 'Queued' },
+            },
+        ]);
+        settings.update({ colorTheme: 'dark' });
+
+        const result = await bus.execute({ type: 'workspace.get' });
+
+        assert.equal(result.ok && result.workspace?.device, null);
+        assert.equal(result.ok && result.workspace?.imports.items[0]?.title, 'Queued');
+        assert.equal(result.ok && result.workspace?.settings.values.colorTheme, 'dark');
+        assert.deepEqual(result.ok && result.workspace?.tasks, []);
     });
 
     it('returns a structured disconnected error only for commands that need a device', async () => {

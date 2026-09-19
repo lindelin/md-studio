@@ -46,6 +46,15 @@ function createServer() {
     );
 
     server.registerTool(
+        'minidisc_get_workspace',
+        {
+            description:
+                'Read the complete app workspace: connected device and disc when available, ordered imports, task history, and shared settings. This also works before a device is connected.',
+            inputSchema: z.object({}),
+        },
+        async () => execute({ type: 'workspace.get' })
+    );
+    server.registerTool(
         'minidisc_get_status',
         { description: 'Read the connected MiniDisc device, capabilities, disc, groups, and tracks.', inputSchema: z.object({}) },
         async () => execute({ type: 'disc.refresh' })

@@ -39,6 +39,7 @@ npm test
 npm run build
 npm run mcp
 npm run cli -- status
+npm run cli -- workspace
 npm run cli -- tasks
 npm run cli -- imports
 npm run cli -- write "C:\\Music\\Track 01.wav" "C:\\Music\\Track 02.flac"
@@ -63,7 +64,7 @@ The `write` and `export` commands keep the local bridge alive, stream files thro
 
 Enable **Local MCP and CLI bridge** in the app settings, then reload the app. `npm run mcp` starts an MCP server over standard input/output and a WebSocket bridge on `127.0.0.1:47123`. Keep the browser app open. Device operations continue to run in the browser, which owns the WebUSB session.
 
-The MCP tools cover device status, disc and track metadata, groups, playback, deletion and erase with explicit confirmation, HiMD maintenance, task state, local audio staging and writing, and streamed track export to a selected local directory. Long transfers return a task identifier for progress and cancellation. Destructive commands require both `confirmed: true` and a non-empty reason. Mutating tools accept `expectedRevision` so a command prepared from stale disc state is rejected before it writes.
+The MCP tools cover the complete workspace snapshot, device status, disc and track metadata, groups, playback, deletion and erase with explicit confirmation, HiMD maintenance, task state, local audio staging and writing, and streamed track export to a selected local directory. The workspace snapshot remains available before a device is connected, so clients can prepare imports and settings first. Long transfers return a task identifier for progress and cancellation. Destructive commands require both `confirmed: true` and a non-empty reason. Mutating tools accept `expectedRevision` so a command prepared from stale disc state is rejected before it writes.
 
 Set `MINIDISC_BRIDGE_TOKEN` to require a token, and store the same value in the browser preference `minidiscLocalBridgeToken`. The bridge listens on loopback and accepts local browser origins by default.
 

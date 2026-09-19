@@ -24,8 +24,10 @@ import type { TrackExporter, TrackExportRequest } from './track-export';
 import type { MetadataCsvExport, MetadataImportPlan } from '../domain/metadata-import';
 import { SettingsStore, type SettingsSnapshot, type UserSettingsUpdate } from './settings-store';
 import { ApplicationError } from './contracts';
+import type { WorkspaceSnapshot, WorkspaceStore } from './workspace-store';
 
 export type ApplicationCommand =
+    | { type: 'workspace.get' }
     | { type: 'disc.refresh'; dropCache?: boolean }
     | { type: 'disc.rename'; title: string; fullWidthTitle?: string; expectedRevision?: number }
     | { type: 'disc.erase'; confirmation?: DestructiveConfirmation; expectedRevision?: number }
@@ -78,6 +80,7 @@ export interface CommandSuccess {
     advancedInfo?: AdvancedDeviceInfo;
     advancedToc?: AdvancedTocDump;
     settings?: SettingsSnapshot;
+    workspace?: WorkspaceSnapshot;
 }
 
 export interface CommandFailure {
@@ -94,7 +97,8 @@ export class ApplicationCommandBus {
         private readonly imports: ImportQueue,
         private importWriter?: ImportWriter,
         private trackExporter?: TrackExporter,
-        private readonly settings = new SettingsStore(null)
+        private readonly settings = new SettingsStore(null),
+        private readonly workspace?: WorkspaceStore
     ) {}
 
     attachApplication(application: MiniDiscApplication | undefined) {
@@ -108,6 +112,19 @@ export class ApplicationCommandBus {
 
     async execute(command: ApplicationCommand): Promise<CommandResult> {
         try {
+            if (command.type === 'workspace.get') {
+                return {
+                    ok: true,
+                    workspace: this.workspace
+                        ? structuredClone(this.workspace.getSnapshot())
+                        : {
+                              device: this.application?.readSnapshot() ?? null,
+                              imports: this.imports.snapshot(),
+                              tasks: this.tasks.list(),
+                              settings: this.settings.getSnapshot(),
+                          },
+                };
+            }
             if (command.type === 'task.list') return { ok: true, tasks: this.tasks.list() };
             if (command.type === 'task.get') return { ok: true, task: this.tasks.get(command.id) };
             if (command.type === 'task.cancel') return { ok: true, task: this.tasks.requestCancellation(command.id) };
