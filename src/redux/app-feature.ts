@@ -26,6 +26,7 @@ export interface AppState {
     notifyWhenFinished: boolean;
     hasNotificationSupport: boolean;
     fullWidthSupport: boolean;
+    localBridgeEnabled: boolean;
     availableServices: ServiceConstructionInfo[];
     lastSelectedService: number;
     factoryModeRippingInMainUi: boolean;
@@ -60,6 +61,7 @@ export const buildInitialState = (): AppState => {
         notifyWhenFinished: loadPreference('notifyWhenFinished', false, isBoolean),
         hasNotificationSupport: true,
         fullWidthSupport: loadPreference('fullWidthSupport', false, isBoolean),
+        localBridgeEnabled: loadPreference('minidiscLocalBridgeEnabled', false, isBoolean),
         availableServices: getSimpleServices().concat(
             filterOutCorrupted(loadPreference<ServiceConstructionInfo[]>('customServices', [], isServiceList))
         ),
@@ -141,6 +143,10 @@ export const slice = createSlice({
         setFullWidthSupport: (state, action: PayloadAction<boolean>) => {
             state.fullWidthSupport = action.payload;
             savePreference('fullWidthSupport', state.fullWidthSupport);
+        },
+        setLocalBridgeEnabled: (state, action: PayloadAction<boolean>) => {
+            state.localBridgeEnabled = action.payload;
+            savePreference('minidiscLocalBridgeEnabled', action.payload);
         },
         setAvailableServices: (state, action: PayloadAction<ServiceConstructionInfo[]>) => {
             state.availableServices = action.payload;

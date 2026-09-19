@@ -126,16 +126,17 @@ const SimpleField = ({
 };
 
 const NativeFields = ({ section, classes }: { section: string; classes: any }) => {
-    if (!window.native?.getSettings) return <></>;
-
     const [settings, setSettings] = useState<SettingInterface[]>([]);
     const [_state, _updateState] = useState({});
     useEffect(() => {
+        if (!window.native?.getSettings) return;
         (async () => {
             const settings = await window.native!.getSettings!();
             setSettings(settings);
         })();
     }, [_state]);
+
+    if (!window.native?.getSettings) return <></>;
 
     const filtered = settings.filter((e) => e.family === section);
     const updateState = () => _updateState({});
@@ -150,7 +151,7 @@ const NativeFields = ({ section, classes }: { section: string; classes: any }) =
         } else if (entry.type === 'boolean') {
             return (
                 <SimpleField name={entry.name} classes={classes} formControl={true} key={entry.family + entry.name}>
-                    <Switch checked={entry.state as boolean} onChange={(e) => entry.update(!entry.state).then(updateState)} />
+                    <Switch checked={entry.state as boolean} onChange={() => entry.update(!entry.state).then(updateState)} />
                 </SimpleField>
             );
         } else {
@@ -168,7 +169,7 @@ const NativeFields = ({ section, classes }: { section: string; classes: any }) =
     });
 };
 
-export const SettingsDialog = (props: {}) => {
+export const SettingsDialog = () => {
     const dispatch = useDispatch();
     const { classes } = useStyles();
 
@@ -178,7 +179,7 @@ export const SettingsDialog = (props: {}) => {
     const { colorTheme, pageFullHeight, pageFullWidth } = useShallowEqualSelector((state) => state.appState);
 
     // Functionality properties
-    const { fullWidthSupport } = useShallowEqualSelector((state) => state.appState);
+    const { fullWidthSupport, localBridgeEnabled } = useShallowEqualSelector((state) => state.appState);
     const {
         archiveDiscCreateZip,
         factoryModeUseSlowerExploit,
@@ -210,8 +211,9 @@ export const SettingsDialog = (props: {}) => {
             currentExportService,
             currentLibraryService,
             currentLibraryServiceConfig,
+            localBridgeEnabled,
         }),
-        [currentExportServiceConfig, currentExportService, currentLibraryService, currentLibraryServiceConfig]
+        [currentExportServiceConfig, currentExportService, currentLibraryService, currentLibraryServiceConfig, localBridgeEnabled]
     );
     const saveBeforeReset = useCallback(() => {
         dispatch(
@@ -263,6 +265,9 @@ export const SettingsDialog = (props: {}) => {
     const handleToggleFullWidth = useCallback(() => {
         dispatch(appActions.setFullWidthSupport(!fullWidthSupport));
     }, [dispatch, fullWidthSupport]);
+    const handleToggleLocalBridge = useCallback(() => {
+        dispatch(appActions.setLocalBridgeEnabled(!localBridgeEnabled));
+    }, [dispatch, localBridgeEnabled]);
     const handleToggleDiscProtectedDialogDisabled = useCallback(() => {
         dispatch(appActions.disableDiscProtectedDialog(!discProtectedDialogDisabled));
     }, [dispatch, discProtectedDialogDisabled]);
@@ -338,10 +343,10 @@ export const SettingsDialog = (props: {}) => {
                         <MenuItem value="system">Device Theme</MenuItem>
                     </Select>
                 </SimpleField>
-                <SimpleField name="Stretch Web Minidisc Pro to fill the screen vertically" classes={classes} formControl={true}>
+                <SimpleField name="Stretch MiniDisc Workspace to fill the screen vertically" classes={classes} formControl={true}>
                     <Switch checked={pageFullHeight} onChange={handlePageFullHeightChange} />
                 </SimpleField>
-                <SimpleField name="Stretch Web Minidisc Pro to fill the screen horizontally" classes={classes} formControl={true}>
+                <SimpleField name="Stretch MiniDisc Workspace to fill the screen horizontally" classes={classes} formControl={true}>
                     <Switch checked={pageFullWidth} onChange={handlePageFullWidthChange} />
                 </SimpleField>
                 <NativeFields classes={classes} section="Appearance" />
@@ -357,6 +362,14 @@ export const SettingsDialog = (props: {}) => {
                 </SimpleField>
                 <SimpleField name="Enable disc-protected warning dialog" classes={classes} formControl={true}>
                     <Switch checked={!discProtectedDialogDisabled} onChange={handleToggleDiscProtectedDialogDisabled} />
+                </SimpleField>
+                <SimpleField
+                    name="Enable local MCP and CLI bridge"
+                    classes={classes}
+                    formControl={true}
+                    tooltip="Allows a loopback-only process on this computer to control the connected device. The app reloads when this setting changes."
+                >
+                    <Switch checked={localBridgeEnabled} onChange={handleToggleLocalBridge} />
                 </SimpleField>
                 <SimpleField
                     name="Create a ZIP file when using 'Archive Disc'"

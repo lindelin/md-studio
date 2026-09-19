@@ -3,7 +3,7 @@ import { BRIDGE_PROTOCOL_VERSION, parseBridgeMessage, type BridgeHello, type Bri
 import { bindApplicationRuntime } from './runtime';
 import { store } from '../redux/store';
 import { applyDeviceSnapshot } from '../redux/application-adapter';
-import { readRawPreference } from '../preferences';
+import { isBoolean, loadPreference, readRawPreference } from '../preferences';
 
 const DEFAULT_BRIDGE_URL = 'ws://127.0.0.1:47123';
 
@@ -84,10 +84,8 @@ export class BrowserApplicationBridge {
 }
 
 export function startLocalApplicationBridge() {
-    const localHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-    const explicitlyEnabled = readRawPreference('minidiscLocalBridgeEnabled');
-    if (!localHost && explicitlyEnabled !== 'true') return undefined;
-    if (explicitlyEnabled === 'false') return undefined;
+    const explicitlyEnabled = loadPreference('minidiscLocalBridgeEnabled', false, isBoolean);
+    if (!explicitlyEnabled) return undefined;
 
     const configuredUrl = readRawPreference('minidiscLocalBridgeUrl') || DEFAULT_BRIDGE_URL;
     const token = readRawPreference('minidiscLocalBridgeToken');
