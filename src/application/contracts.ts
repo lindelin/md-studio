@@ -185,6 +185,10 @@ export interface DeviceGateway {
     flush(): Promise<void>;
     ejectDisc(): Promise<void>;
     controlPlayback(command: PlaybackCommand): Promise<void>;
+    downloadTrack(
+        index: number,
+        onProgress: (progress: { read: number; total: number }) => void
+    ): Promise<{ extension: string; data: Uint8Array<ArrayBuffer> } | null>;
     previewImports(disc: Disc, tracks: ImportPreviewTrack[], format: { codec: string; bitrate: number }): ImportPreviewCalculation;
 }
 

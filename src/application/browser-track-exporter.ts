@@ -1,6 +1,4 @@
-import type { AppStore } from '../redux/store';
 import serviceRegistry from '../services/registry';
-import { Capability } from '../services/interfaces/netmd';
 import { convertToWAV, createDownloadTrackName, downloadBlob, getTracks } from '../utils';
 import { ApplicationError } from './contracts';
 import type { MiniDiscApplication } from './minidisc-application';
@@ -8,8 +6,6 @@ import type { TaskManager } from './task-manager';
 import type { TrackExporter, TrackExportRequest, TrackExportSink } from './track-export';
 
 export class BrowserTrackExporter implements TrackExporter {
-    constructor(private readonly store: AppStore) {}
-
     async start(
         request: TrackExportRequest,
         application: MiniDiscApplication,
@@ -21,9 +17,6 @@ export class BrowserTrackExporter implements TrackExporter {
         if (uniqueIndexes.size !== request.indexes.length) {
             throw new ApplicationError('INVALID_INPUT', 'A track was supplied more than once.');
         }
-        if (!this.store.getState().main.deviceCapabilities.includes(Capability.trackDownload)) {
-            throw new ApplicationError('CAPABILITY_REQUIRED', 'The connected device cannot export tracks.');
-        }
         if (request.outputHandle && !serviceRegistry.exportPayloadSink) {
             throw new ApplicationError('CAPABILITY_REQUIRED', 'The local export bridge is not connected.');
         }
@@ -34,6 +27,9 @@ export class BrowserTrackExporter implements TrackExporter {
                 expectedRevision: request.expectedRevision,
                 actualRevision: snapshot.revision,
             });
+        }
+        if (!snapshot.capabilities.includes('track.download')) {
+            throw new ApplicationError('CAPABILITY_REQUIRED', 'The connected device cannot export tracks.');
         }
         if (!snapshot.disc) throw new ApplicationError('NO_DISC', 'Insert a disc before exporting tracks.');
         const allTracks = getTracks(snapshot.disc);
@@ -51,7 +47,15 @@ export class BrowserTrackExporter implements TrackExporter {
             'tracks'
         );
         tasks.start(task.id, 'preparing');
-        void this.run(task.id, selected, request, tasks, sink);
+        void this.run(
+            task.id,
+            selected,
+            request,
+            application,
+            { sessionId: snapshot.sessionId, revision: snapshot.revision },
+            tasks,
+            sink
+        );
         return tasks.get(task.id);
     }
 
@@ -59,21 +63,18 @@ export class BrowserTrackExporter implements TrackExporter {
         taskId: string,
         selected: ReturnType<typeof getTracks>,
         request: TrackExportRequest,
+        application: MiniDiscApplication,
+        deviceVersion: { sessionId: string; revision: number },
         tasks: TaskManager,
         sink?: TrackExportSink
     ) {
-        const service = serviceRegistry.netmdService;
-        if (!service) {
-            tasks.fail(taskId, new Error('The MiniDisc device disconnected before export started.'));
-            return;
-        }
         const exportedFiles: string[] = [];
         try {
-            await serviceRegistry.operationCoordinator.run(async () => {
+            await application.runTrackDownloadSession(deviceVersion, async (downloadTrack) => {
                 for (const [position, track] of selected.entries()) {
                     if (tasks.isCancellationRequested(taskId)) break;
                     tasks.setPhase(taskId, 'transferring');
-                    const received = await service.download(track.index, ({ read, total }) => {
+                    const received = await downloadTrack(track.index, ({ read, total }) => {
                         if (tasks.get(taskId).status !== 'running') return;
                         tasks.reportProgress(taskId, {
                             completed: position,

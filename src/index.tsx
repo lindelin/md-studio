@@ -36,7 +36,7 @@ serviceRegistry.importWriter = new BrowserImportWriter({
         store.dispatch(convertDialogActions.setVisible(true));
     },
 });
-serviceRegistry.trackExporter = new BrowserTrackExporter(store);
+serviceRegistry.trackExporter = new BrowserTrackExporter();
 serviceRegistry.trackRecorder = new BrowserTrackRecorder();
 getApplicationClient();
 startLocalApplicationBridge();

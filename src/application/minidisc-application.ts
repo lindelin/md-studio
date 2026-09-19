@@ -339,13 +339,7 @@ export class MiniDiscApplication {
         expectedDeviceVersion?: { sessionId: string; revision: number }
     ): Promise<{ value: T; snapshot: DeviceSnapshot }> {
         return this.serial(async () => {
-            if (expectedDeviceVersion?.sessionId !== undefined && expectedDeviceVersion.sessionId !== this.sessionId) {
-                throw new ApplicationError('STALE_REVISION', 'The connected device changed before the upload started.', {
-                    expectedSessionId: expectedDeviceVersion.sessionId,
-                    actualSessionId: this.sessionId,
-                });
-            }
-            this.assertRevision(expectedDeviceVersion?.revision);
+            this.assertDeviceVersion(expectedDeviceVersion, 'upload');
             this.requireCapability('track.upload');
             let advancedUploadService: AdvancedUploadService | undefined;
             if (requiredExploitCapabilities.length > 0) {
@@ -379,6 +373,19 @@ export class MiniDiscApplication {
             }
             if (primaryError) throw primaryError;
             return { value: value as T, snapshot: snapshot! };
+        });
+    }
+
+    runTrackDownloadSession<T>(
+        expectedDeviceVersion: { sessionId: string; revision: number } | undefined,
+        operation: (
+            downloadTrack: DeviceGateway['downloadTrack']
+        ) => Promise<T>
+    ): Promise<T> {
+        return this.serial(async () => {
+            this.assertDeviceVersion(expectedDeviceVersion, 'export');
+            this.requireCapability('track.download');
+            return operation((index, onProgress) => this.gateway.downloadTrack(index, onProgress));
         });
     }
 
@@ -849,6 +856,19 @@ export class MiniDiscApplication {
                 actualRevision: this.revision,
             });
         }
+    }
+
+    private assertDeviceVersion(
+        expected: { sessionId: string; revision: number } | undefined,
+        operation: 'upload' | 'export'
+    ) {
+        if (expected?.sessionId !== undefined && expected.sessionId !== this.sessionId) {
+            throw new ApplicationError('STALE_REVISION', `The connected device changed before the ${operation} started.`, {
+                expectedSessionId: expected.sessionId,
+                actualSessionId: this.sessionId,
+            });
+        }
+        this.assertRevision(expected?.revision);
     }
 
     private serial<T>(operation: () => Promise<T>): Promise<T> {

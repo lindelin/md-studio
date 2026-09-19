@@ -43,6 +43,7 @@ function makeGateway() {
                     'metadata.himd',
                     'metadata.fullWidth',
                     'playback.control',
+                    'track.download',
                     'track.upload',
                     'disc.eject',
                     'disc.formatHimd',
@@ -124,6 +125,11 @@ function makeGateway() {
             if (command.action === 'pause') status.state = 'paused';
             if (command.action === 'stop') status.state = 'stopped';
             if (command.action === 'gotoTrack' || command.action === 'seek') status.track = command.index;
+        },
+        async downloadTrack(index, onProgress) {
+            calls.push(`download:${index}`);
+            onProgress({ read: 3, total: 3 });
+            return { extension: 'oma', data: Uint8Array.from([1, 2, 3]) };
         },
         previewImports(currentDisc, tracks, format) {
             return calculateImportPreview(new DefaultMinidiscSpec(), currentDisc, tracks, format);
@@ -763,6 +769,30 @@ describe('MiniDiscApplication', () => {
             /encoder failed/
         );
         assert.equal(application.readSnapshot()?.revision, 2);
+    });
+
+    it('runs ordinary track downloads inside the application transaction', async () => {
+        const { gateway, calls } = makeGateway();
+        const application = new MiniDiscApplication(gateway);
+        const initial = await application.refresh();
+        const progress: number[] = [];
+
+        const result = await application.runTrackDownloadSession(
+            { sessionId: initial.sessionId, revision: initial.revision },
+            (downloadTrack) => downloadTrack(1, ({ read }) => progress.push(read))
+        );
+
+        assert.deepEqual([...result!.data], [1, 2, 3]);
+        assert.deepEqual(progress, [3]);
+        assert.equal(calls.at(-1), 'download:1');
+        await assert.rejects(
+            () =>
+                application.runTrackDownloadSession(
+                    { sessionId: initial.sessionId, revision: initial.revision + 1 },
+                    async () => null
+                ),
+            (error: any) => error.code === 'STALE_REVISION'
+        );
     });
 
     it('runs the destructive self-test as one revisioned transaction and leaves a verified empty disc', async () => {

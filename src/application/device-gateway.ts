@@ -124,6 +124,10 @@ export class NetMDDeviceGateway implements DeviceGateway {
         await this.service.ejectDisc();
     }
 
+    downloadTrack(index: number, onProgress: (progress: { read: number; total: number }) => void) {
+        return this.service.download(index, onProgress);
+    }
+
     async controlPlayback(command: PlaybackCommand) {
         switch (command.action) {
             case 'play':
