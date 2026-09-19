@@ -23,6 +23,23 @@ export interface ImportPreview {
         code: 'MISSING_DURATION' | 'UNSUPPORTED_FORCED_FORMAT';
         message: string;
     }>;
+    items: Array<{
+        id: string;
+        format: Codec | null;
+        duration: number | null;
+        required: number | null;
+        requiredInSelectedFormat: number | null;
+        remaining: number;
+        remainingInSelectedFormat: number;
+        capacityFits: boolean;
+        titles: {
+            halfWidthRequired: number;
+            fullWidthRequired: number;
+            halfWidthRemaining: number;
+            fullWidthRemaining: number;
+            fits: boolean;
+        };
+    }>;
     capacity: {
         availableBefore: number;
         required: number;
@@ -52,35 +69,52 @@ export function calculateImportPreview(
 ): ImportPreviewCalculation {
     const selectedFormat = resolveSupportedFormat(spec, requestedFormat);
     const issues: ImportPreviewCalculation['issues'] = [];
+    const items: ImportPreviewCalculation['items'] = [];
+    const titleBefore = spec.getRemainingCharactersForTitles(disc);
     let required = 0;
+    let halfWidthRemaining = titleBefore.halfWidth;
+    let fullWidthRemaining = titleBefore.fullWidth;
 
     for (const track of tracks) {
+        const forced = resolveForcedFormat(spec, track, selectedFormat);
+        const format = forced === null ? null : (forced ?? selectedFormat);
+        let itemRequired: number | null = null;
         if (track.duration === undefined) {
             issues.push({ id: track.id, code: 'MISSING_DURATION', message: `${track.title || track.id} has no known duration.` });
-            continue;
-        }
-        const forced = resolveForcedFormat(spec, track, selectedFormat);
-        if (forced === null) {
+        } else if (format === null) {
             issues.push({
                 id: track.id,
                 code: 'UNSUPPORTED_FORCED_FORMAT',
                 message: `${track.title || track.id} uses a pre-encoded format that this device does not support.`,
             });
-            continue;
+        } else {
+            itemRequired = spec.translateToDefaultMeasuringModeFrom(format, track.duration);
+            required += itemRequired;
         }
-        required += spec.translateToDefaultMeasuringModeFrom(forced ?? selectedFormat, track.duration);
+
+        const titleRequired = spec.getCharactersForTitle(toPreviewTrack(track));
+        halfWidthRemaining -= titleRequired.halfWidth;
+        fullWidthRemaining -= titleRequired.fullWidth;
+        const itemRemaining = disc.left - required;
+        items.push({
+            id: track.id,
+            format,
+            duration: track.duration ?? null,
+            required: itemRequired,
+            requiredInSelectedFormat: itemRequired === null ? null : translateDefaultUnits(spec, selectedFormat, itemRequired),
+            remaining: itemRemaining,
+            remainingInSelectedFormat: translateDefaultUnits(spec, selectedFormat, itemRemaining),
+            capacityFits: itemRequired !== null && itemRemaining >= 0,
+            titles: {
+                halfWidthRequired: titleRequired.halfWidth,
+                fullWidthRequired: titleRequired.fullWidth,
+                halfWidthRemaining,
+                fullWidthRemaining,
+                fits: halfWidthRemaining >= 0 && fullWidthRemaining >= 0,
+            },
+        });
     }
 
-    const titleDisc = structuredClone(disc);
-    let ungrouped = titleDisc.groups.find((group) => group.title === null);
-    if (!ungrouped) {
-        ungrouped = { index: -1, title: null, fullWidthTitle: null, tracks: [] };
-        titleDisc.groups.push(ungrouped);
-    }
-    ungrouped.tracks.push(...tracks.map(toPreviewTrack));
-
-    const titleBefore = spec.getRemainingCharactersForTitles(disc);
-    const titleAfter = spec.getRemainingCharactersForTitles(titleDisc);
     const remaining = disc.left - required;
     const complete = issues.length === 0;
     return {
@@ -89,6 +123,7 @@ export function calculateImportPreview(
         measurementUnits: spec.measurementUnits,
         complete,
         issues,
+        items,
         capacity: {
             availableBefore: disc.left,
             required,
@@ -100,9 +135,9 @@ export function calculateImportPreview(
         titles: {
             halfWidthBefore: titleBefore.halfWidth,
             fullWidthBefore: titleBefore.fullWidth,
-            halfWidthRemaining: titleAfter.halfWidth,
-            fullWidthRemaining: titleAfter.fullWidth,
-            fits: titleAfter.halfWidth >= 0 && titleAfter.fullWidth >= 0,
+            halfWidthRemaining,
+            fullWidthRemaining,
+            fits: halfWidthRemaining >= 0 && fullWidthRemaining >= 0,
         },
     };
 }

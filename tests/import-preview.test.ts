@@ -34,6 +34,15 @@ describe('import preview', () => {
         assert.equal(preview.capacity.remainingInSelectedFormat, 1020);
         assert.equal(preview.capacity.fits, true);
         assert.equal(preview.titles.halfWidthRemaining < preview.titles.halfWidthBefore, true);
+        assert.deepEqual(
+            preview.items.map((item) => ({ id: item.id, required: item.required, remaining: item.remaining })),
+            [
+                { id: 'one', required: 30, remaining: 570 },
+                { id: 'two', required: 60, remaining: 510 },
+            ]
+        );
+        assert.equal(preview.items[0].remainingInSelectedFormat, 1140);
+        assert.equal(preview.items[1].remainingInSelectedFormat, 1020);
         assert.equal(disc.groups[0].tracks.length, 0);
     });
 
@@ -54,5 +63,20 @@ describe('import preview', () => {
             ['MISSING_DURATION', 'UNSUPPORTED_FORCED_FORMAT']
         );
         assert.equal(preview.capacity.fits, false);
+        assert.equal(preview.items[0].required, null);
+        assert.equal(preview.items[1].format, null);
+    });
+
+    it('reports the first per-track title overflow instead of clamping it to zero', () => {
+        const preview = calculateImportPreview(
+            new DefaultMinidiscSpec(),
+            disc,
+            [{ id: 'oversized', title: 'x'.repeat(2000), duration: 1 }],
+            { codec: 'SPS', bitrate: 292 }
+        );
+
+        assert.equal(preview.titles.fits, false);
+        assert.equal(preview.titles.halfWidthRemaining < 0, true);
+        assert.equal(preview.items[0].titles.fits, false);
     });
 });

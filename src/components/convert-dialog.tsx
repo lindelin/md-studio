@@ -274,14 +274,10 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
         fullWidth: 0,
         halfWidth: 0,
     });
-    const [beforeConversionAvailableCharacters, setBeforeConversionAvailableCharacters] = useState<{
-        halfWidth: number;
-        fullWidth: number;
-    }>({ fullWidth: 0, halfWidth: 0 });
-    const [beforeConversionAvailableDurationUnits, setBeforeConversionAvailableDurationUnits] = useState(0);
     const [availableDurationUnits, setAvailableDurationUnits] = useState(0);
     const [availableSPSeconds, setAvailableSPSeconds] = useState(0);
     const [previewIssues, setPreviewIssues] = useState<ImportPreview['issues']>([]);
+    const [previewItems, setPreviewItems] = useState<ImportPreview['items']>([]);
     const [previewPending, setPreviewPending] = useState(false);
     const [loadingMetadata, setLoadingMetadata] = useState(false);
     const reportApplicationError = useCallback(
@@ -378,8 +374,6 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
         setTracksOrderVisible(false);
         setAvailableCharacters({ halfWidth: 1785, fullWidth: 1785 });
         setAvailableDurationUnits(1);
-        setBeforeConversionAvailableCharacters({ halfWidth: 1, fullWidth: 1 });
-        setBeforeConversionAvailableDurationUnits(1);
         dispatch(
             convertDialogActions.updateFormatForSpec({
                 spec: recordingProfile.specName,
@@ -596,12 +590,14 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
         const device = workspace.device;
         if (!disc || !device || files.length === 0) {
             setPreviewIssues([]);
+            setPreviewItems([]);
             setPreviewPending(false);
             return;
         }
         let active = true;
         setPreviewPending(true);
         setPreviewIssues([]);
+        setPreviewItems([]);
         void getApplicationClient()
             .execute({
                 type: 'import.preview',
@@ -623,14 +619,10 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
                     halfWidth: preview.titles.halfWidthRemaining,
                     fullWidth: preview.titles.fullWidthRemaining,
                 });
-                setBeforeConversionAvailableCharacters({
-                    halfWidth: preview.titles.halfWidthBefore,
-                    fullWidth: preview.titles.fullWidthBefore,
-                });
-                setBeforeConversionAvailableDurationUnits(preview.capacity.availableBeforeInSelectedFormat);
                 setAvailableDurationUnits(preview.capacity.remainingInSelectedFormat);
                 setAvailableSPSeconds(preview.capacity.remaining);
                 setPreviewIssues(preview.issues);
+                setPreviewItems(preview.items);
             });
         return () => {
             active = false;
@@ -648,28 +640,12 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
     }, [selectedTrackRef, selectedTrackIndex]);
 
     const renderTracks = useCallback(() => {
-        let current = beforeConversionAvailableDurationUnits;
-        let { halfWidth: currentHalfWidthTextLeft, fullWidth: currentFullWidthTextLeft } = beforeConversionAvailableCharacters;
         const fileLengthPresentationFunction = isUsingFrames ? secondsToHumanReadable : bytesToHumanReadable;
         return titles.map((file, i) => {
             const isSelected = selectedTrackIndex === i;
             const ref = isSelected ? selectedTrackRef : null;
-            let fileLength;
-            if (isUsingFrames) {
-                fileLength = file.duration;
-            } else {
-                fileLength = minidiscSpec.translateToDefaultMeasuringModeFrom(file.forcedEncoding ?? currentlySelectedCodec, file.duration);
-            }
-            current -= fileLength;
-            const { halfWidth, fullWidth } = minidiscSpec.getCharactersForTitle({
-                ...file,
-                channel: 0,
-                encoding: { codec: 'SPS', bitrate: 0 },
-                index: 0,
-                protected: null as any,
-            });
-            currentHalfWidthTextLeft -= halfWidth;
-            currentFullWidthTextLeft -= fullWidth;
+            const item = previewItems[i];
+            const fileLength = isUsingFrames ? file.duration : item?.required;
             return (
                 <ListItem
                     key={`${i}`}
@@ -684,16 +660,18 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
                     </ListItemIcon>
                     <ListItemText
                         className={
-                            current <= 0
+                            item && !item.capacityFits
                                 ? classes.durationNotFit
-                                : currentHalfWidthTextLeft < 0 || currentFullWidthTextLeft < 0
+                                : item && !item.titles.fits
                                   ? classes.nameNotFit
                                   : undefined
                         }
                         primary={`${file.fullWidthTitle && file.fullWidthTitle + ' / '}${file.title}`}
                         secondary={
                             <span>
-                                {fileLengthPresentationFunction(fileLength)}
+                                {fileLength === null || fileLength === undefined
+                                    ? 'Calculating…'
+                                    : fileLengthPresentationFunction(fileLength)}
                                 {file.forcedEncoding && (
                                     <Tooltip title="Forced format - this file will be uploaded as-is. Recording mode will be disregarded for it">
                                         <span className={classes.forcedEncodingLabel}>
@@ -713,26 +691,19 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
         setSelectedTrack,
         selectedTrackRef,
         renameTrackManually,
-        beforeConversionAvailableCharacters,
-        beforeConversionAvailableDurationUnits,
         classes.durationNotFit,
         classes.nameNotFit,
         classes.forcedEncodingLabel,
         currentlySelectedCodec,
-        minidiscSpec,
         isUsingFrames,
+        previewItems,
     ]);
 
     const renderHiMDTracks = useCallback(() => {
-        let currentSeconds = beforeConversionAvailableDurationUnits;
-        let { halfWidth: currentHalfWidthTextLeft, fullWidth: currentFullWidthTextLeft } = beforeConversionAvailableCharacters;
         return titles.map((file, i) => {
             const isSelected = selectedTrackIndex === i;
             const ref = isSelected ? selectedTrackRef : null;
-            currentSeconds -= file.duration;
-            const { halfWidth, fullWidth } = minidiscSpec.getCharactersForTitle(file as any);
-            currentHalfWidthTextLeft -= halfWidth;
-            currentFullWidthTextLeft -= fullWidth;
+            const item = previewItems[i];
             return (
                 <TableRow
                     key={`${i}`}
@@ -740,9 +711,9 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
                     onClick={() => setSelectedTrack(i)}
                     ref={ref}
                     className={
-                        currentSeconds <= 0
+                        item && !item.capacityFits
                             ? classes.durationNotFit
-                            : currentHalfWidthTextLeft < 0 || currentFullWidthTextLeft < 0
+                            : item && !item.titles.fits
                               ? classes.nameNotFit
                               : undefined
                     }
@@ -772,14 +743,12 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
         setSelectedTrack,
         selectedTrackRef,
         renameTrackManually,
-        beforeConversionAvailableCharacters,
-        beforeConversionAvailableDurationUnits,
         classes.durationNotFit,
         classes.nameNotFit,
         classes.selectCheckboxTableCell,
         classes.forcedEncodingLabel,
-        minidiscSpec,
         currentlySelectedCodec,
+        previewItems,
     ]);
 
     // Add/Remove tracks
