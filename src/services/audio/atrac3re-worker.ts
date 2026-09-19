@@ -10,13 +10,26 @@ if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScop
     onmessage = async (ev: MessageEvent) => {
         const { action, ...others } = ev.data;
         if (action === 'init') {
-            self.importScripts(getPublicPathFor(`at3re-harness.js`));
-            (self as any).Module({ locateFile: getPublicPathFor }).then((m: any) => {
+            try {
+                self.importScripts(getPublicPathFor(`at3re-harness.js`));
+                const moduleFactory = (self as any).Module;
+                if (typeof moduleFactory !== 'function') throw new Error('At3RE runtime did not expose a module factory.');
+                const m = await moduleFactory({ locateFile: getPublicPathFor });
                 Module = m;
                 self.postMessage({ action: 'init' });
                 Module.setLogger && Module.setLogger((msg: string, stream: string) => console.log(`${stream}: ${msg}`));
-            });
+            } catch (error) {
+                self.postMessage({
+                    action: 'init',
+                    error: 'INITIALIZATION_FAILED',
+                    message: error instanceof Error ? error.message : String(error),
+                });
+            }
         } else if (action === 'encode') {
+            if (!Module) {
+                self.postMessage({ action: 'encode', error: 'NOT_INITIALIZED', message: 'At3RE is not initialized.' });
+                return;
+            }
             const { bitrate, data, lastInBatch } = others;
             if (setupBitrate === undefined) {
                 // Initialize the encoder.

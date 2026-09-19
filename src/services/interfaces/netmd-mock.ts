@@ -12,7 +12,8 @@ import {
     Codec,
     DefaultMinidiscSpec,
 } from './netmd';
-import { sleep, asyncMutex, recomputeGroupsAfterTrackMove, isSequential } from '../../utils';
+import { sleep, asyncMutex, isSequential } from '../../utils';
+import { recomputeGroupsAfterTrackMove } from '../../domain/disc-layout';
 import { assert, sanitizeFullWidthTitle, sanitizeHalfWidthTitle } from 'netmd-js/dist/utils';
 import { Mutex } from 'async-mutex';
 

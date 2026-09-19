@@ -63,7 +63,7 @@ export class MediaRecorderService {
     async startRecording() {
         this.audioContext = new AudioContext();
         const input = this.audioContext.createMediaStreamSource(this.stream!);
-        this.recorder = new Recorder(input, { workerPath: getPublicPathFor(`recorderWorker.js`) });
+        this.recorder = new Recorder(input, { workerPath: getPublicPathFor(`runtime/recorder-worker.js`) });
         this.recorder.record();
     }
 
@@ -74,7 +74,7 @@ export class MediaRecorderService {
     }
 
     async closeStream() {
-        this.stream?.getTracks().forEach(track => track.stop());
+        this.stream?.getTracks().forEach((track) => track.stop());
     }
 
     downloadRecorded(title: string) {

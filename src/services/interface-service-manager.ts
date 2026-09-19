@@ -281,14 +281,20 @@ function getPrototypeByName(name: string) {
     return Services.find((n) => n.name === name) || null;
 }
 
-export function filterOutCorrupted(savedCustomServices: ServiceConstructionInfo[]) {
+export function filterOutCorrupted(savedCustomServices: unknown) {
     const legalCustomServices: ServiceConstructionInfo[] = [];
-    for (const info of savedCustomServices) {
+    if (!Array.isArray(savedCustomServices)) return legalCustomServices;
+
+    for (const candidate of savedCustomServices) {
+        if (!candidate || typeof candidate !== 'object') continue;
+        const info = candidate as Partial<ServiceConstructionInfo>;
+        if (typeof info.name !== 'string') continue;
         const prototype = getPrototypeByName(info.name);
         if (!prototype) continue; // No such service - remove.
         const requiredParameters = prototype.customParameters;
-        const parameterKeys = Object.keys(info.parameters!);
         if (!requiredParameters) continue; // The service cannot be a custom service - no props to set.
+        if (!info.parameters || typeof info.parameters !== 'object' || Array.isArray(info.parameters)) continue;
+        const parameterKeys = Object.keys(info.parameters);
         if (requiredParameters.length !== parameterKeys.length) continue; // Invalid config.
         const typeValid = (n: CustomParameterInfo, value: CustomParameters extends { [e: string]: infer R } ? R : never) =>
             Array.isArray(n.type) ? n.type.some((e) => e.value === value) : typeof value === n.type;
@@ -297,7 +303,7 @@ export function filterOutCorrupted(savedCustomServices: ServiceConstructionInfo[
             requiredParameters.length
         )
             continue; // The service's parameters differ from the prototype's declaration.
-        legalCustomServices.push(info);
+        legalCustomServices.push(info as ServiceConstructionInfo);
     }
     return legalCustomServices;
 }

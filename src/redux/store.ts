@@ -1,4 +1,4 @@
-import { configureStore, Middleware, combineReducers, Dispatch } from '@reduxjs/toolkit';
+import { configureStore, Middleware, combineReducers } from '@reduxjs/toolkit';
 import contextMenu from './context-menu-feature';
 import uploadDialog from './upload-dialog-feature';
 import renameDialog from './rename-dialog-feature';
@@ -25,12 +25,13 @@ import { BatchAction, batchActions, batchDispatchMiddleware } from 'redux-batche
 
 const errorCatcher: Middleware = (store) => (next) => async (action) => {
     try {
-        await next(action);
+        return await next(action);
     } catch (e) {
         console.error(e);
-        next(
+        await next(
             batchActions([panicDialogActions.setErrorProvided((e as any).stack ?? '<Not Provided>'), panicDialogActions.setVisible(true)])
         );
+        throw e;
     }
 };
 

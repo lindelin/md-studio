@@ -54,7 +54,7 @@ export abstract class DefaultFfmpegAudioExportService implements AudioExportServ
                 console.log(payload.action, payload.message);
             },
             corePath: getPublicPathFor('ffmpeg-core.js'),
-            workerPath: getPublicPathFor('worker.min.js'),
+            workerPath: getPublicPathFor('runtime/ffmpeg-worker.min.js'),
         });
         await this.ffmpegProcess.load();
     }
@@ -113,19 +113,17 @@ export abstract class DefaultFfmpegAudioExportService implements AudioExportServ
     }
 
     async export(parameters: ExportParams, callback?: (obj: { state: number; total: number }) => void) {
-        const { format } = parameters;
-        let result: ArrayBuffer;
-        if (format.codec === `PCM`) {
-            result = await this.encodePCM(parameters);
-        } else if (format.codec === 'AT3') {
-            result = await this.encodeATRAC3(parameters, callback);
-        } else if (format.codec === 'MP3') {
-            result = await this.encodeMP3(parameters);
-        } else if (format.codec === 'A3+') {
-            result = await this.encodeATRAC3Plus(parameters, callback);
-        } else throw new Error('Invalid format');
-        this.ffmpegProcess?.worker.terminate();
-        return result;
+        try {
+            const { format } = parameters;
+            if (format.codec === `PCM`) return await this.encodePCM(parameters);
+            if (format.codec === 'AT3') return await this.encodeATRAC3(parameters, callback);
+            if (format.codec === 'MP3') return await this.encodeMP3(parameters);
+            if (format.codec === 'A3+') return await this.encodeATRAC3Plus(parameters, callback);
+            throw new Error('Invalid format');
+        } finally {
+            this.ffmpegProcess?.worker.terminate();
+            this.ffmpegProcess = undefined;
+        }
     }
 
     async encodePCM(parameters: ExportParams): Promise<ArrayBuffer> {

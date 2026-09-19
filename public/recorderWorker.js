@@ -1,1 +1,0 @@
-../node_modules/recorderjs/recorderWorker.js

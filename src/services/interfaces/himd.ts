@@ -44,7 +44,7 @@ import {
     DeviceStatus,
 } from './netmd';
 import { concatUint8Arrays } from 'netmd-js/dist/utils';
-import { recomputeGroupsAfterTrackMove } from '../../utils';
+import { recomputeGroupsAfterTrackMove } from '../../domain/disc-layout';
 import { CryptoBlockProvider, CryptoProvider } from 'himd-js/dist/workers';
 
 import WorkerURL from 'himd-js/dist/web-crypto-worker?worker&url';

@@ -19,7 +19,7 @@ import Switch from '@mui/material/Switch';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { makeStyles } from 'tss-react/mui';
-import { AudioServices } from '../services/audio-export-service-manager';
+import { AudioServices, resolveAudioServiceIndex } from '../services/audio-export-service-manager';
 import { renderCustomParameter } from './custom-parameters-renderer';
 import { initializeParameters, isAllValid } from '../custom-parameters';
 import { SettingInterface } from '../bridge-types';
@@ -194,7 +194,7 @@ export const SettingsDialog = (props: {}) => {
         libraryService: globalStateLibraryService,
         libraryServiceConfig: globalStateLibraryServiceConfig,
     } = useShallowEqualSelector((state) => state.appState);
-    const [currentExportService, setCurrentExportService] = useState(globalStateAudioExportService);
+    const [currentExportService, setCurrentExportService] = useState(resolveAudioServiceIndex(globalStateAudioExportService));
     const [currentExportServiceConfig, setExportServiceConfig] = useState(globalStateAudioExportServiceConfig);
     const [currentLibraryService, setCurrentLibraryService] = useState(globalStateLibraryService);
     const [currentLibraryServiceConfig, setLibraryServiceConfig] = useState(globalStateLibraryServiceConfig);
@@ -396,8 +396,9 @@ export const SettingsDialog = (props: {}) => {
                 <SimpleField name="LP / HiMD encoder to use" classes={classes}>
                     <Select className={classes.wider} value={currentExportService} onChange={handleExportServiceChanges}>
                         {AudioServices.map((n, i) => (
-                            <MenuItem value={i} key={`${i}`}>
+                            <MenuItem value={i} key={n.id} disabled={!n.available}>
                                 {n.name}
+                                {n.available ? '' : ' (unavailable in this build)'}
                             </MenuItem>
                         ))}
                     </Select>

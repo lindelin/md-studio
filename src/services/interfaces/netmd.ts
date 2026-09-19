@@ -37,7 +37,8 @@ import {
 import { makeGetAsyncPacketIteratorOnWorkerThread } from 'netmd-js/dist/web-encrypt-worker';
 import { Logger } from 'netmd-js/dist/logger';
 import { sanitizeHalfWidthTitle, sanitizeFullWidthTitle, concatUint8Arrays } from 'netmd-js/dist/utils';
-import { asyncMutex, sleep, isSequential, recomputeGroupsAfterTrackMove, getPublicPathFor } from '../../utils';
+import { asyncMutex, sleep, isSequential, getPublicPathFor } from '../../utils';
+import { recomputeGroupsAfterTrackMove } from '../../domain/disc-layout';
 import { Mutex } from 'async-mutex';
 import {
     AtracRecovery,
@@ -179,7 +180,12 @@ export const WireformatDict: { [k: string]: Wireformat } = {
 export type TitleParameter = string | { title?: string; album?: string; artist?: string };
 
 export class DefaultMinidiscSpec implements MinidiscSpec {
-    public readonly availableFormats: RecordingCodec[] = [{ codec: 'SPS', defaultBitrate: 292, userFriendlyName: 'SP', availableBitrates: [292] }, { codec: 'SPM', defaultBitrate: 146, userFriendlyName: 'MONO', availableBitrates: [146], displayBadgeFriendlyName: 'SP' }, { codec: 'AT3', defaultBitrate: 132, userFriendlyName: 'LP2', availableBitrates: [132] }, { codec: 'AT3', defaultBitrate: 66, userFriendlyName: 'LP4', availableBitrates: [66] }];
+    public readonly availableFormats: RecordingCodec[] = [
+        { codec: 'SPS', defaultBitrate: 292, userFriendlyName: 'SP', availableBitrates: [292] },
+        { codec: 'SPM', defaultBitrate: 146, userFriendlyName: 'MONO', availableBitrates: [146], displayBadgeFriendlyName: 'SP' },
+        { codec: 'AT3', defaultBitrate: 132, userFriendlyName: 'LP2', availableBitrates: [132] },
+        { codec: 'AT3', defaultBitrate: 66, userFriendlyName: 'LP4', availableBitrates: [66] },
+    ];
     public readonly defaultFormat = [0, 0] as [number, number];
     public readonly specName = 'MD';
     public readonly measurementUnits = 'frames';
@@ -262,7 +268,9 @@ export abstract class NetMDService {
     async flush(): Promise<void> {}
     async formatToHiMD(): Promise<void> {}
     // Required in HiMD api:
-    async fetchPartOfTrack(index: number, startSeconds: number, lengthSeconds: number): Promise<Uint8Array | null> { return null; }
+    async fetchPartOfTrack(index: number, startSeconds: number, lengthSeconds: number): Promise<Uint8Array | null> {
+        return null;
+    }
 }
 
 export interface NetMDFactoryService {
@@ -286,7 +294,7 @@ export interface NetMDFactoryService {
         nerawDownload: boolean,
         callback: (data: { read: number; total: number; action: 'READ' | 'SEEK' | 'CHUNK'; sector?: string }) => void,
         config?: AtracRecoveryConfig
-    ): Promise<{ data: Uint8Array<ArrayBuffer>, extension: string }>;
+    ): Promise<{ data: Uint8Array<ArrayBuffer>; extension: string }>;
     finalizeDownload(): Promise<void>;
 
     setSPSpeedupActive(newState: boolean): Promise<void>;
@@ -418,7 +426,7 @@ export class NetMDUSBService extends NetMDService {
             // MZ-RH1
             basic.push(Capability.trackDownload);
         }
-        if (this.netmdInterface?.netMd.getVendor() === 0x54c && await this.netmdInterface?.canEjectDisc()) {
+        if (this.netmdInterface?.netMd.getVendor() === 0x54c && (await this.netmdInterface?.canEjectDisc())) {
             basic.push(Capability.discEject);
         }
 
@@ -426,21 +434,25 @@ export class NetMDUSBService extends NetMDService {
         const deviceName = this.netmdInterface?.netMd.getDeviceName();
         if (
             (deviceName?.includes('Sony') &&
-                (deviceName?.includes('MZ-N') || deviceName?.includes('MZ-S1') || deviceName.includes('MZ-RH') || deviceName.includes('MZ-DH10P') || deviceName?.includes('DS-HMD1'))) ||
+                (deviceName?.includes('MZ-N') ||
+                    deviceName?.includes('MZ-S1') ||
+                    deviceName.includes('MZ-RH') ||
+                    deviceName.includes('MZ-DH10P') ||
+                    deviceName?.includes('DS-HMD1'))) ||
             (deviceName?.includes('Aiwa') && deviceName?.includes('AM-NX')) ||
             deviceName?.includes('PCGA-MDN1')
         ) {
             // Only Sony (and Aiwa since it's the same thing) portables have the factory mode.
             basic.push(Capability.factoryMode);
         }
-        if(deviceName?.includes("MZ-RH") || deviceName?.includes("MZ-NH") || deviceName?.includes("CMT-AH10")) {
+        if (deviceName?.includes('MZ-RH') || deviceName?.includes('MZ-NH') || deviceName?.includes('CMT-AH10')) {
             // Is HiMD -> Can be formatted to HiMD
             basic.push(Capability.himdFormat);
         }
 
         const deviceFlags = this.netmdInterface?.netMd.getDeviceFlags();
-        if(deviceFlags) {
-            if(deviceFlags.nativeMonoUpload) {
+        if (deviceFlags) {
+            if (deviceFlags.nativeMonoUpload) {
                 basic.push(Capability.nativeMonoUpload);
             }
         }
@@ -543,7 +555,7 @@ export class NetMDUSBService extends NetMDService {
     @asyncMutex
     async renameGroup(groupIndex: number, newName: string, newFullWidthName?: string) {
         const disc = await this.listContentUsingCache();
-        const thisGroup = disc.groups.find(g => g.index === groupIndex);
+        const thisGroup = disc.groups.find((g) => g.index === groupIndex);
         if (!thisGroup) {
             return;
         }
@@ -559,21 +571,21 @@ export class NetMDUSBService extends NetMDService {
     @asyncMutex
     async addGroup(groupBegin: number, groupLength: number, title: string, fullWidthTitle: string = '') {
         const disc = await this.listContentUsingCache();
-        const ungrouped = disc.groups.find(n => n.title === null);
+        const ungrouped = disc.groups.find((n) => n.title === null);
         if (!ungrouped) {
             return; // You can only group tracks that aren't already in a different group, if there's no such tracks, there's no point to continue
         }
 
         const ungroupedLengthBeforeGroup = ungrouped.tracks.length;
 
-        const thisGroupTracks = ungrouped.tracks.filter(n => n.index >= groupBegin && n.index < groupBegin + groupLength);
-        ungrouped.tracks = ungrouped.tracks.filter(n => !thisGroupTracks.includes(n));
+        const thisGroupTracks = ungrouped.tracks.filter((n) => n.index >= groupBegin && n.index < groupBegin + groupLength);
+        ungrouped.tracks = ungrouped.tracks.filter((n) => !thisGroupTracks.includes(n));
 
         if (ungroupedLengthBeforeGroup - ungrouped.tracks.length !== groupLength) {
             throw new Error('A track cannot be in 2 groups!');
         }
 
-        if (!isSequential(thisGroupTracks.map(n => n.index))) {
+        if (!isSequential(thisGroupTracks.map((n) => n.index))) {
             throw new Error('Invalid sequence of tracks!');
         }
 
@@ -583,7 +595,7 @@ export class NetMDUSBService extends NetMDService {
             index: disc.groups.length,
             tracks: thisGroupTracks,
         });
-        disc.groups = disc.groups.filter(g => g.tracks.length !== 0).sort((a, b) => a.tracks[0].index - b.tracks[0].index);
+        disc.groups = disc.groups.filter((g) => g.tracks.length !== 0).sort((a, b) => a.tracks[0].index - b.tracks[0].index);
         this.cachedContentList = disc;
         await rewriteDiscGroups(this.netmdInterface!, convertDiscToNJS(disc));
     }
@@ -592,7 +604,7 @@ export class NetMDUSBService extends NetMDService {
     async deleteGroup(index: number) {
         const disc = await this.listContentUsingCache();
 
-        let ungroupedGroup = disc.groups.find(g => g.title === null);
+        let ungroupedGroup = disc.groups.find((g) => g.title === null);
         if (!ungroupedGroup) {
             ungroupedGroup = {
                 index: -1,
@@ -602,7 +614,7 @@ export class NetMDUSBService extends NetMDService {
             };
             disc.groups.unshift(ungroupedGroup);
         }
-        const groupIndex = disc.groups.findIndex(g => g.index === index);
+        const groupIndex = disc.groups.findIndex((g) => g.index === index);
         if (groupIndex >= 0) {
             const deleted = disc.groups.splice(groupIndex, 1)[0];
             ungroupedGroup.tracks = ungroupedGroup.tracks.concat(deleted.tracks);
@@ -648,7 +660,9 @@ export class NetMDUSBService extends NetMDService {
     async wipeDisc() {
         try {
             await this.netmdInterface!.stop();
-        } catch (ex) { /* empty */ }
+        } catch (ex) {
+            /* empty */
+        }
         await this.netmdInterface!.eraseDisc();
         this.dropCachedContentList();
     }
@@ -677,20 +691,11 @@ export class NetMDUSBService extends NetMDService {
         await this.netmdInterface!.moveTrack(src, dst);
 
         const content = await this.listContentUsingCache();
+        const movedContent = recomputeGroupsAfterTrackMove(content, src, dst);
         if (updateGroups === undefined || updateGroups) {
-            await rewriteDiscGroups(this.netmdInterface!, convertDiscToNJS(recomputeGroupsAfterTrackMove(content, src, dst)));
+            await rewriteDiscGroups(this.netmdInterface!, convertDiscToNJS(movedContent));
         }
-        for (const group of content.groups) {
-            for (const track of group.tracks) {
-                if (track.index === dst) {
-                    track.index = src;
-                } else if (track.index === src) {
-                    track.index = dst;
-                }
-            }
-            group.tracks.sort((a, b) => a.index - b.index);
-        }
-        this.cachedContentList = content;
+        this.cachedContentList = movedContent;
     }
 
     @asyncMutex
@@ -722,10 +727,10 @@ export class NetMDUSBService extends NetMDService {
     ) {
         // This is NetMD - only 4 options supported.
         let format;
-        if(_format.codec === 'AT3') {
+        if (_format.codec === 'AT3') {
             format = _format.bitrate === 66 ? 'LP4' : 'LP2';
-        } else if(_format.codec == 'SPS' || _format.codec === 'SPM') {
-            format = "SP"
+        } else if (_format.codec == 'SPS' || _format.codec === 'SPM') {
+            format = 'SP';
         } else throw new Error('Invalid format for NetMD upload');
         if (this.currentSession === undefined) {
             throw new Error('Cannot upload without initializing a session first');
@@ -748,10 +753,14 @@ export class NetMDUSBService extends NetMDService {
         fullWidthTitle = sanitizeFullWidthTitle(fullWidthTitle);
         const mdTrack = new MDTrack(halfWidthTitle, WireformatDict[format], data, 0x400, fullWidthTitle, webWorkerAsyncPacketIterator);
 
-        await this.currentSession.downloadTrack(mdTrack, ({ writtenBytes }) => {
-            written = writtenBytes;
-            updateProgress();
-        }, _format.codec === 'SPM' ? DiscFormat.spMono : undefined);
+        await this.currentSession.downloadTrack(
+            mdTrack,
+            ({ writtenBytes }) => {
+                written = writtenBytes;
+                updateProgress();
+            },
+            _format.codec === 'SPM' ? DiscFormat.spMono : undefined
+        );
 
         w.terminate();
         this.dropCachedContentList();
@@ -815,7 +824,7 @@ export class NetMDUSBService extends NetMDService {
         return new NetMDFactoryUSBService(factoryInstance, this, this.mutex, esm);
     }
 
-    isDeviceConnected(device: USBDevice){
+    isDeviceConnected(device: USBDevice) {
         return this.netmdInterface?.netMd.isDeviceConnected(device) ?? false;
     }
 }
@@ -852,12 +861,15 @@ class NetMDFactoryUSBService implements NetMDFactoryService {
             Object.defineProperty(window, 'exploitStateManager', { value: this.exploitStateManager, configurable: true });
             Object.defineProperty(window, 'exploits', { value: netmdExploits, configurable: true });
             Object.defineProperty(window, 'tocmanip', { value: netmdTocmanip, configurable: true });
-            Object.defineProperty(window, 'getToC', { value: async () => {
-                let sector0 = await this.readUTOCSector(0);
-                let sector1 = await this.readUTOCSector(1);
-                let sector2 = await this.readUTOCSector(2);
-                return netmdTocmanip.parseTOC(sector0, sector1, sector2);
-            } , configurable: true });
+            Object.defineProperty(window, 'getToC', {
+                value: async () => {
+                    let sector0 = await this.readUTOCSector(0);
+                    let sector1 = await this.readUTOCSector(1);
+                    let sector2 = await this.readUTOCSector(2);
+                    return netmdTocmanip.parseTOC(sector0, sector1, sector2);
+                },
+                configurable: true,
+            });
         }
 
         return capabilities;
@@ -992,7 +1004,7 @@ class NetMDFactoryUSBService implements NetMDFactoryService {
 
         let index = -1;
 
-        await this.exploitStateManager.envelop(SPUpload, mono ? 1 : 2, async spUpload => {
+        await this.exploitStateManager.envelop(SPUpload, mono ? 1 : 2, async (spUpload) => {
             mdTrack = spUpload.prepareTrack(mdTrack);
             total = mdTrack.data.byteLength;
             [index] = (await this.parent.currentSession!.downloadTrack(mdTrack, ({ writtenBytes }) => {
@@ -1015,17 +1027,17 @@ class NetMDFactoryUSBService implements NetMDFactoryService {
     }
 
     @asyncMutex
-    async enableMonoUpload(enable: boolean){
-        if(enable){
+    async enableMonoUpload(enable: boolean) {
+        if (enable) {
             await this.exploitStateManager.require(MonoSPUpload);
-        }else{
+        } else {
             await this.exploitStateManager.unload(MonoSPUpload);
         }
     }
 
     @asyncMutex
     async setDiscSwapDetection(enable: boolean) {
-        if(enable){
+        if (enable) {
             await this.exploitStateManager.require(DisableDiscDetection);
         } else {
             await this.exploitStateManager.unload(DisableDiscDetection);

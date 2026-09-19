@@ -3,6 +3,7 @@ import { enableBatching } from 'redux-batched-actions';
 import { CustomParameters } from '../custom-parameters';
 import { filterOutCorrupted, getSimpleServices, ServiceConstructionInfo } from '../services/interface-service-manager';
 import { savePreference, loadPreference } from '../utils';
+import { resolveAudioServiceIndex } from '../services/audio-export-service-manager';
 
 export type Views = 'WELCOME' | 'MAIN' | 'FACTORY';
 
@@ -62,7 +63,7 @@ export const buildInitialState = (): AppState => {
         lastSelectedService: loadPreference('lastSelectedService', 0),
         factoryModeRippingInMainUi: false, // As this value is heavily device-dependent and not really that stable yet
         // it should not be stored in the preferences, and should default to false.
-        audioExportService: loadPreference('audioExportService', 0),
+        audioExportService: resolveAudioServiceIndex(loadPreference('audioExportService', 0)),
         audioExportServiceConfig: loadPreference('audioExportServiceConfig', {}),
         libraryService: loadPreference('libraryService', -1),
         libraryServiceConfig: loadPreference('libraryServiceConfig', {}),

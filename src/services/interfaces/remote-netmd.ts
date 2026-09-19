@@ -57,7 +57,7 @@ export class NetMDRemoteService extends NetMDService {
         };
     }
 
-    isDeviceConnected(){
+    isDeviceConnected() {
         return false;
     }
 
@@ -123,7 +123,7 @@ export class NetMDRemoteService extends NetMDService {
 
     @asyncMutex
     async listContent(flushCache?: boolean) {
-        if(!flushCache) flushCache = false;
+        if (!flushCache) flushCache = false;
         return await this.getFromServer('listContent', { flushCache });
     }
 
@@ -212,7 +212,7 @@ export class NetMDRemoteService extends NetMDService {
         _format: Codec,
         progressCallback: (progress: { written: number; encrypted: number; total: number }) => void
     ) {
-        return new Promise<void>((res, rej) => {
+        return new Promise<void>((resolve, reject) => {
             const format = _format.codec === 'AT3' ? { codec: _format.bitrate === 66 ? 'LP4' : 'LP2' } : _format;
             const servURL = new URL(this.server);
             const wsURL = new URL(`${servURL.protocol === 'https:' ? 'wss:' : 'ws:'}//${servURL.host}/upload`);
@@ -247,29 +247,54 @@ export class NetMDRemoteService extends NetMDService {
                 chunked: (this.useChunkedTransfersForLP && format.codec !== 'SP').toString(),
             }).toString();
             const ws = new WebSocket(wsURL.toString());
+            let settled = false;
+            let serverConfirmedCompletion = false;
 
-            ws.addEventListener('message', async event => {
-                const json = JSON.parse(event.data);
-                if (json.init) {
-                    // Read and encrypt the file
-                    // Send the results of the encryption iterator to the server
-                    for await (const piece of track.getPacketWorkerIterator()) {
-                        // Serialize the piece
-                        const combined = concatUint8Arrays(new Uint8Array([0]), piece.iv, piece.key, piece.data);
-                        ws.send(combined);
+            const succeed = () => {
+                if (settled) return;
+                settled = true;
+                w.terminate();
+                resolve();
+            };
+
+            const fail = (reason: unknown) => {
+                if (settled) return;
+                settled = true;
+                w.terminate();
+                reject(reason instanceof Error ? reason : new Error(String(reason)));
+            };
+
+            ws.addEventListener('message', async (event) => {
+                try {
+                    const json = JSON.parse(event.data);
+                    if (json.init) {
+                        // Read and encrypt the file
+                        // Send the results of the encryption iterator to the server
+                        for await (const piece of track.getPacketWorkerIterator()) {
+                            // Serialize the piece
+                            const combined = concatUint8Arrays(new Uint8Array([0]), piece.iv, piece.key, piece.data);
+                            ws.send(combined);
+                        }
+                        ws.send(new Uint8Array([1]));
+                    } else if (json.terminate) {
+                        serverConfirmedCompletion = true;
+                        ws.close();
+                        succeed();
+                    } else {
+                        written = json.written;
+                        updateProgress();
                     }
-                    ws.send(new Uint8Array([1]));
-                    w.terminate();
-                } else if (json.terminate) {
+                } catch (error) {
+                    fail(error);
                     ws.close();
-                    res();
-                } else {
-                    written = JSON.parse(event.data).written;
-                    updateProgress();
                 }
             });
 
-            ws.addEventListener('close', () => res());
+            ws.addEventListener('error', () => fail(new Error('The Remote NetMD upload connection failed.')));
+            ws.addEventListener('close', () => {
+                if (serverConfirmedCompletion) succeed();
+                else fail(new Error('The Remote NetMD connection closed before the server confirmed the upload.'));
+            });
         });
     }
 

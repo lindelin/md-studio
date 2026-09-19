@@ -11,15 +11,15 @@ import { SIGNATURES } from 'netmd-tocmanip';
 export type Promised<R> = R extends Promise<infer Q> ? Q : never;
 
 export const acceptedTypes = {
-    "audio/*": [],
-    "video/mp4": [],
-    "video/webm": [],
+    'audio/*': [],
+    'video/mp4': [],
+    'video/webm': [],
     'video/x-matroska': [],
-    "application/octet-stream": [".oma", ".at3", ".aea", ".aif", ".aiff"],
-}
+    'application/octet-stream': ['.oma', '.at3', '.aea', '.aif', '.aiff'],
+};
 
 export function sleep(ms: number) {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
         setTimeout(resolve, ms);
     });
 }
@@ -32,7 +32,7 @@ export function debounce<T extends Function>(func: T, timeout = 300): T {
             func(...args);
         }, timeout);
     };
-    return (debouncedFn as any) as T;
+    return debouncedFn as any as T;
 }
 
 export function removeExtension(filename: string) {
@@ -127,7 +127,7 @@ export async function getMetadataFromFile(
 
 export async function getChannelsFromAEA(file: File) {
     if (file.size < 2048) return null; // Too short to be an AEA
-    const channelsOffset = 4 /* Magic */ + 256 /* title */ + 4 /* soundgroups */;
+    const channelsOffset = 4 /* Magic */ + 256 /* title */ + 4; /* soundgroups */
     const channels = new Uint8Array((await file.arrayBuffer()).slice(channelsOffset, channelsOffset + 1))[0];
     if (channels !== 1 && channels !== 2) return null;
     return channels as 1 | 2;
@@ -191,7 +191,7 @@ export async function getATRACWAVEncoding(
     file: File
 ): Promise<{ format: { codec: 'AT3' | 'A3+'; bitrate: number }; headerLength: number } | null> {
     const fileData = await file.arrayBuffer();
-    if (file.size < 44) return null; // Too short to be a WAV
+    if (fileData.byteLength < 44) return null; // Too short to be a WAV
 
     if (Buffer.from(fileData.slice(0, 4)).toString() !== 'RIFF') return null; // Missing header part 1
     if (Buffer.from(fileData.slice(8, 16)).toString() !== 'WAVEfmt ') return null; // Missing header part 2
@@ -201,16 +201,21 @@ export async function getATRACWAVEncoding(
     if ((wavType !== 0x270 && wavType !== 0xfffe) || channels !== 0x02) return null; // Not ATRAC3
 
     let headerLength = 12;
-    while (headerLength < fileData.byteLength) {
+    let dataChunkFound = false;
+    while (headerLength + 8 <= fileData.byteLength) {
         const chunkType = Buffer.from(fileData.slice(headerLength, headerLength + 4)).toString();
         const chunkSize = Buffer.from(fileData.slice(headerLength + 4, headerLength + 8)).readUInt32LE(0);
         if (chunkType === 'data') {
             headerLength = headerLength + 8;
+            dataChunkFound = true;
             break;
         } else {
-            headerLength = headerLength + chunkSize + 8;
+            const nextChunk = headerLength + chunkSize + 8 + (chunkSize % 2);
+            if (nextChunk <= headerLength || nextChunk > fileData.byteLength) return null;
+            headerLength = nextChunk;
         }
     }
+    if (!dataChunkFound) return null;
 
     const bytesSampleRate = Buffer.from(fileData.slice(24, 28)).readUInt32LE(0);
     const bytesPerFrame = Buffer.from(fileData.slice(32, 34)).readUInt16LE(0) / 2;
@@ -285,11 +290,11 @@ export function secondsToHumanReadable(time: number): string {
 }
 
 export function bytesToHumanReadable(bytes: number): string {
-    if(bytes === 0) return "0 B";
+    if (bytes === 0) return '0 B';
     const negative = bytes < 0;
-    const units = ["B", "KiB", "MiB", "GiB", "TiB"];
+    const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
     const i = Math.floor(Math.log(Math.abs(bytes)) / Math.log(1024));
-    return `${negative ? '-' : ''}${Math.round(bytes / Math.pow(1024, i) * 100) / 100} ${units[i]}`
+    return `${negative ? '-' : ''}${Math.round((bytes / Math.pow(1024, i)) * 100) / 100} ${units[i]}`;
 }
 
 export type DisplayTrack = {
@@ -318,7 +323,7 @@ export function formatTimeFromSeconds(seconds: number, withHours = true) {
 
     const h = seconds;
 
-    if(!withHours) m += h * 60;
+    if (!withHours) m += h * 60;
 
     return (withHours ? `${pad(h, '00')}:` : '') + `${pad(m, '00')}:${pad(s, '00')}`;
 }
@@ -351,7 +356,7 @@ export function getGroupedTracks(disc: Disc | null) {
         return [];
     }
     const groupedList: Group[] = [];
-    const ungroupedTracks = [...(disc.groups.find(n => n.title === null)?.tracks ?? [])];
+    const ungroupedTracks = [...(disc.groups.find((n) => n.title === null)?.tracks ?? [])];
 
     let lastIndex = 0;
 
@@ -376,82 +381,6 @@ export function getGroupedTracks(disc: Disc | null) {
         tracks: ungroupedTracks,
     });
     return groupedList;
-}
-
-export function recomputeGroupsAfterTrackMove(disc: Disc, trackIndex: number, targetIndex: number) {
-    // Used for moving tracks in netmd-mock and deleting
-    let offset = trackIndex > targetIndex ? 1 : -1;
-    const deleteMode = targetIndex === -1;
-
-    if (deleteMode) {
-        offset = -1;
-        targetIndex = disc.trackCount;
-    }
-
-    const boundsStart = Math.min(trackIndex, targetIndex);
-    const boundsEnd = Math.max(trackIndex, targetIndex);
-
-    const allTracks = disc.groups
-        .map(n => n.tracks)
-        .reduce((a, b) => a.concat(b), [])
-        .sort((a, b) => a.index - b.index)
-        .filter(n => !deleteMode || n.index !== trackIndex);
-
-    const groupBoundaries: {
-        name: string | null;
-        fullWidthName: string | null;
-        start: number;
-        end: number;
-    }[] = disc.groups
-        .filter(n => n.title !== null)
-        .map(group => ({
-            name: group.title,
-            fullWidthName: group.fullWidthTitle,
-            start: group.tracks[0].index,
-            end: group.tracks[0].index + group.tracks.length - 1,
-        })); // Convert to a format better for shifting
-
-    let anyChanges = false;
-
-    for (const group of groupBoundaries) {
-        if (group.start > boundsStart && group.start <= boundsEnd) {
-            group.start += offset;
-            anyChanges = true;
-        }
-        if (group.end >= boundsStart && group.end < boundsEnd) {
-            group.end += offset;
-            anyChanges = true;
-        }
-    }
-
-    if (!anyChanges) return disc;
-
-    const newDisc: Disc = { ...disc };
-
-    // Convert back
-    newDisc.groups = groupBoundaries
-        .map(n => ({
-            title: n.name,
-            fullWidthTitle: n.fullWidthName,
-            index: n.start,
-            tracks: allTracks.slice(n.start, n.end + 1),
-        }))
-        .filter(n => n.tracks.length > 0);
-
-    // Convert ungrouped tracks
-    const allGrouped = newDisc.groups.map(n => n.tracks).reduce((a, b) => a.concat(b), []);
-    const ungrouped = allTracks.filter(n => !allGrouped.includes(n));
-
-    // Fix all the track indexes
-    if (deleteMode) {
-        for (let i = 0; i < allTracks.length; i++) {
-            allTracks[i].index = i;
-        }
-    }
-
-    if (ungrouped.length) newDisc.groups.unshift({ title: null, fullWidthTitle: null, index: 0, tracks: ungrouped });
-
-    return newDisc;
 }
 
 export function isSequential(numbers: number[]) {
@@ -494,7 +423,7 @@ export function askNotificationPermission(): Promise<NotificationPermission> {
     if (checkNotificationPromise()) {
         return Notification.requestPermission();
     } else {
-        return new Promise(resolve => Notification.requestPermission(resolve));
+        return new Promise((resolve) => Notification.requestPermission(resolve));
     }
 }
 
@@ -543,27 +472,27 @@ export async function ffmpegTranscode(data: Uint8Array, inputFormat: string, out
             console.log(payload.action, payload.message);
         },
         corePath: getPublicPathFor('ffmpeg-core.js'),
-        workerPath: getPublicPathFor('worker.min.js'),
+        workerPath: getPublicPathFor('runtime/ffmpeg-worker.min.js'),
     });
-    await ffmpegProcess.load();
-
-    await ffmpegProcess.write(`audio.${inputFormat}`, data);
     try {
+        await ffmpegProcess.load();
+        await ffmpegProcess.write(`audio.${inputFormat}`, data);
         let forcedInputFormat;
-        if(inputFormat === 'aea') forcedInputFormat = "aea";
+        if (inputFormat === 'aea') forcedInputFormat = 'aea';
 
         const params = `${forcedInputFormat ? `-f ${forcedInputFormat} ` : ''}-i audio.${inputFormat} ${outputParameters} raw`;
         console.log(`Running ffmpeg with args: ${params}`);
         await ffmpegProcess.run(params);
-    } catch (er) {
-        console.log(er);
+        return (await ffmpegProcess.read(`raw`)).data;
+    } finally {
+        ffmpegProcess.worker.terminate();
     }
-    const output = (await ffmpegProcess.read(`raw`)).data;
-    await ffmpegProcess.worker.terminate();
-    return output;
 }
 
-export async function convertToWAV({ data, extension }: { data: Uint8Array, extension: string }, track: Track): Promise<Uint8Array<ArrayBuffer>> {
+export async function convertToWAV(
+    { data, extension }: { data: Uint8Array; extension: string },
+    track: Track
+): Promise<Uint8Array<ArrayBuffer>> {
     return ffmpegTranscode(data, extension, '-f wav');
 }
 
@@ -577,9 +506,9 @@ export function dispatchQueue(
     };
 }
 
-export function getDeviceNameFromTOCSignature(deviceId: number){
+export function getDeviceNameFromTOCSignature(deviceId: number) {
     const signature = SIGNATURES[deviceId];
-    return `${signature || "Unknown device"} (0x${deviceId.toString(16).padStart(4, '0')})`;
+    return `${signature || 'Unknown device'} (0x${deviceId.toString(16).padStart(4, '0')})`;
 }
 
 declare let process: any;
