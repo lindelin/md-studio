@@ -26,6 +26,7 @@ import {
     ffmpegTranscode,
     AdaptiveFile,
 } from '../utils';
+import { isDeferredFile } from '../application/deferred-file';
 import NotificationCompleteIconUrl from '../images/record-complete-notification-icon.png';
 import { assertNumber, getHalfWidthTitleLength } from 'netmd-js/dist/utils';
 import { Capability, NetMDService, Disc, Codec, MinidiscSpec, ExploitCapability } from '../services/interfaces/netmd';
@@ -1490,12 +1491,13 @@ export function convertAndUpload(
                                 writeGapless: additionalParameters.enableGapless && j !== files.length - 1,
                             };
 
+                            const inputFile = isDeferredFile(f.file) ? await f.file.getFile() : f.file;
                             let data: ArrayBuffer;
-                            if ((f.file as any).getForEncoding) {
-                                const file = f.file as AdaptiveFile;
+                            if ((inputFile as any).getForEncoding) {
+                                const file = inputFile as AdaptiveFile;
                                 data = await file.getForEncoding(exportParams);
                             } else {
-                                const file = f.file as File;
+                                const file = inputFile as File;
                                 await audioExportService!.prepare(file);
                                 data = await audioExportService!.export(
                                     exportParams,
@@ -1516,9 +1518,10 @@ export function convertAndUpload(
                     // This is already an ATRAC file - don't reencode.
                     converted[j] = (async () => {
                         try {
-                            if ((f.file as any).getForEncoding) throw new Error('Adaptive files cannot be preencoded!');
+                            const inputFile = isDeferredFile(f.file) ? await f.file.getFile() : f.file;
+                            if ((inputFile as any).getForEncoding) throw new Error('Adaptive files cannot be preencoded!');
                             // Remove the WAV header.
-                            const file = f.file as File;
+                            const file = inputFile as File;
                             const data = (await file.arrayBuffer()).slice(f.bytesToSkip);
                             totalBytesCalc += data.byteLength;
                             convertNext();

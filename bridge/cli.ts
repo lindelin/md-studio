@@ -44,6 +44,11 @@ interface ParsedArguments {
     showHelp: boolean;
 }
 
+interface ExecutedOperation {
+    result: CommandResult;
+    temporaryImportIds: string[];
+}
+
 async function parseArguments(arguments_: string[]): Promise<ParsedArguments> {
     let port = Number(process.env.MINIDISC_BRIDGE_PORT ?? 47123);
     let timeoutMs = 30_000;
@@ -119,21 +124,27 @@ async function executeOperation(
     broker: LocalBridgeBroker,
     files: LocalFileRegistry,
     outputs: LocalOutputRegistry,
-    timeoutMs: number
-): Promise<CommandResult> {
-    if (operation.kind === 'command') return broker.execute(operation.command, timeoutMs);
+    timeoutMs: number,
+    registerTemporaryImports: (ids: string[]) => void
+): Promise<ExecutedOperation> {
+    if (operation.kind === 'command') {
+        return { result: await broker.execute(operation.command, timeoutMs), temporaryImportIds: [] };
+    }
 
     if (operation.kind === 'export') {
         const output = await outputs.registerDirectory(operation.directory);
-        return broker.execute(
-            {
-                type: 'track.export',
-                indexes: operation.indexes,
-                outputHandle: output.handle,
-                convertToWav: operation.convertToWav,
-            },
-            timeoutMs
-        );
+        return {
+            result: await broker.execute(
+                {
+                    type: 'track.export',
+                    indexes: operation.indexes,
+                    outputHandle: output.handle,
+                    convertToWav: operation.convertToWav,
+                },
+                timeoutMs
+            ),
+            temporaryImportIds: [],
+        };
     }
 
     const staged = await Promise.all(operation.paths.map((filePath) => files.register(filePath)));
@@ -153,19 +164,23 @@ async function executeOperation(
         },
         timeoutMs
     );
-    if (!added.ok || !added.importQueue) return added;
+    if (!added.ok || !added.importQueue) return { result: added, temporaryImportIds: [] };
 
     const ids = added.importQueue.items.slice(-staged.length).map((item) => item.id);
-    return broker.execute(
-        {
-            type: 'import.write',
-            ids,
-            format: operation.codec && operation.bitrate ? { codec: operation.codec, bitrate: operation.bitrate } : undefined,
-            removeOnSuccess: true,
-            expectedRevision: added.importQueue.revision,
-        },
-        timeoutMs
-    );
+    registerTemporaryImports(ids);
+    return {
+        result: await broker.execute(
+            {
+                type: 'import.write',
+                ids,
+                format: operation.codec && operation.bitrate ? { codec: operation.codec, bitrate: operation.bitrate } : undefined,
+                removeOnSuccess: true,
+                expectedRevision: added.importQueue.revision,
+            },
+            timeoutMs
+        ),
+        temporaryImportIds: ids,
+    };
 }
 
 async function waitForTask(broker: LocalBridgeBroker, task: TaskSnapshot, timeoutMs: number) {
@@ -177,6 +192,15 @@ async function waitForTask(broker: LocalBridgeBroker, task: TaskSnapshot, timeou
         current = result.task;
     }
     return { ok: true as const, task: current };
+}
+
+async function removeTemporaryImports(broker: LocalBridgeBroker, ids: string[], timeoutMs: number) {
+    if (ids.length === 0 || !broker.isConnected()) return;
+    const listed = await broker.execute({ type: 'import.list' }, timeoutMs);
+    if (!listed.ok || !listed.importQueue) return;
+    const existingIds = new Set(listed.importQueue.items.map((item) => item.id));
+    const remainingIds = ids.filter((id) => existingIds.has(id));
+    if (remainingIds.length > 0) await broker.execute({ type: 'import.remove', ids: remainingIds }, timeoutMs);
 }
 
 async function main() {
@@ -196,16 +220,26 @@ async function main() {
         allowedOrigins: process.env.MINIDISC_ALLOWED_ORIGINS?.split(',').map((origin) => origin.trim()),
     });
 
+    let temporaryImportIds: string[] = [];
     try {
         console.error(`Waiting for the MiniDisc browser app on ws://${bridge.host}:${bridge.port}...`);
         await broker.waitForConnection(parsed.timeoutMs);
-        let result = await executeOperation(parsed.operation, broker, files, outputs, parsed.timeoutMs);
+        const executed = await executeOperation(parsed.operation, broker, files, outputs, parsed.timeoutMs, (ids) => {
+            temporaryImportIds = ids;
+        });
+        temporaryImportIds = executed.temporaryImportIds;
+        let result = executed.result;
         if (result.ok && result.task && (result.task.status === 'queued' || result.task.status === 'running')) {
             result = await waitForTask(broker, result.task, parsed.timeoutMs);
         }
         console.log(JSON.stringify(result, null, 2));
         if (!result.ok || (result.task && result.task.status !== 'succeeded')) process.exitCode = 1;
     } finally {
+        try {
+            await removeTemporaryImports(broker, temporaryImportIds, parsed.timeoutMs);
+        } catch (error) {
+            console.error(`Could not remove temporary imports: ${error instanceof Error ? error.message : String(error)}`);
+        }
         await Promise.allSettled([bridge.close(), outputs.close()]);
     }
 }

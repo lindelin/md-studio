@@ -53,8 +53,13 @@ export interface AdaptiveFile {
     getForEncoding(encoding: ExportParams): Promise<ArrayBuffer>;
 }
 
+export interface DeferredFile {
+    name: string;
+    getFile(): Promise<File>;
+}
+
 export type TitledFile = {
-    file: File | AdaptiveFile;
+    file: File | AdaptiveFile | DeferredFile;
     title: string;
     fullWidthTitle: string;
     forcedEncoding: ForcedEncodingFormat;

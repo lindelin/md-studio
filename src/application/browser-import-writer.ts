@@ -4,12 +4,9 @@ import serviceRegistry from '../services/registry';
 import { Capability, getDefaultCodec, type Codec } from '../services/interfaces/netmd';
 import type { TitledFile } from '../utils';
 import { ApplicationError } from './contracts';
+import { createDeferredFile, isAdaptiveFile, isDeferredFile } from './deferred-file';
 import type { ImportQueue, ImportWriteRequest, ImportWriter } from './import-queue';
 import type { TaskManager } from './task-manager';
-
-function isAdaptiveFile(value: unknown): value is TitledFile['file'] {
-    return Boolean(value && typeof value === 'object' && 'getForEncoding' in value && typeof value.getForEncoding === 'function');
-}
 
 export class BrowserImportWriter implements ImportWriter {
     constructor(private readonly dispatch: AppDispatch) {}
@@ -55,10 +52,11 @@ export class BrowserImportWriter implements ImportWriter {
             for (const { item, payload } of selected) {
                 let resolvedPayload = payload;
                 if (resolvedPayload === undefined && item.kind === 'local-path' && serviceRegistry.importPayloadResolver) {
-                    resolvedPayload = await serviceRegistry.importPayloadResolver.resolve(item.reference);
-                    queue.attachPayload(item.id, resolvedPayload);
+                    resolvedPayload = createDeferredFile(item.name, item.reference, (reference) =>
+                        serviceRegistry.importPayloadResolver!.resolve(reference)
+                    );
                 }
-                if (!(resolvedPayload instanceof File) && !isAdaptiveFile(resolvedPayload)) {
+                if (!(resolvedPayload instanceof File) && !isAdaptiveFile(resolvedPayload) && !isDeferredFile(resolvedPayload)) {
                     throw new ApplicationError('INVALID_INPUT', `Import item ${item.name} has no readable audio payload.`, {
                         id: item.id,
                     });
