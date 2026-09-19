@@ -1,9 +1,8 @@
-import { debounce, DisplayTrack, getSortedTracks, sleep } from '../../utils';
+import { debounce, DisplayTrack, getSortedTracks, sleep, timeToSeekArgs } from '../../utils';
 import { createEmptyWave } from '../../create-empty-wave';
-import { control } from '../../redux/actions';
-import { AppStore, AppSubscribe, AppGetState } from '../../redux/store';
-import { Dispatch } from '@reduxjs/toolkit';
 import { Disc } from '../interfaces/netmd';
+import type { ApplicationClient } from '../../application/application-client';
+import type { PlaybackCommand } from '../../application/contracts';
 
 export interface MediaSessionService {
     init(): Promise<void>;
@@ -13,15 +12,7 @@ export class BrowserMediaSessionService {
     private initialized = false;
     private audioEl?: HTMLAudioElement;
 
-    private dispatch: Dispatch<any>; // CAVEAT: AppDispatch type doesn't have an overload for redux thunk actions
-    private subscribe: AppSubscribe;
-    private getState: AppGetState;
-
-    constructor(appStore: AppStore) {
-        this.dispatch = appStore.dispatch.bind(appStore) as Dispatch<any>;
-        this.subscribe = appStore.subscribe.bind(appStore);
-        this.getState = appStore.getState.bind(appStore);
-    }
+    constructor(private readonly application: Pick<ApplicationClient, 'execute' | 'getWorkspaceSnapshot' | 'subscribe'>) {}
 
     async init() {
         if (this.initialized || !navigator.mediaSession) {
@@ -52,7 +43,7 @@ export class BrowserMediaSessionService {
         await sleep(5000); // CAVEAT: 5secs is the minimum playing time for media info to show up
         audioEl.pause();
 
-        if (this.getState().main.deviceStatus?.state === 'playing') {
+        if (this.application.getWorkspaceSnapshot().device?.status.state === 'playing') {
             // restore current state
             audioEl.play();
         }
@@ -61,34 +52,35 @@ export class BrowserMediaSessionService {
 
         // Set mediaSession event handlers
         navigator.mediaSession.setActionHandler('previoustrack', () => {
-            this.dispatch(control('prev'));
+            void this.control({ action: 'previous' });
         });
         navigator.mediaSession.setActionHandler('nexttrack', () => {
-            this.dispatch(control('next'));
+            void this.control({ action: 'next' });
         });
         navigator.mediaSession.setActionHandler('pause', () => {
             audioEl.pause();
-            this.dispatch(control('pause'));
+            void this.control({ action: 'pause' });
         });
         navigator.mediaSession.setActionHandler('play', () => {
             audioEl.play();
-            this.dispatch(control('play'));
+            void this.control({ action: 'play' });
         });
 
         const debouncedSeek = debounce((time: number, trackNumber: number) => {
-            this.dispatch(control('seek', { time, trackNumber }));
+            const [hour, minute, second, frame] = timeToSeekArgs(time);
+            void this.control({ action: 'seek', index: trackNumber, hour, minute, second, frame });
             audioEl.currentTime = time;
         }, 100);
 
         navigator.mediaSession.setActionHandler('seekto', details => {
-            const trackNumber = this.getState().main.deviceStatus?.track ?? -1;
+            const trackNumber = this.application.getWorkspaceSnapshot().device?.status.track ?? -1;
             if (trackNumber === -1 || details.seekTime === null || details.seekTime === undefined) {
                 return; // can't seek without knowing the track number or the seek time
             }
             debouncedSeek(details.seekTime, trackNumber);
         });
 
-        this.subscribe(() => {
+        this.application.subscribe(() => {
             this.syncState();
         });
     }
@@ -110,9 +102,9 @@ export class BrowserMediaSessionService {
         }
 
         const audioEl = this.audioEl!;
-        const {
-            main: { deviceStatus, disc },
-        } = this.getState();
+        const device = this.application.getWorkspaceSnapshot().device;
+        const deviceStatus = device?.status;
+        const disc = device?.disc ?? null;
 
         const isPlaying = deviceStatus?.state === 'playing';
         const currentDiscTitle = disc?.title;
@@ -156,6 +148,15 @@ export class BrowserMediaSessionService {
             audioEl.play();
         } else if (!isPlaying && !audioEl.paused) {
             audioEl.pause();
+        }
+    }
+
+    private async control(command: PlaybackCommand) {
+        try {
+            const result = await this.application.execute({ type: 'playback.control', command });
+            if (!result.ok) console.error(`MediaSession playback failed: ${result.error.message}`);
+        } catch (error) {
+            console.error('MediaSession playback failed:', error);
         }
     }
 }

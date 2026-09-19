@@ -40,7 +40,6 @@ import { subscribeLegacyDeviceProjection } from './frontend/legacy-device-projec
 const mediaRecorderService = new MediaRecorderService();
 const localFiles = new BrowserLocalFileGateway();
 serviceRegistry.localAudioInput = new BrowserAudioInput(mediaRecorderService);
-serviceRegistry.mediaSessionService = new BrowserMediaSessionService(store);
 serviceRegistry.importWriter = new BrowserImportWriter({
     getApplication: () => serviceRegistry.application,
     getAudioExportService: () => serviceRegistry.audioEncoderManager.getService(),
@@ -103,6 +102,7 @@ serviceRegistry.importWriter = new BrowserImportWriter({
 serviceRegistry.trackExporter = new BrowserTrackExporter(localFiles);
 serviceRegistry.trackRecorder = new BrowserTrackRecorder(mediaRecorderService);
 const applicationClient = getApplicationClient();
+serviceRegistry.mediaSessionService = new BrowserMediaSessionService(applicationClient);
 subscribeLegacyDeviceProjection(applicationClient, (snapshot) => applyDeviceSnapshot(store.dispatch, snapshot));
 serviceRegistry.trackRecognizer = new BrowserTrackRecognizer(applicationClient);
 startLocalApplicationBridge(localFiles);

@@ -41,5 +41,21 @@ module.exports = {
         ],
       },
     },
+    {
+      files: ['src/services/browserintegration/**/*.{ts,tsx}'],
+      rules: {
+        'no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              {
+                group: ['**/redux/**', 'react-redux'],
+                message: 'Browser integrations must use ApplicationClient and Workspace Store.',
+              },
+            ],
+          },
+        ],
+      },
+    },
   ],
 }
