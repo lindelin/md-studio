@@ -11,7 +11,9 @@ import LinearProgress from '@mui/material/LinearProgress';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import { makeStyles } from 'tss-react/mui';
-import { W95RecordDialog } from './win95/record-dialog';
+const W95RecordDialog = React.lazy(() =>
+    import('./win95/record-dialog').then(({ W95RecordDialog }) => ({ default: W95RecordDialog }))
+);
 import { useDispatch } from '../frontend-utils';
 import { requestTaskCancellation } from '../redux/actions';
 

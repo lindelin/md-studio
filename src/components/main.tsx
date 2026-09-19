@@ -67,7 +67,7 @@ import { DumpDialog } from './dump-dialog';
 import { TopMenu } from './topmenu';
 import Checkbox from '@mui/material/Checkbox';
 import Button from '@mui/material/Button';
-import { W95Main } from './win95/main';
+const W95Main = React.lazy(() => import('./win95/main').then(({ W95Main }) => ({ default: W95Main })));
 import { useMemo } from 'react';
 import { ChangelogDialog } from './changelog-dialog';
 import { Track } from '../services/interfaces/netmd';

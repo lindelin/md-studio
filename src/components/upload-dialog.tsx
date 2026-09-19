@@ -16,7 +16,9 @@ import Box from '@mui/material/Box';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import { makeStyles } from 'tss-react/mui';
-import { W95UploadDialog } from './win95/upload-dialog';
+const W95UploadDialog = React.lazy(() =>
+    import('./win95/upload-dialog').then(({ W95UploadDialog }) => ({ default: W95UploadDialog }))
+);
 import { setNotifyWhenFinished } from '../redux/actions';
 
 const useStyles = makeStyles()((theme) => ({

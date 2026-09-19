@@ -50,7 +50,9 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import Radio from '@mui/material/Radio';
 import { useDropzone } from 'react-dropzone';
 import Backdrop from '@mui/material/Backdrop';
-import { W95ConvertDialog } from './win95/convert-dialog';
+const W95ConvertDialog = React.lazy(() =>
+    import('./win95/convert-dialog').then(({ W95ConvertDialog }) => ({ default: W95ConvertDialog }))
+);
 import {
     Capability,
     Codec,

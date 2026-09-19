@@ -12,7 +12,9 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Slide, { SlideProps } from '@mui/material/Slide';
 import Button from '@mui/material/Button';
 import Link from '@mui/material/Link';
-import { W95AboutDialog } from './win95/about-dialog';
+const W95AboutDialog = React.lazy(() =>
+    import('./win95/about-dialog').then(({ W95AboutDialog }) => ({ default: W95AboutDialog }))
+);
 import { GIT_DIFF, GIT_HASH, BUILD_DATE } from '../version-info';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {

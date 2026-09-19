@@ -12,7 +12,9 @@ import Slide, { SlideProps } from '@mui/material/Slide';
 import Button from '@mui/material/Button';
 import Link from '@mui/material/Link';
 import { makeStyles } from 'tss-react/mui';
-import { W95ChangelogDialog } from './win95/changelog-dialog';
+const W95ChangelogDialog = React.lazy(() =>
+    import('./win95/changelog-dialog').then(({ W95ChangelogDialog }) => ({ default: W95ChangelogDialog }))
+);
 import { saveRawPreference } from '../preferences';
 import { CHANGELOG } from '../changelog';
 import { ChangelogEntry } from '../bridge-types';

@@ -13,7 +13,9 @@ import Slide, { SlideProps } from '@mui/material/Slide';
 import Button from '@mui/material/Button';
 import { makeStyles } from 'tss-react/mui';
 import Typography from '@mui/material/Typography';
-import { W95DumpDialog } from './win95/dump-dialog';
+const W95DumpDialog = React.lazy(() =>
+    import('./win95/dump-dialog').then(({ W95DumpDialog }) => ({ default: W95DumpDialog }))
+);
 import { LineInDeviceSelect } from './line-in-helpers';
 import { getApplicationClient } from '../application/runtime';
 

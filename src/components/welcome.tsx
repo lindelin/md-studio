@@ -20,7 +20,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
 import { TopMenu } from './topmenu';
 import ChromeIconPath from '../images/chrome-icon.svg';
-import { W95Welcome } from './win95/welcome';
+const W95Welcome = React.lazy(() => import('./win95/welcome').then(({ W95Welcome }) => ({ default: W95Welcome })));
 
 import SplitButton, { OptionType } from './split-button';
 import {

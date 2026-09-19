@@ -23,7 +23,9 @@ import Slide, { SlideProps } from '@mui/material/Slide';
 import Button from '@mui/material/Button';
 import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
-import { W95RenameDialog } from './win95/rename-dialog';
+const W95RenameDialog = React.lazy(() =>
+    import('./win95/rename-dialog').then(({ W95RenameDialog }) => ({ default: W95RenameDialog }))
+);
 import { Capability } from '../services/interfaces/netmd';
 import { useApplicationWorkspace } from './use-application-client';
 import { sanitizeDeviceFullWidthTitle } from '../application/device-profile';
