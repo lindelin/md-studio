@@ -5,7 +5,7 @@ import { batchActions } from '../../frontend-utils';
 import { AppDispatch, RootState } from '../store';
 import { actions as appStateActions } from '../app-feature';
 import serviceRegistry from '../../services/registry';
-import { convertToWAV, createDownloadTrackName, downloadBlob, getTracks, Promised } from '../../utils';
+import { convertToWAV, createDownloadTrackName, downloadBlob, getTracks, Promised, sleep } from '../../utils';
 import { ExploitCapability, Capability } from '../../services/interfaces/netmd';
 import { parseTOC, getTitleByTrackNumber, reconstructTOC, updateFlagAllFragmentsOfTrack, ModeFlag, ToC } from 'netmd-tocmanip';
 import { downloadTracks, exportCSV } from '../actions';
@@ -32,6 +32,25 @@ function resolveExploitCapabilities(names: string[]) {
     return names
         .map((name) => ExploitCapability[name as keyof typeof ExploitCapability])
         .filter((capability): capability is ExploitCapability => typeof capability === 'number');
+}
+
+async function monitorAdvancedMemoryExport(dispatch: AppDispatch, taskId: string) {
+    for (;;) {
+        const task = getApplicationClient()
+            .getWorkspaceSnapshot()
+            .tasks.find((candidate) => candidate.id === taskId);
+        if (!task) throw new Error(`Task ${taskId} is no longer available.`);
+        dispatch(
+            factoryProgressDialogActions.setProgress({
+                current: task.progress.completed,
+                total: task.progress.total,
+                additionalInfo: task.progress.currentLabel ?? '',
+            })
+        );
+        if (task.status === 'failed') throw new Error(task.error?.message ?? 'Advanced memory export failed.');
+        if (task.status !== 'queued' && task.status !== 'running') return;
+        await sleep(50);
+    }
 }
 
 export function initializeFactoryMode() {
@@ -155,20 +174,15 @@ export function downloadRam() {
                 factoryProgressDialogActions.setVisible(true),
             ])
         );
-        const ramData = await serviceRegistry.netmdFactoryService!.readRAM(
-            ({ readBytes, totalBytes }: { readBytes: number; totalBytes: number }) => {
-                dispatch(
-                    factoryProgressDialogActions.setProgress({
-                        current: readBytes,
-                        total: totalBytes,
-                    })
-                );
-            }
-        );
-
-        const fileName = `ram_${getState().main.deviceName}_${firmwareVersion}.bin`;
-        downloadBlob(new Blob([ramData]), fileName);
-        dispatch(factoryProgressDialogActions.setVisible(false));
+        try {
+            const task = await getApplicationClient().startLocalAdvancedMemoryExport('ram', (_region, data) => {
+                const fileName = `ram_${getState().main.deviceName}_${firmwareVersion}.bin`;
+                downloadBlob(new Blob([new Uint8Array(data)]), fileName);
+            });
+            await monitorAdvancedMemoryExport(dispatch, task.id);
+        } finally {
+            dispatch(factoryProgressDialogActions.setVisible(false));
+        }
     };
 }
 
@@ -184,30 +198,17 @@ export function downloadRom() {
                 factoryProgressDialogActions.setVisible(true),
             ])
         );
-        const firmwareData = await serviceRegistry.netmdFactoryService!.readFirmware(
-            ({ type, readBytes, totalBytes }: { type: 'RAM' | 'ROM' | 'DRAM'; readBytes: number; totalBytes: number }) => {
-                if (readBytes % 0x200 === 0)
-                    dispatch(
-                        factoryProgressDialogActions.setProgress({
-                            current: readBytes,
-                            total: totalBytes,
-                            additionalInfo: type,
-                        })
-                    );
-            }
-        );
         const firmwareVersion = getState().factory.firmwareVersion;
-        const fileName = `firmware_${getState().main.deviceName}_${firmwareVersion}.bin`;
-        downloadBlob(new Blob([firmwareData.rom]), fileName);
-
-        const fileName2 = `ram_${getState().main.deviceName}_${firmwareVersion}.bin`;
-        downloadBlob(new Blob([firmwareData.ram]), fileName2);
-
-        if (firmwareData.dram) {
-            const fileName3 = `dram_${getState().main.deviceName}_${firmwareVersion}.bin`;
-            downloadBlob(new Blob([firmwareData.dram]), fileName3);
+        try {
+            const task = await getApplicationClient().startLocalAdvancedMemoryExport('firmware', (region, data) => {
+                const prefix = region === 'ROM' ? 'firmware' : region.toLowerCase();
+                const fileName = `${prefix}_${getState().main.deviceName}_${firmwareVersion}.bin`;
+                downloadBlob(new Blob([new Uint8Array(data)]), fileName);
+            });
+            await monitorAdvancedMemoryExport(dispatch, task.id);
+        } finally {
+            dispatch(factoryProgressDialogActions.setVisible(false));
         }
-        dispatch(factoryProgressDialogActions.setVisible(false));
     };
 }
 

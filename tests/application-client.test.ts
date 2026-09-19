@@ -21,7 +21,8 @@ describe('InProcessApplicationClient', () => {
             },
             workspace,
             imports,
-            async () => tasks.create('export', 'Local export')
+            async () => tasks.create('export', 'Local export'),
+            async () => tasks.create('advanced.memory-export', 'Memory export')
         );
         const initial = client.getWorkspaceSnapshot();
         let notifications = 0;
@@ -57,7 +58,8 @@ describe('InProcessApplicationClient', () => {
             },
             workspace,
             imports,
-            async () => tasks.create('export', 'Local export')
+            async () => tasks.create('export', 'Local export'),
+            async () => tasks.create('advanced.memory-export', 'Memory export')
         );
         const payload = { browserFile: true };
 
@@ -89,12 +91,39 @@ describe('InProcessApplicationClient', () => {
             async (request) => {
                 requests.push(request.indexes);
                 return tasks.create('track-export', 'Local export');
-            }
+            },
+            async () => tasks.create('advanced.memory-export', 'Memory export')
         );
 
         const task = await client.startLocalTrackExport({ indexes: [0, 2], convertToWav: true }, async () => {});
 
         assert.deepEqual(requests, [[0, 2]]);
         assert.equal(task.kind, 'track-export');
+    });
+
+    it('routes browser-only advanced memory exports through the local adapter', async () => {
+        const tasks = new TaskManager();
+        const imports = new ImportQueue();
+        const workspace = new WorkspaceStore(tasks, imports, new SettingsStore(null));
+        const requestedKinds: string[] = [];
+        const client = new InProcessApplicationClient(
+            {
+                async execute() {
+                    return { ok: true };
+                },
+            },
+            workspace,
+            imports,
+            async () => tasks.create('track-export', 'Local export'),
+            async (kind) => {
+                requestedKinds.push(kind);
+                return tasks.create('advanced.memory-export', 'Memory export');
+            }
+        );
+
+        const task = await client.startLocalAdvancedMemoryExport('firmware', async () => {});
+
+        assert.deepEqual(requestedKinds, ['firmware']);
+        assert.equal(task.kind, 'advanced.memory-export');
     });
 });

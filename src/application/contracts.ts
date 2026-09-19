@@ -59,6 +59,21 @@ export interface AdvancedTocDump {
     dataBase64: string;
 }
 
+export type AdvancedMemoryKind = 'ram' | 'firmware';
+export type AdvancedMemoryRegion = 'RAM' | 'ROM' | 'DRAM';
+
+export interface AdvancedMemoryProgress {
+    region: AdvancedMemoryRegion;
+    readBytes: number;
+    totalBytes: number;
+}
+
+export interface AdvancedMemoryDump {
+    ram: Uint8Array;
+    rom?: Uint8Array;
+    dram?: Uint8Array;
+}
+
 export interface DiagnosticProgress {
     completed: number;
     total: number;
@@ -81,6 +96,8 @@ export interface AdvancedDeviceGateway {
     setDiscSwapDetectionDisabled(disabled: boolean): Promise<void>;
     enableHimdFullMode(): Promise<void>;
     enterServiceMode(): Promise<void>;
+    readRam(onProgress: (progress: AdvancedMemoryProgress) => void): Promise<Uint8Array>;
+    readFirmware(onProgress: (progress: AdvancedMemoryProgress) => void): Promise<AdvancedMemoryDump>;
 }
 
 export type PlaybackCommand =

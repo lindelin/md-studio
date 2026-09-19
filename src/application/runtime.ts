@@ -3,6 +3,7 @@ import { ApplicationCommandBus } from './command-bus';
 import { NetMDAdvancedDeviceGateway, NetMDDeviceGateway } from './device-gateway';
 import { MiniDiscApplication } from './minidisc-application';
 import { InProcessApplicationClient } from './application-client';
+import { INTERACTIVE_ADVANCED_AUTHORIZATION } from './interactive-authorization';
 
 export function bindApplicationRuntime() {
     if (!serviceRegistry.netmdService || !serviceRegistry.netmdSpec) {
@@ -62,6 +63,42 @@ export function getApplicationClient() {
                     serviceRegistry.taskManager,
                     sink
                 );
+            },
+            async (kind, sink) => {
+                const task = serviceRegistry.taskManager.create(
+                    'advanced.memory-export',
+                    kind === 'ram' ? 'Export device RAM' : 'Export device firmware',
+                    0,
+                    'bytes'
+                );
+                serviceRegistry.taskManager.start(task.id, 'transferring');
+                void getApplicationRuntime()
+                    .readAdvancedMemory(kind, INTERACTIVE_ADVANCED_AUTHORIZATION, (progress) => {
+                        serviceRegistry.taskManager.reportProgress(task.id, {
+                            completed: progress.readBytes,
+                            total: progress.totalBytes,
+                            currentLabel: progress.region,
+                            currentPercent:
+                                progress.totalBytes === 0 ? 0 : (progress.readBytes / progress.totalBytes) * 100,
+                        });
+                    })
+                    .then(async (dump) => {
+                        serviceRegistry.taskManager.setPhase(task.id, 'finalizing');
+                        if (dump.rom) await sink('ROM', dump.rom);
+                        await sink('RAM', dump.ram);
+                        if (dump.dram) await sink('DRAM', dump.dram);
+                        serviceRegistry.taskManager.succeed(task.id, {
+                            regions: [dump.rom && 'ROM', 'RAM', dump.dram && 'DRAM'].filter(Boolean),
+                        });
+                    })
+                    .catch((error) => {
+                        if (serviceRegistry.taskManager.get(task.id).status === 'running') {
+                            serviceRegistry.taskManager.fail(task.id, error, {
+                                recoveryAction: 'Keep the device connected and retry the memory export from the advanced tools.',
+                            });
+                        }
+                    });
+                return serviceRegistry.taskManager.get(task.id);
             }
         );
     }

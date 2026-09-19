@@ -2,6 +2,9 @@ import {
     ApplicationError,
     type AdvancedDeviceGateway,
     type AdvancedTocDump,
+    type AdvancedMemoryDump,
+    type AdvancedMemoryKind,
+    type AdvancedMemoryProgress,
     type ApplicationCapability,
     type DestructiveConfirmation,
     type DiagnosticProgress,
@@ -208,6 +211,21 @@ export class MiniDiscApplication {
             confirmation,
             'Entering service mode changes the device operating state and requires explicit confirmation.'
         );
+    }
+
+    readAdvancedMemory(
+        kind: AdvancedMemoryKind,
+        interactiveAuthorization: typeof INTERACTIVE_ADVANCED_AUTHORIZATION,
+        onProgress: (progress: AdvancedMemoryProgress) => void
+    ): Promise<AdvancedMemoryDump> {
+        return this.serial(async () => {
+            this.requireInteractiveAdvancedAuthorization(interactiveAuthorization);
+            this.requireCapability('advanced.factory');
+            const gateway = this.requireAdvancedGateway();
+            await this.requireExploitCapability(gateway, kind === 'ram' ? 'readRam' : 'readFirmware');
+            if (kind === 'ram') return { ram: await gateway.readRam(onProgress) };
+            return gateway.readFirmware(onProgress);
+        });
     }
 
     applyMetadataImport(text: string, includedTrackIndexes: number[], expectedRevision?: number) {

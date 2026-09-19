@@ -5,6 +5,7 @@ import type {
     GroupMetadataUpdate,
     HiMDTrackMetadataUpdate,
     PlaybackCommand,
+    AdvancedMemoryProgress,
 } from './contracts';
 import {
     Capability,
@@ -195,6 +196,18 @@ export class NetMDAdvancedDeviceGateway implements AdvancedDeviceGateway {
     async enterServiceMode() {
         const factory = await this.getFactoryService();
         await factory.enterServiceMode();
+    }
+
+    async readRam(onProgress: (progress: AdvancedMemoryProgress) => void) {
+        const factory = await this.getFactoryService();
+        return factory.readRAM(({ readBytes, totalBytes }) => onProgress({ region: 'RAM', readBytes, totalBytes }));
+    }
+
+    async readFirmware(onProgress: (progress: AdvancedMemoryProgress) => void) {
+        const factory = await this.getFactoryService();
+        return factory.readFirmware(({ type, readBytes, totalBytes }) =>
+            onProgress({ region: type, readBytes, totalBytes })
+        );
     }
 
     private async getFactoryService() {
