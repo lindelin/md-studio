@@ -6,13 +6,11 @@ import process from 'process';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { Provider } from 'react-redux';
-import type { UnknownAction } from '@reduxjs/toolkit';
 import serviceRegistry from './services/registry';
 
 import { store } from './redux/store';
 import { actions as appActions } from './redux/app-feature';
 import { actions as convertDialogActions } from './redux/convert-dialog-feature';
-import { actions as uploadDialogActions } from './redux/upload-dialog-feature';
 import { actions as errorDialogActions } from './redux/error-dialog-feature';
 import { batchActions } from './frontend-utils';
 
@@ -48,9 +46,7 @@ serviceRegistry.importWriter = new BrowserImportWriter({
             requiredCapabilities.includes('uploadAtrac1') && 'ATRAC1 restore',
             requiredCapabilities.includes('uploadMonoSP') && 'SP Mono recording',
         ].filter(Boolean);
-        return window.confirm(
-            `${modes.join(' and ')} requires Homebrew mode. Continue with advanced device access?`
-        );
+        return window.confirm(`${modes.join(' and ')} requires Homebrew mode. Continue with advanced device access?`);
     },
     showImportDialog: () => {
         store.dispatch(convertDialogActions.setVisible(true));
@@ -66,35 +62,8 @@ serviceRegistry.importWriter = new BrowserImportWriter({
             this.close();
         };
     },
-    presentation: {
-        start: () => {
-            store.dispatch(
-                batchActions([
-                    uploadDialogActions.setVisible(true),
-                    uploadDialogActions.setCancelUpload(false),
-                    uploadDialogActions.setWriteProgress({ written: 0, encrypted: 0, total: 1 }),
-                ])
-            );
-        },
-        updateTrack: (progress) => {
-            store.dispatch(
-                batchActions([
-                    uploadDialogActions.setTrackProgress(progress),
-                    uploadDialogActions.setTrackEncodingProgress({ state: 0, total: 0 }),
-                ])
-            );
-        },
-        updateEncoding: (progress) => store.dispatch(uploadDialogActions.setTrackEncodingProgress(progress)),
-        updateTransfer: (progress) => store.dispatch(uploadDialogActions.setWriteProgress(progress)),
-        finish: (errorMessage) => {
-            const actions: UnknownAction[] = [uploadDialogActions.setVisible(false)];
-            if (errorMessage) {
-                actions.push(errorDialogActions.setVisible(true));
-                actions.push(errorDialogActions.setErrorMessage(errorMessage));
-            }
-            store.dispatch(batchActions(actions));
-        },
-        isCancellationRequested: () => store.getState().uploadDialog.cancelled,
+    reportError: (message) => {
+        store.dispatch(batchActions([errorDialogActions.setVisible(true), errorDialogActions.setErrorMessage(message)]));
     },
 });
 serviceRegistry.trackExporter = new BrowserTrackExporter(localFiles);
@@ -120,7 +89,6 @@ if (readRawPreference('version') !== (window as any).wmdVersion) {
         const state = store.getState();
         if (
             !hasPendingWorkspaceWork(applicationClient.getWorkspaceSnapshot(), {
-                uploadVisible: state.uploadDialog.visible,
                 factoryProgressVisible: state.factoryProgressDialog.visible,
                 recordVisible: state.recordDialog.visible,
             })
@@ -179,10 +147,7 @@ if (readRawPreference('version') !== (window as any).wmdVersion) {
             }
             try {
                 await sleep(250);
-                if (
-                    client.getWorkspaceSnapshot().device?.sessionId !== activeSessionId ||
-                    !shouldMonitorBeRunning(store.getState())
-                ) {
+                if (client.getWorkspaceSnapshot().device?.sessionId !== activeSessionId || !shouldMonitorBeRunning(store.getState())) {
                     setTimeout(monitor, nextPollDelay);
                     return;
                 }

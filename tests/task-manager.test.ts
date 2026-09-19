@@ -10,11 +10,17 @@ describe('TaskManager', () => {
         const task = manager.create('disc.write', 'Write two tracks', 2, 'tracks');
         manager.start(task.id);
         manager.setPhase(task.id, 'transferring');
-        manager.reportProgress(task.id, { completed: 1, currentLabel: 'Track B' });
+        const stages = {
+            conversion: { completed: 1.5, total: 2, currentLabel: 'Track B' },
+            transfer: { completed: 5, buffered: 7, total: 10, currentLabel: 'Track A' },
+        };
+        manager.reportProgress(task.id, { completed: 1, currentLabel: 'Track B', stages });
+        stages.conversion.completed = 0;
         const finished = manager.succeed(task.id, { writtenTracks: 2 });
         assert.equal(finished.status, 'succeeded');
         assert.equal(finished.progress.completed, 2);
         assert.deepEqual(finished.result, { writtenTracks: 2 });
+        assert.equal(finished.progress.stages?.conversion.completed, 1.5);
         assert.deepEqual(events, [
             'queued:queued:0',
             'running:preparing:0',
@@ -40,6 +46,7 @@ describe('TaskManager', () => {
         manager.start(task.id);
         assert.throws(() => manager.reportProgress(task.id, { completed: 2 }), /between zero/);
         assert.throws(() => manager.reportProgress(task.id, { currentPercent: 101 }), /100 percent/);
+        assert.throws(() => manager.reportProgress(task.id, { stages: { transfer: { completed: 2, total: 1 } } }), /stage transfer/);
         const failed = manager.fail(task.id, new Error('USB disconnected'), {
             code: 'DEVICE_DISCONNECTED',
             retryable: true,

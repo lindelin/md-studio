@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { AudioExportService } from '../src/services/audio/audio-export.ts';
 import type { DeviceSnapshot, DeviceUploadService } from '../src/application/contracts.ts';
-import { BrowserImportWriter, type ImportWritePresentation } from '../src/application/browser-import-writer.ts';
+import { BrowserImportWriter } from '../src/application/browser-import-writer.ts';
 import { BrowserLocalFileGateway } from '../src/application/browser-local-file-gateway.ts';
 import { ImportQueue } from '../src/application/import-queue.ts';
 import { INTERACTIVE_HOMEBREW_AUTHORIZATION } from '../src/application/interactive-authorization.ts';
@@ -166,6 +166,9 @@ describe('BrowserImportWriter', () => {
         assert.deepEqual(uploads, ['Track 1', 'Track 2']);
         assert.equal(queue.snapshot().items.length, 0);
         assert.equal(notified, 1);
+        assert.equal(finished.progress.stages?.conversion.completed, 2);
+        assert.equal(finished.progress.stages?.transfer.completed, 4);
+        assert.equal(finished.progress.stages?.transfer.buffered, 4);
     });
 
     it('cancels a confirmed-browser Homebrew write when the local confirmation is declined', async () => {
@@ -209,15 +212,7 @@ describe('BrowserImportWriter', () => {
         const queue = new ImportQueue();
         const added = addTracks(queue, 2);
         let uploadCount = 0;
-        const presentationErrors: Array<string | undefined> = [];
-        const presentation: ImportWritePresentation = {
-            start() {},
-            updateTrack() {},
-            updateEncoding() {},
-            updateTransfer() {},
-            finish: (message) => presentationErrors.push(message),
-            isCancellationRequested: () => false,
-        };
+        const presentationErrors: string[] = [];
         const writer = new BrowserImportWriter({
             getApplication: () =>
                 makeApplication(async (_title, _fullWidthTitle, data, _format, onProgress) => {
@@ -229,7 +224,7 @@ describe('BrowserImportWriter', () => {
             getUseFullWidthTitles: () => false,
             localFiles: new BrowserLocalFileGateway(),
             showImportDialog() {},
-            presentation,
+            reportError: (message) => presentationErrors.push(message),
         });
 
         const started = await writer.start(

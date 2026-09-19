@@ -1,6 +1,5 @@
 import { configureStore, Middleware, combineReducers } from '@reduxjs/toolkit';
 import contextMenu from './context-menu-feature';
-import uploadDialog from './upload-dialog-feature';
 import renameDialog from './rename-dialog-feature';
 import otherDeviceDialog from './other-device-feature';
 import errorDialog from './error-dialog-feature';
@@ -39,7 +38,6 @@ const reducer = combineReducers({
     localLibrary,
     renameDialog,
     otherDeviceDialog,
-    uploadDialog,
     errorDialog,
     panicDialog,
     convertDialog,

@@ -13,27 +13,9 @@ import {
     assertImportWritePolicy,
 } from './import-write-policy';
 import { ImportUploadSessionError, runImportUploadSession } from './import-upload-session';
-import {
-    INTERACTIVE_ADVANCED_AUTHORIZATION,
-    INTERACTIVE_HOMEBREW_AUTHORIZATION,
-} from './interactive-authorization';
+import { INTERACTIVE_ADVANCED_AUTHORIZATION, INTERACTIVE_HOMEBREW_AUTHORIZATION } from './interactive-authorization';
 import type { MiniDiscApplication } from './minidisc-application';
-import type { TaskManager } from './task-manager';
-
-export interface ImportWritePresentation {
-    start(totalTracks: number): void;
-    updateTrack(progress: {
-        current: number;
-        converting: number;
-        total: number;
-        titleCurrent: string;
-        titleConverting: string;
-    }): void;
-    updateEncoding(progress: { state: number; total: number }): void;
-    updateTransfer(progress: { written: number; encrypted: number; total: number }): void;
-    finish(errorMessage?: string): void;
-    isCancellationRequested(): boolean;
-}
+import type { TaskManager, TaskStageProgress } from './task-manager';
 
 export interface BrowserImportWriterDependencies {
     getApplication(): MiniDiscApplication | undefined;
@@ -41,8 +23,8 @@ export interface BrowserImportWriterDependencies {
     getUseFullWidthTitles(): boolean;
     localFiles: BrowserLocalFileGateway;
     confirmHomebrew?(requiredCapabilities: string[]): boolean | Promise<boolean>;
-    presentation?: ImportWritePresentation;
     showImportDialog(): void;
+    reportError?(message: string): void;
     notifyCompleted?(): void;
 }
 
@@ -56,12 +38,7 @@ export class BrowserImportWriter implements ImportWriter {
             throw new ApplicationError('NO_DISC', 'Connect a MiniDisc device before starting a write task.');
         }
         const device = application.readSnapshot() ?? (await application.refresh());
-        assertImportDeviceVersion(
-            request.expectedDeviceSessionId,
-            request.expectedDeviceRevision,
-            device.sessionId,
-            device.revision
-        );
+        assertImportDeviceVersion(request.expectedDeviceSessionId, request.expectedDeviceRevision, device.sessionId, device.revision);
         assertDiscWritableForImport(device.disc);
 
         const preview = await application.previewImports(
@@ -76,8 +53,7 @@ export class BrowserImportWriter implements ImportWriter {
             selected,
             format,
             nativeMonoUpload: device.capabilities.includes('track.uploadMono'),
-            allowInteractiveHomebrew:
-                request.interactiveHomebrewAuthorization === INTERACTIVE_HOMEBREW_AUTHORIZATION,
+            allowInteractiveHomebrew: request.interactiveHomebrewAuthorization === INTERACTIVE_HOMEBREW_AUTHORIZATION,
         });
 
         const task = tasks.create(
@@ -112,7 +88,6 @@ export class BrowserImportWriter implements ImportWriter {
         tasks: TaskManager,
         application: MiniDiscApplication
     ) {
-        const presentation = this.dependencies.presentation;
         const originalTitle = typeof document === 'undefined' ? '' : document.title;
         let wakeLock: { release(): Promise<void> } | undefined;
         let error: unknown;
@@ -123,24 +98,16 @@ export class BrowserImportWriter implements ImportWriter {
         const isRunning = () => tasks.get(taskId).status === 'running';
         const isCancelled = () => {
             const task = tasks.get(taskId);
-            return (
-                presentation?.isCancellationRequested() === true ||
-                task.cancellationRequested ||
-                task.status === 'cancelled' ||
-                task.status === 'interrupted'
-            );
+            return task.cancellationRequested || task.status === 'cancelled' || task.status === 'interrupted';
         };
 
         try {
             const files = await this.resolveFiles(selected);
-            const usesAtrac1Upload = files.some(
-                ({ forcedEncoding }) => forcedEncoding?.codec === 'SPS' || forcedEncoding?.codec === 'SPM'
-            );
+            const usesAtrac1Upload = files.some(({ forcedEncoding }) => forcedEncoding?.codec === 'SPS' || forcedEncoding?.codec === 'SPM');
             const usesMonoUploadExploit = format.codec === 'SPM' && !device.capabilities.includes('track.uploadMono');
-            const requiredExploitCapabilities = [
-                usesAtrac1Upload && 'uploadAtrac1',
-                usesMonoUploadExploit && 'uploadMonoSP',
-            ].filter((value): value is string => Boolean(value));
+            const requiredExploitCapabilities = [usesAtrac1Upload && 'uploadAtrac1', usesMonoUploadExploit && 'uploadMonoSP'].filter(
+                (value): value is string => Boolean(value)
+            );
 
             if (requiredExploitCapabilities.length > 0) {
                 const confirmed = await this.dependencies.confirmHomebrew?.(requiredExploitCapabilities);
@@ -151,14 +118,14 @@ export class BrowserImportWriter implements ImportWriter {
                 }
             }
 
-            presentation?.start(files.length);
-            presentation?.updateTrack({
-                current: 0,
-                converting: 0,
-                total: files.length,
-                titleCurrent: '',
-                titleConverting: '',
-            });
+            const stages: Record<string, TaskStageProgress> = {
+                conversion: { completed: 0, total: files.length, currentLabel: '' },
+                transfer: { completed: 0, buffered: 0, total: 1, currentLabel: '' },
+            };
+            const publishStages = (progress: Parameters<TaskManager['reportProgress']>[1] = {}) => {
+                if (isRunning()) tasks.reportProgress(taskId, { ...progress, stages });
+            };
+            publishStages();
             const audioExportService = await this.dependencies.getAudioExportService();
             wakeLock = await this.acquireWakeLock();
 
@@ -173,14 +140,6 @@ export class BrowserImportWriter implements ImportWriter {
                     let bytesSentFromCurrentTrack = 0;
                     let lastTransferUpdate = 0;
                     let lastEncodingUpdate = 0;
-                    const trackProgress = {
-                        current: 0,
-                        converting: 0,
-                        total: files.length,
-                        titleCurrent: '',
-                        titleConverting: '',
-                    };
-                    const publishTrack = () => presentation?.updateTrack({ ...trackProgress });
                     const updateTitle = () => {
                         if (typeof document === 'undefined') return;
                         if (totalBytesAllTracks === 0) {
@@ -204,32 +163,30 @@ export class BrowserImportWriter implements ImportWriter {
                         {
                             isCancelled,
                             onTrackStarted: (index, _total, file) => {
-                                trackProgress.converting = index;
-                                trackProgress.titleConverting = file.title;
-                                publishTrack();
+                                stages.conversion = {
+                                    completed: index,
+                                    total: files.length,
+                                    currentLabel: file.title,
+                                };
+                                publishStages();
                                 updateTitle();
                             },
                             onTrackProgress: (index, total, progress) => {
                                 const now = Date.now();
                                 if (now - lastEncodingUpdate < 200 && progress.state < progress.total) return;
                                 lastEncodingUpdate = now;
-                                const combined = {
+                                const completed = index + progress.state / Math.max(1, progress.total);
+                                stages.conversion = {
+                                    completed,
                                     total,
-                                    state: index + progress.state / Math.max(1, progress.total),
+                                    currentLabel: stages.conversion.currentLabel,
                                 };
-                                presentation?.updateEncoding(combined);
-                                if (isRunning()) {
-                                    tasks.reportProgress(taskId, {
-                                        currentPercent: (combined.state / Math.max(1, total)) * 100,
-                                    });
-                                }
+                                publishStages({ currentPercent: (completed / Math.max(1, total)) * 100 });
                             },
                             onQueueFinished: (totalBytes, startedCount) => {
                                 totalBytesAllTracks = totalBytes;
-                                trackProgress.converting = startedCount;
-                                trackProgress.titleConverting = '';
-                                presentation?.updateEncoding({ state: startedCount, total: files.length });
-                                publishTrack();
+                                stages.conversion = { completed: startedCount, total: files.length, currentLabel: '' };
+                                publishStages();
                                 updateTitle();
                             },
                         }
@@ -251,36 +208,41 @@ export class BrowserImportWriter implements ImportWriter {
                                 if (isRunning() && tasks.get(taskId).phase !== phase) tasks.setPhase(taskId, phase);
                             },
                             onTrackStarted: (track) => {
-                                trackProgress.current = track.index + 1;
-                                trackProgress.titleCurrent = track.displayTitle;
                                 bytesSentFromPreviousTracks += bytesSentFromCurrentTrack;
                                 bytesSentFromCurrentTrack = 0;
-                                publishTrack();
-                                if (isRunning()) {
-                                    tasks.reportProgress(taskId, {
-                                        completed: track.index,
-                                        currentLabel: track.displayTitle,
-                                        currentPercent: 0,
-                                    });
-                                }
+                                stages.transfer = {
+                                    completed: 0,
+                                    buffered: 0,
+                                    total: 1,
+                                    currentLabel: track.displayTitle,
+                                };
+                                publishStages({ completed: track.index, currentLabel: track.displayTitle, currentPercent: 0 });
                             },
                             onTrackProgress: (_track, progress) => {
                                 bytesSentFromCurrentTrack = progress.written;
                                 const now = Date.now();
                                 if (now - lastTransferUpdate < 200 && progress.written < progress.total) return;
                                 lastTransferUpdate = now;
-                                presentation?.updateTransfer(progress);
-                                if (isRunning()) {
-                                    tasks.reportProgress(taskId, {
-                                        bytesWritten: bytesSentFromPreviousTracks + progress.written,
-                                        bytesTotal: totalBytesAllTracks || bytesSentFromPreviousTracks + progress.total,
-                                        currentPercent: (progress.written / Math.max(1, progress.total)) * 100,
-                                    });
-                                }
+                                stages.transfer = {
+                                    completed: progress.written,
+                                    buffered: progress.encrypted,
+                                    total: progress.total,
+                                    currentLabel: stages.transfer.currentLabel,
+                                };
+                                publishStages({
+                                    bytesWritten: bytesSentFromPreviousTracks + progress.written,
+                                    bytesTotal: totalBytesAllTracks || bytesSentFromPreviousTracks + progress.total,
+                                    currentPercent: (progress.written / Math.max(1, progress.total)) * 100,
+                                });
                                 updateTitle();
                             },
                             onTrackCompleted: (track) => {
-                                if (isRunning()) tasks.reportProgress(taskId, { completed: track.index + 1 });
+                                stages.transfer = {
+                                    ...stages.transfer,
+                                    completed: stages.transfer.total,
+                                    buffered: stages.transfer.total,
+                                };
+                                publishStages({ completed: track.index + 1 });
                             },
                         },
                     });
@@ -307,7 +269,7 @@ export class BrowserImportWriter implements ImportWriter {
                     console.error('Could not release the screen wake lock.', releaseError);
                 }
             }
-            presentation?.finish(errorMessage);
+            if (errorMessage) this.dependencies.reportError?.(errorMessage);
 
             if (isRunning()) {
                 if (error) {

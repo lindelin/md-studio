@@ -35,7 +35,9 @@ export const W95UploadDialog = (props: {
                     <div style={{ width: '100%' }}>
                         {props.convertedValue === 100 && props.trackConverting === props.trackTotal
                             ? `Conversion completed`
-                            : `Converting ${props.trackConverting + 1} of ${props.trackTotal}: ${props.titleConverting}`}
+                            : `Converting ${Math.min(props.trackTotal, Math.floor(props.trackConverting) + 1)} of ${
+                                  props.trackTotal
+                              }: ${props.titleConverting}`}
                     </div>
                     <Progress value={Math.floor(props.convertedValue)} />
 

@@ -2,6 +2,13 @@ export type TaskStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancel
 
 export type TaskPhase = 'queued' | 'preparing' | 'converting' | 'transferring' | 'finalizing' | 'complete';
 
+export interface TaskStageProgress {
+    completed: number;
+    total: number;
+    buffered?: number;
+    currentLabel?: string;
+}
+
 export interface TaskProgress {
     completed: number;
     total: number;
@@ -10,6 +17,7 @@ export interface TaskProgress {
     currentPercent?: number;
     bytesWritten?: number;
     bytesTotal?: number;
+    stages?: Record<string, TaskStageProgress>;
 }
 
 export interface TaskError {
@@ -95,17 +103,33 @@ export class TaskManager {
 
     reportProgress(id: string, progress: Partial<TaskProgress>) {
         return this.updateRunning(id, (task) => {
-            const nextProgress = { ...task.progress, ...progress };
+            const nextProgress = { ...task.progress, ...structuredClone(progress) };
             if (nextProgress.completed < 0 || nextProgress.total < 0 || nextProgress.completed > nextProgress.total) {
                 throw new Error('Task progress must stay between zero and its total.');
             }
             if (
                 nextProgress.currentPercent !== undefined &&
-                (!Number.isFinite(nextProgress.currentPercent) ||
-                    nextProgress.currentPercent < 0 ||
-                    nextProgress.currentPercent > 100)
+                (!Number.isFinite(nextProgress.currentPercent) || nextProgress.currentPercent < 0 || nextProgress.currentPercent > 100)
             ) {
                 throw new Error('Current task progress must stay between zero and 100 percent.');
+            }
+            for (const [name, stage] of Object.entries(nextProgress.stages ?? {})) {
+                if (!name.trim()) throw new Error('Task progress stage names must not be empty.');
+                if (
+                    !Number.isFinite(stage.completed) ||
+                    !Number.isFinite(stage.total) ||
+                    stage.completed < 0 ||
+                    stage.total < 0 ||
+                    stage.completed > stage.total
+                ) {
+                    throw new Error(`Task progress stage ${name} must stay between zero and its total.`);
+                }
+                if (
+                    stage.buffered !== undefined &&
+                    (!Number.isFinite(stage.buffered) || stage.buffered < 0 || stage.buffered > stage.total)
+                ) {
+                    throw new Error(`Task buffered progress stage ${name} must stay between zero and its total.`);
+                }
             }
             task.progress = nextProgress;
         });
