@@ -100,7 +100,7 @@ const useStyles = makeStyles()((theme) => ({
     },
 }));
 
-export const Welcome = (props: {}) => {
+export const Welcome = () => {
     const { classes } = useStyles();
     const dispatch = useDispatch();
     const {
@@ -238,7 +238,7 @@ export const Welcome = (props: {}) => {
                             >
                                 <FormHelperText>{pairingMessage}</FormHelperText>
                             </FormControl>
-                            {!window.native?.interface && (
+                            {!window.native?.interface && navigator.userAgent.includes('Vivaldi') && (
                                 <Tooltip
                                     title={
                                         <span>
