@@ -1,6 +1,3 @@
-import type { AppDispatch } from '../redux/store';
-import { convertAndUpload } from '../redux/actions';
-import { actions as convertDialogActions } from '../redux/convert-dialog-feature';
 import serviceRegistry from '../services/registry';
 import { Capability, getDefaultCodec, type Codec } from '../services/interfaces/netmd';
 import type { TitledFile } from '../utils';
@@ -11,8 +8,18 @@ import type { TaskManager } from './task-manager';
 import { assertImportWritePolicy } from './import-write-policy';
 import { INTERACTIVE_HOMEBREW_AUTHORIZATION } from './interactive-authorization';
 
+export interface BrowserImportWriterDependencies {
+    startUpload(
+        files: TitledFile[],
+        format: Codec,
+        parameters: { enableReplayGain: boolean; enableGapless: boolean },
+        taskId: string
+    ): Promise<void>;
+    showImportDialog(): void;
+}
+
 export class BrowserImportWriter implements ImportWriter {
-    constructor(private readonly dispatch: AppDispatch) {}
+    constructor(private readonly dependencies: BrowserImportWriterDependencies) {}
 
     async start(request: ImportWriteRequest, queue: ImportQueue, tasks: TaskManager) {
         const selected = queue.resolveSelection(request.ids, request.expectedRevision);
@@ -74,28 +81,26 @@ export class BrowserImportWriter implements ImportWriter {
                 });
             }
 
-            await this.dispatch(
-                convertAndUpload(
-                    files,
-                    format,
-                    {
-                        enableReplayGain: request.enableReplayGain ?? false,
-                        enableGapless: request.enableGapless ?? false,
-                    },
-                    { taskId }
-                )
+            await this.dependencies.startUpload(
+                files,
+                format,
+                {
+                    enableReplayGain: request.enableReplayGain ?? false,
+                    enableGapless: request.enableGapless ?? false,
+                },
+                taskId
             );
 
             const finalTask = tasks.get(taskId);
             if (finalTask.status === 'succeeded' && request.removeOnSuccess) {
                 queue.remove(selected.map(({ item }) => item.id));
             } else if (finalTask.status === 'failed' || finalTask.status === 'cancelled') {
-                this.dispatch(convertDialogActions.setVisible(true));
+                this.dependencies.showImportDialog();
             }
         } catch (error) {
             const task = tasks.get(taskId);
             if (task.status === 'queued' || task.status === 'running') tasks.fail(taskId, error);
-            this.dispatch(convertDialogActions.setVisible(true));
+            this.dependencies.showImportDialog();
         }
     }
 

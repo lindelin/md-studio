@@ -11,12 +11,13 @@ import serviceRegistry from './services/registry';
 import { store } from './redux/store';
 import { actions as appActions } from './redux/app-feature';
 import { actions as mainActions } from './redux/main-feature';
+import { actions as convertDialogActions } from './redux/convert-dialog-feature';
 
 import App from './components/app';
 
 import { MediaRecorderService } from './services/browserintegration/mediarecorder';
 import { BrowserMediaSessionService } from './services/browserintegration/media-session';
-import { disconnectDevice, listContent } from './redux/actions';
+import { convertAndUpload, disconnectDevice, listContent } from './redux/actions';
 import { sleep } from './utils';
 import { SettingsResetErrorBoundary } from './components/settings-reset-error-boundary';
 import { startLocalApplicationBridge } from './application/browser-bridge';
@@ -27,7 +28,14 @@ import { BrowserTrackRecorder } from './application/browser-track-recorder';
 import { ensureApplicationCommandBus } from './application/runtime';
 serviceRegistry.mediaRecorderService = new MediaRecorderService();
 serviceRegistry.mediaSessionService = new BrowserMediaSessionService(store);
-serviceRegistry.importWriter = new BrowserImportWriter(store.dispatch);
+serviceRegistry.importWriter = new BrowserImportWriter({
+    startUpload: async (files, format, parameters, taskId) => {
+        await store.dispatch(convertAndUpload(files, format, parameters, { taskId }));
+    },
+    showImportDialog: () => {
+        store.dispatch(convertDialogActions.setVisible(true));
+    },
+});
 serviceRegistry.trackExporter = new BrowserTrackExporter(store);
 serviceRegistry.trackRecorder = new BrowserTrackRecorder();
 ensureApplicationCommandBus();
