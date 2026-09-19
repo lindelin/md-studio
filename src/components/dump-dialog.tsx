@@ -17,7 +17,7 @@ const W95DumpDialog = React.lazy(() =>
     import('./win95/dump-dialog').then(({ W95DumpDialog }) => ({ default: W95DumpDialog }))
 );
 import { LineInDeviceSelect } from './line-in-helpers';
-import { getApplicationClient } from '../application/runtime';
+import { useApplicationClient } from './use-application-client';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
@@ -42,6 +42,7 @@ export const DumpDialog = ({
     isExploitDownload: boolean;
 }) => {
     const dispatch = useDispatch();
+    const applicationClient = useApplicationClient();
     const { classes } = useStyles();
 
     const [inputDeviceId, setInputDeviceId] = useState<string>('');
@@ -51,18 +52,18 @@ export const DumpDialog = ({
 
     const handleClose = useCallback(() => {
         setInputDeviceId('');
-        getApplicationClient().stopLocalAudioInputPreview();
+        applicationClient.stopLocalAudioInputPreview();
         dispatch(dumpDialogActions.setVisible(false));
-    }, [dispatch]);
+    }, [applicationClient, dispatch]);
 
     const handleChange = useCallback(
         (ev: React.ChangeEvent<{ value: unknown }>) => {
             if (isCapableOfDownload) return;
             const deviceId = ev.target.value as string;
             setInputDeviceId(deviceId);
-            getApplicationClient().startLocalAudioInputPreview(deviceId);
+            applicationClient.startLocalAudioInputPreview(deviceId);
         },
-        [setInputDeviceId, isCapableOfDownload]
+        [applicationClient, setInputDeviceId, isCapableOfDownload]
     );
 
     const handleStartRecord = useCallback(() => {

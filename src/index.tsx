@@ -34,6 +34,7 @@ import { BrowserAudioInput } from './application/browser-audio-input';
 import { BrowserLocalFileGateway } from './application/browser-local-file-gateway';
 import { BrowserTrackRecognizer } from './application/browser-track-recognizer';
 import NotificationCompleteIconUrl from './images/record-complete-notification-icon.png';
+import { ApplicationClientProvider } from './frontend/application-client-provider';
 const mediaRecorderService = new MediaRecorderService();
 const localFiles = new BrowserLocalFileGateway();
 serviceRegistry.localAudioInput = new BrowserAudioInput(mediaRecorderService);
@@ -100,7 +101,8 @@ serviceRegistry.importWriter = new BrowserImportWriter({
 });
 serviceRegistry.trackExporter = new BrowserTrackExporter(localFiles);
 serviceRegistry.trackRecorder = new BrowserTrackRecorder(mediaRecorderService);
-serviceRegistry.trackRecognizer = new BrowserTrackRecognizer(getApplicationClient());
+const applicationClient = getApplicationClient();
+serviceRegistry.trackRecognizer = new BrowserTrackRecognizer(applicationClient);
 startLocalApplicationBridge(localFiles);
 
 Object.defineProperty(window, 'wmdVersion', {
@@ -213,8 +215,10 @@ if (readRawPreference('version') !== (window as any).wmdVersion) {
 const root = createRoot(document.getElementById('root')!);
 root.render(
     <Provider store={store}>
-        <SettingsResetErrorBoundary>
-            <App />
-        </SettingsResetErrorBoundary>
+        <ApplicationClientProvider client={applicationClient}>
+            <SettingsResetErrorBoundary>
+                <App />
+            </SettingsResetErrorBoundary>
+        </ApplicationClientProvider>
     </Provider>
 );

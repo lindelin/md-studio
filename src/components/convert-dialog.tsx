@@ -56,8 +56,7 @@ const W95ConvertDialog = React.lazy(() =>
 import { Capability } from '../services/interfaces/capabilities';
 import type { Codec } from '../services/interfaces/netmd';
 import { INTERACTIVE_HOMEBREW_AUTHORIZATION } from '../application/interactive-authorization';
-import { getApplicationClient } from '../application/runtime';
-import { useApplicationWorkspace } from './use-application-client';
+import { useApplicationClient, useApplicationWorkspace } from './use-application-client';
 import Link from '@mui/material/Link';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -68,6 +67,7 @@ import { LeftInNondefaultCodecs } from './main-rows';
 import { formatImportTitle } from '../application/import-title';
 import { inspectImportFiles, type InspectedImportFile } from '../application/audio-import-inspector';
 import type { ApplicationCommand } from '../application/command-bus';
+import type { ApplicationClient } from '../application/application-client';
 import type { DeviceRecordingProfile } from '../application/contracts';
 import type { ImportQueueSnapshot } from '../application/import-queue';
 import type { ImportPreview } from '../application/import-preview';
@@ -227,8 +227,11 @@ function createBrowserFileReference() {
     return `browser-file:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
 }
 
-async function executeImportQueueCommand(command: ApplicationCommand): Promise<ImportQueueSnapshot> {
-    const result = await getApplicationClient().execute(command);
+async function executeImportQueueCommand(
+    client: Pick<ApplicationClient, 'execute'>,
+    command: ApplicationCommand
+): Promise<ImportQueueSnapshot> {
+    const result = await client.execute(command);
     if (!result.ok) throw new Error(result.error.message);
     if (!result.importQueue) throw new Error(`Command ${command.type} did not return the import queue.`);
     return result.importQueue;
@@ -264,6 +267,7 @@ const ConnectedConvertDialog = (props: {
     recordingProfile: DeviceRecordingProfile;
 }) => {
     const dispatch = useDispatch();
+    const applicationClient = useApplicationClient();
     const { classes, cx } = useStyles();
 
     const { visible, format, titleFormat, titles } = useShallowEqualSelector((state) => state.convertDialog);
@@ -396,10 +400,10 @@ const ConnectedConvertDialog = (props: {
             queuedFiles: typeof files,
             selectedFormat: TitleFormatType,
             allowFullWidth = fullWidthSupport,
-            expectedRevision = getApplicationClient().getWorkspaceSnapshot().imports.revision
+            expectedRevision = applicationClient.getWorkspaceSnapshot().imports.revision
         ) => {
             if (queuedFiles.length === 0) return;
-            await executeImportQueueCommand({
+            await executeImportQueueCommand(applicationClient, {
                 type: 'import.updateMany',
                 updates: queuedFiles.map((file) => {
                     return {
@@ -415,15 +419,14 @@ const ConnectedConvertDialog = (props: {
                 expectedRevision,
             });
         },
-        [deviceSupportsFullWidth, fullWidthSupport, titleSanitizer]
+        [applicationClient, deviceSupportsFullWidth, fullWidthSupport, titleSanitizer]
     );
 
     const addInspectedFiles = useCallback(
         async (inspectedFiles: InspectedImportFile[]) => {
             if (inspectedFiles.length === 0) return;
             const selectedTitleFormat = usesHimdTitles ? 'title' : titleFormat;
-            const client = getApplicationClient();
-            const added = client.addLocalImports(
+            const added = applicationClient.addLocalImports(
                 inspectedFiles.map((inspected) => ({
                     source: {
                         kind: 'browser-file' as const,
@@ -455,7 +458,7 @@ const ConnectedConvertDialog = (props: {
                 added.revision
             );
         },
-        [fullWidthSupport, refreshTitledFiles, titleFormat, usesHimdTitles]
+        [applicationClient, fullWidthSupport, refreshTitledFiles, titleFormat, usesHimdTitles]
     );
 
     useEffect(() => {
@@ -498,7 +501,7 @@ const ConnectedConvertDialog = (props: {
                 return; // This should not be allowed by the UI
             }
 
-            void executeImportQueueCommand({
+            void executeImportQueueCommand(applicationClient, {
                 type: 'import.move',
                 id: files[selectedTrackIndex].id,
                 destinationIndex: targetIndex,
@@ -507,7 +510,7 @@ const ConnectedConvertDialog = (props: {
                 .then(() => setSelectedTrack(targetIndex))
                 .catch(reportApplicationError);
         },
-        [files, queueSnapshot.revision, reportApplicationError, selectedTrackIndex]
+        [applicationClient, files, queueSnapshot.revision, reportApplicationError, selectedTrackIndex]
     );
 
     const moveFileUp = useCallback(() => {
@@ -519,15 +522,18 @@ const ConnectedConvertDialog = (props: {
     }, [moveFile]);
 
     const handleClose = useCallback(() => {
-        const snapshot = getApplicationClient().getWorkspaceSnapshot().imports;
+        const snapshot = applicationClient.getWorkspaceSnapshot().imports;
         if (snapshot.items.length > 0) {
-            void executeImportQueueCommand({ type: 'import.clear', expectedRevision: snapshot.revision }).catch(
+            void executeImportQueueCommand(applicationClient, {
+                type: 'import.clear',
+                expectedRevision: snapshot.revision,
+            }).catch(
                 reportApplicationError
             );
         }
         resetDialog();
         dispatch(convertDialogActions.setVisible(false));
-    }, [dispatch, reportApplicationError, resetDialog]);
+    }, [applicationClient, dispatch, reportApplicationError, resetDialog]);
 
     const hideDialog = useCallback(() => {
         setSelectedTrack(-1);
@@ -608,7 +614,7 @@ const ConnectedConvertDialog = (props: {
         setPreviewIssues([]);
         setPreviewItems([]);
         setPreviewDeviceVersion(null);
-        void getApplicationClient()
+        void applicationClient
             .execute({
                 type: 'import.preview',
                 ids: files.map((file) => file.id),
@@ -638,7 +644,7 @@ const ConnectedConvertDialog = (props: {
         return () => {
             active = false;
         };
-    }, [currentlySelectedCodec, disc, files, queueSnapshot.revision, reportApplicationError, workspace.device]);
+    }, [applicationClient, currentlySelectedCodec, disc, files, queueSnapshot.revision, reportApplicationError, workspace.device]);
 
     const handleRenameSelectedTrack = useCallback(() => {
         renameTrackManually(selectedTrackIndex);
@@ -786,7 +792,7 @@ const ConnectedConvertDialog = (props: {
     const handleRemoveSelectedTrack = useCallback(() => {
         const selected = files[selectedTrackIndex];
         if (!selected) return;
-        void executeImportQueueCommand({
+        void executeImportQueueCommand(applicationClient, {
             type: 'import.remove',
             ids: [selected.id],
             expectedRevision: queueSnapshot.revision,
@@ -799,7 +805,7 @@ const ConnectedConvertDialog = (props: {
                 if (remainingCount === 0) handleClose();
             })
             .catch(reportApplicationError);
-    }, [selectedTrackIndex, files, queueSnapshot.revision, handleClose, reportApplicationError]);
+    }, [applicationClient, selectedTrackIndex, files, queueSnapshot.revision, handleClose, reportApplicationError]);
 
     const dialogVisible = useShallowEqualSelector((state) => state.convertDialog.visible);
 
@@ -808,14 +814,14 @@ const ConnectedConvertDialog = (props: {
             reportApplicationError(new Error('Wait for the current import plan to finish validating before writing.'));
             return;
         }
-        const initial = getApplicationClient().getWorkspaceSnapshot().imports;
+        const initial = applicationClient.getWorkspaceSnapshot().imports;
         const mp3Updates = initial.items
             .filter((item) => item.forcedEncoding?.codec === 'MP3' && currentlySelectedCodec.codec !== 'MP3')
             .map((item) => ({ id: item.id, changes: { forcedEncoding: null } }));
         let prepared = initial;
         try {
             if (mp3Updates.length > 0) {
-                prepared = await executeImportQueueCommand({
+                prepared = await executeImportQueueCommand(applicationClient, {
                     type: 'import.updateMany',
                     updates: mp3Updates,
                     expectedRevision: initial.revision,
@@ -827,7 +833,7 @@ const ConnectedConvertDialog = (props: {
         }
         hideDialog();
         setEnableReplayGain(false);
-        const result = await getApplicationClient().execute({
+        const result = await applicationClient.execute({
             type: 'import.write',
             format: currentlySelectedCodec,
             enableReplayGain,
@@ -848,6 +854,7 @@ const ConnectedConvertDialog = (props: {
             );
         }
     }, [
+        applicationClient,
         currentlySelectedCodec,
         dispatch,
         enableGapless,

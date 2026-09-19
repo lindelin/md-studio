@@ -28,9 +28,8 @@ import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import { Capability } from '../services/interfaces/capabilities';
-import { getApplicationClient } from '../application/runtime';
 import { LineInDeviceSelect } from './line-in-helpers';
-import { useApplicationWorkspace } from './use-application-client';
+import { useApplicationClient, useApplicationWorkspace } from './use-application-client';
 import { sanitizeDeviceFullWidthTitle, sanitizeDeviceHalfWidthTitle } from '../application/device-profile';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
@@ -126,6 +125,7 @@ const useStyles = makeStyles()((theme) => ({
 
 export const SongRecognitionDialog = () => {
     const dispatch = useDispatch();
+    const applicationClient = useApplicationClient();
     const { classes } = useStyles();
 
     const { visible, titles, titleFormat, importMethod } = useShallowEqualSelector((state) => state.songRecognitionDialog);
@@ -139,9 +139,9 @@ export const SongRecognitionDialog = () => {
         (ev: React.ChangeEvent<{ value: unknown }>) => {
             const deviceId = ev.target.value as string;
             setInputDeviceId(deviceId);
-            getApplicationClient().startLocalAudioInputPreview(deviceId);
+            applicationClient.startLocalAudioInputPreview(deviceId);
         },
-        [setInputDeviceId]
+        [applicationClient, setInputDeviceId]
     );
 
     const canApplyTitles = useMemo(() => {
@@ -151,8 +151,8 @@ export const SongRecognitionDialog = () => {
 
     const stopAudioInput = useCallback(() => {
         setInputDeviceId('');
-        getApplicationClient().stopLocalAudioInputPreview();
-    }, []);
+        applicationClient.stopLocalAudioInputPreview();
+    }, [applicationClient]);
 
     const handleChangeImportMethod = useCallback(
         (e: React.SyntheticEvent, newFormat: ImportMethod) => {

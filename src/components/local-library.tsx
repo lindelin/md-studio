@@ -24,7 +24,7 @@ import { LocalDatabase } from '../services/library/library';
 import { File, FileBrowser } from './file-browser/browser';
 import { Add, ArrowUpward } from '@mui/icons-material';
 import { dirSorter, FileType } from './file-browser/utils';
-import { getApplicationClient } from '../application/runtime';
+import { useApplicationClient } from './use-application-client';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
@@ -70,6 +70,7 @@ const useStyles = makeStyles()((theme) => ({
 }));
 
 export const LocalLibraryDialog = ({ setUploadedFiles }: { setUploadedFiles: (files: AdaptiveFile[]) => void }) => {
+    const applicationClient = useApplicationClient();
     const [currentPath, setCurrentPath] = useState<string[]>([]);
     const convertToFileArray = (data: LocalDatabase, path: string[] = []): File[] => {
         const originalPath = [...path];
@@ -187,7 +188,7 @@ export const LocalLibraryDialog = ({ setUploadedFiles }: { setUploadedFiles: (fi
     const handleForwardFiles = useCallback(() => {
         const adaptiveFiles: AdaptiveFile[] = selectedFiles.map((file) => {
             const pathTokens = file.path.split('/');
-            const processFile = getApplicationClient().createLocalLibraryFileProcessor(file.path);
+            const processFile = applicationClient.createLocalLibraryFileProcessor(file.path);
             const adaptiveFile: AdaptiveFile = {
                 album: file.album,
                 artist: file.artist,
@@ -206,7 +207,7 @@ export const LocalLibraryDialog = ({ setUploadedFiles }: { setUploadedFiles: (fi
         if (!convertDialogVisible && adaptiveFiles.length) dispatch(convertDialogActions.setVisible(true));
         setSelectedFiles([]);
         resetToRoot();
-    }, [convertDialogVisible, selectedFiles, dispatch, setUploadedFiles, resetToRoot]);
+    }, [applicationClient, convertDialogVisible, selectedFiles, dispatch, setUploadedFiles, resetToRoot]);
 
     return (
         <Dialog
