@@ -132,20 +132,6 @@ export const Controls = () => {
     const { classes, cx } = useStyles();
     const [lcdScreen, _setLCDScreen] = useState<number>(-1);
     const [trackPercentage, _setTrackPercentage] = useState<number>(0);
-    const setLCDScreen = (newScreen: number) => (lcdScreen === newScreen ? void 0 : _setLCDScreen(newScreen));
-    const setTrackPercentage = useCallback(
-        (nextTrackPercentage: React.SetStateAction<number>) =>
-            _setTrackPercentage((currentTrackPercentage) => {
-                const resolvedTrackPercentage =
-                    typeof nextTrackPercentage === 'function'
-                        ? nextTrackPercentage(currentTrackPercentage)
-                        : nextTrackPercentage;
-                return resolvedTrackPercentage === currentTrackPercentage
-                    ? currentTrackPercentage
-                    : resolvedTrackPercentage;
-            }),
-        []
-    );
 
     const handlePrev = useCallback(() => {
         dispatch(control('prev'));
@@ -173,20 +159,30 @@ export const Controls = () => {
     const discPresent = deviceStatus?.discPresent ?? false;
     const paused = deviceStatus?.state === 'paused';
     const tracks = useMemo(() => getSortedTracks(disc), [disc]);
+    const activeTrack = deviceStatus?.track == null ? undefined : tracks[deviceStatus.track];
+    const lcdLocked = !discPresent || deviceState === 'readingTOC' || tracks.length === 0;
+
+    useEffect(() => {
+        _setLCDScreen((currentScreen) => {
+            if (lcdLocked) return -1;
+            return currentScreen === -1 ? 0 : currentScreen;
+        });
+        if (lcdLocked) {
+            _setTrackPercentage(0);
+            setIsSeeking(false);
+            setIsSeekingProgressLocked(false);
+        }
+    }, [lcdLocked]);
+
+    let displayedTrackPercentage = isSeekingProgressLocked ? trackPercentage : 0;
     if (!discPresent) {
         message = ``;
-        setLCDScreen(-1);
-        setTrackPercentage(0);
     } else if (deviceState === 'readingTOC') {
         message = 'READING TOC';
-        setLCDScreen(-1);
-        setTrackPercentage(0);
     } else if (tracks.length === 0) {
         message = `BLANKDISC`;
-        setLCDScreen(-1);
-        setTrackPercentage(0);
-    } else if (deviceStatus && deviceStatus.track !== null && tracks[deviceStatus.track]) {
-        const track = tracks[deviceStatus.track];
+    } else if (deviceStatus && deviceStatus.track !== null && activeTrack) {
+        const track = activeTrack;
         const title = track.fullWidthTitle || track.title;
         let currentTimeSecs = (deviceStatus.time?.minute ?? 0) * 60 + (deviceStatus.time?.second ?? 0);
         message = (deviceStatus.track + 1).toString().padStart(3, '0') + (title ? ' - ' + title : '');
@@ -206,15 +202,10 @@ export const Controls = () => {
         if (isSeekingProgressLocked) {
             currentTimeSecs = Math.floor((trackPercentage * track.duration) / 100);
         } else {
-            setTrackPercentage(Math.floor((currentTimeSecs / Math.max(1, track.duration)) * 100));
+            displayedTrackPercentage = Math.floor((currentTimeSecs / Math.max(1, track.duration)) * 100);
         }
         if (isSeeking) {
             messageIsTime();
-        }
-        // Is locked on a certain message, but can allow other?
-        if (lcdScreen === -1) {
-            // Unlock it
-            setLCDScreen(0);
         }
     }
 
@@ -234,6 +225,8 @@ export const Controls = () => {
     const startSeeking = (e: SyntheticEvent) => {
         e.stopPropagation();
         e.preventDefault();
+        if (!activeTrack || deviceStatus?.track == null) return;
+        _setTrackPercentage(displayedTrackPercentage);
         setLCDClickPrevent(true);
         setIsSeeking(true);
         setIsSeekingProgressLocked(true);
@@ -251,32 +244,24 @@ export const Controls = () => {
                 ),
                 100
             );
-            setTrackPercentage(xPerc);
+            _setTrackPercentage(xPerc);
         };
         window.addEventListener('mousemove', func);
         return () => window.removeEventListener('mousemove', func);
-    }, [isSeeking, durationHolderRef, setTrackPercentage]);
+    }, [isSeeking, durationHolderRef]);
 
     useEffect(() => {
         const func = () => {
-            setIsSeeking((wasSeeking) => {
-                if (wasSeeking) {
-                    setTimeout(() => setIsSeekingProgressLocked(false), 1000);
-                    if (deviceStatus?.track === null || deviceStatus?.track === undefined) return false;
-                    const track = tracks[deviceStatus.track];
-                    // Hack:
-                    setTrackPercentage((trackPercentage: number) => {
-                        const seekTo = Math.floor((trackPercentage * track.duration) / 100);
-                        dispatch(control('seek', { trackNumber: deviceStatus.track, time: seekTo }));
-                        return trackPercentage;
-                    });
-                }
-                return false;
-            });
+            if (!isSeeking) return;
+            setIsSeeking(false);
+            setTimeout(() => setIsSeekingProgressLocked(false), 1000);
+            if (deviceStatus?.track == null || !activeTrack) return;
+            const seekTo = Math.floor((trackPercentage * activeTrack.duration) / 100);
+            dispatch(control('seek', { trackNumber: deviceStatus.track, time: seekTo }));
         };
         window.addEventListener('mouseup', func);
         return () => window.removeEventListener('mouseup', func);
-    }, [setIsSeeking, deviceStatus, tracks, dispatch, setTrackPercentage]);
+    }, [isSeeking, deviceStatus?.track, activeTrack, trackPercentage, dispatch]);
 
     // LCD Text scrolling
     const animationDelayInMS = 2000;
@@ -394,9 +379,9 @@ export const Controls = () => {
                 <div className={classes.durationHolder} ref={durationHolderRef} onMouseDown={startSeeking}>
                     <div
                         className={clsx(classes.duration, { [classes.durationSlowDown]: !isSeeking })}
-                        style={{ flexGrow: trackPercentage }}
+                        style={{ flexGrow: displayedTrackPercentage }}
                     ></div>
-                    <div style={{ flexGrow: 100 - trackPercentage }}></div>
+                    <div style={{ flexGrow: 100 - displayedTrackPercentage }}></div>
                 </div>
             </div>
         </Box>
