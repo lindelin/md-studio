@@ -3,6 +3,7 @@ import { enableBatching } from 'redux-batched-actions';
 import { filterOutCorrupted, getSimpleServices, ServiceConstructionInfo } from '../services/interface-service-manager';
 import { savePreference, loadPreference } from '../utils';
 import { isBoolean, isFiniteNumber, isServiceList } from '../preferences';
+import { normalizeServiceSelection } from '../frontend/service-selection';
 
 export type Views = 'WELCOME' | 'MAIN' | 'FACTORY';
 
@@ -23,6 +24,10 @@ export interface AppState {
 }
 
 export const buildInitialState = (): AppState => {
+    const availableServices = [
+        ...getSimpleServices(),
+        ...filterOutCorrupted(loadPreference<ServiceConstructionInfo[]>('customServices', [], isServiceList)),
+    ];
     return {
         mainView: 'WELCOME',
         loading: false,
@@ -34,11 +39,11 @@ export const buildInitialState = (): AppState => {
         settingsDialogVisible: false,
         hasNotificationSupport: true,
         localBridgeEnabled: loadPreference('minidiscLocalBridgeEnabled', false, isBoolean),
-        availableServices: [
-            ...getSimpleServices(),
-            ...filterOutCorrupted(loadPreference<ServiceConstructionInfo[]>('customServices', [], isServiceList)),
-        ],
-        lastSelectedService: loadPreference('lastSelectedService', 0, isFiniteNumber),
+        availableServices,
+        lastSelectedService: normalizeServiceSelection(
+            availableServices.length,
+            loadPreference('lastSelectedService', 0, isFiniteNumber)
+        ),
         factoryModeRippingInMainUi: false, // As this value is heavily device-dependent and not really that stable yet
         // it should not be stored in the preferences, and should default to false.
     };
@@ -84,14 +89,16 @@ export const slice = createSlice({
         },
         setAvailableServices: (state, action: PayloadAction<ServiceConstructionInfo[]>) => {
             state.availableServices = action.payload;
+            state.lastSelectedService = normalizeServiceSelection(state.availableServices.length, state.lastSelectedService);
             const simpleServices = getSimpleServices().map((n) => n.name);
             savePreference(
                 'customServices',
                 action.payload.filter((n) => !simpleServices.includes(n.name))
             ); // Only write the custom services
+            savePreference('lastSelectedService', state.lastSelectedService);
         },
         setLastSelectedService: (state, action: PayloadAction<number>) => {
-            state.lastSelectedService = action.payload;
+            state.lastSelectedService = normalizeServiceSelection(state.availableServices.length, action.payload);
             savePreference('lastSelectedService', state.lastSelectedService);
         },
         setFactoryModeRippingInMainUi: (state, action: PayloadAction<boolean>) => {
