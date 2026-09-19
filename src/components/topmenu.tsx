@@ -615,7 +615,7 @@ export const TopMenu = function (props: { tracksSelected?: number[]; onClick?: (
     }
     return (
         <React.Fragment>
-            <IconButton aria-label="actions" aria-controls="actions-menu" aria-haspopup="true" onClick={handleMenuOpen}>
+            <IconButton aria-label="Open application menu" aria-controls="actions-menu" aria-haspopup="true" onClick={handleMenuOpen}>
                 <MoreVertIcon />
             </IconButton>
             <Menu id="actions-menu" anchorEl={menuAnchorEl} keepMounted open={menuOpen} onClose={handleMenuClose}>

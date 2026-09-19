@@ -426,7 +426,7 @@ export const FactoryTopMenu = function() {
 
     return (
         <React.Fragment>
-            <IconButton aria-label="actions" aria-controls="actions-menu" aria-haspopup="true" onClick={handleMenuOpen}>
+            <IconButton aria-label="Open maintenance menu" aria-controls="factory-actions-menu" aria-haspopup="true" onClick={handleMenuOpen}>
                 <MoreVertIcon />
             </IconButton>
             <Menu id="factory-actions-menu" anchorEl={menuAnchorEl} keepMounted open={menuOpen} onClose={handleMenuClose}>

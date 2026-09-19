@@ -255,13 +255,18 @@ export function TrackRow({
                 [classes.currentTrackRow]: isPlayingOrPaused,
             })}
         >
-            <TableCell className={classes.dragHandle} {...draggableProvided.dragHandleProps} onClick={(event) => event.stopPropagation()}>
+            <TableCell
+                className={classes.dragHandle}
+                {...draggableProvided.dragHandleProps}
+                aria-label={`Move track ${track.index + 1}: ${track.title || 'Untitled'}`}
+                onClick={(event) => event.stopPropagation()}
+            >
                 <DragIndicator fontSize="small" color="disabled" />
             </TableCell>
             <TableCell className={classes.indexCell}>
                 <span className={classes.trackIndex}>{track.index + 1}</span>
                 <IconButton
-                    aria-label="play/pause"
+                    aria-label={`${trackStatus === 'playing' ? 'Pause' : 'Play'} track ${track.index + 1}: ${track.title || 'Untitled'}`}
                     classes={{ root: cx(classes.controlButtonInTrackCommon, classes.playButtonInTrackList) }}
                     size="small"
                     onClick={handlePlayPause}
@@ -340,7 +345,7 @@ export function GroupRow({ group, usesHimdTracks, onRename, onDelete, onSelect, 
             <TableCell className={classes.indexCell}>
                 <FolderIcon className={cx(classes.controlButtonInTrackCommon, classes.groupFolderIcon)} fontSize="inherit" />
                 <IconButton
-                    aria-label="delete"
+                    aria-label={`Ungroup ${group.title || `group ${group.index + 1}`}`}
                     className={cx(classes.controlButtonInTrackCommon, classes.deleteGroupButton)}
                     size="small"
                     onClick={handleDelete}

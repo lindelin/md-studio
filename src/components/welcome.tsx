@@ -202,7 +202,7 @@ export const Welcome = () => {
     const mapToEntry = (option: OptionType) => {
         return option.id >= simpleServicesLength ? (
             <React.Fragment>
-                <IconButton aria-label="delete" className={classes.deleteButton} size="small" onClick={(e) => deleteCustom(e, option.id)}>
+                <IconButton aria-label={`Remove custom device ${option.name}`} className={classes.deleteButton} size="small" onClick={(e) => deleteCustom(e, option.id)}>
                     <DeleteIcon />
                 </IconButton>
                 {option.name}

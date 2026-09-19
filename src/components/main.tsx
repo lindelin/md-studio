@@ -361,7 +361,7 @@ export const Main = () => {
                     renameDialogActions.setCurrentFullWidthName(track.fullWidthTitle),
                     renameDialogActions.setIndex(track.index),
                     renameDialogActions.setRenameType(
-                        track.album !== undefined || track.album !== undefined ? RenameType.HIMD : RenameType.TRACK
+                        track.album !== undefined || track.artist !== undefined ? RenameType.HIMD : RenameType.TRACK
                     ),
                 ])
             );
@@ -485,7 +485,7 @@ export const Main = () => {
     const canGroup = useMemo(() => {
         return (
             tracks.filter((n) => n.group === null && selected.includes(n.index)).length === selected.length &&
-            isSequential(selected.sort((a, b) => a - b))
+            isSequential([...selected].sort((a, b) => a - b))
         );
     }, [tracks, selected]);
 
@@ -558,9 +558,7 @@ export const Main = () => {
                 <span>
                     {deviceCapabilities.discEject && (
                         <IconButton
-                            aria-label="actions"
-                            aria-controls="actions-menu"
-                            aria-haspopup="true"
+                            aria-label="Eject disc"
                             onClick={handleEject}
                             disabled={!disc}
                         >
@@ -570,7 +568,7 @@ export const Main = () => {
 
                     {flushable && (
                         <Tooltip title="Commit changes">
-                            <IconButton aria-label="actions" aria-controls="actions-menu" aria-haspopup="true" onClick={handleFlush}>
+                            <IconButton aria-label="Commit pending device changes" onClick={handleFlush}>
                                 <DoneIcon />
                             </IconButton>
                         </Tooltip>
@@ -828,7 +826,7 @@ export const Main = () => {
                 </Box>
             ) : null}
             {deviceCapabilities.trackUpload ? (
-                <Fab color="primary" aria-label="add" className={classes.add} onClick={openUploadMenu}>
+                <Fab color="primary" aria-label="Add audio tracks" className={classes.add} onClick={openUploadMenu}>
                     <AddIcon />
                 </Fab>
             ) : null}
