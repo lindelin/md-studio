@@ -875,7 +875,7 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
     const isSelectedUnsupported = encoderSupportState.state === 'unsupported';
     const formatsSupport = minidiscSpec.availableFormats.map((e) => serviceRegistry.audioExportService!.getSupport(e.codec));
 
-    const vintageMode = useShallowEqualSelector((state) => state.appState.vintageMode);
+    const { vintageMode, libraryService } = useShallowEqualSelector((state) => state.appState);
 
     if (vintageMode) {
         const p = {
@@ -1116,7 +1116,7 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
                     <div></div>
                     <div {...getRootProps()} style={{ outline: 'none' }}>
                         <Toolbar variant="dense" className={classes.toolbarHighlight}>
-                            {serviceRegistry.libraryService && (
+                            {libraryService !== -1 && (
                                 <IconButton
                                     className={classes.iconButton}
                                     edge="start"

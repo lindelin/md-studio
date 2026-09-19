@@ -39,6 +39,10 @@ function sharedSettingsFromState(state: { appState: UserSettings }): UserSetting
         factoryModeUseSlowerExploit: source.factoryModeUseSlowerExploit,
         factoryModeShortcuts: source.factoryModeShortcuts,
         factoryModeNERAWDownload: source.factoryModeNERAWDownload,
+        audioExportService: source.audioExportService,
+        audioExportServiceConfig: source.audioExportServiceConfig,
+        libraryService: source.libraryService,
+        libraryServiceConfig: source.libraryServiceConfig,
     };
 }
 
@@ -95,7 +99,11 @@ const sharedSettingsPersistence: Middleware = (storeApi) => (next) => (action) =
     const current = applicationSettings.getSnapshot().values;
     const changes = Object.fromEntries(
         (Object.keys(values) as (keyof UserSettings)[])
-            .filter((key) => values[key] !== current[key])
+            .filter((key) =>
+                typeof values[key] === 'object'
+                    ? JSON.stringify(values[key]) !== JSON.stringify(current[key])
+                    : values[key] !== current[key]
+            )
             .map((key) => [key, values[key]])
     );
     if (Object.keys(changes).length > 0) applicationSettings.update(changes);

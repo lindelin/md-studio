@@ -11,6 +11,7 @@ import type {
     DeviceSnapshot,
 } from './contracts';
 import type { AdvancedBadSectorHandler, AdvancedTrackExportRequest } from './advanced-track-export';
+import type { ExportParams } from '../services/audio/audio-export';
 
 export type LocalAdvancedMemorySink = (
     region: AdvancedMemoryRegion,
@@ -39,6 +40,7 @@ export interface ApplicationClient {
         requiredExploitCapabilities: string[],
         operation: (advancedUploadService?: AdvancedUploadService) => Promise<T>
     ): Promise<{ value: T; snapshot: DeviceSnapshot }>;
+    createLocalLibraryFileProcessor(filePath: string): (params: ExportParams) => Promise<ArrayBuffer>;
     getWorkspaceSnapshot(): WorkspaceSnapshot;
     subscribe(listener: () => void): () => void;
 }
@@ -65,7 +67,8 @@ export class InProcessApplicationClient implements ApplicationClient {
         private readonly localDeviceUploadSession: <T>(
             requiredExploitCapabilities: string[],
             operation: (advancedUploadService?: AdvancedUploadService) => Promise<T>
-        ) => Promise<{ value: T; snapshot: DeviceSnapshot }>
+        ) => Promise<{ value: T; snapshot: DeviceSnapshot }>,
+        private readonly localLibraryFileProcessor?: (filePath: string) => (params: ExportParams) => Promise<ArrayBuffer>
     ) {}
 
     execute = (command: ApplicationCommand) => this.commands.execute(command);
@@ -87,6 +90,12 @@ export class InProcessApplicationClient implements ApplicationClient {
         requiredExploitCapabilities: string[],
         operation: (advancedUploadService?: AdvancedUploadService) => Promise<T>
     ) => this.localDeviceUploadSession(requiredExploitCapabilities, operation);
+    createLocalLibraryFileProcessor = (filePath: string) => {
+        if (!this.localLibraryFileProcessor) {
+            throw new Error('The local library is unavailable in this application environment.');
+        }
+        return this.localLibraryFileProcessor(filePath);
+    };
     getWorkspaceSnapshot = this.workspace.getSnapshot;
     subscribe = this.workspace.subscribe;
 }

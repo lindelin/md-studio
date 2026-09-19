@@ -5,6 +5,7 @@ import { MiniDiscApplication } from './minidisc-application';
 import { InProcessApplicationClient } from './application-client';
 import { INTERACTIVE_ADVANCED_AUTHORIZATION } from './interactive-authorization';
 import { BrowserAdvancedTrackExporter } from './advanced-track-export';
+import { createLibraryService } from '../services/library-services';
 
 export function bindApplicationRuntime() {
     if (!serviceRegistry.netmdService || !serviceRegistry.netmdSpec) {
@@ -37,7 +38,8 @@ export function ensureApplicationCommandBus() {
             serviceRegistry.trackExporter,
             serviceRegistry.settingsStore,
             serviceRegistry.workspaceStore,
-            serviceRegistry.trackRecorder
+            serviceRegistry.trackRecorder,
+            serviceRegistry.libraryCatalog
         );
     }
     serviceRegistry.commandBus.configureAdapters(
@@ -120,7 +122,12 @@ export function getApplicationClient() {
                     requiredExploitCapabilities,
                     requiredExploitCapabilities.length > 0 ? INTERACTIVE_ADVANCED_AUTHORIZATION : undefined,
                     operation
-                )
+                ),
+            (filePath) => {
+                const settings = serviceRegistry.settingsStore.getSnapshot().values;
+                const libraryService = createLibraryService(settings.libraryService, settings.libraryServiceConfig);
+                return (params) => libraryService.processLocalLibraryFile(filePath, params);
+            }
         );
     }
     return serviceRegistry.applicationClient;

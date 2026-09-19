@@ -10,6 +10,8 @@ const BROWSER_ONLY_COMMANDS = new Set([
     'advanced.setDiscSwapDetectionDisabled',
     'advanced.enableHimdFullMode',
     'advanced.enterServiceMode',
+    'library.get',
+    'library.refresh',
 ]);
 
 export interface BridgeHello {

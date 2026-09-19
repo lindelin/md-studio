@@ -7,6 +7,7 @@ import { TaskManager } from '../src/application/task-manager.ts';
 import { SettingsStore } from '../src/application/settings-store.ts';
 import { WorkspaceStore } from '../src/application/workspace-store.ts';
 import type { TrackRecorder } from '../src/application/track-record.ts';
+import { LibraryCatalog } from '../src/application/library-catalog.ts';
 
 describe('ApplicationCommandBus import writing', () => {
     it('keeps settings and import planning available without a connected device', async () => {
@@ -49,6 +50,36 @@ describe('ApplicationCommandBus import writing', () => {
         assert.equal(result.ok && result.workspace?.imports.items[0]?.title, 'Queued');
         assert.equal(result.ok && result.workspace?.settings.values.colorTheme, 'dark');
         assert.deepEqual(result.ok && result.workspace?.tasks, []);
+    });
+
+    it('refreshes the configured library without requiring a device connection', async () => {
+        const database = {
+            'track.wav': { artist: 'Artist', album: 'Album', title: 'Track', duration: 3 },
+        };
+        const catalog = new LibraryCatalog(() => ({
+            async getDatabase() {
+                return database;
+            },
+            async processLocalLibraryFile() {
+                return new ArrayBuffer(0);
+            },
+        }));
+        const bus = new ApplicationCommandBus(
+            undefined,
+            new TaskManager(),
+            new ImportQueue(),
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            catalog
+        );
+
+        const result = await bus.execute({ type: 'library.refresh' });
+
+        assert.equal(result.ok && result.library?.status, 'ready');
+        assert.deepEqual(result.ok && result.library?.database, database);
     });
 
     it('returns a structured disconnected error only for commands that need a device', async () => {

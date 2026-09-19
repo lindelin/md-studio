@@ -28,7 +28,6 @@ import { Capability, NetMDService, Codec, MinidiscSpec, ExploitCapability } from
 import { getSimpleServices, ServiceConstructionInfo } from '../services/interface-service-manager';
 import { AudioServices, resolveAudioServiceIndex } from '../services/audio-export-service-manager';
 import { checkFactoryCapability } from './factory/factory-actions';
-import { LibraryServices } from '../services/library-services';
 import { s16LEToSamplesArray, Shazam } from 'shazam-api';
 import { bindApplicationRuntime, getApplicationClient, releaseDeviceSession } from '../application/runtime';
 import { applyDeviceSnapshot } from './application-adapter';
@@ -223,11 +222,6 @@ export function pair(serviceInstance: NetMDService, spec: MinidiscSpec) {
             const audioServiceIndex = resolveAudioServiceIndex(getState().appState.audioExportService);
             serviceRegistry.audioExportService = new AudioServices[audioServiceIndex].create(getState().appState.audioExportServiceConfig);
             await serviceRegistry.audioExportService.init();
-
-            const libraryServiceIndex = getState().appState.libraryService;
-            if (libraryServiceIndex !== -1) {
-                serviceRegistry.libraryService = new LibraryServices[libraryServiceIndex].create(getState().appState.libraryServiceConfig);
-            }
 
             const session = await new DeviceSessionConnector(serviceRegistry, bindApplicationRuntime).connect(serviceInstance, spec);
             if (session.cachedConnectionError) console.error(session.cachedConnectionError);
@@ -1335,16 +1329,19 @@ export function convertAndUpload(
 }
 
 export function openLocalLibrary() {
-    return async function (dispatch: AppDispatch, getState: () => RootState) {
-        if (!serviceRegistry.libraryService) {
-            throw new Error('No library service has been registered!');
-        }
-
+    return async function (dispatch: AppDispatch) {
         dispatch(localLibraryActions.setVisible(true));
-        if (!getState().localLibrary.database) {
-            dispatch(localLibraryActions.setStatus('Loading database...'));
-            const database = await serviceRegistry.libraryService!.getDatabase();
-            dispatch(batchActions([localLibraryActions.setStatus(null), localLibraryActions.setDatabase(database)]));
+        dispatch(batchActions([localLibraryActions.setDatabase(null), localLibraryActions.setStatus('Loading database...')]));
+        const result = await getApplicationClient().execute({ type: 'library.refresh' });
+        if (!result.ok) {
+            dispatch(localLibraryActions.setStatus(`Could not load library: ${result.error.message}`));
+            return;
         }
+        dispatch(
+            batchActions([
+                localLibraryActions.setStatus(null),
+                localLibraryActions.setDatabase(result.library?.database ?? null),
+            ])
+        );
     };
 }

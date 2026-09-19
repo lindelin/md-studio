@@ -4,7 +4,7 @@ import { CustomParameters } from '../custom-parameters';
 import { filterOutCorrupted, getSimpleServices, ServiceConstructionInfo } from '../services/interface-service-manager';
 import { savePreference, loadPreference } from '../utils';
 import { resolveAudioServiceIndex } from '../services/audio-export-service-manager';
-import { isBoolean, isFiniteNumber, isPrimitiveRecord, isServiceList } from '../preferences';
+import { isBoolean, isFiniteNumber, isServiceList } from '../preferences';
 import { applicationSettings, type UserSettings } from '../application/settings-store';
 
 export type Views = 'WELCOME' | 'MAIN' | 'FACTORY';
@@ -70,10 +70,10 @@ export const buildInitialState = (): AppState => {
         lastSelectedService: loadPreference('lastSelectedService', 0, isFiniteNumber),
         factoryModeRippingInMainUi: false, // As this value is heavily device-dependent and not really that stable yet
         // it should not be stored in the preferences, and should default to false.
-        audioExportService: resolveAudioServiceIndex(loadPreference('audioExportService', 0, isFiniteNumber)),
-        audioExportServiceConfig: loadPreference('audioExportServiceConfig', {}, isPrimitiveRecord),
-        libraryService: loadPreference('libraryService', -1, isFiniteNumber),
-        libraryServiceConfig: loadPreference('libraryServiceConfig', {}, isPrimitiveRecord),
+        audioExportService: resolveAudioServiceIndex(sharedSettings.audioExportService),
+        audioExportServiceConfig: sharedSettings.audioExportServiceConfig,
+        libraryService: sharedSettings.libraryService,
+        libraryServiceConfig: sharedSettings.libraryServiceConfig,
         pageFullHeight: sharedSettings.pageFullHeight,
         pageFullWidth: sharedSettings.pageFullWidth,
         archiveDiscCreateZip: sharedSettings.archiveDiscCreateZip,
@@ -162,19 +162,15 @@ export const slice = createSlice({
         },
         setAudioExportService: (state, action: PayloadAction<number>) => {
             state.audioExportService = action.payload;
-            savePreference('audioExportService', state.audioExportService);
         },
         setAudioExportServiceConfig: (state, action: PayloadAction<CustomParameters>) => {
             state.audioExportServiceConfig = action.payload;
-            savePreference('audioExportServiceConfig', state.audioExportServiceConfig);
         },
         setLibraryService: (state, action: PayloadAction<number>) => {
             state.libraryService = action.payload;
-            savePreference('libraryService', state.libraryService);
         },
         setLibraryServiceConfig: (state, action: PayloadAction<CustomParameters>) => {
             state.libraryServiceConfig = action.payload;
-            savePreference('libraryServiceConfig', state.libraryServiceConfig);
         },
         setPageFullHeight: (state, action: PayloadAction<boolean>) => {
             state.pageFullHeight = action.payload;

@@ -245,4 +245,31 @@ describe('InProcessApplicationClient', () => {
         assert.equal(value.value, 'done');
         assert.deepEqual(capabilities, [['uploadAtrac1']]);
     });
+
+    it('captures browser-only library audio processing behind the local client boundary', async () => {
+        const tasks = new TaskManager();
+        const imports = new ImportQueue();
+        const workspace = new WorkspaceStore(tasks, imports, new SettingsStore(null));
+        const requestedPaths: string[] = [];
+        const client = new InProcessApplicationClient(
+            { async execute() { return { ok: true }; } },
+            workspace,
+            imports,
+            async () => tasks.create('track-export', 'Local export'),
+            async () => tasks.create('advanced.memory-export', 'Memory export'),
+            async () => tasks.create('advanced.track-export', 'Advanced export'),
+            runAdvancedSession,
+            runUploadSession,
+            (path) => {
+                requestedPaths.push(path);
+                return async () => Uint8Array.from([1, 2, 3]).buffer;
+            }
+        );
+
+        const processFile = client.createLocalLibraryFileProcessor('Album/Track.flac');
+        const result = await processFile({ format: { codec: 'PCM', bitrate: 1411 }, enableReplayGain: false });
+
+        assert.deepEqual(requestedPaths, ['Album/Track.flac']);
+        assert.deepEqual([...new Uint8Array(result)], [1, 2, 3]);
+    });
 });

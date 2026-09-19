@@ -85,5 +85,15 @@ describe('bridge protocol validation', () => {
                 }),
             /restricted to the local browser UI/
         );
+        assert.throws(
+            () =>
+                parseBridgeMessage({
+                    type: 'request',
+                    protocolVersion: BRIDGE_PROTOCOL_VERSION,
+                    id: 'library-1',
+                    command: { type: 'library.refresh' },
+                }),
+            /restricted to the local browser UI/
+        );
     });
 });

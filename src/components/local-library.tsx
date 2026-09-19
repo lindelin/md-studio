@@ -12,7 +12,6 @@ import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import Slide, { SlideProps } from '@mui/material/Slide';
 import Button from '@mui/material/Button';
-import { useTheme } from '@mui/material/styles';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -20,18 +19,18 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import { AdaptiveFile, formatTimeFromSeconds } from '../utils';
 import { makeStyles } from 'tss-react/mui';
-import serviceRegistry from '../services/registry';
 import { ExportParams } from '../services/audio/audio-export';
 import { LocalDatabase } from '../services/library/library';
 import { File, FileBrowser } from './file-browser/browser';
 import { Add, ArrowUpward } from '@mui/icons-material';
 import { dirSorter, FileType } from './file-browser/utils';
+import { getApplicationClient } from '../application/runtime';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
 });
 
-const useStyles = makeStyles()((theme, _params, classes) => ({
+const useStyles = makeStyles()((theme) => ({
     uploadRow: {
         '&:hover': {
             textDecoration: 'line-through',
@@ -95,8 +94,6 @@ export const LocalLibraryDialog = ({ setUploadedFiles }: { setUploadedFiles: (fi
 
     const { classes } = useStyles();
     const dispatch = useDispatch();
-    const theme = useTheme();
-
     const { visible, database, status } = useShallowEqualSelector((state) => state.localLibrary);
     const { visible: convertDialogVisible } = useShallowEqualSelector((state) => state.convertDialog);
 
@@ -117,14 +114,14 @@ export const LocalLibraryDialog = ({ setUploadedFiles }: { setUploadedFiles: (fi
         () => () => {
             setCurrentPath([]);
         },
-        [database, setCurrentPath]
+        [setCurrentPath]
     );
 
     const addFiles = useCallback(
         (files: File[]) => {
             setSelectedFiles((old) => {
                 let current = [...old];
-                for (let file of files) {
+                for (const file of files) {
                     const path = file.props!['id'];
                     const album = file.props!['album'];
                     const artist = file.props!['artist'];
@@ -161,7 +158,7 @@ export const LocalLibraryDialog = ({ setUploadedFiles }: { setUploadedFiles: (fi
         (files: File[]) => {
             const process = (path: string[], files: File[]): File[] => {
                 const finalFiles = [];
-                for (let file of files) {
+                for (const file of files) {
                     if (file.type === FileType.Directory) {
                         const newPath = [...path, file.name];
                         const subFiles = convertToFileArray(database ?? {}, newPath);
@@ -190,6 +187,7 @@ export const LocalLibraryDialog = ({ setUploadedFiles }: { setUploadedFiles: (fi
     const handleForwardFiles = useCallback(() => {
         const adaptiveFiles: AdaptiveFile[] = selectedFiles.map((file) => {
             const pathTokens = file.path.split('/');
+            const processFile = getApplicationClient().createLocalLibraryFileProcessor(file.path);
             const adaptiveFile: AdaptiveFile = {
                 album: file.album,
                 artist: file.artist,
@@ -198,7 +196,7 @@ export const LocalLibraryDialog = ({ setUploadedFiles }: { setUploadedFiles: (fi
                 duration: file.duration,
 
                 getForEncoding: async (params: ExportParams) => {
-                    return serviceRegistry.libraryService!.processLocalLibraryFile(file.path, params);
+                    return processFile(params);
                 },
             };
             return adaptiveFile;

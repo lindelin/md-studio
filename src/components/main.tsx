@@ -191,7 +191,7 @@ export const Main = () => {
     const deviceName = useShallowEqualSelector((state) => state.main.deviceName);
     const deviceStatus = useShallowEqualSelector((state) => state.main.deviceStatus);
     const factoryModeRippingInMainUi = useShallowEqualSelector((state) => state.appState.factoryModeRippingInMainUi);
-    const { vintageMode } = useShallowEqualSelector((state) => state.appState);
+    const { vintageMode, libraryService } = useShallowEqualSelector((state) => state.appState);
 
     const [selected, setSelected] = React.useState<number[]>([]);
     const [selectedGroups, setSelectedGroups] = React.useState<number[]>([]);
@@ -494,13 +494,13 @@ export const Main = () => {
 
     const openUploadMenu = useCallback(
         (ev: any) => {
-            if (serviceRegistry.libraryService) {
+            if (libraryService !== -1) {
                 setUploadMenuAnchorEl(ev.currentTarget);
             } else {
                 open();
             }
         },
-        [open, setUploadMenuAnchorEl]
+        [libraryService, open, setUploadMenuAnchorEl]
     );
 
     const handleOpenLocalLibrary = useCallback(() => {

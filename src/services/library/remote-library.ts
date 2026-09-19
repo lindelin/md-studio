@@ -10,9 +10,11 @@ export class RemoteLibraryService extends DefaultFfmpegAudioExportService implem
     // These methods are required by the DefaultFFMPEGAudioExport service, but since
     // this is a library, they won't be used
     encodeATRAC3(parameters: ExportParams): Promise<ArrayBuffer> {
+        void parameters;
         throw new Error('Method not implemented.');
     }
     encodeATRAC3Plus(parameters: ExportParams): Promise<ArrayBuffer> {
+        void parameters;
         throw new Error('Method not implemented.');
     }
 
@@ -24,15 +26,18 @@ export class RemoteLibraryService extends DefaultFfmpegAudioExportService implem
         this.address = parameters.address as string;
     }
 
-    getSupport(_codec: CodecFamily) {
+    getSupport(codec: CodecFamily) {
+        void codec;
         return { state: 'perfect' as const, gapless: false };
     }
 
     async getDatabase(): Promise<LocalDatabase> {
         const dbPage = new URL(this.address);
-        dbPage.pathname = '/database';
+        if (!dbPage.pathname.endsWith('/')) dbPage.pathname += '/';
+        dbPage.pathname += 'database';
         dbPage.searchParams.append('cache', Math.random() + '');
         const resp = await fetch(dbPage);
+        if (!resp.ok) throw new Error(`Library database request failed with HTTP ${resp.status}.`);
         const json = await resp.json();
         return json as LocalDatabase;
     }
@@ -47,7 +52,9 @@ export class RemoteLibraryService extends DefaultFfmpegAudioExportService implem
             let response: Response | null = null;
             for (let i = 0; i < MAX_TRIES; i++) {
                 try {
-                    response = await fetch(rawURL);
+                    const candidate = await fetch(rawURL);
+                    if (!candidate.ok) throw new Error(`Library audio request failed with HTTP ${candidate.status}.`);
+                    response = candidate;
                     break;
                 } catch (ex) {
                     console.log('Error while fetching: ' + ex);
@@ -96,9 +103,7 @@ export class RemoteLibraryService extends DefaultFfmpegAudioExportService implem
             for (let i = 0; i < MAX_TRIES; i++) {
                 try {
                     response = await fetch(encodingURL.href);
-                    if (response === null) {
-                        throw new Error('Failed to convert audio!');
-                    }
+                    if (!response.ok) throw new Error(`Library transcode request failed with HTTP ${response.status}.`);
                     const source = await response.arrayBuffer();
                     const content = new Uint8Array(source);
                     const file = new File([content], 'test.at3');

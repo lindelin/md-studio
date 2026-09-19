@@ -28,6 +28,7 @@ import { SettingsStore, type SettingsSnapshot, type UserSettingsUpdate } from '.
 import { ApplicationError } from './contracts';
 import type { WorkspaceSnapshot, WorkspaceStore } from './workspace-store';
 import { INTERACTIVE_ADVANCED_AUTHORIZATION } from './interactive-authorization';
+import type { LibraryCatalog, LibraryCatalogSnapshot } from './library-catalog';
 
 export type ApplicationCommand =
     | { type: 'workspace.get' }
@@ -77,6 +78,8 @@ export type ApplicationCommand =
       }
     | { type: 'settings.get' }
     | { type: 'settings.update'; changes: UserSettingsUpdate; expectedRevision?: number }
+    | { type: 'library.get' }
+    | { type: 'library.refresh' }
     | { type: 'track.renameMany'; updates: TrackMetadataUpdate[]; expectedRevision?: number }
     | { type: 'track.renameHimdMany'; updates: HiMDTrackMetadataUpdate[]; expectedRevision?: number }
     | { type: 'track.move'; sourceIndex: number; destinationIndex: number; expectedRevision?: number }
@@ -118,6 +121,7 @@ export interface CommandSuccess {
     advancedInfo?: AdvancedDeviceInfo;
     advancedToc?: AdvancedTocDump;
     settings?: SettingsSnapshot;
+    library?: LibraryCatalogSnapshot;
     workspace?: WorkspaceSnapshot;
 }
 
@@ -137,7 +141,8 @@ export class ApplicationCommandBus {
         private trackExporter?: TrackExporter,
         private readonly settings = new SettingsStore(null),
         private readonly workspace?: WorkspaceStore,
-        private trackRecorder?: TrackRecorder
+        private trackRecorder?: TrackRecorder,
+        private readonly libraryCatalog?: LibraryCatalog
     ) {}
 
     attachApplication(application: MiniDiscApplication | undefined) {
@@ -162,6 +167,12 @@ export class ApplicationCommandBus {
                               imports: this.imports.snapshot(),
                               tasks: this.tasks.list(),
                               settings: this.settings.getSnapshot(),
+                              library: this.libraryCatalog?.getState() ?? {
+                                  revision: 0,
+                                  status: 'idle',
+                                  entryCount: 0,
+                                  error: null,
+                              },
                           },
                 };
             }
@@ -172,6 +183,14 @@ export class ApplicationCommandBus {
             if (command.type === 'settings.get') return { ok: true, settings: this.settings.getSnapshot() };
             if (command.type === 'settings.update') {
                 return { ok: true, settings: this.settings.update(command.changes, command.expectedRevision) };
+            }
+            if (command.type === 'library.get') {
+                if (!this.libraryCatalog) throw new Error('The library catalog is unavailable in this application environment.');
+                return { ok: true, library: structuredClone(this.libraryCatalog.getSnapshot()) };
+            }
+            if (command.type === 'library.refresh') {
+                if (!this.libraryCatalog) throw new Error('The library catalog is unavailable in this application environment.');
+                return { ok: true, library: structuredClone(await this.libraryCatalog.refresh()) };
             }
             if (command.type === 'import.add') {
                 return { ok: true, importQueue: this.imports.add(command.inputs, command.expectedRevision) };
