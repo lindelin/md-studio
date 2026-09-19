@@ -54,7 +54,6 @@ import { W95ConvertDialog } from './win95/convert-dialog';
 import {
     Capability,
     Codec,
-    Disc,
 } from '../services/interfaces/netmd';
 import serviceRegistry from '../services/registry';
 import { INTERACTIVE_HOMEBREW_AUTHORIZATION } from '../application/interactive-authorization';
@@ -71,6 +70,7 @@ import { formatImportTitle } from '../application/import-title';
 import { inspectImportFiles, type InspectedImportFile } from '../application/audio-import-inspector';
 import type { ApplicationCommand } from '../application/command-bus';
 import type { ImportQueueSnapshot } from '../application/import-queue';
+import type { ImportPreview } from '../application/import-preview';
 import {
     createDeviceRecordingProfile,
     getDefaultRecordingFormat,
@@ -281,6 +281,8 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
     const [beforeConversionAvailableDurationUnits, setBeforeConversionAvailableDurationUnits] = useState(0);
     const [availableDurationUnits, setAvailableDurationUnits] = useState(0);
     const [availableSPSeconds, setAvailableSPSeconds] = useState(0);
+    const [previewIssues, setPreviewIssues] = useState<ImportPreview['issues']>([]);
+    const [previewPending, setPreviewPending] = useState(false);
     const [loadingMetadata, setLoadingMetadata] = useState(false);
     const reportApplicationError = useCallback(
         (error: unknown) => {
@@ -590,74 +592,50 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
         void refreshTitledFiles(files, usesHimdTitles ? 'title' : titleFormat, enabled).catch(reportApplicationError);
     }, [dispatch, files, fullWidthSupport, refreshTitledFiles, reportApplicationError, titleFormat, usesHimdTitles]);
 
-    const calculateFreeSpaceBytes = useCallback(() => {
-        if (!disc) return;
-        const newBytesCount = titles.reduce((total, b) => {
-            if (!b.forcedEncoding || (b.forcedEncoding.codec === 'MP3' && currentlySelectedCodec.codec !== 'MP3')) {
-                // MP3 forcedEncoding only suggests the target bitrate when the user selects 'MP3' as the recording format
-                // MP3 can never be 'forced', like LP2 can f.ex.
-                return total + minidiscSpec.translateToDefaultMeasuringModeFrom(currentlySelectedCodec, b.duration);
-            }
-            return total + minidiscSpec.translateToDefaultMeasuringModeFrom(b.forcedEncoding, b.duration);
-        }, 0);
-        setAvailableDurationUnits(disc.left - newBytesCount);
-        setAvailableSPSeconds(disc.left - newBytesCount);
-        setBeforeConversionAvailableDurationUnits(disc.left);
-    }, [disc, titles, currentlySelectedCodec, minidiscSpec]);
-    const calculateFreeSpaceFrames = useCallback(() => {
-        if (!disc) return;
-        const totalTracksDurationInStandard = titles.reduce((total, b) => {
-            if (!b.forcedEncoding || (b.forcedEncoding.codec === 'MP3' && currentlySelectedCodec.codec !== 'MP3')) {
-                // MP3 forcedEncoding only suggests the target bitrate when the user selects 'MP3' as the recording format
-                // MP3 can never be 'forced', like LP2 can f.ex.
-                return total + minidiscSpec.translateToDefaultMeasuringModeFrom(currentlySelectedCodec, b.duration);
-            }
-            const codec: Codec = {
-                bitrate: b.forcedEncoding.bitrate,
-                codec: b.forcedEncoding.codec,
-            };
-            return total + minidiscSpec.translateToDefaultMeasuringModeFrom(codec, b.duration);
-        }, 0);
-        const secondsLeftInChosenFormat = minidiscSpec.translateDefaultMeasuringModeTo(currentlySelectedCodec, disc.left);
-        setAvailableDurationUnits(
-            secondsLeftInChosenFormat - minidiscSpec.translateDefaultMeasuringModeTo(currentlySelectedCodec, totalTracksDurationInStandard)
-        );
-        setAvailableSPSeconds(disc.left - totalTracksDurationInStandard);
-        setBeforeConversionAvailableDurationUnits(secondsLeftInChosenFormat);
-    }, [disc, titles, currentlySelectedCodec, minidiscSpec]);
-
     useEffect(() => {
-        if (!disc) return;
-
-        const testedDisc = JSON.parse(JSON.stringify(disc)) as Disc;
-        let ungrouped = testedDisc.groups.find((n) => n.title === null);
-
-        // Fill with garbage data just for the sake of title space calculation
-        if (!ungrouped) {
-            ungrouped = {
-                title: null,
-                fullWidthTitle: null,
-                index: -1,
-                tracks: [],
-            };
-            testedDisc.groups.push(ungrouped);
+        const device = workspace.device;
+        if (!disc || !device || files.length === 0) {
+            setPreviewIssues([]);
+            setPreviewPending(false);
+            return;
         }
-        for (const track of titles) {
-            ungrouped.tracks.push({
-                title: track.title,
-                fullWidthTitle: track.fullWidthTitle,
-                channel: 1,
-                duration: 0,
-                index: 0,
-                encoding: { codec: 'SPS', bitrate: 0 },
-                protected: null as any,
+        let active = true;
+        setPreviewPending(true);
+        setPreviewIssues([]);
+        void getApplicationClient()
+            .execute({
+                type: 'import.preview',
+                ids: files.map((file) => file.id),
+                format: currentlySelectedCodec,
+                expectedImportRevision: queueSnapshot.revision,
+                expectedDeviceRevision: device.revision,
+            })
+            .then((result) => {
+                if (!active) return;
+                setPreviewPending(false);
+                if (!result.ok) {
+                    if (result.error.code !== 'STALE_REVISION') reportApplicationError(new Error(result.error.message));
+                    return;
+                }
+                const preview = result.importPreview;
+                if (!preview) return;
+                setAvailableCharacters({
+                    halfWidth: preview.titles.halfWidthRemaining,
+                    fullWidth: preview.titles.fullWidthRemaining,
+                });
+                setBeforeConversionAvailableCharacters({
+                    halfWidth: preview.titles.halfWidthBefore,
+                    fullWidth: preview.titles.fullWidthBefore,
+                });
+                setBeforeConversionAvailableDurationUnits(preview.capacity.availableBeforeInSelectedFormat);
+                setAvailableDurationUnits(preview.capacity.remainingInSelectedFormat);
+                setAvailableSPSeconds(preview.capacity.remaining);
+                setPreviewIssues(preview.issues);
             });
-        }
-        setAvailableCharacters(minidiscSpec.getRemainingCharactersForTitles(testedDisc));
-        setBeforeConversionAvailableCharacters(minidiscSpec.getRemainingCharactersForTitles(disc));
-        if (recordingProfile.measurementUnits === 'bytes') calculateFreeSpaceBytes();
-        else calculateFreeSpaceFrames();
-    }, [calculateFreeSpaceBytes, calculateFreeSpaceFrames, disc, titles, minidiscSpec, recordingProfile.measurementUnits]);
+        return () => {
+            active = false;
+        };
+    }, [currentlySelectedCodec, disc, files, queueSnapshot.revision, reportApplicationError, workspace.device]);
 
     const handleRenameSelectedTrack = useCallback(() => {
         renameTrackManually(selectedTrackIndex);
@@ -1046,6 +1024,15 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
                 </Typography>
                 <Typography
                     component="h3"
+                    className={classes.durationNotFit}
+                    hidden={previewIssues.length === 0}
+                    style={{ marginTop: '1em' }}
+                    align="center"
+                >
+                    {previewIssues[0]?.message}
+                </Typography>
+                <Typography
+                    component="h3"
                     className={classes.warningMediocreEncoder}
                     hidden={!isSelectedMediocre}
                     style={{ marginTop: '1em' }}
@@ -1234,7 +1221,16 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
                 <Button onClick={handleClose} disabled={loadingMetadata}>
                     Cancel
                 </Button>
-                <Button onClick={handleConvert} disabled={loadingMetadata || availableDurationUnits < 0 || isSelectedUnsupported}>
+                <Button
+                    onClick={handleConvert}
+                    disabled={
+                        loadingMetadata ||
+                        previewPending ||
+                        availableDurationUnits < 0 ||
+                        previewIssues.length > 0 ||
+                        isSelectedUnsupported
+                    }
+                >
                     Ok
                 </Button>
             </DialogActions>
