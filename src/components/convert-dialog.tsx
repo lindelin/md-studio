@@ -69,10 +69,10 @@ import { LeftInNondefaultCodecs } from './main-rows';
 import { formatImportTitle } from '../application/import-title';
 import { inspectImportFiles, type InspectedImportFile } from '../application/audio-import-inspector';
 import type { ApplicationCommand } from '../application/command-bus';
+import type { DeviceRecordingProfile } from '../application/contracts';
 import type { ImportQueueSnapshot } from '../application/import-queue';
 import type { ImportPreview } from '../application/import-preview';
 import {
-    createDeviceRecordingProfile,
     getDefaultRecordingFormat,
     getRecordingCodec,
     sanitizeDeviceFullWidthTitle,
@@ -255,18 +255,23 @@ function createForcedEncodingText(selectedCodec: Codec, file: { forcedEncoding: 
 
 // `files` always appends to the list
 export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
+    const recordingProfile = useApplicationWorkspace().device?.recording;
+    if (!recordingProfile) return null;
+    return <ConnectedConvertDialog {...props} recordingProfile={recordingProfile} />;
+};
+
+const ConnectedConvertDialog = (props: {
+    files: (File | AdaptiveFile)[];
+    recordingProfile: DeviceRecordingProfile;
+}) => {
     const dispatch = useDispatch();
     const { classes, cx } = useStyles();
 
     const { visible, format, titleFormat, titles } = useShallowEqualSelector((state) => state.convertDialog);
     const { fullWidthSupport } = useShallowEqualSelector((state) => state.appState);
     const { disc, deviceCapabilities } = useShallowEqualSelector((state) => state.main);
-    const minidiscSpec = serviceRegistry.netmdSpec!;
     const workspace = useApplicationWorkspace();
-    const recordingProfile = useMemo(
-        () => workspace.device?.recording ?? createDeviceRecordingProfile(minidiscSpec),
-        [minidiscSpec, workspace.device?.recording]
-    );
+    const recordingProfile = props.recordingProfile;
     const queueSnapshot = workspace.imports;
     const files = queueSnapshot.items;
     const [selectedTrackIndex, setSelectedTrack] = useState(-1);
@@ -873,7 +878,7 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
             visible,
             codecFamilyIndex: currentlySelectedCodecIndex[0],
             titleFormat,
-            minidiscSpec,
+            recordingProfile,
 
             titles,
             selectedTrackIndex,

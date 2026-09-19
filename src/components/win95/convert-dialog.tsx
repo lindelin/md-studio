@@ -8,7 +8,7 @@ import ArrowUpIconUrl from '../../images/win95/arrowup.png';
 import ArrowDownIconUrl from '../../images/win95/arrowdown.png';
 import DeleteIconUrl from '../../images/win95/delete.png';
 import RenameIconUrl from '../../images/win95/rename.png';
-import { MinidiscSpec } from '../../services/interfaces/netmd';
+import type { DeviceRecordingProfile } from '../../application/contracts';
 
 const trackTitleOptions = [
     { value: 'filename', label: 'Filename' },
@@ -23,7 +23,7 @@ export const W95ConvertDialog = (props: {
     visible: boolean;
     codecFamilyIndex: number;
     titleFormat: TitleFormatType;
-    minidiscSpec: MinidiscSpec,
+    recordingProfile: DeviceRecordingProfile;
     titles: { title: string; fullWidthTitle: string }[];
     loadingMetadata: boolean;
     availableCharacters: { halfWidth: number; fullWidth: number };
@@ -55,7 +55,14 @@ export const W95ConvertDialog = (props: {
     dialogVisible: boolean;
 }) => {
     const themeContext = useContext(ThemeContext) as { selectedTableRow: React.CSSProperties };
-    const recordModeOptions = useMemo(() => props.minidiscSpec.availableFormats.map((e, i) => ({ label: e.userFriendlyName ?? e.codec, value: i })), [props.minidiscSpec]);
+    const recordModeOptions = useMemo(
+        () =>
+            props.recordingProfile.availableFormats.map((format, index) => ({
+                label: format.userFriendlyName ?? format.codec,
+                value: index,
+            })),
+        [props.recordingProfile]
+    );
 
     const renderTracks = useCallback(() => {
         return props.titles.map((file, i) => {
