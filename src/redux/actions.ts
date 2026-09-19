@@ -70,43 +70,26 @@ function applyDeviceSnapshot(dispatch: AppDispatch, snapshot: DeviceSnapshot) {
 }
 
 export function control(action: 'play' | 'stop' | 'next' | 'prev' | 'goto' | 'pause' | 'seek', params?: unknown) {
-    return async function (dispatch: AppDispatch, getState: () => RootState) {
-        const state = getState();
+    return async function (dispatch: AppDispatch) {
         switch (action) {
             case 'play':
-                await serviceRegistry.netmdService!.play();
+                await getApplicationRuntime().controlPlayback({ action: 'play' });
                 break;
             case 'stop':
-                await serviceRegistry.netmdService!.stop();
+                await getApplicationRuntime().controlPlayback({ action: 'stop' });
                 break;
             case 'next':
-                try {
-                    await serviceRegistry.netmdService!.next();
-                } catch (e) {
-                    // Some devices don't support next() and prev()
-                    if (state.main.deviceStatus?.track === state.main.disc!.trackCount - 1 || !state.main.deviceStatus) return;
-                    await serviceRegistry.netmdService!.stop();
-                    await serviceRegistry.netmdService!.gotoTrack(state.main.deviceStatus.track! + 1);
-                    await serviceRegistry.netmdService!.play();
-                }
+                await getApplicationRuntime().controlPlayback({ action: 'next' });
                 break;
             case 'prev':
-                try {
-                    await serviceRegistry.netmdService!.prev();
-                } catch (e) {
-                    // Some devices don't support next() and prev()
-                    if (state.main.deviceStatus?.track === 0 || !state.main.deviceStatus) return;
-                    await serviceRegistry.netmdService!.stop();
-                    await serviceRegistry.netmdService!.gotoTrack(state.main.deviceStatus.track! - 1);
-                    await serviceRegistry.netmdService!.play();
-                }
+                await getApplicationRuntime().controlPlayback({ action: 'previous' });
                 break;
             case 'pause':
-                await serviceRegistry.netmdService!.pause();
+                await getApplicationRuntime().controlPlayback({ action: 'pause' });
                 break;
             case 'goto': {
                 const trackNumber = assertNumber(params, 'Invalid track number for "goto" command');
-                await serviceRegistry.netmdService!.gotoTrack(trackNumber);
+                await getApplicationRuntime().controlPlayback({ action: 'gotoTrack', index: trackNumber });
                 break;
             }
             case 'seek': {
@@ -117,7 +100,14 @@ export function control(action: 'play' | 'stop' | 'next' | 'prev' | 'goto' | 'pa
                 const trackNumber = assertNumber(typedParams.trackNumber, 'Invalid track number for "seek" command');
                 const time = assertNumber(typedParams.time, 'Invalid time for "seek" command');
                 const timeArgs = timeToSeekArgs(time);
-                await serviceRegistry.netmdService!.gotoTime(trackNumber, timeArgs[0], timeArgs[1], timeArgs[2], timeArgs[3]);
+                await getApplicationRuntime().controlPlayback({
+                    action: 'seek',
+                    index: trackNumber,
+                    hour: timeArgs[0],
+                    minute: timeArgs[1],
+                    second: timeArgs[2],
+                    frame: timeArgs[3],
+                });
                 break;
             }
         }
@@ -125,8 +115,7 @@ export function control(action: 'play' | 'stop' | 'next' | 'prev' | 'goto' | 'pa
         // We wait 500ms and let the monitor do further updates
         await sleep(500);
         try {
-            const deviceStatus = await serviceRegistry.netmdService!.getDeviceStatus();
-            dispatch(mainActions.setDeviceStatus(deviceStatus));
+            applyDeviceSnapshot(dispatch, await getApplicationRuntime().refresh());
         } catch (e) {
             console.log('control: Cannot get device status');
         }
@@ -134,11 +123,18 @@ export function control(action: 'play' | 'stop' | 'next' | 'prev' | 'goto' | 'pa
 }
 
 export function renameGroup({ groupIndex, newName, newFullWidthName }: { groupIndex: number; newName: string; newFullWidthName?: string }) {
-    return async function (dispatch: AppDispatch, getState: () => RootState) {
+    return async function (dispatch: AppDispatch) {
         dispatch(appStateActions.setLoading(true));
-        await serviceRegistry!.netmdService?.renameGroup(groupIndex, newName, newFullWidthName);
-        await listContent()(dispatch);
-        dispatch(appStateActions.setLoading(false));
+        try {
+            const snapshot = await getApplicationRuntime().renameGroup({
+                index: groupIndex,
+                title: newName,
+                fullWidthTitle: newFullWidthName,
+            });
+            applyDeviceSnapshot(dispatch, snapshot);
+        } finally {
+            dispatch(appStateActions.setLoading(false));
+        }
     };
 }
 
@@ -146,22 +142,18 @@ export function groupTracks(indexes: number[]) {
     return async function (dispatch: AppDispatch) {
         const begin = indexes[0];
         const length = indexes[indexes.length - 1] - begin + 1;
-        const { netmdService } = serviceRegistry;
-
-        await netmdService!.addGroup(begin, length, '');
-        await listContent()(dispatch);
+        applyDeviceSnapshot(dispatch, await getApplicationRuntime().createGroup(begin, length));
     };
 }
 
 export function deleteGroups(indexes: number[]) {
     return async function (dispatch: AppDispatch) {
         dispatch(appStateActions.setLoading(true));
-        const { netmdService } = serviceRegistry;
-        const sorted = [...indexes].sort((a, b) => b - a);
-        for (const index of sorted) {
-            await netmdService!.deleteGroup(index);
+        try {
+            applyDeviceSnapshot(dispatch, await getApplicationRuntime().deleteGroups(indexes));
+        } finally {
+            dispatch(appStateActions.setLoading(false));
         }
-        await listContent()(dispatch);
     };
 }
 
@@ -425,10 +417,16 @@ export function deleteTracks(indexes: number[]) {
         if (!confirmation) {
             return;
         }
-        const { netmdService } = serviceRegistry;
         dispatch(appStateActions.setLoading(true));
-        await netmdService!.deleteTracks(indexes);
-        await listContent()(dispatch);
+        try {
+            const snapshot = await getApplicationRuntime().deleteTracks(indexes, {
+                confirmed: true,
+                reason: 'Confirmed in the Web MiniDisc user interface',
+            });
+            applyDeviceSnapshot(dispatch, snapshot);
+        } finally {
+            dispatch(appStateActions.setLoading(false));
+        }
     };
 }
 
@@ -438,10 +436,16 @@ export function wipeDisc() {
         if (!confirmation) {
             return;
         }
-        const { netmdService } = serviceRegistry;
         dispatch(appStateActions.setLoading(true));
-        await netmdService!.wipeDisc();
-        await listContent()(dispatch);
+        try {
+            const snapshot = await getApplicationRuntime().eraseDisc({
+                confirmed: true,
+                reason: 'Confirmed in the Web MiniDisc user interface',
+            });
+            applyDeviceSnapshot(dispatch, snapshot);
+        } finally {
+            dispatch(appStateActions.setLoading(false));
+        }
     };
 }
 
@@ -460,9 +464,7 @@ export function formatToHiMD() {
 
 export function ejectDisc() {
     return async function (dispatch: AppDispatch) {
-        const { netmdService } = serviceRegistry;
-        await netmdService!.ejectDisc();
-        dispatch(mainActions.setDisc(null));
+        applyDeviceSnapshot(dispatch, await getApplicationRuntime().ejectDisc());
     };
 }
 
@@ -1357,6 +1359,14 @@ export function convertAndUpload(
             ])
         );
 
+        const writeTask = serviceRegistry.taskManager.create(
+            'disc.write',
+            `Write ${files.length} track${files.length === 1 ? '' : 's'} to MiniDisc`,
+            files.length,
+            'tracks'
+        );
+        serviceRegistry.taskManager.start(writeTask.id, 'preparing');
+
         let lastUploadProgress = new Date().getTime(),
             lastConvertProgress = lastUploadProgress;
         const originalTitle = document.title;
@@ -1371,6 +1381,10 @@ export function convertAndUpload(
                 queueMicrotask(() => dispatch(uploadDialogActions.setWriteProgress({ written, encrypted, total })));
                 lastUploadProgress = now;
                 bytesSentFromThisTrack = written;
+                serviceRegistry.taskManager.reportProgress(writeTask.id, {
+                    bytesWritten: bytesSentFromPrevTracks + written,
+                    bytesTotal: totalBytesAllTracks || bytesSentFromPrevTracks + total,
+                });
                 updateTitle();
             }
         };
@@ -1403,7 +1417,7 @@ export function convertAndUpload(
         };
 
         const hasUploadBeenCancelled = () => {
-            return getState().uploadDialog.cancelled;
+            return getState().uploadDialog.cancelled || serviceRegistry.taskManager.isCancellationRequested(writeTask.id);
         };
 
         const releaseScreenLockIfPresent = async () => {
@@ -1564,6 +1578,7 @@ export function convertAndUpload(
         try {
             await netmdService?.prepareUpload();
             uploadPrepared = true;
+            serviceRegistry.taskManager.setPhase(writeTask.id, 'converting');
 
             for await (const item of conversionIterator(files)) {
                 if (hasUploadBeenCancelled()) {
@@ -1571,6 +1586,10 @@ export function convertAndUpload(
                 }
 
                 const { file, data } = item;
+
+                if (serviceRegistry.taskManager.get(writeTask.id).phase !== 'transferring') {
+                    serviceRegistry.taskManager.setPhase(writeTask.id, 'transferring');
+                }
 
                 const title = file.title;
 
@@ -1598,6 +1617,10 @@ export function convertAndUpload(
                 bytesSentFromPrevTracks += bytesSentFromThisTrack;
                 bytesSentFromThisTrack = 0;
                 updateTrack();
+                serviceRegistry.taskManager.reportProgress(writeTask.id, {
+                    completed: trackUpdate.current - 1,
+                    currentLabel: trackUpdate.titleCurrent,
+                });
                 updateUploadProgressCallback({ written: 0, encrypted: 0, total: 100 });
                 if (file.forcedEncoding?.codec === 'SPS' || file.forcedEncoding?.codec === 'SPM') {
                     // Uploading an AEA file.
@@ -1626,6 +1649,9 @@ export function convertAndUpload(
                 errorMessage = 'The recording task stopped before all tracks were transferred.';
             }
         } finally {
+            if (serviceRegistry.taskManager.get(writeTask.id).status === 'running') {
+                serviceRegistry.taskManager.setPhase(writeTask.id, 'finalizing');
+            }
             if (uploadPrepared) {
                 try {
                     await netmdService?.finalizeUpload();
@@ -1661,7 +1687,14 @@ export function convertAndUpload(
             }
             dispatch(batchActions(actionToDispatch));
 
-            if (!error && !hasUploadBeenCancelled()) showFinishedNotificationIfNeeded();
+            if (error) {
+                serviceRegistry.taskManager.fail(writeTask.id, error);
+            } else if (hasUploadBeenCancelled()) {
+                serviceRegistry.taskManager.cancel(writeTask.id);
+            } else {
+                serviceRegistry.taskManager.succeed(writeTask.id, { writtenTracks: trackUpdate.current });
+                showFinishedNotificationIfNeeded();
+            }
             await releaseScreenLockIfPresent();
             await listContent()(dispatch);
         }

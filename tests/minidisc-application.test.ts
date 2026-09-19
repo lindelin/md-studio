@@ -32,7 +32,7 @@ function makeGateway() {
             return {
                 deviceName: 'MockMD',
                 status: { discPresent: true } as any,
-                capabilities: ['content.read', 'metadata.edit'],
+                capabilities: ['content.read', 'metadata.edit', 'playback.control', 'disc.eject'],
                 disc: structuredClone(disc),
             };
         },
@@ -44,11 +44,36 @@ function makeGateway() {
             calls.push(`renameTrack:${update.index}:${update.title}`);
             disc.groups[0].tracks[update.index].title = update.title;
         },
+        async renameGroup(update) {
+            calls.push(`renameGroup:${update.index}:${update.title}`);
+        },
+        async addGroup(firstTrack, trackCount, title) {
+            calls.push(`addGroup:${firstTrack}:${trackCount}:${title}`);
+        },
+        async deleteGroup(index) {
+            calls.push(`deleteGroup:${index}`);
+        },
+        async deleteTracks(indexes) {
+            calls.push(`deleteTracks:${indexes.join(',')}`);
+            disc.groups[0].tracks = disc.groups[0].tracks.filter((track: any) => !indexes.includes(track.index));
+            disc.trackCount = disc.groups[0].tracks.length;
+        },
         async moveTrack(sourceIndex, destinationIndex) {
             calls.push(`move:${sourceIndex}:${destinationIndex}`);
             const [track] = disc.groups[0].tracks.splice(sourceIndex, 1);
             disc.groups[0].tracks.splice(destinationIndex, 0, track);
             disc.groups[0].tracks.forEach((entry: any, index: number) => (entry.index = index));
+        },
+        async wipeDisc() {
+            calls.push('wipeDisc');
+            disc.groups[0].tracks = [];
+            disc.trackCount = 0;
+        },
+        async ejectDisc() {
+            calls.push('ejectDisc');
+        },
+        async controlPlayback(command) {
+            calls.push(`playback:${command.action}`);
         },
     };
     return { gateway, calls };
@@ -108,5 +133,41 @@ describe('MiniDiscApplication', () => {
         await application.refresh();
         await Promise.all([application.moveTrack(0, 1), application.renameDisc('After Move')]);
         assert.deepEqual(calls.slice(1), ['move:0:1', 'read', 'renameDisc:After Move', 'read']);
+    });
+
+    it('requires explicit confirmation before deleting audio', async () => {
+        const { gateway, calls } = makeGateway();
+        const application = new MiniDiscApplication(gateway);
+        await application.refresh();
+        await assert.rejects(
+            () => application.deleteTracks([0]),
+            (error: unknown) => {
+                assert.equal((error as ApplicationError).code, 'CONFIRMATION_REQUIRED');
+                return true;
+            }
+        );
+        assert.equal(
+            calls.some((call) => call.startsWith('deleteTracks')),
+            false
+        );
+    });
+
+    it('validates and sorts destructive track deletion before calling the device', async () => {
+        const { gateway, calls } = makeGateway();
+        const application = new MiniDiscApplication(gateway);
+        await application.refresh();
+        const snapshot = await application.deleteTracks([0, 1], { confirmed: true, reason: 'Disposable test disc' });
+        assert.equal(snapshot.disc?.trackCount, 0);
+        assert.equal(calls.includes('deleteTracks:1,0'), true);
+    });
+
+    it('returns an ejected snapshot without reading from an unavailable disc', async () => {
+        const { gateway, calls } = makeGateway();
+        const application = new MiniDiscApplication(gateway);
+        await application.refresh();
+        const snapshot = await application.ejectDisc();
+        assert.equal(snapshot.disc, null);
+        assert.equal(snapshot.status.discPresent, false);
+        assert.deepEqual(calls, ['read', 'ejectDisc']);
     });
 });

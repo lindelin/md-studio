@@ -1,4 +1,4 @@
-import type { DeviceGateway, ApplicationCapability } from './contracts';
+import type { DeviceGateway, ApplicationCapability, GroupMetadataUpdate, PlaybackCommand } from './contracts';
 import { Capability, type MinidiscSpec, type NetMDService } from '../services/interfaces/netmd';
 
 const capabilityNames: Record<Capability, ApplicationCapability> = {
@@ -37,8 +37,56 @@ export class NetMDDeviceGateway implements DeviceGateway {
         await this.service.renameTrack(index, this.spec.sanitizeHalfWidthTitle(title), this.sanitizeFullWidthTitle(fullWidthTitle));
     }
 
+    async renameGroup({ index, title, fullWidthTitle }: GroupMetadataUpdate) {
+        await this.service.renameGroup(index, this.spec.sanitizeHalfWidthTitle(title), this.sanitizeFullWidthTitle(fullWidthTitle));
+    }
+
+    async addGroup(firstTrack: number, trackCount: number, title: string, fullWidthTitle?: string) {
+        await this.service.addGroup(
+            firstTrack,
+            trackCount,
+            this.spec.sanitizeHalfWidthTitle(title),
+            this.sanitizeFullWidthTitle(fullWidthTitle)
+        );
+    }
+
+    async deleteGroup(index: number) {
+        await this.service.deleteGroup(index);
+    }
+
+    async deleteTracks(indexes: number[]) {
+        await this.service.deleteTracks(indexes);
+    }
+
     async moveTrack(sourceIndex: number, destinationIndex: number) {
         await this.service.moveTrack(sourceIndex, destinationIndex);
+    }
+
+    async wipeDisc() {
+        await this.service.wipeDisc();
+    }
+
+    async ejectDisc() {
+        await this.service.ejectDisc();
+    }
+
+    async controlPlayback(command: PlaybackCommand) {
+        switch (command.action) {
+            case 'play':
+                return this.service.play();
+            case 'pause':
+                return this.service.pause();
+            case 'stop':
+                return this.service.stop();
+            case 'next':
+                return this.service.next();
+            case 'previous':
+                return this.service.prev();
+            case 'gotoTrack':
+                return this.service.gotoTrack(command.index);
+            case 'seek':
+                return this.service.gotoTime(command.index, command.hour, command.minute, command.second, command.frame);
+        }
     }
 
     private sanitizeFullWidthTitle(title?: string) {

@@ -9,7 +9,7 @@ export function bindApplicationRuntime() {
     }
     const application = new MiniDiscApplication(new NetMDDeviceGateway(serviceRegistry.netmdService, serviceRegistry.netmdSpec));
     serviceRegistry.application = application;
-    serviceRegistry.commandBus = new ApplicationCommandBus(application);
+    serviceRegistry.commandBus = new ApplicationCommandBus(application, serviceRegistry.taskManager, serviceRegistry.importQueue);
     return application;
 }
 
@@ -18,6 +18,11 @@ export function getApplicationRuntime() {
 }
 
 export function clearApplicationRuntime() {
+    for (const task of serviceRegistry.taskManager.list()) {
+        if (task.status === 'queued' || task.status === 'running') {
+            serviceRegistry.taskManager.interrupt(task.id, 'The device session ended before the task completed.');
+        }
+    }
     serviceRegistry.application = undefined;
     serviceRegistry.commandBus = undefined;
 }

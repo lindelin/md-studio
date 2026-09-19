@@ -5,6 +5,8 @@ import { MediaSessionService } from './browserintegration/media-session';
 import { LibraryService } from './library/library';
 import type { MiniDiscApplication } from '../application/minidisc-application';
 import type { ApplicationCommandBus } from '../application/command-bus';
+import { TaskManager } from '../application/task-manager';
+import { ImportQueue } from '../application/import-queue';
 
 interface ServiceRegistry {
     netmdService?: NetMDService;
@@ -16,8 +18,10 @@ interface ServiceRegistry {
     libraryService?: LibraryService;
     application?: MiniDiscApplication;
     commandBus?: ApplicationCommandBus;
+    taskManager: TaskManager;
+    importQueue: ImportQueue;
 }
 
-const ServiceRegistry: ServiceRegistry = {};
+const ServiceRegistry: ServiceRegistry = { taskManager: new TaskManager(), importQueue: new ImportQueue() };
 
 export default ServiceRegistry;
