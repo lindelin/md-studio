@@ -149,6 +149,7 @@ function createServer() {
                         factoryModeUseSlowerExploit: z.boolean().optional(),
                         factoryModeShortcuts: z.boolean().optional(),
                         factoryModeNERAWDownload: z.boolean().optional(),
+                        audioEncoderId: z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/).optional(),
                         audioExportService: z.number().int().nonnegative().optional(),
                         audioExportServiceConfig: z
                             .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))

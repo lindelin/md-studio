@@ -42,6 +42,7 @@ describe('SettingsStore', () => {
             {
                 colorTheme: 'dark',
                 fullWidthSupport: true,
+                audioEncoderId: 'remote-atrac',
                 audioExportService: 2,
                 audioExportServiceConfig: { bitrate: 256, normalize: true },
                 libraryService: 1,
@@ -59,6 +60,7 @@ describe('SettingsStore', () => {
         assert.equal(updated.revision, 1);
         assert.equal(reloaded.values.colorTheme, 'dark');
         assert.equal(reloaded.values.fullWidthSupport, true);
+        assert.equal(reloaded.values.audioEncoderId, 'remote-atrac');
         assert.equal(reloaded.values.audioExportService, 2);
         assert.deepEqual(reloaded.values.audioExportServiceConfig, { bitrate: 256, normalize: true });
         assert.equal(reloaded.values.libraryService, 1);
@@ -98,6 +100,10 @@ describe('SettingsStore', () => {
             (error: unknown) => (error as ApplicationError).code === 'INVALID_INPUT'
         );
         assert.throws(
+            () => settings.update({ audioEncoderId: 'Invalid Encoder Id' }),
+            (error: unknown) => (error as ApplicationError).code === 'INVALID_INPUT'
+        );
+        assert.throws(
             () => settings.update({ audioExportService: -1 }),
             (error: unknown) => (error as ApplicationError).code === 'INVALID_INPUT'
         );
@@ -132,6 +138,7 @@ describe('SettingsStore', () => {
     it('cleans invalid persisted service settings while preserving valid legacy values', () => {
         const storage = new MemoryStorage();
         storage.setItem('audioExportService', JSON.stringify(-2));
+        storage.setItem('audioEncoderId', JSON.stringify('Invalid Encoder Id'));
         storage.setItem('audioExportServiceConfig', JSON.stringify({ quality: 'high' }));
         storage.setItem('libraryService', JSON.stringify(0));
         storage.setItem('libraryServiceConfig', JSON.stringify({ nested: { invalid: true } }));
@@ -143,7 +150,8 @@ describe('SettingsStore', () => {
 
         const snapshot = new SettingsStore(storage).getSnapshot();
 
-        assert.equal(snapshot.values.audioExportService, 0);
+        assert.equal(snapshot.values.audioExportService, 1);
+        assert.equal(snapshot.values.audioEncoderId, null);
         assert.deepEqual(snapshot.values.audioExportServiceConfig, { quality: 'high' });
         assert.equal(snapshot.values.libraryService, 0);
         assert.deepEqual(snapshot.values.libraryServiceConfig, {});
@@ -153,11 +161,22 @@ describe('SettingsStore', () => {
         assert.equal(snapshot.values.recognitionImportMethod, 'line-in');
         assert.equal(snapshot.values.factoryBadSectorRememberChoice, false);
         assert.equal(storage.getItem('audioExportService'), null);
+        assert.equal(storage.getItem('audioEncoderId'), null);
         assert.equal(storage.getItem('libraryServiceConfig'), null);
         assert.equal(storage.getItem('uploadFormat'), null);
         assert.equal(storage.getItem('trackTitleFormat'), null);
         assert.equal(storage.getItem('recognitionTrackTitleFormat'), null);
         assert.equal(storage.getItem('recognitionImportMethod'), null);
         assert.equal(storage.getItem('factoryBadSectorRememberChoice'), null);
+    });
+
+    it('preserves a legacy encoder index until a stable service id is saved', () => {
+        const storage = new MemoryStorage();
+        storage.setItem('audioExportService', JSON.stringify(2));
+
+        const snapshot = new SettingsStore(storage).getSnapshot();
+
+        assert.equal(snapshot.values.audioEncoderId, null);
+        assert.equal(snapshot.values.audioExportService, 2);
     });
 });

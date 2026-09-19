@@ -3,7 +3,7 @@ import { enableBatching } from 'redux-batched-actions';
 import { CustomParameters } from '../custom-parameters';
 import { filterOutCorrupted, getSimpleServices, ServiceConstructionInfo } from '../services/interface-service-manager';
 import { savePreference, loadPreference } from '../utils';
-import { resolveAudioServiceIndex } from '../services/audio-export-service-manager';
+import { resolveAudioServiceIndexById } from '../services/audio-export-service-manager';
 import { isBoolean, isFiniteNumber, isServiceList } from '../preferences';
 import { applicationSettings, type UserSettings } from '../application/settings-store';
 
@@ -65,7 +65,10 @@ export const buildInitialState = (): AppState => {
         lastSelectedService: loadPreference('lastSelectedService', 0, isFiniteNumber),
         factoryModeRippingInMainUi: false, // As this value is heavily device-dependent and not really that stable yet
         // it should not be stored in the preferences, and should default to false.
-        audioExportService: resolveAudioServiceIndex(sharedSettings.audioExportService),
+        audioExportService: resolveAudioServiceIndexById(
+            sharedSettings.audioEncoderId,
+            sharedSettings.audioExportService
+        ),
         audioExportServiceConfig: sharedSettings.audioExportServiceConfig,
         libraryService: sharedSettings.libraryService,
         libraryServiceConfig: sharedSettings.libraryServiceConfig,
@@ -189,7 +192,7 @@ export const slice = createSlice({
             state.factoryModeUseSlowerExploit = source.factoryModeUseSlowerExploit;
             state.factoryModeShortcuts = source.factoryModeShortcuts;
             state.factoryModeNERAWDownload = source.factoryModeNERAWDownload;
-            state.audioExportService = source.audioExportService;
+            state.audioExportService = resolveAudioServiceIndexById(source.audioEncoderId, source.audioExportService);
             state.audioExportServiceConfig = source.audioExportServiceConfig;
             state.libraryService = source.libraryService;
             state.libraryServiceConfig = source.libraryServiceConfig;

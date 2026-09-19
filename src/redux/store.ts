@@ -29,6 +29,7 @@ import factoryBadSectorDialog, {
 import main from './main-feature';
 import { batchActions, batchDispatchMiddleware } from 'redux-batched-actions';
 import { applicationSettings, type UserSettings } from '../application/settings-store';
+import { AudioServices, DEFAULT_AUDIO_SERVICE_ID } from '../services/audio-export-service-manager';
 
 function sharedSettingsFromState(state: {
     appState: AppState;
@@ -49,6 +50,7 @@ function sharedSettingsFromState(state: {
         factoryModeUseSlowerExploit: source.factoryModeUseSlowerExploit,
         factoryModeShortcuts: source.factoryModeShortcuts,
         factoryModeNERAWDownload: source.factoryModeNERAWDownload,
+        audioEncoderId: AudioServices[source.audioExportService]?.id ?? DEFAULT_AUDIO_SERVICE_ID,
         audioExportService: source.audioExportService,
         audioExportServiceConfig: source.audioExportServiceConfig,
         libraryService: source.libraryService,

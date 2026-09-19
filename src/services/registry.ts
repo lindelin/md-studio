@@ -14,7 +14,7 @@ import type { ApplicationClient } from '../application/application-client';
 import { LibraryCatalog } from '../application/library-catalog';
 import { createLibraryService, LibraryServices } from './library-services';
 import { AudioEncoderManager } from '../application/audio-encoder-manager';
-import { AudioServices, createAudioEncoder } from './audio-export-service-manager';
+import { AudioServices, createAudioEncoder, resolveAudioServiceIndexById } from './audio-export-service-manager';
 import { createServiceCatalog, type ServiceCatalogSnapshot } from '../application/service-catalog';
 import { Services as DeviceServices } from './interface-service-manager';
 import type { LocalAudioInput } from '../application/browser-audio-input';
@@ -52,7 +52,10 @@ const libraryCatalog = new LibraryCatalog(() => {
 const audioEncoderManager = new AudioEncoderManager(
     () => {
         const settings = applicationSettings.getSnapshot().values;
-        return { index: settings.audioExportService, parameters: settings.audioExportServiceConfig };
+        return {
+            index: resolveAudioServiceIndexById(settings.audioEncoderId, settings.audioExportService),
+            parameters: settings.audioExportServiceConfig,
+        };
     },
     createAudioEncoder
 );

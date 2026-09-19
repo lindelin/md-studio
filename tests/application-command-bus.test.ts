@@ -309,23 +309,55 @@ describe('ApplicationCommandBus import writing', () => {
 
     it('updates shared settings but rejects attempts to enable the local bridge', async () => {
         const settings = new SettingsStore(null);
+        const serviceCatalog = {
+            audioEncoders: [
+                {
+                    index: 0,
+                    id: 'at3re',
+                    name: 'At3RE',
+                    available: false,
+                    unavailableReason: 'Not bundled',
+                    parameters: [],
+                },
+                { index: 1, id: 'atracdenc', name: 'Atracdenc', available: true, parameters: [] },
+            ],
+            libraries: [],
+            devices: [],
+        };
         const bus = new ApplicationCommandBus(
             {} as MiniDiscApplication,
             new TaskManager(),
             new ImportQueue(),
             undefined,
             undefined,
-            settings
+            settings,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            serviceCatalog
         );
 
-        const updated = await bus.execute({ type: 'settings.update', changes: { colorTheme: 'dark' }, expectedRevision: 0 });
+        const updated = await bus.execute({
+            type: 'settings.update',
+            changes: { colorTheme: 'dark', audioEncoderId: 'atracdenc' },
+            expectedRevision: 0,
+        });
         const rejected = await bus.execute({
             type: 'settings.update',
             changes: { minidiscLocalBridgeEnabled: true },
         } as any);
+        const unavailableEncoder = await bus.execute({
+            type: 'settings.update',
+            changes: { audioEncoderId: 'at3re' },
+        });
 
         assert.equal(updated.ok && updated.settings?.values.colorTheme, 'dark');
+        assert.equal(updated.ok && updated.settings?.values.audioEncoderId, 'atracdenc');
+        assert.equal(updated.ok && updated.settings?.values.audioExportService, 1);
         assert.equal(rejected.ok, false);
         assert.equal(!rejected.ok && rejected.error.code, 'INVALID_INPUT');
+        assert.equal(unavailableEncoder.ok, false);
+        assert.equal(!unavailableEncoder.ok && unavailableEncoder.error.code, 'INVALID_INPUT');
     });
 });

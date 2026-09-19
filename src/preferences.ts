@@ -9,6 +9,7 @@ export const APP_PREFERENCE_KEYS = [
     'fullWidthSupport',
     'customServices',
     'lastSelectedService',
+    'audioEncoderId',
     'audioExportService',
     'audioExportServiceConfig',
     'libraryService',

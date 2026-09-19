@@ -236,7 +236,25 @@ export class ApplicationCommandBus {
             if (command.type === 'import.list') return { ok: true, importQueue: this.imports.snapshot() };
             if (command.type === 'settings.get') return { ok: true, settings: this.settings.getSnapshot() };
             if (command.type === 'settings.update') {
-                return { ok: true, settings: this.settings.update(command.changes, command.expectedRevision) };
+                const changes = { ...command.changes };
+                if (this.serviceCatalog && (changes.audioEncoderId !== undefined || changes.audioExportService !== undefined)) {
+                    const index =
+                        changes.audioEncoderId !== undefined
+                            ? this.serviceCatalog.audioEncoders.findIndex(
+                                  (encoder) => encoder.id === changes.audioEncoderId && encoder.available
+                              )
+                            : changes.audioExportService!;
+                    const encoder = this.serviceCatalog.audioEncoders[index];
+                    if (!encoder?.available) {
+                        throw new ApplicationError(
+                            'INVALID_INPUT',
+                            `Audio encoder ${changes.audioEncoderId ?? changes.audioExportService} is unavailable or unknown.`
+                        );
+                    }
+                    changes.audioEncoderId = encoder.id;
+                    changes.audioExportService = index;
+                }
+                return { ok: true, settings: this.settings.update(changes, command.expectedRevision) };
             }
             if (command.type === 'library.get') {
                 if (!this.libraryCatalog) throw new Error('The library catalog is unavailable in this application environment.');

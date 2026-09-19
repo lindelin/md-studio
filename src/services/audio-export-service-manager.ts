@@ -6,6 +6,8 @@ import type { AudioEncoderConfiguration, AudioEncoderDescriptor } from '../appli
 
 type AudioServiceConstructor = new (parameters: CustomParameters) => AudioExportService;
 
+export const DEFAULT_AUDIO_SERVICE_ID = 'atracdenc';
+
 export interface AudioServicePrototype {
     id: string;
     load: () => Promise<AudioServiceConstructor>;
@@ -99,6 +101,11 @@ export function resolveAudioServiceIndex(preferredIndex: number): number {
     const fallbackIndex = AudioServices.findIndex((service) => service.available);
     if (fallbackIndex === -1) throw new Error('This build has no available audio encoder.');
     return fallbackIndex;
+}
+
+export function resolveAudioServiceIndexById(preferredId: string | null | undefined, legacyIndex = 0): number {
+    const preferredIndex = AudioServices.findIndex((service) => service.id === preferredId && service.available);
+    return preferredIndex === -1 ? resolveAudioServiceIndex(legacyIndex) : preferredIndex;
 }
 
 export async function createAudioEncoder(configuration: AudioEncoderConfiguration): Promise<AudioEncoderDescriptor> {

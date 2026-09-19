@@ -15,6 +15,7 @@ export interface UserSettings {
     factoryModeUseSlowerExploit: boolean;
     factoryModeShortcuts: boolean;
     factoryModeNERAWDownload: boolean;
+    audioEncoderId: string | null;
     audioExportService: number;
     audioExportServiceConfig: CustomParameters;
     libraryService: number;
@@ -45,7 +46,8 @@ const defaults: UserSettings = {
     factoryModeUseSlowerExploit: false,
     factoryModeShortcuts: false,
     factoryModeNERAWDownload: false,
-    audioExportService: 0,
+    audioEncoderId: null,
+    audioExportService: 1,
     audioExportServiceConfig: {},
     libraryService: -1,
     libraryServiceConfig: {},
@@ -61,6 +63,7 @@ const booleanKeys = new Set<keyof UserSettings>(
         (key) =>
             ![
                 'colorTheme',
+                'audioEncoderId',
                 'audioExportService',
                 'audioExportServiceConfig',
                 'libraryService',
@@ -151,6 +154,13 @@ export class SettingsStore {
                 isBoolean,
                 this.storage
             ),
+            audioEncoderId: loadPreference(
+                'audioEncoderId',
+                defaults.audioEncoderId,
+                (value): value is string | null =>
+                    value === null || (typeof value === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(value)),
+                this.storage
+            ),
             audioExportService: loadPreference('audioExportService', defaults.audioExportService, isAudioServiceIndex, this.storage),
             audioExportServiceConfig: loadPreference(
                 'audioExportServiceConfig',
@@ -198,6 +208,12 @@ export class SettingsStore {
         if (key === 'colorTheme') {
             if (value !== 'dark' && value !== 'light' && value !== 'system') {
                 throw new ApplicationError('INVALID_INPUT', 'colorTheme must be dark, light, or system.');
+            }
+            return;
+        }
+        if (key === 'audioEncoderId') {
+            if (typeof value !== 'string' || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(value)) {
+                throw new ApplicationError('INVALID_INPUT', 'audioEncoderId must be a stable service id.');
             }
             return;
         }
