@@ -347,29 +347,23 @@ export function moveTrack(srcIndex: number, destIndex: number) {
     };
 }
 
-async function monitorTaskInRecordDialog(dispatch: AppDispatch, initialTask: TaskSnapshot, fallbackError: string) {
+async function monitorTaskInRecordDialog(
+    dispatch: AppDispatch,
+    initialTask: TaskSnapshot,
+    fallbackError: string,
+    reportFailure = true
+) {
     const client = getApplicationClient();
     let task = initialTask;
     dispatch(batchActions([recordDialogAction.setVisible(true), recordDialogAction.setTaskId(task.id)]));
     try {
         while (task.status === 'queued' || task.status === 'running') {
-            const bytesTotal = task.progress.bytesTotal ?? 0;
-            dispatch(
-                recordDialogAction.setProgress({
-                    trackTotal: task.progress.total,
-                    trackDone: task.progress.completed,
-                    trackCurrent:
-                        task.progress.currentPercent ??
-                        (bytesTotal > 0 ? (100 * (task.progress.bytesWritten ?? 0)) / bytesTotal : -1),
-                    titleCurrent: task.progress.currentLabel ?? '',
-                })
-            );
             await sleep(100);
             const currentTask = client.getWorkspaceSnapshot().tasks.find((candidate) => candidate.id === task.id);
             if (!currentTask) throw new Error(`Task ${task.id} is no longer available.`);
             task = currentTask;
         }
-        if (task.status === 'failed') {
+        if (reportFailure && task.status === 'failed') {
             dispatch(
                 batchActions([
                     errorDialogAction.setVisible(true),
@@ -377,6 +371,7 @@ async function monitorTaskInRecordDialog(dispatch: AppDispatch, initialTask: Tas
                 ])
             );
         }
+        return task;
     } finally {
         dispatch(batchActions([recordDialogAction.setVisible(false), recordDialogAction.setTaskId(null)]));
     }
@@ -525,25 +520,9 @@ export function selfTest() {
             return;
         }
 
-        dispatch(recordDialogAction.setVisible(true));
-        let task = started.task;
-        while (task.status === 'queued' || task.status === 'running') {
-            dispatch(
-                recordDialogAction.setProgress({
-                    trackTotal: task.progress.total,
-                    trackDone: task.progress.completed,
-                    trackCurrent: task.progress.total === 0 ? 0 : (task.progress.completed / task.progress.total) * 100,
-                    titleCurrent: `Self-Test: ${task.progress.currentLabel ?? task.phase}`,
-                })
-            );
-            await sleep(100);
-            const currentTask = client.getWorkspaceSnapshot().tasks.find((candidate) => candidate.id === task.id);
-            if (!currentTask) throw new Error(`Task ${task.id} is no longer available.`);
-            task = currentTask;
-        }
+        const task = await monitorTaskInRecordDialog(dispatch, started.task, 'The device self-test failed.', false);
         const refreshed = await client.execute({ type: 'disc.refresh', dropCache: true });
         if (!refreshed.ok) throw new Error(refreshed.error.message);
-        dispatch(recordDialogAction.setVisible(false));
         if (task.status === 'succeeded') {
             console.info('All device self-tests passed.', task.result);
             window.alert('All device self-tests passed. The test disc is now empty.');

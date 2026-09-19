@@ -16,7 +16,7 @@ const W95RecordDialog = React.lazy(() =>
 );
 import { useDispatch } from '../frontend-utils';
 import { requestTaskCancellation } from '../redux/actions';
-import { useApplicationSettings } from './use-application-client';
+import { useApplicationSettings, useApplicationWorkspace } from './use-application-client';
 
 const useStyles = makeStyles()((theme) => ({
     progressPerc: {
@@ -35,9 +35,20 @@ export const RecordDialog = () => {
     const { classes } = useStyles();
     const dispatch = useDispatch();
 
-    const { visible, taskId, trackTotal, trackDone, trackCurrent, titleCurrent } = useShallowEqualSelector(
-        (state) => state.recordDialog
-    );
+    const { visible, taskId } = useShallowEqualSelector((state) => state.recordDialog);
+    const task = useApplicationWorkspace().tasks.find((candidate) => candidate.id === taskId);
+    const trackTotal = task?.progress.total ?? 1;
+    const trackDone = task?.progress.completed ?? 0;
+    const bytesTotal = task?.progress.bytesTotal ?? 0;
+    const trackCurrent =
+        task?.progress.currentPercent ??
+        (bytesTotal > 0
+            ? (100 * (task?.progress.bytesWritten ?? 0)) / bytesTotal
+            : trackTotal > 0
+              ? (100 * trackDone) / trackTotal
+              : -1);
+    const currentLabel = task?.progress.currentLabel ?? task?.phase ?? '';
+    const titleCurrent = task?.kind === 'diagnostics.selfTest' ? `Self-Test: ${currentLabel}` : currentLabel;
 
     const progressValue = Math.round(trackCurrent);
 
