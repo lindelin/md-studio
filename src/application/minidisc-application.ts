@@ -63,6 +63,22 @@ export class MiniDiscApplication {
         });
     }
 
+    pollDeviceStatus() {
+        return this.serial(async () => {
+            if (!this.snapshot) {
+                const next = await this.gateway.readSnapshot(false);
+                return this.commitSnapshot({ ...next, sessionId: this.sessionId, revision: this.revision });
+            }
+            const status = await this.gateway.readStatus();
+            if (status.discPresent !== Boolean(this.snapshot.disc)) {
+                const next = await this.gateway.readSnapshot(true);
+                return this.commitSnapshot({ ...next, sessionId: this.sessionId, revision: this.revision });
+            }
+            if (JSON.stringify(status) === JSON.stringify(this.snapshot.status)) return structuredClone(this.snapshot);
+            return this.commitSnapshot({ ...this.snapshot, status });
+        });
+    }
+
     synchronizeAfterExternalMutation(dropCache = true) {
         return this.serial(async () => {
             this.revision += 1;

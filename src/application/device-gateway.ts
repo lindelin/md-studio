@@ -46,6 +46,10 @@ export class NetMDDeviceGateway implements DeviceGateway {
         return { deviceName, status, capabilities, disc };
     }
 
+    readStatus() {
+        return this.service.getDeviceStatus();
+    }
+
     async renameDisc(title: string, fullWidthTitle?: string) {
         await this.service.renameDisc(this.spec.sanitizeHalfWidthTitle(title), this.sanitizeFullWidthTitle(fullWidthTitle));
     }

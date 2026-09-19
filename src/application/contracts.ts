@@ -156,6 +156,7 @@ export type PlaybackCommand =
 
 export interface DeviceGateway {
     readSnapshot(dropCache?: boolean): Promise<Omit<DeviceSnapshot, 'sessionId' | 'revision'>>;
+    readStatus(): Promise<DeviceStatus>;
     renameDisc(title: string, fullWidthTitle?: string): Promise<void>;
     renameTrack(update: TrackMetadataUpdate): Promise<void>;
     renameHiMDTrack(update: HiMDTrackMetadataUpdate): Promise<void>;

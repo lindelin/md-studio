@@ -130,6 +130,10 @@ export function getApplicationRuntime() {
     return serviceRegistry.application ?? bindApplicationRuntime();
 }
 
+export function isActiveUsbDevice(device: USBDevice) {
+    return serviceRegistry.netmdService?.isDeviceConnected(device) ?? false;
+}
+
 export function clearApplicationRuntime() {
     for (const task of serviceRegistry.taskManager.list()) {
         if (task.status === 'queued' || task.status === 'running') {

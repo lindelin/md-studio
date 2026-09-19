@@ -46,8 +46,12 @@ function makeGateway() {
                     'disc.formatHimd',
                     'advanced.factory',
                 ],
-                disc: structuredClone(disc),
+                disc: status.discPresent ? structuredClone(disc) : null,
             };
+        },
+        async readStatus() {
+            calls.push('readStatus');
+            return structuredClone(status);
         },
         async renameDisc(title, fullWidthTitle) {
             calls.push(`renameDisc:${title}`);
@@ -178,6 +182,35 @@ describe('MiniDiscApplication', () => {
 
         assert.deepEqual(revisions, [0, 1]);
         assert.equal(application.readSnapshot()?.disc?.title, 'Not observed');
+    });
+
+    it('polls playback state without rereading content until disc presence changes', async () => {
+        const { gateway, calls } = makeGateway();
+        const application = new MiniDiscApplication(gateway);
+        await application.refresh();
+
+        const playing = await application.pollDeviceStatus();
+        assert.equal(playing.disc?.trackCount, 2);
+        assert.deepEqual(calls.slice(-1), ['readStatus']);
+
+        const originalReadStatus = gateway.readStatus;
+        const originalReadSnapshot = gateway.readSnapshot;
+        gateway.readStatus = async () => ({ discPresent: false, canBeFlushed: false, state: 'stopped', track: 0 } as any);
+        gateway.readSnapshot = async () => {
+            calls.push('read');
+            return {
+                deviceName: 'MockMD',
+                status: { discPresent: false, canBeFlushed: false, state: 'stopped', track: 0 } as any,
+                capabilities: ['content.read'] as any,
+                disc: null,
+            };
+        };
+        const removed = await application.pollDeviceStatus();
+        gateway.readStatus = originalReadStatus;
+        gateway.readSnapshot = originalReadSnapshot;
+
+        assert.equal(removed.disc, null);
+        assert.deepEqual(calls.slice(-1), ['read']);
     });
 
     it('returns a stable session and increments the revision only after a successful mutation', async () => {

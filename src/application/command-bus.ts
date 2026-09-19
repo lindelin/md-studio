@@ -32,6 +32,7 @@ import { INTERACTIVE_ADVANCED_AUTHORIZATION } from './interactive-authorization'
 export type ApplicationCommand =
     | { type: 'workspace.get' }
     | { type: 'disc.refresh'; dropCache?: boolean }
+    | { type: 'device.pollStatus' }
     | { type: 'disc.rename'; title: string; fullWidthTitle?: string; expectedRevision?: number }
     | { type: 'disc.erase'; confirmation?: DestructiveConfirmation; expectedRevision?: number }
     | { type: 'disc.formatHimd'; confirmation?: DestructiveConfirmation; expectedRevision?: number }
@@ -285,6 +286,9 @@ export class ApplicationCommandBus {
             switch (command.type) {
                 case 'disc.refresh':
                     snapshot = await application.refresh(command.dropCache);
+                    break;
+                case 'device.pollStatus':
+                    snapshot = await application.pollDeviceStatus();
                     break;
                 case 'disc.rename':
                     snapshot = await application.renameDisc(command.title, command.fullWidthTitle, command.expectedRevision);
