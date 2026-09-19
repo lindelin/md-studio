@@ -4,6 +4,8 @@ import {
     parseBridgeMessage,
     type BridgeFileRequest,
     type BridgeFileResponse,
+    type BridgeFileWriteRequest,
+    type BridgeFileWriteResponse,
     type BridgeHello,
     type BridgeResponse,
 } from './bridge-protocol';
@@ -26,6 +28,14 @@ export class BrowserApplicationBridge {
             timeout: number;
         }
     >();
+    private readonly fileWrites = new Map<
+        string,
+        {
+            resolve: (response: Extract<BridgeFileWriteResponse, { ok: true }>) => void;
+            reject: (error: Error) => void;
+            timeout: number;
+        }
+    >();
 
     constructor(private readonly url: string) {}
 
@@ -39,6 +49,7 @@ export class BrowserApplicationBridge {
         if (this.reconnectTimer !== undefined) window.clearTimeout(this.reconnectTimer);
         this.socket?.close();
         this.rejectFileRequests(new Error('The local bridge stopped during a file transfer.'));
+        this.rejectFileWrites(new Error('The local bridge stopped during an export.'));
     }
 
     private connect() {
@@ -56,6 +67,7 @@ export class BrowserApplicationBridge {
         socket.addEventListener('message', (event) => void this.handleMessage(socket, event.data));
         socket.addEventListener('close', () => {
             this.rejectFileRequests(new Error('The local bridge disconnected during a file transfer.'));
+            this.rejectFileWrites(new Error('The local bridge disconnected during an export.'));
             this.scheduleReconnect();
         });
         socket.addEventListener('error', () => socket.close());
@@ -68,6 +80,15 @@ export class BrowserApplicationBridge {
                 const pending = this.fileRequests.get(parsed.id);
                 if (!pending) return;
                 this.fileRequests.delete(parsed.id);
+                window.clearTimeout(pending.timeout);
+                if (parsed.ok) pending.resolve(parsed);
+                else pending.reject(new Error(parsed.error));
+                return;
+            }
+            if (parsed.type === 'file.write.response') {
+                const pending = this.fileWrites.get(parsed.id);
+                if (!pending) return;
+                this.fileWrites.delete(parsed.id);
                 window.clearTimeout(pending.timeout);
                 if (parsed.ok) pending.resolve(parsed);
                 else pending.reject(new Error(parsed.error));
@@ -129,6 +150,28 @@ export class BrowserApplicationBridge {
         return new File(chunks, name, { type: mimeType });
     }
 
+    async write(outputHandle: string, name: string, data: Uint8Array) {
+        const fileId = globalThis.crypto.randomUUID();
+        const chunkSize = 1024 * 1024;
+        let offset = 0;
+        let completedPath: string | undefined;
+        do {
+            const end = Math.min(offset + chunkSize, data.byteLength);
+            const chunk = data.subarray(offset, end);
+            const response = await this.requestOutputChunk(
+                outputHandle,
+                fileId,
+                name,
+                offset,
+                encodeBase64(chunk),
+                end === data.byteLength
+            );
+            offset = end;
+            completedPath = response.completedPath ?? completedPath;
+        } while (offset < data.byteLength);
+        return completedPath;
+    }
+
     private requestFileChunk(handle: string, offset: number, length: number) {
         const socket = this.socket;
         if (!socket || socket.readyState !== WebSocket.OPEN) throw new Error('The local bridge is not connected.');
@@ -165,6 +208,52 @@ export class BrowserApplicationBridge {
         this.fileRequests.clear();
     }
 
+    private requestOutputChunk(
+        outputHandle: string,
+        fileId: string,
+        name: string,
+        offset: number,
+        data: string,
+        complete: boolean
+    ) {
+        const socket = this.socket;
+        if (!socket || socket.readyState !== WebSocket.OPEN) throw new Error('The local bridge is not connected.');
+        const id = globalThis.crypto.randomUUID();
+        const request: BridgeFileWriteRequest = {
+            type: 'file.write.request',
+            protocolVersion: BRIDGE_PROTOCOL_VERSION,
+            id,
+            outputHandle,
+            fileId,
+            name,
+            offset,
+            data,
+            complete,
+        };
+        return new Promise<Extract<BridgeFileWriteResponse, { ok: true }>>((resolve, reject) => {
+            const timeout = window.setTimeout(() => {
+                this.fileWrites.delete(id);
+                reject(new Error('The local bridge did not accept the next export chunk in time.'));
+            }, 30_000);
+            this.fileWrites.set(id, { resolve, reject, timeout });
+            try {
+                socket.send(JSON.stringify(request));
+            } catch (error) {
+                window.clearTimeout(timeout);
+                this.fileWrites.delete(id);
+                reject(error instanceof Error ? error : new Error(String(error)));
+            }
+        });
+    }
+
+    private rejectFileWrites(error: Error) {
+        for (const pending of this.fileWrites.values()) {
+            window.clearTimeout(pending.timeout);
+            pending.reject(error);
+        }
+        this.fileWrites.clear();
+    }
+
     private scheduleReconnect() {
         this.socket = undefined;
         if (this.stopped || this.reconnectTimer !== undefined) return;
@@ -193,6 +282,15 @@ export function startLocalApplicationBridge() {
     if (token) url.searchParams.set('token', token);
     const bridge = new BrowserApplicationBridge(url.toString());
     serviceRegistry.importPayloadResolver = bridge;
+    serviceRegistry.exportPayloadSink = bridge;
     bridge.start();
     return bridge;
+}
+
+function encodeBase64(data: Uint8Array) {
+    let binary = '';
+    for (let offset = 0; offset < data.byteLength; offset += 32_768) {
+        binary += String.fromCharCode(...data.subarray(offset, Math.min(offset + 32_768, data.byteLength)));
+    }
+    return btoa(binary);
 }

@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import { BRIDGE_PROTOCOL_VERSION, type BridgeRequest } from '../src/application/bridge-protocol.ts';
 import { LocalBridgeBroker, type BridgePeer } from '../bridge/broker.ts';
 import type { FileChunkProvider } from '../bridge/local-file-registry.ts';
+import type { OutputChunkSink } from '../bridge/local-output-registry.ts';
 
 describe('LocalBridgeBroker', () => {
     it('forwards a command to the app and resolves its response', async () => {
@@ -117,6 +118,53 @@ describe('LocalBridgeBroker', () => {
             size: 5,
             offset: 2,
             data: 'AwQF',
+        });
+    });
+
+    it('writes exported audio through a registered output handle', async () => {
+        const outputs: OutputChunkSink = {
+            async writeChunk(outputHandle, fileId, name, offset, data, complete) {
+                assert.deepEqual({ outputHandle, fileId, name, offset, data: [...data], complete }, {
+                    outputHandle: 'destination',
+                    fileId: 'file-one',
+                    name: '01. Track.oma',
+                    offset: 0,
+                    data: [1, 2, 3],
+                    complete: true,
+                });
+                return { bytesWritten: 3, completedPath: 'C:\\Exports\\01. Track.oma' };
+            },
+        };
+        const broker = new LocalBridgeBroker(undefined, outputs);
+        const sent: string[] = [];
+        const peer: BridgePeer = { send: (data) => sent.push(data) };
+        broker.attach(peer);
+        await broker.handleMessage(
+            peer,
+            JSON.stringify({ type: 'hello', protocolVersion: BRIDGE_PROTOCOL_VERSION, client: 'minidisc-workspace-app' })
+        );
+        await broker.handleMessage(
+            peer,
+            JSON.stringify({
+                type: 'file.write.request',
+                protocolVersion: BRIDGE_PROTOCOL_VERSION,
+                id: 'write-one',
+                outputHandle: 'destination',
+                fileId: 'file-one',
+                name: '01. Track.oma',
+                offset: 0,
+                data: 'AQID',
+                complete: true,
+            })
+        );
+
+        assert.deepEqual(JSON.parse(sent[0]), {
+            type: 'file.write.response',
+            protocolVersion: BRIDGE_PROTOCOL_VERSION,
+            id: 'write-one',
+            ok: true,
+            bytesWritten: 3,
+            completedPath: 'C:\\Exports\\01. Track.oma',
         });
     });
 });

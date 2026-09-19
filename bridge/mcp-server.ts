@@ -4,10 +4,12 @@ import * as z from 'zod/v4';
 import type { ApplicationCommand, CommandResult } from '../src/application/command-bus.ts';
 import { LocalBridgeBroker } from './broker.ts';
 import { LocalFileRegistry } from './local-file-registry.ts';
+import { LocalOutputRegistry } from './local-output-registry.ts';
 import { startLocalBridgeServer } from './websocket-server.ts';
 
 const localFiles = new LocalFileRegistry();
-const broker = new LocalBridgeBroker(localFiles);
+const localOutputs = new LocalOutputRegistry();
+const broker = new LocalBridgeBroker(localFiles, localOutputs);
 const bridge = startLocalBridgeServer(broker, {
     host: process.env.MINIDISC_BRIDGE_HOST,
     port: process.env.MINIDISC_BRIDGE_PORT ? Number(process.env.MINIDISC_BRIDGE_PORT) : undefined,
@@ -147,6 +149,36 @@ function createServer() {
             }),
         },
         async (input) => execute({ type: 'track.move', ...input })
+    );
+    server.registerTool(
+        'minidisc_export_tracks',
+        {
+            description:
+                'Start a background export of MiniDisc tracks into an existing local directory. Read the returned task until it completes.',
+            inputSchema: z.object({
+                indexes: z.array(z.number().int().nonnegative()).min(1),
+                outputDirectory: z.string().min(1),
+                convertToWav: z.boolean().optional(),
+                expectedRevision: z.number().int().nonnegative().optional(),
+            }),
+        },
+        async ({ indexes, outputDirectory, convertToWav, expectedRevision }) => {
+            try {
+                const output = await localOutputs.registerDirectory(outputDirectory);
+                return await execute({
+                    type: 'track.export',
+                    indexes,
+                    outputHandle: output.handle,
+                    convertToWav,
+                    expectedRevision,
+                });
+            } catch (error) {
+                return {
+                    content: [{ type: 'text' as const, text: error instanceof Error ? error.message : String(error) }],
+                    isError: true,
+                };
+            }
+        }
     );
     server.registerTool(
         'minidisc_delete_tracks',
@@ -387,5 +419,5 @@ const stdio = serveStdio(createServer);
 console.error(`MiniDisc MCP bridge listening on ws://${bridge.host}:${bridge.port}`);
 
 process.on('SIGINT', () => {
-    void Promise.allSettled([stdio.close(), bridge.close()]).then(() => process.exit(0));
+    void Promise.allSettled([stdio.close(), bridge.close(), localOutputs.close()]).then(() => process.exit(0));
 });

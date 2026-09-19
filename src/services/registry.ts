@@ -9,9 +9,14 @@ import { TaskManager } from '../application/task-manager';
 import { ImportQueue } from '../application/import-queue';
 import type { ImportWriter } from '../application/import-queue';
 import { DeviceOperationCoordinator } from '../application/operation-coordinator';
+import type { TrackExporter } from '../application/track-export';
 
 export interface ImportPayloadResolver {
     resolve(reference: string): Promise<File>;
+}
+
+export interface ExportPayloadSink {
+    write(outputHandle: string, name: string, data: Uint8Array): Promise<string | undefined>;
 }
 
 interface ServiceRegistry {
@@ -28,6 +33,8 @@ interface ServiceRegistry {
     importQueue: ImportQueue;
     importPayloadResolver?: ImportPayloadResolver;
     importWriter?: ImportWriter;
+    exportPayloadSink?: ExportPayloadSink;
+    trackExporter?: TrackExporter;
     operationCoordinator: DeviceOperationCoordinator;
 }
 

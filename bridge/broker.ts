@@ -3,11 +3,13 @@ import {
     BRIDGE_PROTOCOL_VERSION,
     parseBridgeMessage,
     type BridgeFileResponse,
+    type BridgeFileWriteResponse,
     type BridgeHello,
     type BridgeRequest,
 } from '../src/application/bridge-protocol.ts';
 import type { ApplicationCommand, CommandResult } from '../src/application/command-bus.ts';
 import type { FileChunkProvider } from './local-file-registry.ts';
+import type { OutputChunkSink } from './local-output-registry.ts';
 
 export interface BridgePeer {
     send(data: string): void;
@@ -24,7 +26,10 @@ export class LocalBridgeBroker {
     private readonly pending = new Map<string, PendingRequest>();
     private readonly connectionWaiters = new Set<{ resolve: () => void; reject: (error: Error) => void; timeout: NodeJS.Timeout }>();
 
-    constructor(private readonly files?: FileChunkProvider) {}
+    constructor(
+        private readonly files?: FileChunkProvider,
+        private readonly outputs?: OutputChunkSink
+    ) {}
 
     attach(peer: BridgePeer) {
         return () => {
@@ -69,6 +74,38 @@ export class LocalBridgeBroker {
             } catch (error) {
                 response = {
                     type: 'file.response',
+                    protocolVersion: BRIDGE_PROTOCOL_VERSION,
+                    id: message.id,
+                    ok: false,
+                    error: error instanceof Error ? error.message : String(error),
+                };
+            }
+            peer.send(JSON.stringify(response));
+            return;
+        }
+        if (message.type === 'file.write.request') {
+            if (peer !== this.activePeer) return;
+            let response: BridgeFileWriteResponse;
+            try {
+                if (!this.outputs) throw new Error('Local export is unavailable.');
+                const result = await this.outputs.writeChunk(
+                    message.outputHandle,
+                    message.fileId,
+                    message.name,
+                    message.offset,
+                    Uint8Array.from(Buffer.from(message.data, 'base64')),
+                    message.complete
+                );
+                response = {
+                    type: 'file.write.response',
+                    protocolVersion: BRIDGE_PROTOCOL_VERSION,
+                    id: message.id,
+                    ok: true,
+                    ...result,
+                };
+            } catch (error) {
+                response = {
+                    type: 'file.write.response',
                     protocolVersion: BRIDGE_PROTOCOL_VERSION,
                     id: message.id,
                     ok: false,

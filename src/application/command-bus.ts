@@ -11,6 +11,7 @@ import type { TaskSnapshot } from './task-manager';
 import { TaskManager } from './task-manager';
 import type { ImportQueueInput, ImportQueueSnapshot, ImportTrackMetadata, ImportWriteRequest, ImportWriter } from './import-queue';
 import { ImportQueue } from './import-queue';
+import type { TrackExporter, TrackExportRequest } from './track-export';
 
 export type ApplicationCommand =
     | { type: 'disc.refresh'; dropCache?: boolean }
@@ -22,6 +23,7 @@ export type ApplicationCommand =
     | { type: 'track.renameMany'; updates: TrackMetadataUpdate[]; expectedRevision?: number }
     | { type: 'track.renameHimdMany'; updates: HiMDTrackMetadataUpdate[]; expectedRevision?: number }
     | { type: 'track.move'; sourceIndex: number; destinationIndex: number; expectedRevision?: number }
+    | ({ type: 'track.export' } & TrackExportRequest)
     | { type: 'track.deleteMany'; indexes: number[]; confirmation?: DestructiveConfirmation; expectedRevision?: number }
     | { type: 'group.rename'; update: GroupMetadataUpdate; expectedRevision?: number }
     | {
@@ -65,7 +67,8 @@ export class ApplicationCommandBus {
         private readonly application: MiniDiscApplication,
         private readonly tasks: TaskManager,
         private readonly imports: ImportQueue,
-        private readonly importWriter?: ImportWriter
+        private readonly importWriter?: ImportWriter,
+        private readonly trackExporter?: TrackExporter
     ) {}
 
     async execute(command: ApplicationCommand): Promise<CommandResult> {
@@ -98,6 +101,10 @@ export class ApplicationCommandBus {
             if (command.type === 'import.write') {
                 if (!this.importWriter) throw new Error('Audio writing is unavailable in this application environment.');
                 return { ok: true, task: await this.importWriter.start(command, this.imports, this.tasks) };
+            }
+            if (command.type === 'track.export') {
+                if (!this.trackExporter) throw new Error('Track export is unavailable in this application environment.');
+                return { ok: true, task: await this.trackExporter.start(command, this.application, this.tasks) };
             }
 
             let snapshot: DeviceSnapshot;
