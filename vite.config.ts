@@ -1,8 +1,6 @@
-import { defineConfig, } from 'vite'
+import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import svgr from "vite-plugin-svgr";
-import { nodePolyfills } from 'vite-plugin-node-polyfills';
-import inject from '@rollup/plugin-inject';
 import { VitePWA } from 'vite-plugin-pwa';
 
 let base = process.env.PUBLIC_URL ?? '/';
@@ -11,18 +9,20 @@ if(!base.endsWith("/")) base += '/';
 console.log(`Building for base = ${base}`);
 
 // https://vitejs.dev/config/
-export default ({ mode }) => {
+export default () => {
   return defineConfig({
     base,
+    resolve: {
+      alias: {
+        events: 'events/',
+        process: 'process/browser',
+        stream: 'stream-browserify',
+        util: 'util/',
+      },
+    },
     plugins: [
       svgr(),
       react(),
-      nodePolyfills({
-        globals: {
-          Buffer: false,
-        },
-        exclude: ['buffer'],
-      }),
       VitePWA({
         registerType: 'autoUpdate',
         injectRegister: 'inline',
@@ -52,8 +52,7 @@ export default ({ mode }) => {
           "display": "standalone",
           "theme_color": "#000000",
           "orientation": "portrait",
-          "background_color": "#ffffff",
-          "splash_pages": null
+          "background_color": "#ffffff"
         },
         workbox: {
           cleanupOutdatedCaches: true,
@@ -89,9 +88,6 @@ export default ({ mode }) => {
     ],
     build: {
       commonjsOptions: { transformMixedEsModules: true },
-      rollupOptions: {
-        plugins: [inject({ Buffer: ['buffer', 'Buffer'] })],
-      },
-    }
+    },
   })
 }

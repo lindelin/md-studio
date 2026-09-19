@@ -1,5 +1,7 @@
 import { Buffer } from 'buffer';
+import process from 'process';
 (globalThis as any).Buffer = Buffer;
+(globalThis as any).process = process;
 
 import React from 'react';
 import { createRoot } from 'react-dom/client';
