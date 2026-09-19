@@ -30,7 +30,7 @@ import { AudioServices, resolveAudioServiceIndex } from '../services/audio-expor
 import { checkFactoryCapability, initializeFactoryMode } from './factory/factory-actions';
 import { LibraryServices } from '../services/library-services';
 import { s16LEToSamplesArray, Shazam } from 'shazam-api';
-import { bindApplicationRuntime, ensureApplicationCommandBus, getApplicationRuntime, releaseDeviceSession } from '../application/runtime';
+import { bindApplicationRuntime, getApplicationClient, getApplicationRuntime, releaseDeviceSession } from '../application/runtime';
 import type { DeviceSnapshot } from '../application/contracts';
 import { applyDeviceSnapshot } from './application-adapter';
 import { MetadataImportError } from '../domain/metadata-import';
@@ -43,7 +43,8 @@ import { finishRejectedImportWrite } from '../application/import-write-task';
 
 export function requestTaskCancellation(id: string) {
     return async function () {
-        serviceRegistry.taskManager.requestCancellation(id);
+        const result = await getApplicationClient().execute({ type: 'task.cancel', id });
+        if (!result.ok) throw new Error(result.error.message);
     };
 }
 
@@ -372,6 +373,7 @@ export function moveTrack(srcIndex: number, destIndex: number) {
 }
 
 async function monitorTaskInRecordDialog(dispatch: AppDispatch, initialTask: TaskSnapshot, fallbackError: string) {
+    const client = getApplicationClient();
     let task = initialTask;
     dispatch(batchActions([recordDialogAction.setVisible(true), recordDialogAction.setTaskId(task.id)]));
     try {
@@ -388,7 +390,9 @@ async function monitorTaskInRecordDialog(dispatch: AppDispatch, initialTask: Tas
                 })
             );
             await sleep(100);
-            task = serviceRegistry.taskManager.get(task.id);
+            const currentTask = client.getWorkspaceSnapshot().tasks.find((candidate) => candidate.id === task.id);
+            if (!currentTask) throw new Error(`Task ${task.id} is no longer available.`);
+            task = currentTask;
         }
         if (task.status === 'failed') {
             dispatch(
@@ -430,7 +434,7 @@ export function downloadTracks(
                     }
                 );
             } else {
-                const result = await ensureApplicationCommandBus().execute({ type: 'track.export', ...request });
+                const result = await getApplicationClient().execute({ type: 'track.export', ...request });
                 if (!result.ok) throw new Error(result.error.message);
                 task = result.task;
             }
@@ -452,7 +456,7 @@ export function recordTracks(indexes: number[], deviceId: string) {
     return async function (dispatch: AppDispatch): Promise<void> {
         const application = getApplicationRuntime();
         try {
-            const result = await ensureApplicationCommandBus().execute({
+            const result = await getApplicationClient().execute({
                 type: 'track.record',
                 indexes,
                 deviceId,
@@ -474,14 +478,17 @@ export function recordTracks(indexes: number[], deviceId: string) {
 
 export function renameInConvertDialog({ index, newName, newFullWidthName }: { index: number; newName: string; newFullWidthName: string }) {
     return async function () {
-        const snapshot = serviceRegistry.importQueue.snapshot();
+        const client = getApplicationClient();
+        const snapshot = client.getWorkspaceSnapshot().imports;
         const item = snapshot.items[index];
         if (!item) throw new Error(`Import queue item ${index} does not exist.`);
-        serviceRegistry.importQueue.update(
-            item.id,
-            { title: newName, fullWidthTitle: newFullWidthName },
-            snapshot.revision
-        );
+        const result = await client.execute({
+            type: 'import.update',
+            id: item.id,
+            changes: { title: newName, fullWidthTitle: newFullWidthName },
+            expectedRevision: snapshot.revision,
+        });
+        if (!result.ok) throw new Error(result.error.message);
     };
 }
 
@@ -497,10 +504,17 @@ export function renameInConvertDialogHiMD({
     artist: string;
 }) {
     return async function () {
-        const snapshot = serviceRegistry.importQueue.snapshot();
+        const client = getApplicationClient();
+        const snapshot = client.getWorkspaceSnapshot().imports;
         const item = snapshot.items[index];
         if (!item) throw new Error(`Import queue item ${index} does not exist.`);
-        serviceRegistry.importQueue.update(item.id, { title, artist, album }, snapshot.revision);
+        const result = await client.execute({
+            type: 'import.update',
+            id: item.id,
+            changes: { title, artist, album },
+            expectedRevision: snapshot.revision,
+        });
+        if (!result.ok) throw new Error(result.error.message);
     };
 }
 
@@ -531,8 +545,8 @@ export function renameInSongRecognitionDialog({
 export function selfTest() {
     return async function (dispatch: AppDispatch) {
         if (!window.confirm('Warning - This is a destructive self test. THE DISC WILL BE ERASED! Continue?')) return;
-        const bus = ensureApplicationCommandBus();
-        const started = await bus.execute({
+        const client = getApplicationClient();
+        const started = await client.execute({
             type: 'diagnostics.selfTest',
             confirmation: { confirmed: true, reason: 'Confirmed in the device diagnostics UI.' },
         });
@@ -553,9 +567,11 @@ export function selfTest() {
                 })
             );
             await sleep(100);
-            task = serviceRegistry.taskManager.get(task.id);
+            const currentTask = client.getWorkspaceSnapshot().tasks.find((candidate) => candidate.id === task.id);
+            if (!currentTask) throw new Error(`Task ${task.id} is no longer available.`);
+            task = currentTask;
         }
-        const refreshed = await bus.execute({ type: 'disc.refresh', dropCache: true });
+        const refreshed = await client.execute({ type: 'disc.refresh', dropCache: true });
         if (refreshed.ok && refreshed.snapshot) applyDeviceSnapshot(dispatch, refreshed.snapshot);
         dispatch(recordDialogAction.setVisible(false));
         if (task.status === 'succeeded') {
