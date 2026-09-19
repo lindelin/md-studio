@@ -41,6 +41,8 @@ npm run mcp
 npm run cli -- status
 npm run cli -- tasks
 npm run cli -- imports
+npm run cli -- write "C:\\Music\\Track 01.wav" "C:\\Music\\Track 02.flac"
+npm run cli -- export "C:\\Music\\MiniDisc export" 1 2 3 --wav
 ```
 
 The CLI also accepts a complete application command:
@@ -54,6 +56,8 @@ On Windows PowerShell, a JSON file is usually easier to quote:
 ```text
 npm run cli -- --file command.json
 ```
+
+The `write` and `export` commands keep the local bridge alive, stream files through opaque handles, and wait until the background task succeeds, fails, or is cancelled. Export track numbers are one-based, matching the app. Add `--codec LP2 --bitrate 132` to override the default recording format.
 
 ## Local MCP bridge
 

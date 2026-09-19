@@ -1,27 +1,44 @@
 import { readFile } from 'node:fs/promises';
-import type { ApplicationCommand } from '../src/application/command-bus.ts';
+import { parse as parsePath } from 'node:path';
+import type { ApplicationCommand, CommandResult } from '../src/application/command-bus.ts';
+import type { TaskSnapshot } from '../src/application/task-manager.ts';
 import { LocalBridgeBroker } from './broker.ts';
+import { LocalFileRegistry } from './local-file-registry.ts';
+import { LocalOutputRegistry } from './local-output-registry.ts';
 import { startLocalBridgeServer } from './websocket-server.ts';
 
 function help() {
-    return `MiniDisc workspace CLI
+    return `MiniDisc Workspace CLI
 
 Usage:
   npm run cli -- status
   npm run cli -- tasks
   npm run cli -- imports
+  npm run cli -- write <audio-file> [audio-file ...]
+  npm run cli -- export <directory> <track-number> [track-number ...] [--wav]
   npm run cli -- command '{"type":"playback.control","command":{"action":"play"}}'
   npm run cli -- --file command.json
 
 Options:
-  --port <number>       Local browser bridge port (default: 47123)
-  --timeout <seconds>   Time to wait for the browser app (default: 30)
-  --file <path>         Read an ApplicationCommand JSON object from a file
+  --codec <name>       Recording codec for write (for example LP2 or LP4)
+  --bitrate <number>   Recording bitrate paired with --codec
+  --wav                Convert exported tracks to WAV
+  --port <number>      Local browser bridge port (default: 47123)
+  --timeout <seconds>  Time to wait for the browser app and each command (default: 30)
+  --file <path>        Read an ApplicationCommand JSON object from a file
+
+Track numbers in the export command are one-based, matching the labels on a MiniDisc.
+Write and export commands remain open until their background task reaches a terminal state.
 `;
 }
 
+type CliOperation =
+    | { kind: 'command'; command: ApplicationCommand }
+    | { kind: 'write'; paths: string[]; codec?: string; bitrate?: number }
+    | { kind: 'export'; directory: string; indexes: number[]; convertToWav: boolean };
+
 interface ParsedArguments {
-    command?: ApplicationCommand;
+    operation?: CliOperation;
     port: number;
     timeoutMs: number;
     showHelp: boolean;
@@ -31,6 +48,9 @@ async function parseArguments(arguments_: string[]): Promise<ParsedArguments> {
     let port = Number(process.env.MINIDISC_BRIDGE_PORT ?? 47123);
     let timeoutMs = 30_000;
     let commandFile: string | undefined;
+    let codec: string | undefined;
+    let bitrate: number | undefined;
+    let convertToWav = false;
     const positional: string[] = [];
 
     for (let index = 0; index < arguments_.length; index += 1) {
@@ -48,31 +68,127 @@ async function parseArguments(arguments_: string[]): Promise<ParsedArguments> {
             commandFile = arguments_[++index];
             continue;
         }
+        if (argument === '--codec') {
+            codec = arguments_[++index];
+            continue;
+        }
+        if (argument === '--bitrate') {
+            bitrate = Number(arguments_[++index]);
+            continue;
+        }
+        if (argument === '--wav') {
+            convertToWav = true;
+            continue;
+        }
         positional.push(argument);
     }
 
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Port must be a whole number from 1 to 65535.');
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error('Timeout must be a positive number of seconds.');
+    if ((codec === undefined) !== (bitrate === undefined)) throw new Error('--codec and --bitrate must be supplied together.');
+    if (bitrate !== undefined && (!Number.isInteger(bitrate) || bitrate <= 0)) throw new Error('Bitrate must be a positive whole number.');
 
-    let command: ApplicationCommand | undefined;
-    if (commandFile) command = JSON.parse(await readFile(commandFile, 'utf8')) as ApplicationCommand;
-    else if (positional[0] === 'status') command = { type: 'disc.refresh' };
-    else if (positional[0] === 'tasks') command = { type: 'task.list' };
-    else if (positional[0] === 'imports') command = { type: 'import.list' };
-    else if (positional[0] === 'command' && positional[1]) command = JSON.parse(positional.slice(1).join(' ')) as ApplicationCommand;
-    else if (positional.length > 0) throw new Error(`Unknown CLI command: ${positional[0]}`);
+    let operation: CliOperation | undefined;
+    if (commandFile) {
+        operation = { kind: 'command', command: JSON.parse(await readFile(commandFile, 'utf8')) as ApplicationCommand };
+    } else if (positional[0] === 'status') {
+        operation = { kind: 'command', command: { type: 'disc.refresh' } };
+    } else if (positional[0] === 'tasks') {
+        operation = { kind: 'command', command: { type: 'task.list' } };
+    } else if (positional[0] === 'imports') {
+        operation = { kind: 'command', command: { type: 'import.list' } };
+    } else if (positional[0] === 'write' && positional.length > 1) {
+        operation = { kind: 'write', paths: positional.slice(1), codec, bitrate };
+    } else if (positional[0] === 'export' && positional.length > 2) {
+        const indexes = positional.slice(2).map((value) => Number(value) - 1);
+        if (indexes.some((value) => !Number.isInteger(value) || value < 0)) {
+            throw new Error('Export track numbers must be positive whole numbers.');
+        }
+        operation = { kind: 'export', directory: positional[1], indexes, convertToWav };
+    } else if (positional[0] === 'command' && positional[1]) {
+        operation = { kind: 'command', command: JSON.parse(positional.slice(1).join(' ')) as ApplicationCommand };
+    } else if (positional.length > 0) {
+        throw new Error(`Unknown or incomplete CLI command: ${positional[0]}`);
+    }
 
-    return { command, port, timeoutMs, showHelp: command === undefined };
+    return { operation, port, timeoutMs, showHelp: operation === undefined };
+}
+
+async function executeOperation(
+    operation: CliOperation,
+    broker: LocalBridgeBroker,
+    files: LocalFileRegistry,
+    outputs: LocalOutputRegistry,
+    timeoutMs: number
+): Promise<CommandResult> {
+    if (operation.kind === 'command') return broker.execute(operation.command, timeoutMs);
+
+    if (operation.kind === 'export') {
+        const output = await outputs.registerDirectory(operation.directory);
+        return broker.execute(
+            {
+                type: 'track.export',
+                indexes: operation.indexes,
+                outputHandle: output.handle,
+                convertToWav: operation.convertToWav,
+            },
+            timeoutMs
+        );
+    }
+
+    const staged = await Promise.all(operation.paths.map((filePath) => files.register(filePath)));
+    const added = await broker.execute(
+        {
+            type: 'import.add',
+            inputs: staged.map((file) => ({
+                source: {
+                    kind: 'local-path',
+                    name: file.name,
+                    reference: file.reference,
+                    size: file.size,
+                    mimeType: file.mimeType,
+                },
+                metadata: { title: parsePath(file.name).name },
+            })),
+        },
+        timeoutMs
+    );
+    if (!added.ok || !added.importQueue) return added;
+
+    const ids = added.importQueue.items.slice(-staged.length).map((item) => item.id);
+    return broker.execute(
+        {
+            type: 'import.write',
+            ids,
+            format: operation.codec && operation.bitrate ? { codec: operation.codec, bitrate: operation.bitrate } : undefined,
+            removeOnSuccess: true,
+            expectedRevision: added.importQueue.revision,
+        },
+        timeoutMs
+    );
+}
+
+async function waitForTask(broker: LocalBridgeBroker, task: TaskSnapshot, timeoutMs: number) {
+    let current = task;
+    while (current.status === 'queued' || current.status === 'running') {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        const result = await broker.execute({ type: 'task.get', id: current.id }, timeoutMs);
+        if (!result.ok || !result.task) return result;
+        current = result.task;
+    }
+    return { ok: true as const, task: current };
 }
 
 async function main() {
     const parsed = await parseArguments(process.argv.slice(2));
-    if (parsed.showHelp || !parsed.command) {
+    if (parsed.showHelp || !parsed.operation) {
         console.log(help());
         return;
     }
 
-    const broker = new LocalBridgeBroker();
+    const files = new LocalFileRegistry();
+    const outputs = new LocalOutputRegistry();
+    const broker = new LocalBridgeBroker(files, outputs);
     const bridge = startLocalBridgeServer(broker, {
         host: '127.0.0.1',
         port: parsed.port,
@@ -83,11 +199,14 @@ async function main() {
     try {
         console.error(`Waiting for the MiniDisc browser app on ws://${bridge.host}:${bridge.port}...`);
         await broker.waitForConnection(parsed.timeoutMs);
-        const result = await broker.execute(parsed.command, parsed.timeoutMs);
+        let result = await executeOperation(parsed.operation, broker, files, outputs, parsed.timeoutMs);
+        if (result.ok && result.task && (result.task.status === 'queued' || result.task.status === 'running')) {
+            result = await waitForTask(broker, result.task, parsed.timeoutMs);
+        }
         console.log(JSON.stringify(result, null, 2));
-        if (!result.ok) process.exitCode = 1;
+        if (!result.ok || (result.task && result.task.status !== 'succeeded')) process.exitCode = 1;
     } finally {
-        await bridge.close();
+        await Promise.allSettled([bridge.close(), outputs.close()]);
     }
 }
 

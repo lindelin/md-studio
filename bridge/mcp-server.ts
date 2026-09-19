@@ -279,13 +279,13 @@ function createServer() {
         'minidisc_add_imports',
         {
             description:
-                'Add local-path or library references to the ordered import queue. This records the plan; audio payload transfer is handled when the write task starts.',
+                'Add local audio paths to the ordered import queue. Audio payload transfer starts only when the write task begins.',
             inputSchema: z.object({
                 inputs: z
                     .array(
                         z.object({
                             source: z.object({
-                                kind: z.enum(['local-path', 'library']),
+                                kind: z.literal('local-path'),
                                 name: z.string().min(1),
                                 reference: z.string().min(1),
                                 size: z.number().int().nonnegative().optional(),
@@ -314,7 +314,6 @@ function createServer() {
             try {
                 const stagedInputs = await Promise.all(
                     inputs.map(async (input) => {
-                        if (input.source.kind !== 'local-path') return input;
                         const staged = await localFiles.register(input.source.reference);
                         stagedHandles.push(staged.handle);
                         return {
