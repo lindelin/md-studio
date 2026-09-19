@@ -517,7 +517,7 @@ export const TopMenu = function (props: { tracksSelected?: number[]; onClick?: (
     );
 
     if (mainView === 'MAIN') {
-        if (isShiftDown) {
+        if (isShiftDown || import.meta.env.DEV) {
             menuItems.push(
                 <MenuItem key="test" onClick={handleSelfTest}>
                     <ListItemIcon className={classes.listItemIcon}>

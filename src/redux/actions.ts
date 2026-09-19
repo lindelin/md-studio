@@ -749,8 +749,13 @@ export function selfTest() {
         const refreshed = await bus.execute({ type: 'disc.refresh', dropCache: true });
         if (refreshed.ok && refreshed.snapshot) applyDeviceSnapshot(dispatch, refreshed.snapshot);
         dispatch(recordDialogAction.setVisible(false));
-        if (task.status === 'succeeded') window.alert('All device self-tests passed. The test disc is now empty.');
-        else window.alert(task.error?.message ?? `The device self-test ended with status ${task.status}.`);
+        if (task.status === 'succeeded') {
+            console.info('All device self-tests passed.', task.result);
+            window.alert('All device self-tests passed. The test disc is now empty.');
+        } else {
+            console.error('The device self-test did not complete.', task);
+            window.alert(task.error?.message ?? `The device self-test ended with status ${task.status}.`);
+        }
     };
 }
 export function setNotifyWhenFinished(value: boolean) {
