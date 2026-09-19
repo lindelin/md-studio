@@ -48,6 +48,9 @@ describe('SettingsStore', () => {
                 libraryServiceConfig: { endpoint: 'https://example.test/library' },
                 uploadFormat: { 'Mock NetMD': [1, 2] },
                 trackTitleFormat: 'artist-title',
+                recognitionTrackTitleFormat: 'title-artist',
+                recognitionImportMethod: 'exploits',
+                factoryBadSectorRememberChoice: true,
             },
             0
         );
@@ -62,6 +65,9 @@ describe('SettingsStore', () => {
         assert.deepEqual(reloaded.values.libraryServiceConfig, { endpoint: 'https://example.test/library' });
         assert.deepEqual(reloaded.values.uploadFormat, { 'Mock NetMD': [1, 2] });
         assert.equal(reloaded.values.trackTitleFormat, 'artist-title');
+        assert.equal(reloaded.values.recognitionTrackTitleFormat, 'title-artist');
+        assert.equal(reloaded.values.recognitionImportMethod, 'exploits');
+        assert.equal(reloaded.values.factoryBadSectorRememberChoice, true);
         assert.deepEqual(revisions, [1]);
     });
 
@@ -111,6 +117,14 @@ describe('SettingsStore', () => {
             () => settings.update({ trackTitleFormat: 'performer' } as any),
             (error: unknown) => (error as ApplicationError).code === 'INVALID_INPUT'
         );
+        assert.throws(
+            () => settings.update({ recognitionTrackTitleFormat: 'filename' } as any),
+            (error: unknown) => (error as ApplicationError).code === 'INVALID_INPUT'
+        );
+        assert.throws(
+            () => settings.update({ recognitionImportMethod: 'microphone' } as any),
+            (error: unknown) => (error as ApplicationError).code === 'INVALID_INPUT'
+        );
         assert.equal(settings.getSnapshot().revision, 1);
         assert.equal(settings.getSnapshot().values.pageFullHeight, false);
     });
@@ -123,6 +137,9 @@ describe('SettingsStore', () => {
         storage.setItem('libraryServiceConfig', JSON.stringify({ nested: { invalid: true } }));
         storage.setItem('uploadFormat', JSON.stringify({ Mock: [1.5, 0] }));
         storage.setItem('trackTitleFormat', JSON.stringify('invalid-format'));
+        storage.setItem('recognitionTrackTitleFormat', JSON.stringify('filename'));
+        storage.setItem('recognitionImportMethod', JSON.stringify('microphone'));
+        storage.setItem('factoryBadSectorRememberChoice', JSON.stringify('yes'));
 
         const snapshot = new SettingsStore(storage).getSnapshot();
 
@@ -132,9 +149,15 @@ describe('SettingsStore', () => {
         assert.deepEqual(snapshot.values.libraryServiceConfig, {});
         assert.deepEqual(snapshot.values.uploadFormat, {});
         assert.equal(snapshot.values.trackTitleFormat, 'filename');
+        assert.equal(snapshot.values.recognitionTrackTitleFormat, 'title');
+        assert.equal(snapshot.values.recognitionImportMethod, 'line-in');
+        assert.equal(snapshot.values.factoryBadSectorRememberChoice, false);
         assert.equal(storage.getItem('audioExportService'), null);
         assert.equal(storage.getItem('libraryServiceConfig'), null);
         assert.equal(storage.getItem('uploadFormat'), null);
         assert.equal(storage.getItem('trackTitleFormat'), null);
+        assert.equal(storage.getItem('recognitionTrackTitleFormat'), null);
+        assert.equal(storage.getItem('recognitionImportMethod'), null);
+        assert.equal(storage.getItem('factoryBadSectorRememberChoice'), null);
     });
 });

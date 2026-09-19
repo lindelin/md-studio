@@ -8,9 +8,12 @@ import panicDialog, { actions as panicDialogActions } from './panic-dialog-featu
 import convertDialog, { actions as convertDialogActions, type ConvertDialogFeature } from './convert-dialog-feature';
 import dumpDialog from './dump-dialog-feature';
 import recordDialog from './record-dialog-feature';
-import songRecognitionDialog from './song-recognition-dialog-feature';
+import songRecognitionDialog, {
+    actions as songRecognitionDialogActions,
+    type SongRecognitionDialogFeature,
+} from './song-recognition-dialog-feature';
 import songRecognitionProgressDialog from './song-recognition-progress-dialog-feature';
-import appState, { actions as appActions, buildInitialState as buildInitialAppState } from './app-feature';
+import appState, { actions as appActions, buildInitialState as buildInitialAppState, type AppState } from './app-feature';
 import localLibrary from './local-library-feature';
 import factory from './factory/factory-feature';
 
@@ -18,14 +21,22 @@ import factoryFragmentModeEditDialog from './factory/factory-fragment-mode-edit-
 import factoryProgressDialog from './factory/factory-progress-dialog-feature';
 import factoryNoticeDialog from './factory/factory-notice-dialog-feature';
 import factoryEditOtherValuesDialog from './factory/factory-edit-other-values-dialog-feature';
-import factoryBadSectorDialog from './factory/factory-bad-sector-dialog-feature';
+import factoryBadSectorDialog, {
+    actions as factoryBadSectorDialogActions,
+    type FactoryModeEditDialogState,
+} from './factory/factory-bad-sector-dialog-feature';
 
 import main from './main-feature';
 import { batchActions, batchDispatchMiddleware } from 'redux-batched-actions';
 import { clearApplicationRuntime } from '../application/runtime';
 import { applicationSettings, type UserSettings } from '../application/settings-store';
 
-function sharedSettingsFromState(state: { appState: Omit<UserSettings, 'uploadFormat' | 'trackTitleFormat'>; convertDialog: ConvertDialogFeature }): UserSettings {
+function sharedSettingsFromState(state: {
+    appState: AppState;
+    convertDialog: ConvertDialogFeature;
+    songRecognitionDialog: SongRecognitionDialogFeature;
+    factoryBadSectorDialog: FactoryModeEditDialogState;
+}): UserSettings {
     const source = state.appState;
     return {
         colorTheme: source.colorTheme,
@@ -45,6 +56,9 @@ function sharedSettingsFromState(state: { appState: Omit<UserSettings, 'uploadFo
         libraryServiceConfig: source.libraryServiceConfig,
         uploadFormat: state.convertDialog.format,
         trackTitleFormat: state.convertDialog.titleFormat,
+        recognitionTrackTitleFormat: state.songRecognitionDialog.titleFormat,
+        recognitionImportMethod: state.songRecognitionDialog.importMethod,
+        factoryBadSectorRememberChoice: state.factoryBadSectorDialog.remember,
     };
 }
 
@@ -98,13 +112,17 @@ const sharedSettingsPersistence: Middleware = (storeApi) => (next) => (action) =
     const result = next(action);
     if (
         (action as { type?: string }).type === appActions.applySharedSettings.toString() ||
-        (action as { type?: string }).type === convertDialogActions.applySharedSettings.toString()
+        (action as { type?: string }).type === convertDialogActions.applySharedSettings.toString() ||
+        (action as { type?: string }).type === songRecognitionDialogActions.applySharedSettings.toString() ||
+        (action as { type?: string }).type === factoryBadSectorDialogActions.applySharedSettings.toString()
     )
         return result;
     const values = sharedSettingsFromState(
         storeApi.getState() as {
-            appState: Omit<UserSettings, 'uploadFormat' | 'trackTitleFormat'>;
+            appState: AppState;
             convertDialog: ConvertDialogFeature;
+            songRecognitionDialog: SongRecognitionDialogFeature;
+            factoryBadSectorDialog: FactoryModeEditDialogState;
         }
     );
     const current = applicationSettings.getSnapshot().values;
@@ -135,6 +153,15 @@ const resetStateReducer: typeof reducer = function (...args) {
                 format: sharedSettings.uploadFormat,
                 titleFormat: sharedSettings.trackTitleFormat,
             },
+            songRecognitionDialog: {
+                ...initialState.songRecognitionDialog,
+                titleFormat: sharedSettings.recognitionTrackTitleFormat,
+                importMethod: sharedSettings.recognitionImportMethod,
+            },
+            factoryBadSectorDialog: {
+                ...initialState.factoryBadSectorDialog,
+                remember: sharedSettings.factoryBadSectorRememberChoice,
+            },
         };
     }
     return reducer(...args);
@@ -150,6 +177,8 @@ const initialState = Object.freeze(store.getState());
 applicationSettings.subscribe((snapshot) => {
     store.dispatch(appActions.applySharedSettings(snapshot.values));
     store.dispatch(convertDialogActions.applySharedSettings(snapshot.values));
+    store.dispatch(songRecognitionDialogActions.applySharedSettings(snapshot.values));
+    store.dispatch(factoryBadSectorDialogActions.applySharedSettings(snapshot.values));
 });
 
 export type AppStore = typeof store;

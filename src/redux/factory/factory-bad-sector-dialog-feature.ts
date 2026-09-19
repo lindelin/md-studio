@@ -1,7 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { enableBatching } from 'redux-batched-actions';
-import { loadPreference } from '../../utils';
-import { isBoolean } from '../../preferences';
+import { applicationSettings, type UserSettings } from '../../application/settings-store';
 
 export interface FactoryModeEditDialogState {
     address: string;
@@ -17,7 +16,7 @@ const initialState: FactoryModeEditDialogState = {
     count: 0,
     seconds: 0,
     visible: false,
-    remember: loadPreference('factoryBadSectorRememberChoice', false, isBoolean),
+    remember: applicationSettings.getSnapshot().values.factoryBadSectorRememberChoice,
     rememberForRestOfSession: false,
 };
 
@@ -42,6 +41,9 @@ export const slice = createSlice({
         },
         setRememberChoiceForRestOfSession: (state: FactoryModeEditDialogState, action: PayloadAction<boolean>) => {
             state.rememberForRestOfSession = action.payload;
+        },
+        applySharedSettings: (state: FactoryModeEditDialogState, action: PayloadAction<UserSettings>) => {
+            state.remember = action.payload.factoryBadSectorRememberChoice;
         },
     },
 });

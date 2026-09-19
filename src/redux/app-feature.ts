@@ -191,10 +191,22 @@ export const slice = createSlice({
             state.factoryModeNERAWDownload = action.payload;
         },
         applySharedSettings: (state, action: PayloadAction<UserSettings>) => {
-            const appSettings: Partial<UserSettings> = { ...action.payload };
-            delete appSettings.uploadFormat;
-            delete appSettings.trackTitleFormat;
-            Object.assign(state, appSettings);
+            const source = action.payload;
+            state.colorTheme = source.colorTheme;
+            state.vintageMode = source.vintageMode;
+            state.discProtectedDialogDisabled = source.discProtectedDialogDisabled;
+            state.notifyWhenFinished = source.notifyWhenFinished;
+            state.fullWidthSupport = source.fullWidthSupport;
+            state.pageFullHeight = source.pageFullHeight;
+            state.pageFullWidth = source.pageFullWidth;
+            state.archiveDiscCreateZip = source.archiveDiscCreateZip;
+            state.factoryModeUseSlowerExploit = source.factoryModeUseSlowerExploit;
+            state.factoryModeShortcuts = source.factoryModeShortcuts;
+            state.factoryModeNERAWDownload = source.factoryModeNERAWDownload;
+            state.audioExportService = source.audioExportService;
+            state.audioExportServiceConfig = source.audioExportServiceConfig;
+            state.libraryService = source.libraryService;
+            state.libraryServiceConfig = source.libraryServiceConfig;
         },
     },
 });

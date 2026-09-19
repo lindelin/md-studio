@@ -129,6 +129,11 @@ function createServer() {
                         trackTitleFormat: z
                             .enum(['filename', 'title', 'album-title', 'artist-title', 'artist-album-title', 'title-artist'])
                             .optional(),
+                        recognitionTrackTitleFormat: z
+                            .enum(['title', 'album-title', 'artist-title', 'artist-album-title', 'title-artist'])
+                            .optional(),
+                        recognitionImportMethod: z.enum(['exploits', 'line-in']).optional(),
+                        factoryBadSectorRememberChoice: z.boolean().optional(),
                     })
                     .refine((changes) => Object.keys(changes).length > 0, 'At least one setting is required.'),
                 expectedRevision: z.number().int().nonnegative().optional(),

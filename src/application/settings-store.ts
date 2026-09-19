@@ -21,6 +21,9 @@ export interface UserSettings {
     libraryServiceConfig: CustomParameters;
     uploadFormat: Record<string, [number, number]>;
     trackTitleFormat: ImportTitleFormat;
+    recognitionTrackTitleFormat: Exclude<ImportTitleFormat, 'filename'>;
+    recognitionImportMethod: 'exploits' | 'line-in';
+    factoryBadSectorRememberChoice: boolean;
 }
 
 export interface SettingsSnapshot {
@@ -48,6 +51,9 @@ const defaults: UserSettings = {
     libraryServiceConfig: {},
     uploadFormat: {},
     trackTitleFormat: 'filename',
+    recognitionTrackTitleFormat: 'title',
+    recognitionImportMethod: 'line-in',
+    factoryBadSectorRememberChoice: false,
 };
 
 const booleanKeys = new Set<keyof UserSettings>(
@@ -61,6 +67,8 @@ const booleanKeys = new Set<keyof UserSettings>(
                 'libraryServiceConfig',
                 'uploadFormat',
                 'trackTitleFormat',
+                'recognitionTrackTitleFormat',
+                'recognitionImportMethod',
             ].includes(key)
     ) as (keyof UserSettings)[]
 );
@@ -164,6 +172,24 @@ export class SettingsStore {
                 isOneOf(['filename', 'title', 'album-title', 'artist-title', 'artist-album-title', 'title-artist'] as const),
                 this.storage
             ),
+            recognitionTrackTitleFormat: loadPreference(
+                'recognitionTrackTitleFormat',
+                defaults.recognitionTrackTitleFormat,
+                isOneOf(['title', 'album-title', 'artist-title', 'artist-album-title', 'title-artist'] as const),
+                this.storage
+            ),
+            recognitionImportMethod: loadPreference(
+                'recognitionImportMethod',
+                defaults.recognitionImportMethod,
+                isOneOf(['exploits', 'line-in'] as const),
+                this.storage
+            ),
+            factoryBadSectorRememberChoice: loadPreference(
+                'factoryBadSectorRememberChoice',
+                defaults.factoryBadSectorRememberChoice,
+                isBoolean,
+                this.storage
+            ),
         };
     }
 
@@ -197,6 +223,18 @@ export class SettingsStore {
         if (key === 'trackTitleFormat') {
             if (!isOneOf(['filename', 'title', 'album-title', 'artist-title', 'artist-album-title', 'title-artist'] as const)(value)) {
                 throw new ApplicationError('INVALID_INPUT', 'trackTitleFormat is invalid.');
+            }
+            return;
+        }
+        if (key === 'recognitionTrackTitleFormat') {
+            if (!isOneOf(['title', 'album-title', 'artist-title', 'artist-album-title', 'title-artist'] as const)(value)) {
+                throw new ApplicationError('INVALID_INPUT', 'recognitionTrackTitleFormat is invalid.');
+            }
+            return;
+        }
+        if (key === 'recognitionImportMethod') {
+            if (!isOneOf(['exploits', 'line-in'] as const)(value)) {
+                throw new ApplicationError('INVALID_INPUT', 'recognitionImportMethod must be exploits or line-in.');
             }
             return;
         }
