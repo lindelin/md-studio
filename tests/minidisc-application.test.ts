@@ -4,6 +4,8 @@ import { describe, it } from 'node:test';
 import { ApplicationError, type DeviceGateway, type TrackMetadataUpdate } from '../src/application/contracts.ts';
 import { MiniDiscApplication } from '../src/application/minidisc-application.ts';
 import { INTERACTIVE_ADVANCED_AUTHORIZATION } from '../src/application/interactive-authorization.ts';
+import { calculateImportPreview } from '../src/application/import-preview.ts';
+import { DefaultMinidiscSpec } from '../src/services/interfaces/netmd.ts';
 
 function makeGateway() {
     const calls: string[] = [];
@@ -123,11 +125,37 @@ function makeGateway() {
             if (command.action === 'stop') status.state = 'stopped';
             if (command.action === 'gotoTrack' || command.action === 'seek') status.track = command.index;
         },
+        previewImports(currentDisc, tracks, format) {
+            return calculateImportPreview(new DefaultMinidiscSpec(), currentDisc, tracks, format);
+        },
     };
     return { gateway, calls };
 }
 
 describe('MiniDiscApplication', () => {
+    it('previews queued imports against the current device and disc revisions', async () => {
+        const { gateway } = makeGateway();
+        const application = new MiniDiscApplication(gateway);
+        const initial = await application.refresh();
+
+        const preview = await application.previewImports(
+            [{ id: 'queued', title: 'Queued track', duration: 30 }],
+            4,
+            undefined,
+            initial.revision
+        );
+
+        assert.equal(preview.deviceSessionId, initial.sessionId);
+        assert.equal(preview.deviceRevision, initial.revision);
+        assert.equal(preview.importRevision, 4);
+        assert.deepEqual(preview.selectedFormat, { codec: 'SPS', bitrate: 292 });
+        assert.equal(preview.capacity.remaining, 60);
+        await assert.rejects(
+            () => application.previewImports([{ id: 'queued', title: 'Queued track', duration: 30 }], 4, undefined, 99),
+            (error: unknown) => error instanceof ApplicationError && error.code === 'STALE_REVISION'
+        );
+    });
+
     it('plans, exports, and applies CSV metadata through the shared application layer', async () => {
         const { gateway, calls } = makeGateway();
         const application = new MiniDiscApplication(gateway);

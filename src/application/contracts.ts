@@ -1,4 +1,5 @@
 import type { Disc, DeviceStatus, Group, RecordingCodec } from '../services/interfaces/netmd';
+import type { ImportPreviewCalculation, ImportPreviewTrack } from './import-preview';
 
 export type ApplicationCapability =
     | 'content.read'
@@ -184,6 +185,7 @@ export interface DeviceGateway {
     flush(): Promise<void>;
     ejectDisc(): Promise<void>;
     controlPlayback(command: PlaybackCommand): Promise<void>;
+    previewImports(disc: Disc, tracks: ImportPreviewTrack[], format: { codec: string; bitrate: number }): ImportPreviewCalculation;
 }
 
 export class ApplicationError extends Error {

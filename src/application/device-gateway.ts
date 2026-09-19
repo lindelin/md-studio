@@ -18,6 +18,7 @@ import {
     type NetMDService,
 } from '../services/interfaces/netmd';
 import { createDeviceRecordingProfile } from './device-profile';
+import { calculateImportPreview } from './import-preview';
 
 const capabilityNames: Record<Capability, ApplicationCapability> = {
     [Capability.contentList]: 'content.read',
@@ -140,6 +141,14 @@ export class NetMDDeviceGateway implements DeviceGateway {
             case 'seek':
                 return this.service.gotoTime(command.index, command.hour, command.minute, command.second, command.frame);
         }
+    }
+
+    previewImports(
+        disc: Parameters<DeviceGateway['previewImports']>[0],
+        tracks: Parameters<DeviceGateway['previewImports']>[1],
+        format: Parameters<DeviceGateway['previewImports']>[2]
+    ) {
+        return calculateImportPreview(this.spec, disc, tracks, format);
     }
 
     private sanitizeFullWidthTitle(title?: string) {

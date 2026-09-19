@@ -30,6 +30,8 @@ import {
 } from '../domain/metadata-import';
 import { sleep } from '../utils';
 import { INTERACTIVE_ADVANCED_AUTHORIZATION } from './interactive-authorization';
+import { ImportPreviewError, type ImportPreview, type ImportPreviewTrack } from './import-preview';
+import { getRecordingCodec } from './device-profile';
 
 export const MINIDISC_SELF_TEST_STEP_COUNT = 14;
 
@@ -104,6 +106,40 @@ export class MiniDiscApplication {
 
     exportMetadataCsv() {
         return this.serial(async () => serializeMetadataCsv(this.requireDisc()));
+    }
+
+    previewImports(
+        tracks: ImportPreviewTrack[],
+        importRevision: number,
+        requestedFormat?: { codec: string; bitrate: number },
+        expectedDeviceRevision?: number
+    ): Promise<ImportPreview> {
+        return this.serial(async () => {
+            this.assertRevision(expectedDeviceRevision);
+            const disc = this.requireDisc();
+            if (tracks.length === 0) {
+                throw new ApplicationError('INVALID_INPUT', 'At least one queued import is required for a preview.');
+            }
+            const snapshot = this.snapshot!;
+            const selectedFormat =
+                requestedFormat ?? getRecordingCodec(snapshot.recording, snapshot.recording.defaultFormat);
+            if (!selectedFormat) {
+                throw new ApplicationError('INVALID_INPUT', 'The connected device has no valid default recording format.');
+            }
+            let preview;
+            try {
+                preview = this.gateway.previewImports(disc, tracks, selectedFormat);
+            } catch (error) {
+                if (error instanceof ImportPreviewError) throw new ApplicationError('INVALID_INPUT', error.message);
+                throw error;
+            }
+            return {
+                ...preview,
+                deviceSessionId: snapshot.sessionId,
+                deviceRevision: snapshot.revision,
+                importRevision,
+            };
+        });
     }
 
     inspectAdvancedDevice() {

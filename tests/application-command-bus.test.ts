@@ -219,6 +219,54 @@ describe('ApplicationCommandBus import writing', () => {
         assert.deepEqual(receivedFormat, { codec: 'AT3', bitrate: 132 });
     });
 
+    it('previews the exact queue revision through the connected application', async () => {
+        const imports = new ImportQueue();
+        const added = imports.add([
+            {
+                source: { kind: 'local-path', name: 'track.wav', reference: 'bridge-file:opaque' },
+                metadata: { title: 'Track', duration: 60 },
+            },
+        ]);
+        let receivedImportRevision = -1;
+        const application = {
+            async previewImports(items: unknown[], importRevision: number) {
+                receivedImportRevision = importRevision;
+                return {
+                    deviceSessionId: 'session',
+                    deviceRevision: 3,
+                    importRevision,
+                    selectedIds: [(items[0] as { id: string }).id],
+                    selectedFormat: { codec: 'SPS', bitrate: 292 },
+                    measurementUnits: 'frames',
+                    complete: true,
+                    issues: [],
+                    capacity: {
+                        availableBefore: 600,
+                        required: 60,
+                        remaining: 540,
+                        availableBeforeInSelectedFormat: 600,
+                        remainingInSelectedFormat: 540,
+                        fits: true,
+                    },
+                    titles: {
+                        halfWidthBefore: 1785,
+                        fullWidthBefore: 1785,
+                        halfWidthRemaining: 1778,
+                        fullWidthRemaining: 1785,
+                        fits: true,
+                    },
+                };
+            },
+        } as unknown as MiniDiscApplication;
+        const bus = new ApplicationCommandBus(application, new TaskManager(), imports);
+
+        const result = await bus.execute({ type: 'import.preview', expectedImportRevision: added.revision });
+
+        assert.equal(receivedImportRevision, added.revision);
+        assert.equal(result.ok && result.importPreview?.capacity.remaining, 540);
+        assert.equal(result.ok && result.importPreview?.selectedIds.length, 1);
+    });
+
     it('returns a structured failure when no write adapter is available', async () => {
         const bus = new ApplicationCommandBus({} as MiniDiscApplication, new TaskManager(), new ImportQueue());
         const result = await bus.execute({ type: 'import.write' });

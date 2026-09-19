@@ -602,6 +602,22 @@ function createServer() {
         async ({ expectedRevision }) => execute({ type: 'import.clear', expectedRevision })
     );
     server.registerTool(
+        'minidisc_preview_imports',
+        {
+            description:
+                'Validate queued imports against the connected disc and return exact capacity, title-budget, format, and revision information without writing audio.',
+            inputSchema: z.object({
+                ids: z.array(z.string().min(1)).min(1).optional(),
+                format: z
+                    .object({ codec: z.string().min(1), bitrate: z.number().int().positive() })
+                    .optional(),
+                expectedImportRevision: z.number().int().nonnegative().optional(),
+                expectedDeviceRevision: z.number().int().nonnegative().optional(),
+            }),
+        },
+        async (input) => execute({ type: 'import.preview', ...input })
+    );
+    server.registerTool(
         'minidisc_write_imports',
         {
             description:

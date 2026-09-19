@@ -36,6 +36,7 @@ import type {
     LibraryCatalogState,
 } from './library-catalog';
 import type { ServiceCatalogSnapshot } from './service-catalog';
+import type { ImportPreview } from './import-preview';
 
 export type LibraryImportFactory = (paths: string[][], expectedLibraryRevision?: number) => ImportQueueInput[];
 
@@ -128,6 +129,13 @@ export type ApplicationCommand =
     | { type: 'import.move'; id: string; destinationIndex: number; expectedRevision?: number }
     | { type: 'import.remove'; ids: string[]; expectedRevision?: number }
     | { type: 'import.clear'; expectedRevision?: number }
+    | {
+          type: 'import.preview';
+          ids?: string[];
+          format?: { codec: string; bitrate: number };
+          expectedImportRevision?: number;
+          expectedDeviceRevision?: number;
+      }
     | ({ type: 'import.write' } & ImportWriteRequest);
 
 export interface CommandSuccess {
@@ -147,6 +155,7 @@ export interface CommandSuccess {
     librarySearch?: LibraryCatalogSearchPage;
     workspace?: WorkspaceSnapshot;
     services?: ServiceCatalogSnapshot;
+    importPreview?: ImportPreview;
 }
 
 export interface CommandFailure {
@@ -301,6 +310,19 @@ export class ApplicationCommandBus {
             }
             if (command.type === 'import.clear') {
                 return { ok: true, importQueue: this.imports.clear(command.expectedRevision) };
+            }
+            if (command.type === 'import.preview') {
+                const application = this.requireApplication();
+                const selection = this.imports.resolveSelection(command.ids, command.expectedImportRevision);
+                return {
+                    ok: true,
+                    importPreview: await application.previewImports(
+                        selection.map(({ item }) => item),
+                        command.expectedImportRevision ?? this.imports.snapshot().revision,
+                        command.format,
+                        command.expectedDeviceRevision
+                    ),
+                };
             }
             if (command.type === 'import.write') {
                 this.requireApplication();
