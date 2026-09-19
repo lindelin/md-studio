@@ -26,7 +26,9 @@ import { BrowserTrackExporter } from './application/browser-track-exporter';
 import { BrowserTrackRecorder } from './application/browser-track-recorder';
 import { getApplicationClient, isActiveUsbDevice } from './application/runtime';
 import { applyDeviceSnapshot } from './redux/application-adapter';
-serviceRegistry.mediaRecorderService = new MediaRecorderService();
+import { BrowserAudioInput } from './application/browser-audio-input';
+const mediaRecorderService = new MediaRecorderService();
+serviceRegistry.localAudioInput = new BrowserAudioInput(mediaRecorderService);
 serviceRegistry.mediaSessionService = new BrowserMediaSessionService(store);
 serviceRegistry.importWriter = new BrowserImportWriter({
     startUpload: async (files, format, parameters, taskId, deviceVersion, tasks) => {
@@ -45,7 +47,7 @@ serviceRegistry.importWriter = new BrowserImportWriter({
     },
 });
 serviceRegistry.trackExporter = new BrowserTrackExporter();
-serviceRegistry.trackRecorder = new BrowserTrackRecorder();
+serviceRegistry.trackRecorder = new BrowserTrackRecorder(mediaRecorderService);
 getApplicationClient();
 startLocalApplicationBridge();
 

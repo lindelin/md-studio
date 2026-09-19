@@ -12,7 +12,6 @@ import { actions as songRecognitionProgressDialogActions } from './song-recognit
 import serviceRegistry from '../services/registry';
 import { UnknownAction } from '@reduxjs/toolkit';
 import {
-    sleepWithProgressCallback,
     sleep,
     askNotificationPermission,
     timeToSeekArgs,
@@ -222,9 +221,7 @@ export function pair(serviceInstance: NetMDService, spec: MinidiscSpec) {
         );
 
         try {
-            serviceRegistry.mediaSessionService?.init(); // no need to await
-
-            await serviceRegistry.audioEncoderManager.getService();
+            await getApplicationClient().initializeLocalMediaServices();
 
             const session = await new DeviceSessionConnector(serviceRegistry, bindApplicationRuntime).connect(serviceInstance, spec);
             if (session.cachedConnectionError) console.error(session.cachedConnectionError);
@@ -864,15 +861,12 @@ export function recognizeTracks(_trackEntries: TitleEntry[], mode: 'exploits' | 
                     } else {
                         const deviceId = inputModeConfiguration!.deviceId!;
                         dispatch(songRecognitionProgressDialogActions.setCurrentStepTotal(100));
-                        const mediaRecorderService = serviceRegistry.mediaRecorderService;
-                        if (!mediaRecorderService) throw new Error('The browser audio recording service is unavailable.');
                         const client = getApplicationClient();
                         const device = client.getWorkspaceSnapshot().device;
                         if (!device) throw new Error('The MiniDisc device disconnected before recognition started.');
                         const rawWav = await client.runLocalPlaybackCaptureSession(
                             { sessionId: device.sessionId, revision: device.revision },
                             async (playback) => {
-                                let recordingStarted = false;
                                 await playback.control({ action: 'stop' });
                                 await playback.control({ action: 'gotoTrack', index: track.index });
                                 const seek = timeToSeekArgs(optimalStartSeconds);
@@ -885,34 +879,14 @@ export function recognizeTracks(_trackEntries: TitleEntry[], mode: 'exploits' | 
                                     frame: seek[3],
                                 });
                                 await playback.control({ action: 'play' });
-                                await mediaRecorderService.initStream(deviceId);
-                                try {
-                                    await mediaRecorderService.startRecording();
-                                    recordingStarted = true;
-                                    await sleepWithProgressCallback(
-                                        SECONDS_TO_READ * 1000,
-                                        (percentage: number) => {
-                                            dispatch(
-                                                songRecognitionProgressDialogActions.setCurrentStepProgress(percentage)
-                                            );
-                                        },
-                                        () => getState().songRecognitionProgressDialog.cancelled
-                                    );
-                                    await mediaRecorderService.stopRecording();
-                                    recordingStarted = false;
-                                    return new Promise<Uint8Array>((resolve) =>
-                                        mediaRecorderService.recorder.exportWAV(async (blob: Blob) =>
-                                            resolve(new Uint8Array(await blob.arrayBuffer()))
-                                        )
-                                    );
-                                } finally {
-                                    if (recordingStarted) {
-                                        await mediaRecorderService
-                                            .stopRecording()
-                                            .catch((error) => console.error('Could not stop recognition recording.', error));
-                                    }
-                                    await mediaRecorderService.closeStream();
-                                }
+                                return client.captureLocalAudioInput(
+                                    deviceId,
+                                    SECONDS_TO_READ * 1000,
+                                    (percentage: number) => {
+                                        dispatch(songRecognitionProgressDialogActions.setCurrentStepProgress(percentage));
+                                    },
+                                    () => getState().songRecognitionProgressDialog.cancelled
+                                );
                             }
                         );
                         dispatch(

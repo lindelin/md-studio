@@ -4,14 +4,12 @@ import { BrowserTrackRecorder } from '../src/application/browser-track-recorder.
 import type { PlaybackSession } from '../src/application/contracts.ts';
 import type { MiniDiscApplication } from '../src/application/minidisc-application.ts';
 import { TaskManager } from '../src/application/task-manager.ts';
-import serviceRegistry from '../src/services/registry.ts';
 import type { MediaRecorderService } from '../src/services/browserintegration/mediarecorder.ts';
 
 describe('BrowserTrackRecorder', () => {
     it('records selected playback through one observable background task', async () => {
-        const originalRecorder = serviceRegistry.mediaRecorderService;
         const events: string[] = [];
-        serviceRegistry.mediaRecorderService = {
+        const mediaRecorder = {
             async initStream(deviceId: string) {
                 events.push(`input:${deviceId}`);
             },
@@ -29,17 +27,17 @@ describe('BrowserTrackRecorder', () => {
             },
         } as unknown as MediaRecorderService;
 
-        try {
-            const recorder = new BrowserTrackRecorder(
-                async () => 'ready',
-                async (_duration, progress) => {
-                    progress(50);
-                    return true;
-                }
-            );
-            const application = {
-                async refresh() {
-                    return {
+        const recorder = new BrowserTrackRecorder(
+            mediaRecorder,
+            async () => 'ready',
+            async (_duration, progress) => {
+                progress(50);
+                return true;
+            }
+        );
+        const application = {
+            async refresh() {
+                return {
                         sessionId: 'session',
                         revision: 7,
                         deviceName: 'Test device',
@@ -75,54 +73,51 @@ describe('BrowserTrackRecorder', () => {
                                 },
                             ],
                         },
-                    };
-                },
-                async runPlaybackCaptureSession(
-                    version: { sessionId: string; revision: number },
-                    operation: (playback: PlaybackSession) => Promise<unknown>
-                ) {
-                    assert.deepEqual(version, { sessionId: 'session', revision: 7 });
-                    return operation({
-                        async control(command) {
-                            if (command.action === 'gotoTrack') events.push(`goto:${command.index}`);
-                            else events.push(command.action);
-                        },
-                        async readPosition() {
-                            return [0, 0, 0, 2];
-                        },
-                    });
-                },
-            } as unknown as MiniDiscApplication;
-            const tasks = new TaskManager();
+                };
+            },
+            async runPlaybackCaptureSession(
+                version: { sessionId: string; revision: number },
+                operation: (playback: PlaybackSession) => Promise<unknown>
+            ) {
+                assert.deepEqual(version, { sessionId: 'session', revision: 7 });
+                return operation({
+                    async control(command) {
+                        if (command.action === 'gotoTrack') events.push(`goto:${command.index}`);
+                        else events.push(command.action);
+                    },
+                    async readPosition() {
+                        return [0, 0, 0, 2];
+                    },
+                });
+            },
+        } as unknown as MiniDiscApplication;
+        const tasks = new TaskManager();
 
-            const started = await recorder.start(
-                { indexes: [0], deviceId: 'line-in', expectedRevision: 7 },
-                application,
-                tasks
-            );
-            let completed = tasks.get(started.id);
-            for (let attempt = 0; attempt < 20 && completed.status === 'running'; attempt += 1) {
-                await new Promise((resolve) => setTimeout(resolve, 0));
-                completed = tasks.get(started.id);
-            }
-
-            assert.equal(completed.status, 'succeeded');
-            assert.deepEqual(completed.result, { recordedTracks: 1, files: ['1. Song (曲).wav'] });
-            assert.deepEqual(events.slice(0, 10), [
-                'stop',
-                'goto:0',
-                'play',
-                'pause',
-                'goto:0',
-                'input:line-in',
-                'record:start',
-                'play',
-                'record:stop',
-                'download:1. Song (曲)',
-            ]);
-            assert.equal(completed.progress.completed, 1);
-        } finally {
-            serviceRegistry.mediaRecorderService = originalRecorder;
+        const started = await recorder.start(
+            { indexes: [0], deviceId: 'line-in', expectedRevision: 7 },
+            application,
+            tasks
+        );
+        let completed = tasks.get(started.id);
+        for (let attempt = 0; attempt < 20 && completed.status === 'running'; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            completed = tasks.get(started.id);
         }
+
+        assert.equal(completed.status, 'succeeded');
+        assert.deepEqual(completed.result, { recordedTracks: 1, files: ['1. Song (曲).wav'] });
+        assert.deepEqual(events.slice(0, 10), [
+            'stop',
+            'goto:0',
+            'play',
+            'pause',
+            'goto:0',
+            'input:line-in',
+            'record:start',
+            'play',
+            'record:stop',
+            'download:1. Song (曲)',
+        ]);
+        assert.equal(completed.progress.completed, 1);
     });
 });

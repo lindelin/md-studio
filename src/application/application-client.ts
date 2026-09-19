@@ -14,6 +14,7 @@ import type {
 } from './contracts';
 import type { AdvancedBadSectorHandler, AdvancedTrackExportRequest } from './advanced-track-export';
 import type { ExportParams } from '../services/audio/audio-export';
+import type { LocalAudioInput } from './browser-audio-input';
 
 export type LocalAdvancedMemorySink = (
     region: AdvancedMemoryRegion,
@@ -47,6 +48,15 @@ export interface ApplicationClient {
         expectedDeviceVersion: { sessionId: string; revision: number },
         operation: (playback: PlaybackSession) => Promise<T>
     ): Promise<T>;
+    initializeLocalMediaServices(): Promise<void>;
+    startLocalAudioInputPreview(deviceId: string): void;
+    stopLocalAudioInputPreview(): void;
+    captureLocalAudioInput(
+        deviceId: string,
+        durationMs: number,
+        onProgress: (percentage: number) => void,
+        isCancelled: () => boolean
+    ): Promise<Uint8Array>;
     createLocalLibraryFileProcessor(filePath: string): (params: ExportParams) => Promise<ArrayBuffer>;
     getWorkspaceSnapshot(): WorkspaceSnapshot;
     subscribe(listener: () => void): () => void;
@@ -80,7 +90,11 @@ export class InProcessApplicationClient implements ApplicationClient {
         private readonly localPlaybackCaptureSession?: <T>(
             expectedDeviceVersion: { sessionId: string; revision: number },
             operation: (playback: PlaybackSession) => Promise<T>
-        ) => Promise<T>
+        ) => Promise<T>,
+        private readonly localMediaServices?: {
+            initialize(): Promise<void>;
+            audioInput: LocalAudioInput;
+        }
     ) {}
 
     execute = (command: ApplicationCommand) => this.commands.execute(command);
@@ -111,6 +125,30 @@ export class InProcessApplicationClient implements ApplicationClient {
             throw new Error('Browser playback capture is unavailable in this application environment.');
         }
         return this.localPlaybackCaptureSession(expectedDeviceVersion, operation);
+    };
+    initializeLocalMediaServices = () => {
+        if (!this.localMediaServices) {
+            throw new Error('Browser media services are unavailable in this application environment.');
+        }
+        return this.localMediaServices.initialize();
+    };
+    startLocalAudioInputPreview = (deviceId: string) => {
+        if (!this.localMediaServices) {
+            throw new Error('Browser audio input is unavailable in this application environment.');
+        }
+        this.localMediaServices.audioInput.startPreview(deviceId);
+    };
+    stopLocalAudioInputPreview = () => this.localMediaServices?.audioInput.stopPreview();
+    captureLocalAudioInput = (
+        deviceId: string,
+        durationMs: number,
+        onProgress: (percentage: number) => void,
+        isCancelled: () => boolean
+    ) => {
+        if (!this.localMediaServices) {
+            throw new Error('Browser audio input is unavailable in this application environment.');
+        }
+        return this.localMediaServices.audioInput.captureWav(deviceId, durationMs, onProgress, isCancelled);
     };
     createLocalLibraryFileProcessor = (filePath: string) => {
         if (!this.localLibraryFileProcessor) {

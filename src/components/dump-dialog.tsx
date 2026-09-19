@@ -13,11 +13,10 @@ import Slide, { SlideProps } from '@mui/material/Slide';
 import Button from '@mui/material/Button';
 import { makeStyles } from 'tss-react/mui';
 import Typography from '@mui/material/Typography';
-import serviceRegistry from '../services/registry';
-import { TransitionProps } from '@mui/material/transitions';
 import { W95DumpDialog } from './win95/dump-dialog';
 import { exploitDownloadTracks } from '../redux/factory/factory-actions';
 import { LineInDeviceSelect } from './line-in-helpers';
+import { getApplicationClient } from '../application/runtime';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
@@ -51,7 +50,7 @@ export const DumpDialog = ({
 
     const handleClose = useCallback(() => {
         setInputDeviceId('');
-        serviceRegistry.mediaRecorderService?.stopTestInput();
+        getApplicationClient().stopLocalAudioInputPreview();
         dispatch(dumpDialogActions.setVisible(false));
     }, [dispatch]);
 
@@ -60,8 +59,7 @@ export const DumpDialog = ({
             if (isCapableOfDownload) return;
             const deviceId = ev.target.value as string;
             setInputDeviceId(deviceId);
-            serviceRegistry.mediaRecorderService?.stopTestInput();
-            serviceRegistry.mediaRecorderService?.playTestInput(deviceId);
+            getApplicationClient().startLocalAudioInputPreview(deviceId);
         },
         [setInputDeviceId, isCapableOfDownload]
     );

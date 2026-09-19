@@ -77,8 +77,13 @@ export class MediaRecorderService {
         this.stream?.getTracks().forEach((track) => track.stop());
     }
 
-    async downloadRecorded(title: string) {
+    async exportRecorded() {
         const buffer = await new Promise<Blob>((resolve) => this.recorder.exportWAV(resolve));
-        downloadBlob(buffer, `${title}.wav`);
+        return new Uint8Array(await buffer.arrayBuffer());
+    }
+
+    async downloadRecorded(title: string) {
+        const data = await this.exportRecorded();
+        downloadBlob(new Blob([data]), `${title}.wav`);
     }
 }

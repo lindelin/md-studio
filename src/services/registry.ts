@@ -1,5 +1,4 @@
 import { MinidiscSpec, NetMDFactoryService, NetMDService } from './interfaces/netmd';
-import { MediaRecorderService } from './browserintegration/mediarecorder';
 import { MediaSessionService } from './browserintegration/media-session';
 import type { MiniDiscApplication } from '../application/minidisc-application';
 import type { ApplicationCommandBus } from '../application/command-bus';
@@ -17,6 +16,7 @@ import { createLibraryService, LibraryServices } from './library-services';
 import { AudioEncoderManager } from '../application/audio-encoder-manager';
 import { AudioServices, createAudioEncoder } from './audio-export-service-manager';
 import { createServiceCatalog, type ServiceCatalogSnapshot } from '../application/service-catalog';
+import type { LocalAudioInput } from '../application/browser-audio-input';
 
 export interface ImportPayloadResolver {
     resolve(reference: string): Promise<File>;
@@ -32,7 +32,7 @@ interface ServiceRegistry {
     netmdFactoryService?: NetMDFactoryService;
     audioEncoderManager: AudioEncoderManager;
     serviceCatalog: ServiceCatalogSnapshot;
-    mediaRecorderService?: MediaRecorderService;
+    localAudioInput?: LocalAudioInput;
     mediaSessionService?: MediaSessionService;
     libraryCatalog: LibraryCatalog;
     application?: MiniDiscApplication;

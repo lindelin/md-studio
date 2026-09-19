@@ -160,7 +160,29 @@ export function getApplicationClient() {
                 return serviceRegistry.libraryCatalog.createFileProcessor(filePath.split('/'));
             },
             (expectedDeviceVersion, operation) =>
-                getApplicationRuntime().runPlaybackCaptureSession(expectedDeviceVersion, operation)
+                getApplicationRuntime().runPlaybackCaptureSession(expectedDeviceVersion, operation),
+            {
+                initialize: async () => {
+                    serviceRegistry.mediaSessionService?.init();
+                    await serviceRegistry.audioEncoderManager.getService();
+                },
+                audioInput: {
+                    startPreview: (deviceId) => {
+                        if (!serviceRegistry.localAudioInput) throw new Error('Browser audio input is unavailable.');
+                        serviceRegistry.localAudioInput.startPreview(deviceId);
+                    },
+                    stopPreview: () => serviceRegistry.localAudioInput?.stopPreview(),
+                    captureWav: (deviceId, durationMs, onProgress, isCancelled) => {
+                        if (!serviceRegistry.localAudioInput) throw new Error('Browser audio input is unavailable.');
+                        return serviceRegistry.localAudioInput.captureWav(
+                            deviceId,
+                            durationMs,
+                            onProgress,
+                            isCancelled
+                        );
+                    },
+                },
+            }
         );
     }
     return serviceRegistry.applicationClient;

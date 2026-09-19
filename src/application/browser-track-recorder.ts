@@ -1,16 +1,17 @@
-import serviceRegistry from '../services/registry';
 import { getTracks, sleepWithProgressCallback } from '../utils';
 import { waitForTrackReady } from '../domain/playback-position';
 import { ApplicationError } from './contracts';
 import type { MiniDiscApplication } from './minidisc-application';
 import type { TaskManager } from './task-manager';
 import type { TrackRecorder, TrackRecordRequest } from './track-record';
+import type { MediaRecorderService } from '../services/browserintegration/mediarecorder';
 
 type ReadyWaiter = typeof waitForTrackReady;
 type DurationWaiter = typeof sleepWithProgressCallback;
 
 export class BrowserTrackRecorder implements TrackRecorder {
     constructor(
+        private readonly recorder: MediaRecorderService,
         private readonly waitUntilReady: ReadyWaiter = waitForTrackReady,
         private readonly waitForDuration: DurationWaiter = sleepWithProgressCallback
     ) {}
@@ -22,10 +23,6 @@ export class BrowserTrackRecorder implements TrackRecorder {
         if (uniqueIndexes.size !== request.indexes.length) {
             throw new ApplicationError('INVALID_INPUT', 'A track was supplied more than once.');
         }
-        if (!serviceRegistry.mediaRecorderService) {
-            throw new ApplicationError('DEVICE_NOT_CONNECTED', 'The browser audio recording service is unavailable.');
-        }
-
         const snapshot = await application.refresh(false);
         if (request.expectedRevision !== undefined && request.expectedRevision !== snapshot.revision) {
             throw new ApplicationError('STALE_REVISION', 'The disc changed after this recording was prepared.', {
@@ -70,11 +67,7 @@ export class BrowserTrackRecorder implements TrackRecorder {
         deviceVersion: { sessionId: string; revision: number },
         tasks: TaskManager
     ) {
-        const recorder = serviceRegistry.mediaRecorderService;
-        if (!recorder) {
-            tasks.fail(taskId, new Error('The browser audio recording service ended before recording started.'));
-            return;
-        }
+        const recorder = this.recorder;
 
         let recordingStarted = false;
         let recordedTracks = 0;

@@ -28,7 +28,7 @@ import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import { Capability } from '../services/interfaces/netmd';
-import serviceRegistry from '../services/registry';
+import { getApplicationClient } from '../application/runtime';
 import { LineInDeviceSelect } from './line-in-helpers';
 import { useApplicationWorkspace } from './use-application-client';
 import { sanitizeDeviceFullWidthTitle, sanitizeDeviceHalfWidthTitle } from '../application/device-profile';
@@ -139,8 +139,7 @@ export const SongRecognitionDialog = () => {
         (ev: React.ChangeEvent<{ value: unknown }>) => {
             const deviceId = ev.target.value as string;
             setInputDeviceId(deviceId);
-            serviceRegistry.mediaRecorderService?.stopTestInput();
-            serviceRegistry.mediaRecorderService?.playTestInput(deviceId);
+            getApplicationClient().startLocalAudioInputPreview(deviceId);
         },
         [setInputDeviceId]
     );
@@ -152,7 +151,7 @@ export const SongRecognitionDialog = () => {
 
     const stopAudioInput = useCallback(() => {
         setInputDeviceId('');
-        serviceRegistry.mediaRecorderService?.stopTestInput();
+        getApplicationClient().stopLocalAudioInputPreview();
     }, []);
 
     const handleChangeImportMethod = useCallback(
