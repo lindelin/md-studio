@@ -1,5 +1,6 @@
 import { ApplicationError } from './contracts';
 import type { TaskManager, TaskSnapshot } from './task-manager';
+import { INTERACTIVE_HOMEBREW_AUTHORIZATION } from './interactive-authorization';
 
 export type ImportSourceKind = 'browser-file' | 'local-path' | 'library';
 
@@ -46,8 +47,8 @@ export interface ImportWriteRequest {
     enableGapless?: boolean;
     removeOnSuccess?: boolean;
     expectedRevision?: number;
-    /** Browser UI only: permit the existing explicit Homebrew confirmation dialogs. */
-    allowInteractiveHomebrew?: boolean;
+    /** Browser UI only: an in-memory capability that cannot cross the JSON bridge. */
+    interactiveHomebrewAuthorization?: typeof INTERACTIVE_HOMEBREW_AUTHORIZATION;
 }
 
 export interface ImportQueueMetadataUpdate {

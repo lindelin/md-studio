@@ -9,6 +9,7 @@ import { createDeferredFile, isAdaptiveFile, isDeferredFile } from './deferred-f
 import type { ImportQueue, ImportWriteRequest, ImportWriter } from './import-queue';
 import type { TaskManager } from './task-manager';
 import { assertImportWritePolicy } from './import-write-policy';
+import { INTERACTIVE_HOMEBREW_AUTHORIZATION } from './interactive-authorization';
 
 export class BrowserImportWriter implements ImportWriter {
     constructor(private readonly dispatch: AppDispatch) {}
@@ -25,7 +26,8 @@ export class BrowserImportWriter implements ImportWriter {
             selected,
             format,
             nativeMonoUpload: capabilities.includes(Capability.nativeMonoUpload),
-            allowInteractiveHomebrew: request.allowInteractiveHomebrew ?? false,
+            allowInteractiveHomebrew:
+                request.interactiveHomebrewAuthorization === INTERACTIVE_HOMEBREW_AUTHORIZATION,
         });
 
         const task = tasks.create(

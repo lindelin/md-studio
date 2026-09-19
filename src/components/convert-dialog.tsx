@@ -60,6 +60,7 @@ import {
     getDefaultCodecName,
 } from '../services/interfaces/netmd';
 import serviceRegistry from '../services/registry';
+import { INTERACTIVE_HOMEBREW_AUTHORIZATION } from '../application/interactive-authorization';
 import Link from '@mui/material/Link';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -791,7 +792,7 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
             enableGapless,
             removeOnSuccess: true,
             expectedRevision: prepared.revision,
-            allowInteractiveHomebrew: true,
+            interactiveHomebrewAuthorization: INTERACTIVE_HOMEBREW_AUTHORIZATION,
         });
         if (!result.ok) {
             dispatch(
