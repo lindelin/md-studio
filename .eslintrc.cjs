@@ -19,4 +19,23 @@ module.exports = {
     "no-async-promise-executor": "off",
     "no-empty": "off",
   },
+  overrides: [
+    {
+      files: ['src/application/**/*.{ts,tsx}', 'src/components/**/*.{ts,tsx}', 'src/redux/**/*.{ts,tsx}'],
+      excludedFiles: ['src/application/runtime.ts'],
+      rules: {
+        'no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              {
+                group: ['**/services/registry'],
+                message: 'Use ApplicationClient, Command Bus, Workspace Store, or an injected browser adapter.',
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ],
 }
