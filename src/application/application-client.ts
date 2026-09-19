@@ -15,6 +15,7 @@ import type {
 import type { AdvancedBadSectorHandler, AdvancedTrackExportRequest } from './advanced-track-export';
 import type { ExportParams } from '../services/audio/audio-export';
 import type { LocalAudioInput } from './browser-audio-input';
+import type { CustomParameters } from '../custom-parameters';
 
 export type LocalAdvancedMemorySink = (
     region: AdvancedMemoryRegion,
@@ -25,8 +26,21 @@ export interface ApplicationCommandExecutor {
     execute(command: ApplicationCommand): Promise<CommandResult>;
 }
 
+export interface LocalDeviceConnectionRequest {
+    name: string;
+    parameters?: CustomParameters;
+}
+
+export interface LocalDeviceConnectionResult {
+    connected: boolean;
+    method: 'cached' | 'paired' | null;
+    message?: string;
+}
+
 export interface ApplicationClient {
     execute(command: ApplicationCommand): Promise<CommandResult>;
+    connectLocalDevice(request: LocalDeviceConnectionRequest): Promise<LocalDeviceConnectionResult>;
+    disconnectLocalDevice(finalize?: boolean): Promise<void>;
     addLocalImports(inputs: ImportQueueInput[], expectedRevision?: number): ImportQueueSnapshot;
     startLocalTrackExport(request: TrackExportRequest, sink: TrackExportSink): Promise<TaskSnapshot>;
     startLocalAdvancedMemoryExport(kind: AdvancedMemoryKind, sink: LocalAdvancedMemorySink): Promise<TaskSnapshot>;
@@ -94,10 +108,26 @@ export class InProcessApplicationClient implements ApplicationClient {
         private readonly localMediaServices?: {
             initialize(): Promise<void>;
             audioInput: LocalAudioInput;
+        },
+        private readonly localDeviceSessions?: {
+            connect(request: LocalDeviceConnectionRequest): Promise<LocalDeviceConnectionResult>;
+            disconnect(finalize?: boolean): Promise<void>;
         }
     ) {}
 
     execute = (command: ApplicationCommand) => this.commands.execute(command);
+    connectLocalDevice = (request: LocalDeviceConnectionRequest) => {
+        if (!this.localDeviceSessions) {
+            throw new Error('Browser device connection is unavailable in this application environment.');
+        }
+        return this.localDeviceSessions.connect(request);
+    };
+    disconnectLocalDevice = (finalize = true) => {
+        if (!this.localDeviceSessions) {
+            throw new Error('Browser device connection is unavailable in this application environment.');
+        }
+        return this.localDeviceSessions.disconnect(finalize);
+    };
     addLocalImports = (inputs: ImportQueueInput[], expectedRevision?: number) =>
         this.localImports.add(inputs, expectedRevision);
     startLocalTrackExport = (request: TrackExportRequest, sink: TrackExportSink) => this.localTrackExport(request, sink);

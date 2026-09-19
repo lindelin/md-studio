@@ -332,4 +332,58 @@ describe('InProcessApplicationClient', () => {
         assert.deepEqual(requestedPaths, ['Album/Track.flac']);
         assert.deepEqual([...new Uint8Array(result)], [1, 2, 3]);
     });
+
+    it('routes browser device sessions without exposing protocol services to the UI', async () => {
+        const tasks = new TaskManager();
+        const imports = new ImportQueue();
+        const workspace = new WorkspaceStore(tasks, imports, new SettingsStore(null));
+        const events: unknown[] = [];
+        const client = new InProcessApplicationClient(
+            { async execute() { return { ok: true }; } },
+            workspace,
+            imports,
+            async () => tasks.create('track-export', 'Local export'),
+            async () => tasks.create('advanced.memory-export', 'Memory export'),
+            async () => tasks.create('advanced.track-export', 'Advanced export'),
+            runAdvancedSession,
+            runUploadSession,
+            undefined,
+            undefined,
+            undefined,
+            {
+                async connect(request) {
+                    events.push(request);
+                    return { connected: true, method: 'paired' };
+                },
+                async disconnect(finalize) {
+                    events.push({ finalize });
+                },
+            }
+        );
+
+        const result = await client.connectLocalDevice({ name: 'USB NetMD' });
+        await client.disconnectLocalDevice(false);
+
+        assert.deepEqual(result, { connected: true, method: 'paired' });
+        assert.deepEqual(events, [{ name: 'USB NetMD' }, { finalize: false }]);
+    });
+
+    it('reports when browser device sessions are unavailable', () => {
+        const tasks = new TaskManager();
+        const imports = new ImportQueue();
+        const workspace = new WorkspaceStore(tasks, imports, new SettingsStore(null));
+        const client = new InProcessApplicationClient(
+            { async execute() { return { ok: true }; } },
+            workspace,
+            imports,
+            async () => tasks.create('track-export', 'Local export'),
+            async () => tasks.create('advanced.memory-export', 'Memory export'),
+            async () => tasks.create('advanced.track-export', 'Advanced export'),
+            runAdvancedSession,
+            runUploadSession
+        );
+
+        assert.throws(() => client.connectLocalDevice({ name: 'USB NetMD' }), /device connection is unavailable/i);
+        assert.throws(() => client.disconnectLocalDevice(), /device connection is unavailable/i);
+    });
 });

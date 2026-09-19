@@ -17,13 +17,11 @@ import {
 } from '../utils';
 import { assertNumber } from 'netmd-js/dist/utils';
 import { Capability } from '../services/interfaces/capabilities';
-import type { NetMDService, MinidiscSpec } from '../services/interfaces/netmd';
 import { getSimpleServices, ServiceConstructionInfo } from '../services/interface-service-manager';
-import { connectDeviceSession, getApplicationClient, getTrackRecognizer, releaseDeviceSession } from '../application/runtime';
+import { getApplicationClient, getTrackRecognizer } from '../application/runtime';
 import { applyDeviceSnapshot } from './application-adapter';
 import { MetadataImportError } from '../domain/metadata-import';
 import { resolveGroupedTrackMove } from '../domain/disc-layout';
-import { describeDeviceSessionFailure } from '../application/device-session';
 import type { TaskSnapshot } from '../application/task-manager';
 import type { ApplicationCommand } from '../application/command-bus';
 import type { PlaybackCommand } from '../application/contracts';
@@ -50,7 +48,7 @@ export function requestTaskCancellation(id: string) {
 
 export function disconnectDevice(finalize = true) {
     return async function (dispatch: AppDispatch) {
-        const cleanup = releaseDeviceSession(finalize);
+        const cleanup = getApplicationClient().disconnectLocalDevice(finalize);
         dispatch(appStateActions.setMainView('WELCOME'));
         await cleanup;
     };
@@ -191,53 +189,6 @@ export function deleteService(index: number) {
         availableServices.splice(index, 1);
         dispatch(appStateActions.setLastSelectedService(0));
         dispatch(appStateActions.setAvailableServices(availableServices));
-    };
-}
-
-export function pair(serviceInstance: NetMDService, spec: MinidiscSpec) {
-    return async function (dispatch: AppDispatch) {
-        dispatch(
-            batchActions([
-                appStateActions.setPairingFailed(false),
-                appStateActions.setConnectingInProgress(true),
-                appStateActions.setFactoryModeRippingInMainUi(false),
-            ])
-        );
-
-        try {
-            const session = await connectDeviceSession(serviceInstance, spec);
-            if (session.cachedConnectionError) console.error(session.cachedConnectionError);
-            if (session.application) {
-                // Device browsing does not require an encoder. Warm browser
-                // media services after the session is usable so a missing or
-                // broken encoder cannot block read-only device access.
-                void getApplicationClient()
-                    .initializeLocalMediaServices()
-                    .catch((error) => console.error('Could not initialize local media services.', error));
-                dispatch(
-                    batchActions([
-                        appStateActions.setMainView('MAIN'),
-                        errorDialogAction.setErrorMessage(''),
-                        errorDialogAction.setVisible(false),
-                    ])
-                );
-                return;
-            }
-            dispatch(
-                batchActions([
-                    appStateActions.setPairingMessage(describeDeviceSessionFailure(session)),
-                    appStateActions.setPairingFailed(true),
-                ])
-            );
-        } catch (err) {
-            console.error(err);
-            const message = err instanceof Error ? err.message : String(err);
-            dispatch(
-                batchActions([appStateActions.setPairingMessage(message || 'Unknown Error!'), appStateActions.setPairingFailed(true)])
-            );
-        } finally {
-            dispatch(appStateActions.setConnectingInProgress(false));
-        }
     };
 }
 

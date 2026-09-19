@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { useDispatch, batchActions } from '../frontend-utils';
-import { deleteService, pair } from '../redux/actions';
+import { deleteService } from '../redux/actions';
 
 import { useShallowEqualSelector } from '../frontend-utils';
 
@@ -27,7 +27,6 @@ import {
     doesServiceRequireChrome,
     getConnectButtonName,
     getSimpleServices,
-    loadService,
     Services,
 } from '../services/interface-service-manager';
 
@@ -38,7 +37,9 @@ import { AboutDialog } from './about-dialog';
 
 import { actions as otherDialogActions } from '../redux/other-device-feature';
 import { actions as appActions } from '../redux/app-feature';
+import { actions as errorDialogActions } from '../redux/error-dialog-feature';
 import { initializeParameters } from '../custom-parameters';
+import { useApplicationClient } from './use-application-client';
 
 const useStyles = makeStyles()((theme) => ({
     main: {
@@ -102,6 +103,7 @@ const useStyles = makeStyles()((theme) => ({
 export const Welcome = () => {
     const { classes } = useStyles();
     const dispatch = useDispatch();
+    const applicationClient = useApplicationClient();
     const {
         browserSupported,
         runningChrome,
@@ -154,15 +156,27 @@ export const Welcome = () => {
                 appActions.setLastSelectedService(index),
                 appActions.setPairingFailed(false),
                 appActions.setConnectingInProgress(true),
+                appActions.setFactoryModeRippingInMainUi(false),
             ])
         );
         try {
-            const loaded = await loadService(availableServices[index]);
-            if (!loaded) {
-                dispatch(appActions.setConnectingInProgress(false));
-                return;
+            const result = await applicationClient.connectLocalDevice(availableServices[index]);
+            if (result.connected) {
+                dispatch(
+                    batchActions([
+                        appActions.setMainView('MAIN'),
+                        errorDialogActions.setErrorMessage(''),
+                        errorDialogActions.setVisible(false),
+                    ])
+                );
+            } else if (result.message) {
+                dispatch(
+                    batchActions([
+                        appActions.setPairingMessage(result.message),
+                        appActions.setPairingFailed(true),
+                    ])
+                );
             }
-            dispatch(pair(loaded.service, loaded.spec));
         } catch (error) {
             console.error(error);
             dispatch(
@@ -172,6 +186,8 @@ export const Welcome = () => {
                     appActions.setConnectingInProgress(false),
                 ])
             );
+        } finally {
+            dispatch(appActions.setConnectingInProgress(false));
         }
     }
 

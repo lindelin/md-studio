@@ -6,8 +6,9 @@ import { InProcessApplicationClient } from './application-client';
 import { INTERACTIVE_ADVANCED_AUTHORIZATION } from './interactive-authorization';
 import { BrowserAdvancedTrackExporter } from './advanced-track-export';
 import type { AdaptiveFile } from '../utils';
-import { DeviceSessionConnector } from './device-session';
+import { describeDeviceSessionFailure, DeviceSessionConnector } from './device-session';
 import type { MinidiscSpec, NetMDService } from '../services/interfaces/netmd';
+import { loadService } from '../services/interface-service-manager';
 
 export function connectDeviceSession(service: NetMDService, spec: MinidiscSpec) {
     return new DeviceSessionConnector(serviceRegistry, bindApplicationRuntime).connect(service, spec);
@@ -90,6 +91,28 @@ export function ensureApplicationCommandBus() {
 
 export function getApplicationClient() {
     if (!serviceRegistry.applicationClient) {
+        const localMediaServices = {
+            initialize: async () => {
+                serviceRegistry.mediaSessionService?.init();
+                await serviceRegistry.audioEncoderManager.getService();
+            },
+            audioInput: {
+                startPreview: (deviceId: string) => {
+                    if (!serviceRegistry.localAudioInput) throw new Error('Browser audio input is unavailable.');
+                    serviceRegistry.localAudioInput.startPreview(deviceId);
+                },
+                stopPreview: () => serviceRegistry.localAudioInput?.stopPreview(),
+                captureWav: (
+                    deviceId: string,
+                    durationMs: number,
+                    onProgress: (percentage: number) => void,
+                    isCancelled: () => boolean
+                ) => {
+                    if (!serviceRegistry.localAudioInput) throw new Error('Browser audio input is unavailable.');
+                    return serviceRegistry.localAudioInput.captureWav(deviceId, durationMs, onProgress, isCancelled);
+                },
+            },
+        };
         serviceRegistry.applicationClient = new InProcessApplicationClient(
             ensureApplicationCommandBus(),
             serviceRegistry.workspaceStore,
@@ -167,27 +190,30 @@ export function getApplicationClient() {
             },
             (expectedDeviceVersion, operation) =>
                 getApplicationRuntime().runPlaybackCaptureSession(expectedDeviceVersion, operation),
+            localMediaServices,
             {
-                initialize: async () => {
-                    serviceRegistry.mediaSessionService?.init();
-                    await serviceRegistry.audioEncoderManager.getService();
+                connect: async (request) => {
+                    const loaded = await loadService(request);
+                    if (!loaded) return { connected: false, method: null };
+
+                    const session = await connectDeviceSession(loaded.service, loaded.spec);
+                    if (session.cachedConnectionError) console.error(session.cachedConnectionError);
+                    if (!session.application) {
+                        return {
+                            connected: false,
+                            method: null,
+                            message: describeDeviceSessionFailure(session),
+                        };
+                    }
+
+                    // Browsing a device must remain available even when an
+                    // optional browser encoder cannot initialize.
+                    void localMediaServices
+                        .initialize()
+                        .catch((error) => console.error('Could not initialize local media services.', error));
+                    return { connected: true, method: session.method };
                 },
-                audioInput: {
-                    startPreview: (deviceId) => {
-                        if (!serviceRegistry.localAudioInput) throw new Error('Browser audio input is unavailable.');
-                        serviceRegistry.localAudioInput.startPreview(deviceId);
-                    },
-                    stopPreview: () => serviceRegistry.localAudioInput?.stopPreview(),
-                    captureWav: (deviceId, durationMs, onProgress, isCancelled) => {
-                        if (!serviceRegistry.localAudioInput) throw new Error('Browser audio input is unavailable.');
-                        return serviceRegistry.localAudioInput.captureWav(
-                            deviceId,
-                            durationMs,
-                            onProgress,
-                            isCancelled
-                        );
-                    },
-                },
+                disconnect: releaseDeviceSession,
             }
         );
     }
