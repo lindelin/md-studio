@@ -19,7 +19,7 @@ const Transition = React.forwardRef(function Transition(props: SlideProps, ref: 
     return <Slide direction="up" ref={ref} {...props} />;
 });
 
-export const AboutDialog = (props: {}) => {
+export const AboutDialog = () => {
     const dispatch = useDispatch();
 
     const visible = useShallowEqualSelector((state) => state.appState.aboutDialogVisible);
@@ -45,9 +45,15 @@ export const AboutDialog = (props: {}) => {
             TransitionComponent={Transition as any}
             aria-labelledby="about-dialog-slide-title"
         >
-            <DialogTitle id="about-dialog-slide-title">About Web MiniDisc Pro</DialogTitle>
+            <DialogTitle id="about-dialog-slide-title">About MiniDisc Workspace</DialogTitle>
             <DialogContent>
-                <DialogContentText>Web MiniDisc Pro uses</DialogContentText>
+                <DialogContentText>
+                    MiniDisc Workspace is derived from{' '}
+                    <Link rel="noopener noreferrer" href="https://github.com/asivery/webminidisc" target="_blank">
+                        Web MiniDisc Pro
+                    </Link>{' '}
+                    and uses
+                </DialogContentText>
                 <ul>
                     <li>
                         <Link rel="noopener noreferrer" href="https://www.ffmpeg.org/" target="_blank">
@@ -127,7 +133,12 @@ export const AboutDialog = (props: {}) => {
                         </Link>
                     </li>
                 </ul>
-                <Link target="_blank" href="https://ko-fi.com/asivery" style={{ display: 'block', textAlign: 'center' }}>
+                <Link
+                    target="_blank"
+                    href="https://ko-fi.com/asivery"
+                    aria-label="Support the Web MiniDisc Pro upstream maintainer"
+                    style={{ display: 'block', textAlign: 'center' }}
+                >
                     <img src="kofi.png" style={{ width: '50%' }} />
                 </Link>
                 <DialogContentText style={{ textAlign: 'center', fontSize: 13 }}>

@@ -205,7 +205,7 @@ export const Welcome = (props: {}) => {
         <React.Fragment>
             <Box className={classes.headBox}>
                 <Typography component="h1" variant="h4">
-                    Web MiniDisc Pro
+                    MiniDisc Workspace
                 </Typography>
                 <TopMenu />
             </Box>
@@ -297,7 +297,7 @@ export const Welcome = (props: {}) => {
                         {showWhyUnsupported ? (
                             <>
                                 <Typography component="p" variant="body2" className={classes.why}>
-                                    Web MiniDisc Pro requires a browser that supports both{' '}
+                                    MiniDisc Workspace requires a browser that supports both{' '}
                                     <Link rel="noopener noreferrer" target="_blank" href="https://wicg.github.io/webusb/">
                                         WebUSB
                                     </Link>{' '}

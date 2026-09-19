@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { useShallowEqualSelector } from "../../frontend-utils";
+import { useShallowEqualSelector } from '../../frontend-utils';
 
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
@@ -16,24 +16,21 @@ import { actions as factoryNoticeDialogActions } from '../../redux/factory/facto
 import { actions as appStateActions } from '../../redux/app-feature';
 import { readToc } from '../../redux/factory/factory-actions';
 
-const useStyles = makeStyles()(theme => ({
+const useStyles = makeStyles()((theme) => ({
     mainText: {
         whiteSpace: 'pre-wrap',
         textAlign: 'justify',
     },
 }));
 
-const Transition = React.forwardRef(function Transition(
-    props: SlideProps,
-    ref: React.Ref<unknown>
-) {
+const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
 });
 
 export const FactoryModeNoticeDialog = (props: {}) => {
     const { classes } = useStyles();
     const dispatch = useDispatch();
-    const { visible } = useShallowEqualSelector(state => state.factoryNoticeDialog);
+    const { visible } = useShallowEqualSelector((state) => state.factoryNoticeDialog);
     const handleClose = useCallback(() => {
         dispatch(factoryNoticeDialogActions.setVisible(false));
     }, [dispatch]);
@@ -74,8 +71,8 @@ export const FactoryModeNoticeDialog = (props: {}) => {
                     {`\n`}- If the track download is stuck on 'Seeking...' it means the track is corrupted. If you are sure the track is
                     valid and can be played on the unit, please report it as a bug.
                     {`\n`}- This mode is still very unstable. If you find any bugs, please report them by creating an issue on
-                    <Link href="https://github.com/asivery/webminidisc"> this project's github page</Link> or by messaging the developers on
-                    the <Link href="https://minidisc.wiki/discord">Minidisc.wiki Discord server</Link>.{`\n\n`}
+                    <Link href="https://github.com/asivery/webminidisc"> the upstream Web MiniDisc Pro issue tracker</Link> or by messaging
+                    the developers on the <Link href="https://minidisc.wiki/discord">Minidisc.wiki Discord server</Link>.{`\n\n`}
                     To download a track via USB:
                     {`\n`}- Select the 'Position Sector' tab.
                     {`\n`}- With 'Shift' pressed down, the ToC tiles show their numbers instead of descriptions

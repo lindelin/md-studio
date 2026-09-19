@@ -567,7 +567,7 @@ export const TopMenu = function (props: { tracksSelected?: number[]; onClick?: (
                     ref={githubLinkRef}
                     onClick={handleGithubLink}
                 >
-                    Fork me on GitHub
+                    Web MiniDisc Pro upstream source
                 </Link>
             </ListItemText>
         </MenuItem>

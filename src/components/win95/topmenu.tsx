@@ -61,7 +61,7 @@ export const W95TopMenu = (props: {
     items.push(
         <ListItem key={`menu-gh`}>
             <a rel="noopener noreferrer" href="https://github.com/asivery/webminidisc" target="_blank">
-                Fork me on GitHub
+                Web MiniDisc Pro upstream source
             </a>
         </ListItem>
     );

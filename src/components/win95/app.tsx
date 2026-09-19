@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { makeStyles } from 'tss-react/mui';
-import { forAnyDesktop, forWideDesktop, useShallowEqualSelector } from "../../frontend-utils";
+import { forAnyDesktop, forWideDesktop, useShallowEqualSelector } from '../../frontend-utils';
 
 import { Welcome } from '../welcome';
 import { Main } from '../main';
@@ -27,7 +27,7 @@ img {
 `;
 
 const useStyles = (props: { showsList: boolean }) =>
-    makeStyles()(theme => ({
+    makeStyles()((theme) => ({
         desktop: {
             width: '100%',
             height: '100%',
@@ -64,8 +64,8 @@ const useStyles = (props: { showsList: boolean }) =>
     }));
 
 export const W95App = () => {
-    const { mainView, loading } = useShallowEqualSelector(state => state.appState);
-    const { deviceCapabilities } = useShallowEqualSelector(state => state.main);
+    const { mainView, loading } = useShallowEqualSelector((state) => state.appState);
+    const { deviceCapabilities } = useShallowEqualSelector((state) => state.main);
     const { classes } = useStyles({ showsList: mainView === 'WELCOME' || deviceCapabilities.includes(Capability.contentList) })();
 
     const dispatch = useDispatch();
@@ -103,7 +103,7 @@ export const W95App = () => {
                 <Window className={classes.window}>
                     <WindowHeader style={{ display: 'flex', alignItems: 'center' }}>
                         <img alt="CD Player" src={CDPlayerIconUrl} />
-                        <span style={{ flex: '1 1 auto', marginLeft: '4px' }}>Web MiniDisc Pro</span>
+                        <span style={{ flex: '1 1 auto', marginLeft: '4px' }}>MiniDisc Workspace</span>
                         {mainView === 'MAIN' ? (
                             <Button onClick={handleExit}>
                                 <WindowCloseIcon />
