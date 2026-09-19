@@ -50,4 +50,15 @@ describe('LocalFileRegistry', () => {
         registry.clear();
         await assert.rejects(registry.readChunk(retained.handle, 0, 1), /unknown or expired/);
     });
+
+    it('rejects a registered path when its file is replaced or modified', async () => {
+        const registry = new LocalFileRegistry();
+        const registered = await registry.register(filePath);
+        try {
+            await writeFile(filePath, Uint8Array.from([5, 4, 3, 2, 1]));
+            await assert.rejects(registry.readChunk(registered.handle, 0, 5), /changed after it was registered/);
+        } finally {
+            await writeFile(filePath, Uint8Array.from([1, 2, 3, 4, 5]));
+        }
+    });
 });

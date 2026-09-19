@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { Stats } from 'node:fs';
 import { open, realpath, stat } from 'node:fs/promises';
 import { basename, extname } from 'node:path';
 
@@ -10,6 +11,14 @@ interface RegisteredFile {
     name: string;
     size: number;
     mimeType: string;
+    identity: FileIdentity;
+}
+
+interface FileIdentity {
+    device: number;
+    inode: number;
+    modifiedAtMs: number;
+    changedAtMs: number;
 }
 
 export interface FileChunk {
@@ -38,6 +47,7 @@ export class LocalFileRegistry implements FileChunkProvider {
             name: basename(resolvedPath),
             size: info.size,
             mimeType: inferMimeType(resolvedPath),
+            identity: identityOf(info),
         };
         this.files.set(handle, registered);
         return {
@@ -80,13 +90,38 @@ export class LocalFileRegistry implements FileChunkProvider {
         if (bytesToRead > 0) {
             const file = await open(registered.path, 'r');
             try {
+                assertFileUnchanged(registered, await file.stat());
                 const result = await file.read(data, 0, bytesToRead, offset);
                 if (result.bytesRead !== bytesToRead) throw new Error('The local audio file changed while it was being read.');
+                assertFileUnchanged(registered, await file.stat());
             } finally {
                 await file.close();
             }
         }
         return { ...registered, offset, data };
+    }
+}
+
+function identityOf(info: Stats): FileIdentity {
+    return {
+        device: info.dev,
+        inode: info.ino,
+        modifiedAtMs: info.mtimeMs,
+        changedAtMs: info.ctimeMs,
+    };
+}
+
+function assertFileUnchanged(registered: RegisteredFile, info: Stats) {
+    const identity = identityOf(info);
+    if (
+        !info.isFile() ||
+        info.size !== registered.size ||
+        identity.device !== registered.identity.device ||
+        identity.inode !== registered.identity.inode ||
+        identity.modifiedAtMs !== registered.identity.modifiedAtMs ||
+        identity.changedAtMs !== registered.identity.changedAtMs
+    ) {
+        throw new Error('The local audio file changed after it was registered. Add the file again before writing it.');
     }
 }
 
