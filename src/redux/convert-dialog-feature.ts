@@ -8,20 +8,10 @@ export type ForcedEncodingFormat = { codec: 'SPM' | 'SPS' | HiMDCodecName; bitra
 
 export interface ConvertDialogFeature {
     visible: boolean;
-    titles: {
-        title: string;
-        fullWidthTitle: string;
-        duration: number;
-        forcedEncoding: ForcedEncodingFormat;
-        bytesToSkip: number;
-        artist?: string;
-        album?: string;
-    }[];
 }
 
 const initialState: ConvertDialogFeature = {
     visible: false,
-    titles: [],
 };
 
 const slice = createSlice({
@@ -30,22 +20,6 @@ const slice = createSlice({
     reducers: {
         setVisible: (state, action: PayloadAction<boolean>) => {
             state.visible = action.payload;
-        },
-        setTitles: (
-            state,
-            action: PayloadAction<
-                {
-                    title: string;
-                    fullWidthTitle: string;
-                    duration: number;
-                    forcedEncoding: ForcedEncodingFormat;
-                    bytesToSkip: number;
-                    artist?: string;
-                    album?: string;
-                }[]
-            >
-        ) => {
-            state.titles = action.payload;
         },
     },
 });

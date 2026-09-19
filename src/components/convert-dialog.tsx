@@ -268,7 +268,7 @@ const ConnectedConvertDialog = (props: {
     const applicationClient = useApplicationClient();
     const { classes, cx } = useStyles();
 
-    const { visible, titles } = useShallowEqualSelector((state) => state.convertDialog);
+    const { visible } = useShallowEqualSelector((state) => state.convertDialog);
     const workspace = useApplicationWorkspace();
     const updateSettings = useUpdateApplicationSettings();
     const { fullWidthSupport, vintageMode, libraryService, uploadFormat: format, trackTitleFormat: titleFormat } =
@@ -278,6 +278,19 @@ const ConnectedConvertDialog = (props: {
     const recordingProfile = props.recordingProfile;
     const queueSnapshot = workspace.imports;
     const files = queueSnapshot.items;
+    const titles = useMemo(
+        () =>
+            files.map((file) => ({
+                title: file.title,
+                fullWidthTitle: file.fullWidthTitle ?? '',
+                duration: file.duration ?? 0,
+                forcedEncoding: (file.forcedEncoding as ForcedEncodingFormat) ?? null,
+                bytesToSkip: file.bytesToSkip ?? 0,
+                album: file.album,
+                artist: file.artist,
+            })),
+        [files]
+    );
     const [selectedTrackIndex, setSelectedTrack] = useState(-1);
     const [availableCharacters, setAvailableCharacters] = useState<{ halfWidth: number; fullWidth: number }>({
         fullWidth: 0,
@@ -304,22 +317,6 @@ const ConnectedConvertDialog = (props: {
         },
         [dispatch]
     );
-
-    useEffect(() => {
-        dispatch(
-            convertDialogActions.setTitles(
-                files.map((file) => ({
-                    title: file.title,
-                    fullWidthTitle: file.fullWidthTitle ?? '',
-                    duration: file.duration ?? 0,
-                    forcedEncoding: (file.forcedEncoding as ForcedEncodingFormat) ?? null,
-                    bytesToSkip: file.bytesToSkip ?? 0,
-                    album: file.album,
-                    artist: file.artist,
-                }))
-            )
-        );
-    }, [dispatch, files]);
 
     const fullWidthCharactersUsed = useMemo(() => {
         return (
