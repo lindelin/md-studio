@@ -17,8 +17,10 @@ import { BrowserMediaSessionService } from './services/browserintegration/media-
 import { listContent } from './redux/actions';
 import { sleep } from './utils';
 import { SettingsResetErrorBoundary } from './components/settings-reset-error-boundary';
+import { startLocalApplicationBridge } from './application/browser-bridge';
 serviceRegistry.mediaRecorderService = new MediaRecorderService();
 serviceRegistry.mediaSessionService = new BrowserMediaSessionService(store);
+startLocalApplicationBridge();
 
 Object.defineProperty(window, 'wmdVersion', {
     value: '1.6.0',

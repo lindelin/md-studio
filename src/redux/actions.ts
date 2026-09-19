@@ -38,36 +38,7 @@ import { LibraryServices } from '../services/library-services';
 import { s16LEToSamplesArray, Shazam } from 'shazam-api';
 import { bindApplicationRuntime, getApplicationRuntime } from '../application/runtime';
 import type { DeviceSnapshot } from '../application/contracts';
-
-function applyDeviceSnapshot(dispatch: AppDispatch, snapshot: DeviceSnapshot) {
-    dispatch(
-        batchActions([
-            mainActions.setDisc(snapshot.disc),
-            mainActions.setDeviceName(snapshot.deviceName),
-            mainActions.setDeviceStatus(snapshot.status),
-            mainActions.setDeviceCapabilities(
-                snapshot.capabilities
-                    .map(
-                        (capability) =>
-                            ({
-                                'content.read': Capability.contentList,
-                                'playback.control': Capability.playbackControl,
-                                'metadata.edit': Capability.metadataEdit,
-                                'track.upload': Capability.trackUpload,
-                                'track.download': Capability.trackDownload,
-                                'disc.eject': Capability.discEject,
-                                'advanced.factory': Capability.factoryMode,
-                                'metadata.himd': Capability.himdTitles,
-                                'metadata.fullWidth': Capability.fullWidthSupport,
-                                'track.uploadMono': Capability.nativeMonoUpload,
-                                'disc.formatHimd': Capability.himdFormat,
-                            })[capability]
-                    )
-                    .filter((capability) => capability !== undefined) as Capability[]
-            ),
-        ])
-    );
-}
+import { applyDeviceSnapshot } from './application-adapter';
 
 export function control(action: 'play' | 'stop' | 'next' | 'prev' | 'goto' | 'pause' | 'seek', params?: unknown) {
     return async function (dispatch: AppDispatch) {
