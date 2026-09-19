@@ -55,18 +55,7 @@ import CodeIcon from '@mui/icons-material/Code';
 import { W95TopMenu } from './win95/topmenu';
 import { ExploitCapability } from '../services/interfaces/netmd';
 
-import {
-    archiveDisc,
-    toggleDiscSwapDetection,
-    enableFactoryRippingModeInMainUi,
-    enterHiMDUnrestrictedMode,
-    initializeFactoryMode,
-    readToc,
-    stripSCMS,
-    stripTrProtect,
-    toggleSPUploadSpeedup,
-    writeModifiedTOC,
-} from '../redux/factory/factory-actions';
+const loadFactoryActions = () => import('../redux/factory/factory-actions');
 
 const useStyles = makeStyles()((theme) => ({
     listItemIcon: {
@@ -109,7 +98,8 @@ export const TopMenu = function (props: { tracksSelected?: number[]; onClick?: (
     );
 
     const handleShortcutsOpen = useCallback(
-        (event: React.MouseEvent<HTMLElement>) => {
+        async (event: React.MouseEvent<HTMLElement>) => {
+            const { initializeFactoryMode } = await loadFactoryActions();
             dispatch(initializeFactoryMode());
             setShortcutsAnchorEl(event.currentTarget);
         },
@@ -223,10 +213,11 @@ export const TopMenu = function (props: { tracksSelected?: number[]; onClick?: (
         handleMenuClose();
     }, [dispatch, handleMenuClose]);
 
-    const handleToggleFactoryModeRippingInMainUi = useCallback(() => {
+    const handleToggleFactoryModeRippingInMainUi = useCallback(async () => {
         if (factoryModeRippingInMainUi) {
             dispatch(appActions.setFactoryModeRippingInMainUi(false));
         } else {
+            const { enableFactoryRippingModeInMainUi } = await loadFactoryActions();
             dispatch(enableFactoryRippingModeInMainUi());
         }
         handleMenuClose();
@@ -267,30 +258,36 @@ export const TopMenu = function (props: { tracksSelected?: number[]; onClick?: (
 
     const handleArchiveDisc = useCallback(async () => {
         handleMenuClose();
+        const { archiveDisc, readToc } = await loadFactoryActions();
         dispatch(dispatchQueue(readToc(), archiveDisc()));
     }, [dispatch, handleMenuClose]);
 
-    const handleStripSCMS = useCallback(() => {
+    const handleStripSCMS = useCallback(async () => {
+        const { readToc, stripSCMS, writeModifiedTOC } = await loadFactoryActions();
         dispatch(dispatchQueue(readToc(), stripSCMS(), writeModifiedTOC()));
         handleMenuClose();
     }, [dispatch, handleMenuClose]);
 
-    const handleAllUnprotect = useCallback(() => {
+    const handleAllUnprotect = useCallback(async () => {
+        const { readToc, stripTrProtect, writeModifiedTOC } = await loadFactoryActions();
         dispatch(dispatchQueue(readToc(), stripTrProtect(), writeModifiedTOC()));
         handleMenuClose();
     }, [dispatch, handleMenuClose]);
 
-    const handleToggleSPUploadSpeedup = useCallback(() => {
+    const handleToggleSPUploadSpeedup = useCallback(async () => {
+        const { toggleSPUploadSpeedup } = await loadFactoryActions();
         dispatch(toggleSPUploadSpeedup());
         handleMenuClose();
     }, [dispatch, handleMenuClose]);
 
-    const handleEnterHiMDUnrestrictedMode = useCallback(() => {
+    const handleEnterHiMDUnrestrictedMode = useCallback(async () => {
+        const { enterHiMDUnrestrictedMode } = await loadFactoryActions();
         dispatch(enterHiMDUnrestrictedMode());
         handleMenuClose();
     }, [dispatch, handleMenuClose]);
 
-    const handleToggleDiscSwapDetection = useCallback(() => {
+    const handleToggleDiscSwapDetection = useCallback(async () => {
+        const { toggleDiscSwapDetection } = await loadFactoryActions();
         dispatch(toggleDiscSwapDetection());
         handleMenuClose();
     }, [dispatch, handleMenuClose]);

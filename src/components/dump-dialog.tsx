@@ -14,7 +14,6 @@ import Button from '@mui/material/Button';
 import { makeStyles } from 'tss-react/mui';
 import Typography from '@mui/material/Typography';
 import { W95DumpDialog } from './win95/dump-dialog';
-import { exploitDownloadTracks } from '../redux/factory/factory-actions';
 import { LineInDeviceSelect } from './line-in-helpers';
 import { getApplicationClient } from '../application/runtime';
 
@@ -70,8 +69,9 @@ export const DumpDialog = ({
     }, [dispatch, handleClose, inputDeviceId, trackIndexes]);
 
     const handleStartTransfer = useCallback(
-        (convertToWav: boolean = false) => {
+        async (convertToWav: boolean = false) => {
             if (isExploitDownload) {
+                const { exploitDownloadTracks } = await import('../redux/factory/factory-actions');
                 dispatch(exploitDownloadTracks(trackIndexes, convertToWav));
             } else {
                 dispatch(downloadTracks(trackIndexes, convertToWav));

@@ -24,7 +24,6 @@ import NotificationCompleteIconUrl from '../images/record-complete-notification-
 import { assertNumber } from 'netmd-js/dist/utils';
 import { Capability, NetMDService, Codec, MinidiscSpec, ExploitCapability } from '../services/interfaces/netmd';
 import { getSimpleServices, ServiceConstructionInfo } from '../services/interface-service-manager';
-import { checkFactoryCapability } from './factory/factory-actions';
 import { connectDeviceSession, getApplicationClient, releaseDeviceSession } from '../application/runtime';
 import { applyDeviceSnapshot } from './application-adapter';
 import { MetadataImportError } from '../domain/metadata-import';
@@ -42,6 +41,11 @@ import type {
     DeviceUploadService,
     PlaybackCommand,
 } from '../application/contracts';
+
+async function checkFactoryCapability(dispatch: AppDispatch, capability: ExploitCapability) {
+    const factoryActions = await import('./factory/factory-actions');
+    return factoryActions.checkFactoryCapability(dispatch, capability);
+}
 
 async function executeDeviceCommand(dispatch: AppDispatch, command: ApplicationCommand) {
     const result = await getApplicationClient().execute(command);
