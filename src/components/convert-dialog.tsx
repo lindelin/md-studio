@@ -1,11 +1,7 @@
 import React, { SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDispatch } from '../frontend-utils';
 import {
-    getMetadataFromFile,
     secondsToHumanReadable,
-    getATRACWAVEncoding,
-    getATRACOMAEncoding,
-    getChannelsFromAEA,
     acceptedTypes,
     AdaptiveFile,
     bytesToHumanReadable,
@@ -58,7 +54,6 @@ import { W95ConvertDialog } from './win95/convert-dialog';
 import {
     Capability,
     Codec,
-    CodecFamily,
     Disc,
     getCodecFromIndex,
     getDefaultCodec,
@@ -73,6 +68,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import { LeftInNondefaultCodecs } from './main-rows';
 import { formatImportTitle } from '../application/import-title';
+import { inspectImportFiles, type InspectedImportFile } from '../application/audio-import-inspector';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
@@ -219,16 +215,6 @@ const useStyles = makeStyles()((theme) => ({
     },
 }));
 
-type InspectedFile = {
-    file: File | AdaptiveFile;
-    title: string;
-    album: string;
-    artist: string;
-    duration: number;
-    forcedEncoding: ForcedEncodingFormat;
-    bytesToSkip: number;
-};
-
 function createBrowserFileReference() {
     return `browser-file:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
 }
@@ -331,74 +317,14 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
 
     const loadMetadataFromFiles = useMemo(
         () =>
-            async (files: (File | AdaptiveFile)[]): Promise<InspectedFile[]> => {
+            async (files: (File | AdaptiveFile)[]): Promise<InspectedImportFile[]> => {
                 setLoadingMetadata(true);
-                const titledFiles: InspectedFile[] = [];
-                for (const _file of files) {
-                    // If the file is an adaptive file...:
-                    if ((_file as any).getForEncoding) {
-                        const file = _file as AdaptiveFile;
-                        titledFiles.push({
-                            album: file.album,
-                            artist: file.artist,
-                            title: file.title,
-                            duration: file.duration,
-
-                            file: file,
-
-                            // TODO: Should the local library allow upload of preencoded ATRAC files?
-                            bytesToSkip: 0,
-                            forcedEncoding: null,
-                        });
-                        continue;
-                    } else {
-                        const file = _file as File;
-                        const metadata = await getMetadataFromFile(file);
-                        let forcedEncoding: null | 'ILLEGAL' | { format: ForcedEncodingFormat; headerLength: number } =
-                            await getATRACWAVEncoding(file);
-                        if (file.name.toLowerCase().endsWith('.aea')) {
-                            const channels = await getChannelsFromAEA(file);
-                            if (channels === 1 || channels === 2) {
-                                forcedEncoding = {
-                                    format: channels === 2 ? { codec: 'SPS', bitrate: 292 } : { codec: 'SPM', bitrate: 146 },
-                                    headerLength: 2048,
-                                };
-                                metadata.duration = (((file.size - 2048) / 212) * 11.6) / 1000 / channels;
-                            }
-                        } else if (file.name.toLowerCase().endsWith('.mp3')) {
-                            // FIXME: Check by file magic instead
-                            forcedEncoding = {
-                                format: { codec: 'MP3', bitrate: metadata.bitrate },
-                                headerLength: 0,
-                            };
-                        }
-                        if (forcedEncoding === null) {
-                            forcedEncoding = await getATRACOMAEncoding(file);
-                        }
-
-                        if (forcedEncoding !== null && forcedEncoding !== 'ILLEGAL') {
-                            // There's an encoding forced by either the SP upload functionality or OMA
-                            const asCodec: CodecFamily = forcedEncoding.format!.codec;
-                            const isIllegalForThisFormat = () => !minidiscSpec.availableFormats.some((e) => e.codec === asCodec);
-                            if (isIllegalForThisFormat()) {
-                                // If it's still invalid, do not force an encoding
-                                if (isIllegalForThisFormat()) forcedEncoding = null;
-                            }
-                        }
-
-                        if (forcedEncoding === 'ILLEGAL') {
-                            window.alert(`Cannot transfer file ${file.name}.`);
-                        } else {
-                            titledFiles.push({
-                                file,
-                                ...metadata,
-                                forcedEncoding: forcedEncoding?.format ?? null,
-                                bytesToSkip: forcedEncoding?.headerLength ?? 0,
-                            });
-                        }
-                    }
-                }
-                return titledFiles;
+                const result = await inspectImportFiles(
+                    files,
+                    minidiscSpec.availableFormats.map((format) => format.codec)
+                );
+                for (const failure of result.failures) window.alert(`Cannot transfer file ${failure.name}: ${failure.reason}`);
+                return result.files;
             },
         [minidiscSpec.availableFormats]
     );
@@ -442,7 +368,7 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
     );
 
     const addInspectedFiles = useCallback(
-        (inspectedFiles: InspectedFile[]) => {
+        (inspectedFiles: InspectedImportFile[]) => {
             if (inspectedFiles.length === 0) return;
             const selectedTitleFormat = usesHimdTitles ? 'title' : titleFormat;
             const added = serviceRegistry.importQueue.add(
