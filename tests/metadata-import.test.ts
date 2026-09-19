@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { buildImportedGroups, createMetadataImportPlan, MetadataImportError } from '../src/domain/metadata-import.ts';
+import { buildImportedGroups, createMetadataImportPlan, MetadataImportError, serializeMetadataCsv } from '../src/domain/metadata-import.ts';
 
 const header = 'INDEX,GROUP RANGE,GROUP NAME,GROUP FULL WIDTH NAME,NAME,FULL WIDTH NAME,HIMD ALBUM,HIMD ARTIST,DURATION,ENCODING,BITRATE';
 
@@ -30,6 +30,19 @@ function disc() {
 }
 
 describe('metadata CSV import planning', () => {
+    it('exports current metadata into a round-trippable document', () => {
+        const source = disc();
+        source.title = 'Comma, Disc';
+        source.groups[0].tracks[0].title = 'Comma, Track';
+        const exported = serializeMetadataCsv(source);
+        const plan = createMetadataImportPlan(exported.text, source);
+
+        assert.equal(exported.fileName, 'Comma, Disc.csv');
+        assert.equal(plan.discTitle.title, 'Comma, Disc');
+        assert.equal(plan.tracks[0].title, 'Comma, Track');
+        assert.equal(plan.trackCountMatches, true);
+    });
+
     it('fully validates a file and builds the final group layout before device writes', () => {
         const text = [
             header,

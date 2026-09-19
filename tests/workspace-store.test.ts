@@ -36,6 +36,7 @@ function makeApplication() {
         async addGroup() {},
         async deleteGroup() {},
         async deleteTracks() {},
+        async rewriteGroups() {},
         async moveTrack() {},
         async wipeDisc() {},
         async formatToHiMD() {},

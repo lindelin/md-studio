@@ -19,6 +19,7 @@ import type {
 } from './import-queue';
 import { ImportQueue } from './import-queue';
 import type { TrackExporter, TrackExportRequest } from './track-export';
+import type { MetadataCsvExport, MetadataImportPlan } from '../domain/metadata-import';
 
 export type ApplicationCommand =
     | { type: 'disc.refresh'; dropCache?: boolean }
@@ -27,6 +28,9 @@ export type ApplicationCommand =
     | { type: 'disc.formatHimd'; confirmation?: DestructiveConfirmation; expectedRevision?: number }
     | { type: 'device.flush'; expectedRevision?: number }
     | { type: 'disc.eject'; expectedRevision?: number }
+    | { type: 'metadata.exportCsv' }
+    | { type: 'metadata.planCsv'; text: string }
+    | { type: 'metadata.applyCsv'; text: string; includedTrackIndexes: number[]; expectedRevision?: number }
     | { type: 'track.renameMany'; updates: TrackMetadataUpdate[]; expectedRevision?: number }
     | { type: 'track.renameHimdMany'; updates: HiMDTrackMetadataUpdate[]; expectedRevision?: number }
     | { type: 'track.move'; sourceIndex: number; destinationIndex: number; expectedRevision?: number }
@@ -61,6 +65,8 @@ export interface CommandSuccess {
     task?: TaskSnapshot;
     tasks?: TaskSnapshot[];
     importQueue?: ImportQueueSnapshot;
+    metadataCsv?: MetadataCsvExport;
+    metadataPlan?: MetadataImportPlan;
 }
 
 export interface CommandFailure {
@@ -120,6 +126,12 @@ export class ApplicationCommandBus {
                 if (!this.trackExporter) throw new Error('Track export is unavailable in this application environment.');
                 return { ok: true, task: await this.trackExporter.start(command, this.application, this.tasks) };
             }
+            if (command.type === 'metadata.exportCsv') {
+                return { ok: true, metadataCsv: await this.application.exportMetadataCsv() };
+            }
+            if (command.type === 'metadata.planCsv') {
+                return { ok: true, metadataPlan: await this.application.planMetadataImport(command.text) };
+            }
 
             let snapshot: DeviceSnapshot;
             switch (command.type) {
@@ -140,6 +152,13 @@ export class ApplicationCommandBus {
                     break;
                 case 'disc.eject':
                     snapshot = await this.application.ejectDisc(command.expectedRevision);
+                    break;
+                case 'metadata.applyCsv':
+                    snapshot = await this.application.applyMetadataImport(
+                        command.text,
+                        command.includedTrackIndexes,
+                        command.expectedRevision
+                    );
                     break;
                 case 'track.renameMany':
                     snapshot = await this.application.renameTracks(command.updates, command.expectedRevision);

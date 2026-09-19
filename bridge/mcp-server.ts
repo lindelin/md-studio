@@ -63,6 +63,37 @@ function createServer() {
         async (input) => execute({ type: 'disc.rename', ...input })
     );
     server.registerTool(
+        'minidisc_export_metadata_csv',
+        {
+            description: 'Export current disc, group, track, and HiMD metadata as a round-trippable CSV document.',
+            inputSchema: z.object({}),
+        },
+        async () => execute({ type: 'metadata.exportCsv' })
+    );
+    server.registerTool(
+        'minidisc_plan_metadata_csv',
+        {
+            description:
+                'Validate a metadata CSV against the current disc without writing it. Review track-count and content mismatches before applying.',
+            inputSchema: z.object({ text: z.string().min(1).max(1024 * 1024) }),
+        },
+        async ({ text }) => execute({ type: 'metadata.planCsv', text })
+    );
+    server.registerTool(
+        'minidisc_apply_metadata_csv',
+        {
+            description:
+                'Apply a previously reviewed metadata CSV. includedTrackIndexes are zero-based; an empty list applies only the disc title and preserves current groups.',
+            inputSchema: z.object({
+                text: z.string().min(1).max(1024 * 1024),
+                includedTrackIndexes: z.array(z.number().int().nonnegative()),
+                expectedRevision: z.number().int().nonnegative().optional(),
+            }),
+        },
+        async ({ text, includedTrackIndexes, expectedRevision }) =>
+            execute({ type: 'metadata.applyCsv', text, includedTrackIndexes, expectedRevision })
+    );
+    server.registerTool(
         'minidisc_rename_tracks',
         {
             description: 'Rename one or more tracks atomically after validating every track index.',

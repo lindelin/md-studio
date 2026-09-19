@@ -64,6 +64,51 @@ export class MetadataImportError extends Error {
     }
 }
 
+export interface MetadataCsvExport {
+    fileName: string;
+    text: string;
+}
+
+export function serializeMetadataCsv(disc: Disc): MetadataCsvExport {
+    const rows: string[][] = [
+        [
+            '0',
+            '0-0',
+            '',
+            '',
+            disc.title ?? '',
+            disc.fullWidthTitle ?? '',
+            '',
+            '',
+            String(disc.used),
+            '',
+            '',
+        ],
+    ];
+    for (const group of disc.groups) {
+        const indexes = group.tracks.map((track) => track.index);
+        const groupRange = group.title === null || indexes.length === 0 ? '' : `${Math.min(...indexes)}-${Math.max(...indexes)}`;
+        for (const track of group.tracks) {
+            rows.push([
+                String(track.index + 1),
+                groupRange,
+                group.title ?? '',
+                group.fullWidthTitle ?? '',
+                track.title ?? '',
+                track.fullWidthTitle ?? '',
+                track.album ?? '',
+                track.artist ?? '',
+                String(track.duration),
+                track.encoding.codec,
+                track.encoding.bitrate?.toString() ?? '',
+            ]);
+        }
+    }
+    const header = METADATA_CSV_HEADER_ALIASES.map((aliases) => aliases[0]);
+    const text = [header, ...rows].map((row) => row.map(escapeLegacyCsvCell).join(',')).join('\n');
+    return { fileName: `${discDisplayName(disc)}.csv`, text };
+}
+
 export function createMetadataImportPlan(text: string, disc: Disc): MetadataImportPlan {
     const rows = parseMetadataCsv(text);
     const discRows = rows.filter((row) => row.index === 0);
@@ -171,6 +216,15 @@ function parseMetadataCsv(text: string): MetadataImportRow[] {
 
 function splitLegacyCsvLine(line: string) {
     return line.split(/(?<!\\),/g).map((cell) => cell.replace(/\\,/g, ','));
+}
+
+function escapeLegacyCsvCell(value: string) {
+    return value.replace(/,/g, '\\,').replace(/\r?\n/g, ' ');
+}
+
+function discDisplayName(disc: Disc) {
+    if (disc.title && disc.fullWidthTitle) return `${disc.title} (${disc.fullWidthTitle})`;
+    return disc.title || disc.fullWidthTitle || 'Disc';
 }
 
 function validateHeader(header: string[]) {

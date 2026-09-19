@@ -1,5 +1,5 @@
 import type { DeviceGateway, ApplicationCapability, GroupMetadataUpdate, HiMDTrackMetadataUpdate, PlaybackCommand } from './contracts';
-import { Capability, type MinidiscSpec, type NetMDService } from '../services/interfaces/netmd';
+import { Capability, type Group, type MinidiscSpec, type NetMDService } from '../services/interfaces/netmd';
 
 const capabilityNames: Record<Capability, ApplicationCapability> = {
     [Capability.contentList]: 'content.read',
@@ -60,6 +60,22 @@ export class NetMDDeviceGateway implements DeviceGateway {
 
     async deleteTracks(indexes: number[]) {
         await this.service.deleteTracks(indexes);
+    }
+
+    async rewriteGroups(groups: Group[]) {
+        await this.service.rewriteGroups(
+            groups.map((group) => ({
+                ...group,
+                title: group.title === null ? null : this.spec.sanitizeHalfWidthTitle(group.title),
+                fullWidthTitle:
+                    group.fullWidthTitle === null ? null : this.spec.sanitizeFullWidthTitle(group.fullWidthTitle),
+                tracks: group.tracks.map((track) => ({
+                    ...track,
+                    title: this.spec.sanitizeHalfWidthTitle(track.title ?? ''),
+                    fullWidthTitle: this.spec.sanitizeFullWidthTitle(track.fullWidthTitle ?? ''),
+                })),
+            }))
+        );
     }
 
     async moveTrack(sourceIndex: number, destinationIndex: number) {

@@ -1,4 +1,4 @@
-import type { Disc, DeviceStatus } from '../services/interfaces/netmd';
+import type { Disc, DeviceStatus, Group } from '../services/interfaces/netmd';
 
 export type ApplicationCapability =
     | 'content.read'
@@ -60,6 +60,7 @@ export interface DeviceGateway {
     addGroup(firstTrack: number, trackCount: number, title: string, fullWidthTitle?: string): Promise<void>;
     deleteGroup(index: number): Promise<void>;
     deleteTracks(indexes: number[]): Promise<void>;
+    rewriteGroups(groups: Group[]): Promise<void>;
     moveTrack(sourceIndex: number, destinationIndex: number): Promise<void>;
     wipeDisc(): Promise<void>;
     formatToHiMD(): Promise<void>;

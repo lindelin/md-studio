@@ -63,6 +63,10 @@ function makeGateway() {
             disc.groups[0].tracks = disc.groups[0].tracks.filter((track: any) => !indexes.includes(track.index));
             disc.trackCount = disc.groups[0].tracks.length;
         },
+        async rewriteGroups(groups) {
+            calls.push('rewriteGroups');
+            disc.groups = structuredClone(groups);
+        },
         async moveTrack(sourceIndex, destinationIndex) {
             calls.push(`move:${sourceIndex}:${destinationIndex}`);
             const [track] = disc.groups[0].tracks.splice(sourceIndex, 1);
@@ -97,6 +101,54 @@ function makeGateway() {
 }
 
 describe('MiniDiscApplication', () => {
+    it('plans, exports, and applies CSV metadata through the shared application layer', async () => {
+        const { gateway, calls } = makeGateway();
+        const application = new MiniDiscApplication(gateway);
+        const initial = await application.refresh();
+        const exported = await application.exportMetadataCsv();
+        assert.equal(exported.fileName, 'Test Disc.csv');
+        assert.match(exported.text, /INDEX,GROUP RANGE/);
+
+        const text = [
+            'INDEX,GROUP RANGE,GROUP NAME,GROUP FULL WIDTH NAME,NAME,FULL WIDTH NAME,HIMD ALBUM,HIMD ARTIST,DURATION,ENCODING,BITRATE',
+            '0,0-0,,,Imported,,,,10,,',
+            '1,0-1,Side A,,First,,Album,Artist,1,SPS,292',
+            '2,0-1,Side A,,Second,,Album,Artist,1,SPS,292',
+        ].join('\n');
+        const plan = await application.planMetadataImport(text);
+        assert.equal(plan.trackCountMatches, true);
+        const applied = await application.applyMetadataImport(text, [0, 1], initial.revision);
+
+        assert.equal(applied.disc?.title, 'Imported');
+        assert.deepEqual(
+            applied.disc?.groups.map((group) => ({ title: group.title, tracks: group.tracks.map((track) => track.index) })),
+            [{ title: 'Side A', tracks: [0, 1] }]
+        );
+        assert.deepEqual(calls.slice(-5), [
+            'renameDisc:Imported',
+            'renameHiMDTrack:0:First:Album:Artist',
+            'renameHiMDTrack:1:Second:Album:Artist',
+            'rewriteGroups',
+            'read',
+        ]);
+    });
+
+    it('can apply only a CSV disc title without erasing current group layout', async () => {
+        const { gateway, calls } = makeGateway();
+        const application = new MiniDiscApplication(gateway);
+        await application.refresh();
+        const text = [
+            'INDEX,GROUP RANGE,GROUP NAME,GROUP FULL WIDTH NAME,NAME,FULL WIDTH NAME,HIMD ALBUM,HIMD ARTIST,DURATION,ENCODING,BITRATE',
+            '0,0-0,,,Title Only,,,,10,,',
+        ].join('\n');
+
+        const applied = await application.applyMetadataImport(text, []);
+
+        assert.equal(applied.disc?.title, 'Title Only');
+        assert.equal(applied.disc?.trackCount, 2);
+        assert.equal(calls.includes('rewriteGroups'), false);
+    });
+
     it('publishes device snapshots only after successful reads and mutations', async () => {
         const { gateway } = makeGateway();
         const application = new MiniDiscApplication(gateway);

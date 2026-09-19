@@ -39,7 +39,7 @@ import { s16LEToSamplesArray, Shazam } from 'shazam-api';
 import { bindApplicationRuntime, getApplicationRuntime, releaseDeviceSession } from '../application/runtime';
 import type { DeviceSnapshot } from '../application/contracts';
 import { applyDeviceSnapshot } from './application-adapter';
-import { buildImportedGroups, createMetadataImportPlan, METADATA_CSV_HEADER_ALIASES, MetadataImportError } from '../domain/metadata-import';
+import { MetadataImportError } from '../domain/metadata-import';
 import { waitForTrackReady } from '../domain/playback-position';
 
 export function requestTaskCancellation(id: string) {
@@ -907,81 +907,32 @@ export function setNotifyWhenFinished(value: boolean) {
     };
 }
 
-const csvHeader = METADATA_CSV_HEADER_ALIASES;
-
 export function exportCSV(callback: (blob: Blob, name: string) => void = downloadBlob) {
     return async function (dispatch: AppDispatch, _getState: () => RootState) {
         void _getState;
         dispatch(appStateActions.setLoading(true));
-        const disc = await serviceRegistry.netmdService!.listContent();
-        const rows: string[][] = [];
-        rows.push([
-            '0', // track index - 0 is disc title
-            '0-0', // No group range
-            '', // No group name
-            '', // No group fw name
-            disc.title ?? '',
-            disc.fullWidthTitle ?? '',
-            '', // no album
-            '', // no artist
-            '' + disc.used,
-            '',
-            '',
-        ]);
-        for (const group of disc.groups) {
-            const groupStart = Math.min(...group.tracks.map((e) => e.index));
-            const groupEnd = Math.max(...group.tracks.map((e) => e.index));
-            const groupRange = group.title === null ? '' : `${groupStart}-${groupEnd}`;
-            for (const track of group.tracks) {
-                rows.push([
-                    '' + (track.index + 1),
-                    groupRange,
-                    group.title ?? '',
-                    group.fullWidthTitle ?? '',
-                    track.title ?? '',
-                    track.fullWidthTitle ?? '',
-                    track.album ?? '',
-                    track.artist ?? '',
-                    '' + track.duration,
-                    track.encoding.codec,
-                    track.encoding.bitrate?.toString() ?? '',
-                ]);
-            }
+        try {
+            const exported = await getApplicationRuntime().exportMetadataCsv();
+            callback(new Blob([exported.text]), exported.fileName);
+        } finally {
+            dispatch(appStateActions.setLoading(false));
         }
-        const csvDocument = [csvHeader.map((e) => e[0]), ...rows]
-            .map((e) => e.map((q) => q.toString().replace(/,/g, '\\,')).join(','))
-            .join('\n');
-
-        let title;
-        if (disc.title) {
-            title = disc.title;
-            if (disc.fullWidthTitle) {
-                title += ` (${disc.fullWidthTitle})`;
-            }
-        } else if (disc.fullWidthTitle) {
-            title = disc.fullWidthTitle;
-        } else {
-            title = 'Disc';
-        }
-
-        callback(new Blob([csvDocument]), title + '.csv');
-        dispatch(appStateActions.setLoading(false));
     };
 }
 
 export function importCSV(file: File) {
-    return async function (dispatch: AppDispatch, getState: () => RootState) {
+    return async function (dispatch: AppDispatch) {
         const text = new TextDecoder('utf-8').decode(await file.arrayBuffer());
-        const usesHiMDTitles = getState().main.deviceCapabilities.includes(Capability.himdTitles);
         dispatch(appStateActions.setLoading(true));
         try {
-            const disc = await serviceRegistry.netmdService!.listContent();
-            const plan = createMetadataImportPlan(text, disc);
+            const application = getApplicationRuntime();
+            const expectedRevision = application.readSnapshot()?.revision;
+            const plan = await application.planMetadataImport(text);
             if (
                 !plan.trackCountMatches &&
                 !window.confirm(
                     `The CSV file describes a disc with ${plan.expectedTrackCount} tracks.\nThe disc inserted has ${
-                        disc.trackCount
+                        plan.disc.trackCount
                     } tracks.\nContinue importing?`
                 )
             ) {
@@ -1009,21 +960,10 @@ export function importCSV(file: File) {
                 }
                 includedTrackIndexes.add(track.trackIndex);
             }
-
-            await serviceRegistry.netmdService!.renameDisc(plan.discTitle.title, plan.discTitle.fullWidthTitle);
-            for (const track of plan.tracks.filter((entry) => includedTrackIndexes.has(entry.trackIndex))) {
-                if (usesHiMDTitles) {
-                    await serviceRegistry.netmdService!.renameTrack(track.trackIndex, {
-                        title: track.title,
-                        album: track.album,
-                        artist: track.artist,
-                    });
-                } else {
-                    await serviceRegistry.netmdService!.renameTrack(track.trackIndex, track.title, track.fullWidthTitle);
-                }
-            }
-            await serviceRegistry.netmdService!.rewriteGroups(buildImportedGroups(plan, includedTrackIndexes));
-            applyDeviceSnapshot(dispatch, await getApplicationRuntime().synchronizeAfterExternalMutation());
+            applyDeviceSnapshot(
+                dispatch,
+                await application.applyMetadataImport(text, [...includedTrackIndexes], expectedRevision)
+            );
         } catch (error) {
             if (error instanceof MetadataImportError) {
                 window.alert(error.message);

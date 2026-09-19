@@ -10,6 +10,12 @@ import {
     type TrackMetadataUpdate,
 } from './contracts';
 import { DeviceOperationCoordinator } from './operation-coordinator';
+import {
+    buildImportedGroups,
+    createMetadataImportPlan,
+    serializeMetadataCsv,
+    type MetadataImportPlan,
+} from '../domain/metadata-import';
 
 function createSessionId() {
     return globalThis.crypto?.randomUUID?.() ?? `session-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -52,6 +58,46 @@ export class MiniDiscApplication {
         return () => {
             this.listeners.delete(listener);
         };
+    }
+
+    planMetadataImport(text: string): Promise<MetadataImportPlan> {
+        return this.serial(async () => createMetadataImportPlan(text, this.requireDisc()));
+    }
+
+    exportMetadataCsv() {
+        return this.serial(async () => serializeMetadataCsv(this.requireDisc()));
+    }
+
+    applyMetadataImport(text: string, includedTrackIndexes: number[], expectedRevision?: number) {
+        return this.mutate('metadata.edit', expectedRevision, async (disc) => {
+            const plan = createMetadataImportPlan(text, disc);
+            const allowedIndexes = new Set(plan.tracks.filter((track) => track.actual).map((track) => track.trackIndex));
+            const selectedIndexes =
+                includedTrackIndexes.length === 0
+                    ? []
+                    : this.validateUniqueIndexes(includedTrackIndexes, allowedIndexes, 'track');
+            await this.gateway.renameDisc(plan.discTitle.title, plan.discTitle.fullWidthTitle);
+            const usesHiMDMetadata = this.snapshot!.capabilities.includes('metadata.himd');
+            for (const track of plan.tracks.filter((entry) => selectedIndexes.includes(entry.trackIndex))) {
+                if (usesHiMDMetadata) {
+                    await this.gateway.renameHiMDTrack({
+                        index: track.trackIndex,
+                        title: track.title,
+                        album: track.album,
+                        artist: track.artist,
+                    });
+                } else {
+                    await this.gateway.renameTrack({
+                        index: track.trackIndex,
+                        title: track.title,
+                        fullWidthTitle: track.fullWidthTitle,
+                    });
+                }
+            }
+            if (selectedIndexes.length > 0) {
+                await this.gateway.rewriteGroups(buildImportedGroups(plan, new Set(selectedIndexes)));
+            }
+        });
     }
 
     renameDisc(title: string, fullWidthTitle?: string, expectedRevision?: number) {
