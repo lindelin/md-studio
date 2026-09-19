@@ -67,6 +67,13 @@ describe('WorkspaceStore', () => {
         let changes = 0;
         store.subscribe(() => changes++);
 
+        assert.deepEqual(store.getSnapshot().connection, {
+            phase: 'disconnected',
+            serviceName: null,
+            method: null,
+            message: null,
+        });
+
         store.attachApplication(application);
         assert.equal(store.getSnapshot().device, null);
         await application.refresh();
@@ -91,5 +98,33 @@ describe('WorkspaceStore', () => {
         assert.equal(store.getSnapshot().device, null);
         await application.renameDisc('Detached');
         assert.equal(store.getSnapshot().device, null);
+    });
+
+    it('publishes connection progress independently from device content', () => {
+        const store = new WorkspaceStore(new TaskManager(), new ImportQueue(), new SettingsStore(null));
+        let changes = 0;
+        store.subscribe(() => changes++);
+
+        store.setConnection({
+            phase: 'connecting',
+            serviceName: 'USB NetMD',
+            method: null,
+            message: null,
+        });
+        store.setConnection({
+            phase: 'connected',
+            serviceName: 'USB NetMD',
+            method: 'paired',
+            message: null,
+        });
+
+        assert.deepEqual(store.getSnapshot().connection, {
+            phase: 'connected',
+            serviceName: 'USB NetMD',
+            method: 'paired',
+            message: null,
+        });
+        assert.equal(store.getSnapshot().device, null);
+        assert.equal(changes, 2);
     });
 });

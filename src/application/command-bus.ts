@@ -198,6 +198,12 @@ export class ApplicationCommandBus {
                     workspace: this.workspace
                         ? structuredClone(this.workspace.getSnapshot())
                         : {
+                              connection: {
+                                  phase: this.application ? ('connected' as const) : ('disconnected' as const),
+                                  serviceName: null,
+                                  method: null,
+                                  message: null,
+                              },
                               device: this.application?.readSnapshot() ?? null,
                               imports: this.imports.snapshot(),
                               tasks: this.tasks.list(),

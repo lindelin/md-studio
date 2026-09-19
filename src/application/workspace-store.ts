@@ -6,7 +6,15 @@ import type { SettingsSnapshot, SettingsStore } from './settings-store';
 import type { LibraryCatalog, LibraryCatalogState } from './library-catalog';
 import type { AudioEncoderManager, AudioEncoderSnapshot } from './audio-encoder-manager';
 
+export interface DeviceConnectionSnapshot {
+    phase: 'disconnected' | 'connecting' | 'connected' | 'disconnecting' | 'error';
+    serviceName: string | null;
+    method: 'cached' | 'paired' | null;
+    message: string | null;
+}
+
 export interface WorkspaceSnapshot {
+    connection: DeviceConnectionSnapshot;
     device: DeviceSnapshot | null;
     imports: ImportQueueSnapshot;
     tasks: TaskSnapshot[];
@@ -30,6 +38,12 @@ export class WorkspaceStore {
         audioEncoderManager?: AudioEncoderManager
     ) {
         this.snapshot = {
+            connection: {
+                phase: 'disconnected',
+                serviceName: null,
+                method: null,
+                message: null,
+            },
             device: null,
             imports: importQueue.snapshot(),
             tasks: taskManager.list(),
@@ -71,6 +85,10 @@ export class WorkspaceStore {
         this.detachDevice?.();
         this.detachDevice = undefined;
         this.update({ device: null });
+    }
+
+    setConnection(connection: DeviceConnectionSnapshot) {
+        this.update({ connection });
     }
 
     private update(changes: Partial<WorkspaceSnapshot>) {

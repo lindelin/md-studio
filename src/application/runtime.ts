@@ -193,31 +193,78 @@ export function getApplicationClient() {
             localMediaServices,
             {
                 connect: async (request) => {
-                    const loaded = await loadService(request);
-                    if (!loaded) return { connected: false, method: null };
+                    serviceRegistry.workspaceStore.setConnection({
+                        phase: 'connecting',
+                        serviceName: request.name,
+                        method: null,
+                        message: null,
+                    });
+                    try {
+                        const loaded = await loadService(request);
+                        if (!loaded) {
+                            serviceRegistry.workspaceStore.setConnection(disconnectedDeviceConnection());
+                            return { connected: false, method: null };
+                        }
 
-                    const session = await connectDeviceSession(loaded.service, loaded.spec);
-                    if (session.cachedConnectionError) console.error(session.cachedConnectionError);
-                    if (!session.application) {
-                        return {
-                            connected: false,
+                        const session = await connectDeviceSession(loaded.service, loaded.spec);
+                        if (session.cachedConnectionError) console.error(session.cachedConnectionError);
+                        if (!session.application) {
+                            const message = describeDeviceSessionFailure(session);
+                            serviceRegistry.workspaceStore.setConnection({
+                                phase: 'error',
+                                serviceName: request.name,
+                                method: null,
+                                message,
+                            });
+                            return { connected: false, method: null, message };
+                        }
+
+                        serviceRegistry.workspaceStore.setConnection({
+                            phase: 'connected',
+                            serviceName: request.name,
+                            method: session.method,
+                            message: null,
+                        });
+                        // Browsing a device must remain available even when an
+                        // optional browser encoder cannot initialize.
+                        void localMediaServices
+                            .initialize()
+                            .catch((error) => console.error('Could not initialize local media services.', error));
+                        return { connected: true, method: session.method };
+                    } catch (error) {
+                        serviceRegistry.workspaceStore.setConnection({
+                            phase: 'error',
+                            serviceName: request.name,
                             method: null,
-                            message: describeDeviceSessionFailure(session),
-                        };
+                            message: error instanceof Error ? error.message : String(error),
+                        });
+                        throw error;
                     }
-
-                    // Browsing a device must remain available even when an
-                    // optional browser encoder cannot initialize.
-                    void localMediaServices
-                        .initialize()
-                        .catch((error) => console.error('Could not initialize local media services.', error));
-                    return { connected: true, method: session.method };
                 },
-                disconnect: releaseDeviceSession,
+                disconnect: async (finalize = true) => {
+                    const current = serviceRegistry.workspaceStore.getSnapshot().connection;
+                    serviceRegistry.workspaceStore.setConnection({
+                        phase: 'disconnecting',
+                        serviceName: current.serviceName,
+                        method: current.method,
+                        message: null,
+                    });
+                    await releaseDeviceSession(finalize);
+                    serviceRegistry.workspaceStore.setConnection(disconnectedDeviceConnection());
+                },
             }
         );
     }
     return serviceRegistry.applicationClient;
+}
+
+function disconnectedDeviceConnection() {
+    return {
+        phase: 'disconnected' as const,
+        serviceName: null,
+        method: null,
+        message: null,
+    };
 }
 
 export function getTrackRecognizer() {

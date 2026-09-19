@@ -75,6 +75,7 @@ describe('ApplicationCommandBus import writing', () => {
 
         const result = await bus.execute({ type: 'workspace.get' });
 
+        assert.equal(result.ok && result.workspace?.connection.phase, 'disconnected');
         assert.equal(result.ok && result.workspace?.device, null);
         assert.equal(result.ok && result.workspace?.imports.items[0]?.title, 'Queued');
         assert.equal(result.ok && result.workspace?.settings.values.colorTheme, 'dark');
