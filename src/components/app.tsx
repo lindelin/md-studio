@@ -11,12 +11,12 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import Link from '@mui/material/Link';
 import Box from '@mui/material/Box';
-import { W95App } from './win95/app';
 
 const Toc = lazy(() => import('./factory/factory'));
 const Controls = lazy(() => import('./controls'));
 const Welcome = lazy(() => import('./welcome'));
 const Main = lazy(() => import('./main'));
+const W95App = lazy(() => import('./win95/app').then(({ W95App }) => ({ default: W95App })));
 const useStyles = makeStyles()((theme) => ({
     layout: {
         width: 'auto',
@@ -293,7 +293,11 @@ const App = () => {
     }, [systemIsDarkTheme, colorTheme]);
 
     if (vintageMode) {
-        return <W95App />;
+        return (
+            <Suspense fallback={null}>
+                <W95App />
+            </Suspense>
+        );
     }
 
     return (
