@@ -36,15 +36,15 @@ export const Services: ServicePrototype[] = [
         requiresChrome: true,
     },
     {
-        name: 'HiMD (Read Only)',
-        getConnectName: () => 'Connect to HiMD (Read Only)',
+        name: 'HiMD (metadata and export)',
+        getConnectName: () => 'Connect to HiMD (metadata and export)',
         create: () => new HiMDRestrictedService({ debug: true }),
         spec: new HiMDSpec(),
         requiresChrome: true,
     },
     {
-        name: 'HiMD (Full)',
-        getConnectName: () => 'Connect to HiMD (Full)',
+        name: 'HiMD (secure full access)',
+        getConnectName: () => 'Connect to HiMD (secure full access)',
         create: () => {
             if (window.native?.himdFullInterface) {
                 return window.native?.himdFullInterface;
@@ -267,7 +267,7 @@ if (window.native?.nwInterface) {
         requiresChrome: true,
         spec: new NetworkWMSpec(),
         getConnectName: () => 'Connect to Network Walkman',
-        create: () => window.native?.nwInterface!,
+        create: () => window.native?.nwInterface ?? null,
     });
 }
 

@@ -6,7 +6,6 @@ import { actions as renameDialogActions } from './rename-dialog-feature';
 import { actions as errorDialogAction } from './error-dialog-feature';
 import { actions as recordDialogAction } from './record-dialog-feature';
 import { actions as appStateActions } from './app-feature';
-import { actions as mainActions } from './main-feature';
 import { actions as convertDialogActions } from './convert-dialog-feature';
 import { actions as songRecognitionDialogActions, TitleEntry } from './song-recognition-dialog-feature';
 import { actions as songRecognitionProgressDialogActions } from './song-recognition-progress-dialog-feature';
@@ -36,7 +35,7 @@ import { checkFactoryCapability, initializeFactoryMode } from './factory/factory
 import { ExportParams } from '../services/audio/audio-export';
 import { LibraryServices } from '../services/library-services';
 import { s16LEToSamplesArray, Shazam } from 'shazam-api';
-import { bindApplicationRuntime, getApplicationRuntime } from '../application/runtime';
+import { bindApplicationRuntime, getApplicationRuntime, releaseDeviceSession } from '../application/runtime';
 import type { DeviceSnapshot } from '../application/contracts';
 import { applyDeviceSnapshot } from './application-adapter';
 import { buildImportedGroups, createMetadataImportPlan, METADATA_CSV_HEADER_ALIASES, MetadataImportError } from '../domain/metadata-import';
@@ -45,6 +44,14 @@ import { waitForTrackReady } from '../domain/playback-position';
 export function requestTaskCancellation(id: string) {
     return async function () {
         serviceRegistry.taskManager.requestCancellation(id);
+    };
+}
+
+export function disconnectDevice(finalize = true) {
+    return async function (dispatch: AppDispatch) {
+        const cleanup = releaseDeviceSession(finalize);
+        dispatch(appStateActions.setMainView('WELCOME'));
+        await cleanup;
     };
 }
 
@@ -138,7 +145,7 @@ export function deleteGroups(indexes: number[]) {
 
 export function dragDropTrack(sourceList: number, sourceIndex: number, targetList: number, targetIndex: number) {
     // This code is here, because it would need to be duplicated in both netmd and netmd-mock.
-    return async function (dispatch: AppDispatch, getState: () => RootState): Promise<void> {
+    return async function (dispatch: AppDispatch): Promise<void> {
         if (sourceList === targetList && sourceIndex === targetIndex) return;
         dispatch(appStateActions.setLoading(true));
         const groupedTracks = getGroupedTracks(await serviceRegistry.netmdService!.listContent());
@@ -397,7 +404,7 @@ export function deleteTracks(indexes: number[]) {
         try {
             const snapshot = await getApplicationRuntime().deleteTracks(indexes, {
                 confirmed: true,
-                reason: 'Confirmed in the Web MiniDisc user interface',
+                reason: 'Confirmed in the MiniDisc Workspace user interface',
             });
             applyDeviceSnapshot(dispatch, snapshot);
         } finally {
@@ -416,7 +423,7 @@ export function wipeDisc() {
         try {
             const snapshot = await getApplicationRuntime().eraseDisc({
                 confirmed: true,
-                reason: 'Confirmed in the Web MiniDisc user interface',
+                reason: 'Confirmed in the MiniDisc Workspace user interface',
             });
             applyDeviceSnapshot(dispatch, snapshot);
         } finally {
@@ -437,7 +444,7 @@ export function formatToHiMD() {
                 dispatch,
                 await getApplicationRuntime().formatToHiMD({
                     confirmed: true,
-                    reason: 'Confirmed in the Web MiniDisc user interface',
+                    reason: 'Confirmed in the MiniDisc Workspace user interface',
                 })
             );
         } finally {
@@ -493,7 +500,7 @@ export function downloadTracks(
                 })
             );
             try {
-                let received = (await netmdService!.download(track.index, ({ read, total }) => {
+                const received = (await netmdService!.download(track.index, ({ read, total }) => {
                     dispatch(
                         recordDialogAction.setProgress({
                             trackTotal: tracks.length,
@@ -697,7 +704,7 @@ export function renameInSongRecognitionDialog({
 }
 
 export function selfTest() {
-    return async function (dispatch: AppDispatch, getState: () => RootState) {
+    return async function (dispatch: AppDispatch) {
         if (!window.confirm('Warning - This is a destructive self test. THE DISC WILL BE ERASED! Continue?')) return;
 
         const { netmdService } = serviceRegistry;
@@ -867,7 +874,7 @@ export function selfTest() {
     };
 }
 export function setNotifyWhenFinished(value: boolean) {
-    return async function (dispatch: AppDispatch, getState: () => RootState) {
+    return async function (dispatch: AppDispatch) {
         if (Notification.permission !== 'granted') {
             const confirmation = window.confirm(`Enable Notification on recording completed?`);
             if (!confirmation) {
@@ -887,7 +894,8 @@ export function setNotifyWhenFinished(value: boolean) {
 const csvHeader = METADATA_CSV_HEADER_ALIASES;
 
 export function exportCSV(callback: (blob: Blob, name: string) => void = downloadBlob) {
-    return async function (dispatch: AppDispatch, getState: () => RootState) {
+    return async function (dispatch: AppDispatch, _getState: () => RootState) {
+        void _getState;
         dispatch(appStateActions.setLoading(true));
         const disc = await serviceRegistry.netmdService!.listContent();
         const rows: string[][] = [];

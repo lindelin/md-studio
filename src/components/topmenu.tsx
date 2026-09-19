@@ -7,7 +7,16 @@ import MenuItem from '@mui/material/MenuItem';
 import Divider from '@mui/material/Divider';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 
-import { wipeDisc, formatToHiMD, listContent, selfTest, exportCSV, importCSV, openRecognizeTrackDialog } from '../redux/actions';
+import {
+    wipeDisc,
+    formatToHiMD,
+    listContent,
+    selfTest,
+    exportCSV,
+    importCSV,
+    openRecognizeTrackDialog,
+    disconnectDevice,
+} from '../redux/actions';
 import { actions as appActions } from '../redux/app-feature';
 import { actions as renameDialogActions, RenameType } from '../redux/rename-dialog-feature';
 import { actions as factoryNoticeDialogActions } from '../redux/factory/factory-notice-dialog-feature';
@@ -159,7 +168,7 @@ export const TopMenu = function (props: { tracksSelected?: number[]; onClick?: (
     }, [dispatch, handleMenuClose]);
 
     const handleExit = useCallback(() => {
-        dispatch(appActions.setMainView('WELCOME'));
+        dispatch(disconnectDevice());
         handleMenuClose();
     }, [dispatch, handleMenuClose]);
 

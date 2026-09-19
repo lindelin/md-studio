@@ -59,7 +59,7 @@ npm run cli -- --file command.json
 
 Enable **Local MCP and CLI bridge** in the app settings, then reload the app. `npm run mcp` starts an MCP server over standard input/output and a WebSocket bridge on `127.0.0.1:47123`. Keep the browser app open. Device operations continue to run in the browser, which owns the WebUSB session.
 
-The MCP tools cover device status, disc and track metadata, groups, playback, deletion and erase with explicit confirmation, HiMD maintenance, task state, and the ordered import plan. Destructive commands require both `confirmed: true` and a non-empty reason. Mutating tools accept `expectedRevision` so a command prepared from stale disc state is rejected before it writes.
+The MCP tools cover device status, disc and track metadata, groups, playback, deletion and erase with explicit confirmation, HiMD maintenance, task state, local audio staging and writing, and streamed track export to a selected local directory. Long transfers return a task identifier for progress and cancellation. Destructive commands require both `confirmed: true` and a non-empty reason. Mutating tools accept `expectedRevision` so a command prepared from stale disc state is rejected before it writes.
 
 Set `MINIDISC_BRIDGE_TOKEN` to require a token, and store the same value in the browser preference `minidiscLocalBridgeToken`. The bridge listens on loopback and accepts local browser origins by default.
 
@@ -84,4 +84,4 @@ MiniDisc Workspace is licensed under the [GNU General Public License v2.0](LICEN
 
 It is derived from [Web MiniDisc Pro](https://github.com/asivery/webminidisc) by Asivery and contributors, which in turn was derived from [Web MiniDisc](https://github.com/cybercase/webminidisc). Their protocol work, device support, encoder integration, and contributor history remain foundational to this project. The Git history and GPL license are retained.
 
-Major upstream projects include [netmd-js](https://github.com/cybercase/netmd-js), [netmd-exploits](https://github.com/asivery/netmd-exploits), [himd-js](https://github.com/asivery/himd-js), [linux-minidisc](https://github.com/linux-minidisc/linux-minidisc), [FFmpeg](https://ffmpeg.org/), and [Atracdenc](https://github.com/dcherednik/atracdenc). See `package-lock.json` for the complete dependency graph.
+Major upstream projects include [netmd-js](https://github.com/cybercase/netmd-js), [netmd-exploits](https://github.com/asivery/netmd-exploits), [himd-js](https://github.com/asivery/himd-js), [linux-minidisc](https://github.com/linux-minidisc/linux-minidisc), [FFmpeg](https://ffmpeg.org/), and [Atracdenc](https://github.com/dcherednik/atracdenc). See [NOTICE.md](NOTICE.md) for provenance and redistribution notes, and `package-lock.json` for the complete dependency graph.

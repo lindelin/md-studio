@@ -35,3 +35,20 @@ export function clearApplicationRuntime() {
     serviceRegistry.application = undefined;
     serviceRegistry.commandBus = undefined;
 }
+
+export async function releaseDeviceSession(finalize = true) {
+    const service = serviceRegistry.netmdService;
+    clearApplicationRuntime();
+    serviceRegistry.netmdService = undefined;
+    serviceRegistry.netmdSpec = undefined;
+    serviceRegistry.netmdFactoryService = undefined;
+
+    if (!service || !finalize) return;
+    try {
+        await service.finalize();
+    } catch (error) {
+        // A cable can disappear between the disconnect event and cleanup. The
+        // browser session is already detached, so cleanup remains best-effort.
+        console.warn('Could not finalize the previous MiniDisc device session.', error);
+    }
+}

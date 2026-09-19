@@ -14,7 +14,7 @@ import App from './components/app';
 
 import { MediaRecorderService } from './services/browserintegration/mediarecorder';
 import { BrowserMediaSessionService } from './services/browserintegration/media-session';
-import { listContent } from './redux/actions';
+import { disconnectDevice, listContent } from './redux/actions';
 import { sleep } from './utils';
 import { SettingsResetErrorBoundary } from './components/settings-reset-error-boundary';
 import { startLocalApplicationBridge } from './application/browser-bridge';
@@ -53,7 +53,7 @@ if (readRawPreference('version') !== (window as any).wmdVersion) {
     if (navigator && navigator.usb) {
         navigator.usb.ondisconnect = function (event) {
             if (serviceRegistry.netmdService?.isDeviceConnected(event.device)) {
-                store.dispatch(appActions.setMainView('WELCOME'));
+                store.dispatch(disconnectDevice(false));
                 document.title = originalApplicationTitle;
             } else {
                 console.log("The device disconnected isn't connected to this webapp");

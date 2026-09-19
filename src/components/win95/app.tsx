@@ -4,8 +4,6 @@ import { forAnyDesktop, forWideDesktop, useShallowEqualSelector } from '../../fr
 
 import { Welcome } from '../welcome';
 import { Main } from '../main';
-import { actions as appActions } from '../../redux/app-feature';
-
 import { Window, WindowHeader, Button, Toolbar, Panel, Hourglass, styleReset, Anchor } from 'react95';
 import { createGlobalStyle, ThemeProvider as StyledThemeProvider } from 'styled-components';
 import original from 'react95/dist/themes/original';
@@ -15,6 +13,7 @@ import { useDispatch } from '../../frontend-utils';
 import CDPlayerIconUrl from '../../images/win95/cdplayer.png';
 import { WindowCloseIcon } from './common';
 import { Capability } from '../../services/interfaces/netmd';
+import { disconnectDevice } from '../../redux/actions';
 
 const GlobalStyles = createGlobalStyle`
 ${styleReset}
@@ -72,7 +71,7 @@ export const W95App = () => {
     const [isMenuOpen, setMenuOpen] = useState(false);
 
     const handleExit = useCallback(() => {
-        dispatch(appActions.setMainView('WELCOME'));
+        dispatch(disconnectDevice());
     }, [dispatch]);
 
     const closeMenu = useCallback(() => {

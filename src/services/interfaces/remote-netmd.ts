@@ -138,9 +138,7 @@ export class NetMDRemoteService extends NetMDService {
     }
 
     @asyncMutex
-    async finalize() {
-        window.alert('NOT COMPLETE YET');
-    }
+    async finalize() {}
 
     @asyncMutex
     async rewriteGroups(groups: Group[]) {
