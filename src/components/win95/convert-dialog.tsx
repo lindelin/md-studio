@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useMemo } from 'react';
+import React, { useCallback, useContext, useMemo } from 'react';
 import { Button, WindowHeader, Fieldset, Select, Table, TableBody, TableDataCell, Divider, Toolbar } from 'react95';
 import { DialogOverlay, DialogWindow, DialogFooter, DialogWindowContent, WindowCloseIcon, FooterButton, CustomTableRow } from './common';
 import { TitleFormatType } from '../../redux/convert-dialog-feature';
@@ -54,7 +54,7 @@ export const W95ConvertDialog = (props: {
     handleRenameSelectedTrack: () => void;
     dialogVisible: boolean;
 }) => {
-    const themeContext = useContext(ThemeContext)!;
+    const themeContext = useContext(ThemeContext) as { selectedTableRow: React.CSSProperties };
     const recordModeOptions = useMemo(() => props.minidiscSpec.availableFormats.map((e, i) => ({ label: e.userFriendlyName ?? e.codec, value: i })), [props.minidiscSpec]);
 
     const renderTracks = useCallback(() => {

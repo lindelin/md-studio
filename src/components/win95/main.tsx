@@ -41,7 +41,7 @@ import { PanicDialog } from '../panic-dialog';
 import { ChangelogDialog } from '../changelog-dialog';
 import { Disc } from '../../services/interfaces/netmd';
 
-const useStyles = makeStyles()((theme: any) => ({
+const useStyles = makeStyles()(() => ({
     container: {
         width: '100%',
         flex: '1 1 auto',
@@ -115,7 +115,7 @@ export const W95Main = (props: {
     handleSelectTrackClick: (event: React.MouseEvent, item: number) => void;
 }) => {
     const { classes } = useStyles();
-    const themeContext = useContext(ThemeContext)!;
+    const themeContext = useContext(ThemeContext) as { selectedTableRow: React.CSSProperties };
     const { mainView } = useShallowEqualSelector((state) => state.appState);
 
     const deviceCapabilities = useDeviceCapabilities();

@@ -3,6 +3,10 @@
     "private": true,
     "version": "0.1.0",
     "license": "GPL-2.0",
+    "packageManager": "npm@11.5.1",
+    "engines": {
+        "node": ">=20.19"
+    },
     "type": "module",
     "scripts": {
         "start": "npm run dev",
