@@ -9,6 +9,9 @@ export const W95RecordDialog = (props: {
     trackCurrent: number;
     titleCurrent: string;
     progressValue: number;
+    dialogTitle: string;
+    statusText: string;
+    cancelled: boolean;
     onCancel?: () => void;
 }) => {
     if (!props.visible) {
@@ -18,16 +21,16 @@ export const W95RecordDialog = (props: {
         <DialogOverlay>
             <DialogWindow>
                 <WindowHeader>
-                    <span>Recording...</span>
+                    <span>{props.dialogTitle}</span>
                 </WindowHeader>
                 <DialogWindowContent>
-                    <p style={{ marginBottom: 16, width: '100%' }}>{`Recording track ${props.trackDone + 1} of ${props.trackTotal}: ${
-                        props.titleCurrent
-                    }`}</p>
+                    <p style={{ marginBottom: 16, width: '100%' }}>{props.statusText}</p>
                     <Progress value={props.progressValue} hideValue={props.progressValue < 0} />
                     {props.onCancel ? (
                         <DialogFooter>
-                            <Button onClick={props.onCancel}>Cancel after current step</Button>
+                            <Button disabled={props.cancelled} onClick={props.onCancel}>
+                                {props.cancelled ? 'Stopping after current step...' : 'Cancel after current step'}
+                            </Button>
                         </DialogFooter>
                     ) : null}
                 </DialogWindowContent>

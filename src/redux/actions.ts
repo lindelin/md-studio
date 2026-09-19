@@ -3,7 +3,6 @@ import { AppDispatch, RootState } from './store';
 import { actions as localLibraryActions } from './local-library-feature';
 import { actions as renameDialogActions } from './rename-dialog-feature';
 import { actions as errorDialogAction } from './error-dialog-feature';
-import { actions as recordDialogAction } from './record-dialog-feature';
 import { actions as appStateActions } from './app-feature';
 import { actions as songRecognitionDialogActions, TitleEntry } from './song-recognition-dialog-feature';
 import { sleep, askNotificationPermission, timeToSeekArgs, downloadBlob, secondsToHumanReadable, getTracks } from '../utils';
@@ -27,13 +26,6 @@ async function executeDeviceCommand(command: ApplicationCommand) {
 
 function currentDeviceRevision() {
     return getApplicationClient().getWorkspaceSnapshot().device?.revision;
-}
-
-export function requestTaskCancellation(id: string) {
-    return async function () {
-        const result = await getApplicationClient().execute({ type: 'task.cancel', id });
-        if (!result.ok) throw new Error(result.error.message);
-    };
 }
 
 export function disconnectDevice(finalize = true) {
@@ -339,26 +331,15 @@ export function moveTrack(srcIndex: number, destIndex: number) {
     };
 }
 
-async function monitorTaskInRecordDialog(dispatch: AppDispatch, initialTask: TaskSnapshot, fallbackError: string, reportFailure = true) {
+async function waitForTaskResult(dispatch: AppDispatch, initialTask: TaskSnapshot, fallbackError: string, reportFailure = true) {
     const client = getApplicationClient();
-    let task = initialTask;
-    dispatch(batchActions([recordDialogAction.setVisible(true), recordDialogAction.setTaskId(task.id)]));
-    try {
-        while (task.status === 'queued' || task.status === 'running') {
-            await sleep(100);
-            const currentTask = client.getWorkspaceSnapshot().tasks.find((candidate) => candidate.id === task.id);
-            if (!currentTask) throw new Error(`Task ${task.id} is no longer available.`);
-            task = currentTask;
-        }
-        if (reportFailure && task.status === 'failed') {
-            dispatch(
-                batchActions([errorDialogAction.setVisible(true), errorDialogAction.setErrorMessage(task.error?.message ?? fallbackError)])
-            );
-        }
-        return task;
-    } finally {
-        dispatch(batchActions([recordDialogAction.setVisible(false), recordDialogAction.setTaskId(null)]));
+    const task = await waitForApplicationTask(client, initialTask.id);
+    if (reportFailure && task.status === 'failed') {
+        dispatch(
+            batchActions([errorDialogAction.setVisible(true), errorDialogAction.setErrorMessage(task.error?.message ?? fallbackError)])
+        );
     }
+    return task;
 }
 
 export function downloadTracks(indexes: number[], convertOutputToWav: boolean, callback?: (blob: Blob, name: string) => void) {
@@ -391,7 +372,7 @@ export function downloadTracks(indexes: number[], convertOutputToWav: boolean, c
             return;
         }
         if (!task) return;
-        await monitorTaskInRecordDialog(dispatch, task, 'Track export failed.');
+        await waitForTaskResult(dispatch, task, 'Track export failed.');
     };
 }
 
@@ -406,7 +387,7 @@ export function recordTracks(indexes: number[], deviceId: string) {
             });
             if (!result.ok) throw new Error(result.error.message);
             if (!result.task) throw new Error('Audio-input recording could not be started.');
-            await monitorTaskInRecordDialog(dispatch, result.task, 'Audio-input recording failed.');
+            await waitForTaskResult(dispatch, result.task, 'Audio-input recording failed.');
         } catch (error) {
             dispatch(
                 batchActions([
@@ -497,7 +478,7 @@ export function selfTest() {
             return;
         }
 
-        const task = await monitorTaskInRecordDialog(dispatch, started.task, 'The device self-test failed.', false);
+        const task = await waitForTaskResult(dispatch, started.task, 'The device self-test failed.', false);
         const refreshed = await client.execute({ type: 'disc.refresh', dropCache: true });
         if (!refreshed.ok) throw new Error(refreshed.error.message);
         if (task.status === 'succeeded') {

@@ -6,7 +6,6 @@ import errorDialog from './error-dialog-feature';
 import panicDialog, { actions as panicDialogActions } from './panic-dialog-feature';
 import convertDialog from './convert-dialog-feature';
 import dumpDialog from './dump-dialog-feature';
-import recordDialog from './record-dialog-feature';
 import songRecognitionDialog from './song-recognition-dialog-feature';
 import appState, { actions as appActions, buildInitialState as buildInitialAppState } from './app-feature';
 import localLibrary from './local-library-feature';
@@ -41,7 +40,6 @@ const reducer = combineReducers({
     panicDialog,
     convertDialog,
     dumpDialog,
-    recordDialog,
     songRecognitionDialog,
     factory,
     factoryFragmentModeEditDialog,

@@ -90,7 +90,6 @@ if (readRawPreference('version') !== (window as any).wmdVersion) {
         if (
             !hasPendingWorkspaceWork(applicationClient.getWorkspaceSnapshot(), {
                 factoryProgressVisible: state.factoryProgressDialog.visible,
-                recordVisible: state.recordDialog.visible,
             })
         ) {
             return;

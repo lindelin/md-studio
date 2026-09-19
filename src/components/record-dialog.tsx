@@ -1,5 +1,6 @@
 import React from 'react';
-import { useShallowEqualSelector } from '../frontend-utils';
+import { batchActions, useDispatch } from '../frontend-utils';
+import { actions as errorDialogActions } from '../redux/error-dialog-feature';
 
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
@@ -11,12 +12,8 @@ import LinearProgress from '@mui/material/LinearProgress';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import { makeStyles } from 'tss-react/mui';
-const W95RecordDialog = React.lazy(() =>
-    import('./win95/record-dialog').then(({ W95RecordDialog }) => ({ default: W95RecordDialog }))
-);
-import { useDispatch } from '../frontend-utils';
-import { requestTaskCancellation } from '../redux/actions';
-import { useApplicationSettings, useApplicationWorkspace } from './use-application-client';
+const W95RecordDialog = React.lazy(() => import('./win95/record-dialog').then(({ W95RecordDialog }) => ({ default: W95RecordDialog })));
+import { useApplicationClient, useApplicationSettings, useApplicationWorkspace } from './use-application-client';
 
 const useStyles = makeStyles()((theme) => ({
     progressPerc: {
@@ -34,23 +31,40 @@ const Transition = React.forwardRef(function Transition(props: SlideProps, ref: 
 export const RecordDialog = () => {
     const { classes } = useStyles();
     const dispatch = useDispatch();
-
-    const { visible, taskId } = useShallowEqualSelector((state) => state.recordDialog);
-    const task = useApplicationWorkspace().tasks.find((candidate) => candidate.id === taskId);
+    const applicationClient = useApplicationClient();
+    const task = [...useApplicationWorkspace().tasks]
+        .reverse()
+        .find(
+            (candidate) =>
+                ['track.export', 'track.record', 'diagnostics.selfTest'].includes(candidate.kind) &&
+                (candidate.status === 'queued' || candidate.status === 'running')
+        );
+    const visible = Boolean(task);
+    const taskId = task?.id;
     const trackTotal = task?.progress.total ?? 1;
     const trackDone = task?.progress.completed ?? 0;
     const bytesTotal = task?.progress.bytesTotal ?? 0;
     const trackCurrent =
         task?.progress.currentPercent ??
-        (bytesTotal > 0
-            ? (100 * (task?.progress.bytesWritten ?? 0)) / bytesTotal
-            : trackTotal > 0
-              ? (100 * trackDone) / trackTotal
-              : -1);
+        (bytesTotal > 0 ? (100 * (task?.progress.bytesWritten ?? 0)) / bytesTotal : trackTotal > 0 ? (100 * trackDone) / trackTotal : -1);
     const currentLabel = task?.progress.currentLabel ?? task?.phase ?? '';
     const titleCurrent = task?.kind === 'diagnostics.selfTest' ? `Self-Test: ${currentLabel}` : currentLabel;
+    const dialogTitle =
+        task?.kind === 'diagnostics.selfTest' ? 'Device self-test' : task?.kind === 'track.export' ? 'Exporting...' : 'Recording...';
+    const itemLabel = task?.kind === 'diagnostics.selfTest' ? 'step' : 'track';
+    const actionLabel = task?.kind === 'track.export' ? 'Exporting' : task?.kind === 'diagnostics.selfTest' ? 'Running' : 'Recording';
+    const statusText = `${actionLabel} ${itemLabel} ${Math.min(trackTotal, trackDone + 1)} of ${trackTotal}: ${titleCurrent}`;
+    const cancelled = task?.cancellationRequested ?? false;
 
     const progressValue = Math.round(trackCurrent);
+    const handleCancel = taskId
+        ? () => {
+              void applicationClient.execute({ type: 'task.cancel', id: taskId }).then((result) => {
+                  if (result.ok) return;
+                  dispatch(batchActions([errorDialogActions.setVisible(true), errorDialogActions.setErrorMessage(result.error.message)]));
+              });
+          }
+        : undefined;
 
     const { vintageMode } = useApplicationSettings();
     if (vintageMode) {
@@ -61,7 +75,10 @@ export const RecordDialog = () => {
             trackCurrent,
             titleCurrent,
             progressValue,
-            onCancel: taskId ? () => dispatch(requestTaskCancellation(taskId)) : undefined,
+            dialogTitle,
+            statusText,
+            cancelled,
+            onCancel: handleCancel,
         };
         return <W95RecordDialog {...p} />;
     }
@@ -75,11 +92,9 @@ export const RecordDialog = () => {
             aria-labelledby="record-dialog-slide-title"
             aria-describedby="record-dialog-slide-description"
         >
-            <DialogTitle id="record-dialog-slide-title">Recording...</DialogTitle>
+            <DialogTitle id="record-dialog-slide-title">{dialogTitle}</DialogTitle>
             <DialogContent>
-                <DialogContentText id="record-dialog-slide-description">
-                    {`Recording track ${trackDone + 1} of ${trackTotal}: ${titleCurrent}`}
-                </DialogContentText>
+                <DialogContentText id="record-dialog-slide-description">{statusText}</DialogContentText>
                 <LinearProgress
                     className={classes.progressBar}
                     variant={trackCurrent >= 0 ? 'determinate' : 'indeterminate'}
@@ -89,7 +104,11 @@ export const RecordDialog = () => {
                 <Box className={classes.progressPerc}>{progressValue >= 0 ? `${progressValue}%` : ``}</Box>
             </DialogContent>
             <DialogActions>
-                {taskId ? <Button onClick={() => dispatch(requestTaskCancellation(taskId))}>Cancel after current step</Button> : null}
+                {handleCancel ? (
+                    <Button disabled={cancelled} onClick={handleCancel}>
+                        {cancelled ? 'Stopping after current step...' : 'Cancel after current step'}
+                    </Button>
+                ) : null}
             </DialogActions>
         </Dialog>
     );

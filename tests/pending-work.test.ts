@@ -15,7 +15,7 @@ function makeWorkspace(changes: Partial<WorkspaceSnapshot> = {}) {
     } as WorkspaceSnapshot;
 }
 
-const noLegacyWork = { factoryProgressVisible: false, recordVisible: false };
+const noLegacyWork = { factoryProgressVisible: false };
 
 describe('hasPendingWorkspaceWork', () => {
     it('warns for active tasks and device changes that still need flushing', () => {
