@@ -1,31 +1,50 @@
+import type { AudioExportService } from '../services/audio/audio-export';
 import type { Codec } from '../services/interfaces/netmd';
 import type { TitledFile } from '../utils';
-import { ApplicationError } from './contracts';
+import { convertImportAudio } from './audio-conversion-pipeline';
+import type { BrowserLocalFileGateway } from './browser-local-file-gateway';
+import { ApplicationError, type DeviceSnapshot } from './contracts';
 import { createDeferredFile, isAdaptiveFile, isDeferredFile } from './deferred-file';
 import type { ImportQueue, ImportWriteRequest, ImportWriter } from './import-queue';
-import type { TaskManager } from './task-manager';
 import {
     assertDiscWritableForImport,
     assertImportDeviceVersion,
     assertImportPreviewWritable,
     assertImportWritePolicy,
 } from './import-write-policy';
-import { INTERACTIVE_HOMEBREW_AUTHORIZATION } from './interactive-authorization';
+import { ImportUploadSessionError, runImportUploadSession } from './import-upload-session';
+import {
+    INTERACTIVE_ADVANCED_AUTHORIZATION,
+    INTERACTIVE_HOMEBREW_AUTHORIZATION,
+} from './interactive-authorization';
 import type { MiniDiscApplication } from './minidisc-application';
-import type { BrowserLocalFileGateway } from './browser-local-file-gateway';
+import type { TaskManager } from './task-manager';
+
+export interface ImportWritePresentation {
+    start(totalTracks: number): void;
+    updateTrack(progress: {
+        current: number;
+        converting: number;
+        total: number;
+        titleCurrent: string;
+        titleConverting: string;
+    }): void;
+    updateEncoding(progress: { state: number; total: number }): void;
+    updateTransfer(progress: { written: number; encrypted: number; total: number }): void;
+    finish(errorMessage?: string): void;
+    isCancellationRequested(): boolean;
+}
 
 export interface BrowserImportWriterDependencies {
     getApplication(): MiniDiscApplication | undefined;
+    getAudioExportService(): Promise<AudioExportService>;
+    getUseFullWidthTitles(): boolean;
     localFiles: BrowserLocalFileGateway;
-    startUpload(
-        files: TitledFile[],
-        format: Codec,
-        parameters: { enableReplayGain: boolean; enableGapless: boolean },
-        taskId: string,
-        deviceVersion: { sessionId: string; revision: number },
-        tasks: TaskManager
-    ): Promise<void>;
+    confirmHomebrew?(requiredCapabilities: string[]): boolean | Promise<boolean>;
+    presentation?: ImportWritePresentation;
     showImportDialog(): void;
+    notifyCompleted?(): void;
+    updateDeviceSnapshot?(snapshot: DeviceSnapshot): void;
 }
 
 export class BrowserImportWriter implements ImportWriter {
@@ -75,8 +94,10 @@ export class BrowserImportWriter implements ImportWriter {
             request,
             format,
             { sessionId: device.sessionId, revision: device.revision },
+            device,
             queue,
-            tasks
+            tasks,
+            application
         );
         return tasks.get(task.id);
     }
@@ -87,56 +108,279 @@ export class BrowserImportWriter implements ImportWriter {
         request: ImportWriteRequest,
         format: Codec,
         deviceVersion: { sessionId: string; revision: number },
+        device: DeviceSnapshot,
         queue: ImportQueue,
-        tasks: TaskManager
+        tasks: TaskManager,
+        application: MiniDiscApplication
     ) {
+        const presentation = this.dependencies.presentation;
+        const originalTitle = typeof document === 'undefined' ? '' : document.title;
+        let wakeLock: { release(): Promise<void> } | undefined;
+        let error: unknown;
+        let errorMessage: string | undefined;
+        let writtenTracks = 0;
+        let cancelled = false;
+
+        const isRunning = () => tasks.get(taskId).status === 'running';
+        const isCancelled = () => {
+            const task = tasks.get(taskId);
+            return (
+                presentation?.isCancellationRequested() === true ||
+                task.cancellationRequested ||
+                task.status === 'cancelled' ||
+                task.status === 'interrupted'
+            );
+        };
+
         try {
-            const files: TitledFile[] = [];
-            for (const { item, payload } of selected) {
-                let resolvedPayload = payload;
-                if (resolvedPayload === undefined && item.kind === 'local-path' && this.dependencies.localFiles.canResolve()) {
-                    resolvedPayload = createDeferredFile(item.name, item.reference, (reference) =>
-                        this.dependencies.localFiles.resolve(reference)
-                    );
+            const files = await this.resolveFiles(selected);
+            const usesAtrac1Upload = files.some(
+                ({ forcedEncoding }) => forcedEncoding?.codec === 'SPS' || forcedEncoding?.codec === 'SPM'
+            );
+            const usesMonoUploadExploit = format.codec === 'SPM' && !device.capabilities.includes('track.uploadMono');
+            const requiredExploitCapabilities = [
+                usesAtrac1Upload && 'uploadAtrac1',
+                usesMonoUploadExploit && 'uploadMonoSP',
+            ].filter((value): value is string => Boolean(value));
+
+            if (requiredExploitCapabilities.length > 0) {
+                const confirmed = await this.dependencies.confirmHomebrew?.(requiredExploitCapabilities);
+                if (!confirmed) {
+                    tasks.cancel(taskId, { writtenTracks: 0 });
+                    this.dependencies.showImportDialog();
+                    return;
                 }
-                if (!(resolvedPayload instanceof File) && !isAdaptiveFile(resolvedPayload) && !isDeferredFile(resolvedPayload)) {
-                    throw new ApplicationError('INVALID_INPUT', `Import item ${item.name} has no readable audio payload.`, {
-                        id: item.id,
-                    });
-                }
-                files.push({
-                    file: resolvedPayload,
-                    title: item.title,
-                    fullWidthTitle: item.fullWidthTitle ?? '',
-                    forcedEncoding: (item.forcedEncoding as TitledFile['forcedEncoding']) ?? null,
-                    bytesToSkip: item.bytesToSkip ?? 0,
-                    artist: item.artist ?? '',
-                    album: item.album ?? '',
-                });
             }
 
-            await this.dependencies.startUpload(
-                files,
-                format,
-                {
-                    enableReplayGain: request.enableReplayGain ?? false,
-                    enableGapless: request.enableGapless ?? false,
+            presentation?.start(files.length);
+            presentation?.updateTrack({
+                current: 0,
+                converting: 0,
+                total: files.length,
+                titleCurrent: '',
+                titleConverting: '',
+            });
+            const audioExportService = await this.dependencies.getAudioExportService();
+            wakeLock = await this.acquireWakeLock();
+
+            const result = await application.runDeviceUploadSession(
+                requiredExploitCapabilities,
+                requiredExploitCapabilities.length > 0 ? INTERACTIVE_ADVANCED_AUTHORIZATION : undefined,
+                async (uploadService, advancedUploadService) => {
+                    if (usesMonoUploadExploit) await advancedUploadService!.enableMonoUpload(true);
+
+                    let totalBytesAllTracks = 0;
+                    let bytesSentFromPreviousTracks = 0;
+                    let bytesSentFromCurrentTrack = 0;
+                    let lastTransferUpdate = 0;
+                    let lastEncodingUpdate = 0;
+                    const trackProgress = {
+                        current: 0,
+                        converting: 0,
+                        total: files.length,
+                        titleCurrent: '',
+                        titleConverting: '',
+                    };
+                    const publishTrack = () => presentation?.updateTrack({ ...trackProgress });
+                    const updateTitle = () => {
+                        if (typeof document === 'undefined') return;
+                        if (totalBytesAllTracks === 0) {
+                            document.title = `Converting | ${originalTitle}`;
+                            return;
+                        }
+                        const percentage = Math.floor(
+                            (100 * (bytesSentFromCurrentTrack + bytesSentFromPreviousTracks)) / totalBytesAllTracks
+                        );
+                        document.title = `${percentage}% complete | Upload | ${originalTitle}`;
+                    };
+
+                    const conversion = convertImportAudio(
+                        files,
+                        format,
+                        {
+                            enableReplayGain: request.enableReplayGain ?? false,
+                            enableGapless: request.enableGapless ?? false,
+                        },
+                        audioExportService,
+                        {
+                            isCancelled,
+                            onTrackStarted: (index, _total, file) => {
+                                trackProgress.converting = index;
+                                trackProgress.titleConverting = file.title;
+                                publishTrack();
+                                updateTitle();
+                            },
+                            onTrackProgress: (index, total, progress) => {
+                                const now = Date.now();
+                                if (now - lastEncodingUpdate < 200 && progress.state < progress.total) return;
+                                lastEncodingUpdate = now;
+                                const combined = {
+                                    total,
+                                    state: index + progress.state / Math.max(1, progress.total),
+                                };
+                                presentation?.updateEncoding(combined);
+                                if (isRunning()) {
+                                    tasks.reportProgress(taskId, {
+                                        currentPercent: (combined.state / Math.max(1, total)) * 100,
+                                    });
+                                }
+                            },
+                            onQueueFinished: (totalBytes, startedCount) => {
+                                totalBytesAllTracks = totalBytes;
+                                trackProgress.converting = startedCount;
+                                trackProgress.titleConverting = '';
+                                presentation?.updateEncoding({ state: startedCount, total: files.length });
+                                publishTrack();
+                                updateTitle();
+                            },
+                        }
+                    );
+
+                    return runImportUploadSession({
+                        tracks: conversion,
+                        totalTracks: files.length,
+                        format,
+                        disc: device.disc!,
+                        service: uploadService,
+                        factoryService: advancedUploadService,
+                        usesHiMDTitles: device.capabilities.includes('metadata.himd'),
+                        useFullWidthTitles: this.dependencies.getUseFullWidthTitles(),
+                        disableMonoUploadOnFinish: usesMonoUploadExploit,
+                        isCancelled,
+                        hooks: {
+                            onPhase: (phase) => {
+                                if (isRunning() && tasks.get(taskId).phase !== phase) tasks.setPhase(taskId, phase);
+                            },
+                            onTrackStarted: (track) => {
+                                trackProgress.current = track.index + 1;
+                                trackProgress.titleCurrent = track.displayTitle;
+                                bytesSentFromPreviousTracks += bytesSentFromCurrentTrack;
+                                bytesSentFromCurrentTrack = 0;
+                                publishTrack();
+                                if (isRunning()) {
+                                    tasks.reportProgress(taskId, {
+                                        completed: track.index,
+                                        currentLabel: track.displayTitle,
+                                        currentPercent: 0,
+                                    });
+                                }
+                            },
+                            onTrackProgress: (_track, progress) => {
+                                bytesSentFromCurrentTrack = progress.written;
+                                const now = Date.now();
+                                if (now - lastTransferUpdate < 200 && progress.written < progress.total) return;
+                                lastTransferUpdate = now;
+                                presentation?.updateTransfer(progress);
+                                if (isRunning()) {
+                                    tasks.reportProgress(taskId, {
+                                        bytesWritten: bytesSentFromPreviousTracks + progress.written,
+                                        bytesTotal: totalBytesAllTracks || bytesSentFromPreviousTracks + progress.total,
+                                        currentPercent: (progress.written / Math.max(1, progress.total)) * 100,
+                                    });
+                                }
+                                updateTitle();
+                            },
+                            onTrackCompleted: (track) => {
+                                if (isRunning()) tasks.reportProgress(taskId, { completed: track.index + 1 });
+                            },
+                        },
+                    });
                 },
-                taskId,
-                deviceVersion,
-                tasks
+                deviceVersion
             );
+
+            writtenTracks = result.value.writtenTracks;
+            cancelled = result.value.cancelled;
+            this.dependencies.updateDeviceSnapshot?.(result.snapshot);
+        } catch (caughtError) {
+            error = caughtError;
+            if (caughtError instanceof ImportUploadSessionError) {
+                writtenTracks = caughtError.writtenTracks;
+                errorMessage = caughtError.displayMessage;
+            } else {
+                errorMessage = 'The recording task stopped before all tracks were transferred.';
+            }
+            const latest = application.readSnapshot();
+            if (latest) this.dependencies.updateDeviceSnapshot?.(latest);
+        } finally {
+            if (typeof document !== 'undefined') document.title = originalTitle;
+            if (wakeLock) {
+                try {
+                    await wakeLock.release();
+                } catch (releaseError) {
+                    console.error('Could not release the screen wake lock.', releaseError);
+                }
+            }
+            presentation?.finish(errorMessage);
+
+            if (isRunning()) {
+                if (error) {
+                    tasks.fail(taskId, error, {
+                        completedItems: writtenTracks,
+                        pendingItems: selected.length - writtenTracks,
+                        recoveryAction:
+                            writtenTracks > 0
+                                ? 'Refresh the disc, keep the completed tracks, and retry only the remaining imports.'
+                                : 'Check the source audio, encoder, and device connection before retrying the write.',
+                        details: errorMessage ? { displayMessage: errorMessage } : undefined,
+                    });
+                } else if (cancelled || isCancelled()) {
+                    tasks.cancel(taskId, { writtenTracks });
+                } else {
+                    tasks.succeed(taskId, { writtenTracks });
+                    this.dependencies.notifyCompleted?.();
+                }
+            }
 
             const finalTask = tasks.get(taskId);
             if (finalTask.status === 'succeeded' && request.removeOnSuccess) {
-                queue.remove(selected.map(({ item }) => item.id));
+                const currentIds = new Set(queue.snapshot().items.map(({ id }) => id));
+                const completedIds = selected.map(({ item }) => item.id).filter((id) => currentIds.has(id));
+                if (completedIds.length > 0) queue.remove(completedIds);
             } else if (finalTask.status === 'failed' || finalTask.status === 'cancelled') {
                 this.dependencies.showImportDialog();
             }
+        }
+    }
+
+    private async resolveFiles(selected: ReturnType<ImportQueue['resolveSelection']>) {
+        const files: TitledFile[] = [];
+        for (const { item, payload } of selected) {
+            let resolvedPayload = payload;
+            if (resolvedPayload === undefined && item.kind === 'local-path' && this.dependencies.localFiles.canResolve()) {
+                resolvedPayload = createDeferredFile(item.name, item.reference, (reference) =>
+                    this.dependencies.localFiles.resolve(reference)
+                );
+            }
+            if (!(resolvedPayload instanceof File) && !isAdaptiveFile(resolvedPayload) && !isDeferredFile(resolvedPayload)) {
+                throw new ApplicationError('INVALID_INPUT', `Import item ${item.name} has no readable audio payload.`, {
+                    id: item.id,
+                });
+            }
+            files.push({
+                file: resolvedPayload,
+                title: item.title,
+                fullWidthTitle: item.fullWidthTitle ?? '',
+                forcedEncoding: (item.forcedEncoding as TitledFile['forcedEncoding']) ?? null,
+                bytesToSkip: item.bytesToSkip ?? 0,
+                artist: item.artist ?? '',
+                album: item.album ?? '',
+            });
+        }
+        return files;
+    }
+
+    private async acquireWakeLock() {
+        if (typeof navigator === 'undefined' || !('wakeLock' in navigator)) return undefined;
+        try {
+            return await (
+                navigator as Navigator & {
+                    wakeLock: { request(type: 'screen'): Promise<{ release(): Promise<void> }> };
+                }
+            ).wakeLock.request('screen');
         } catch (error) {
-            const task = tasks.get(taskId);
-            if (task.status === 'queued' || task.status === 'running') tasks.fail(taskId, error);
-            this.dependencies.showImportDialog();
+            console.warn('Could not acquire the screen wake lock.', error);
+            return undefined;
         }
     }
 }

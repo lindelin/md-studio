@@ -6,17 +6,21 @@ import process from 'process';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { Provider } from 'react-redux';
+import type { UnknownAction } from '@reduxjs/toolkit';
 import serviceRegistry from './services/registry';
 
 import { store } from './redux/store';
 import { actions as appActions } from './redux/app-feature';
 import { actions as convertDialogActions } from './redux/convert-dialog-feature';
+import { actions as uploadDialogActions } from './redux/upload-dialog-feature';
+import { actions as errorDialogActions } from './redux/error-dialog-feature';
+import { batchActions } from './frontend-utils';
 
 import App from './components/app';
 
 import { MediaRecorderService } from './services/browserintegration/mediarecorder';
 import { BrowserMediaSessionService } from './services/browserintegration/media-session';
-import { convertAndUpload, disconnectDevice } from './redux/actions';
+import { disconnectDevice } from './redux/actions';
 import { sleep } from './utils';
 import { SettingsResetErrorBoundary } from './components/settings-reset-error-boundary';
 import { startLocalApplicationBridge } from './application/browser-bridge';
@@ -28,26 +32,69 @@ import { getApplicationClient, isActiveUsbDevice } from './application/runtime';
 import { applyDeviceSnapshot } from './redux/application-adapter';
 import { BrowserAudioInput } from './application/browser-audio-input';
 import { BrowserLocalFileGateway } from './application/browser-local-file-gateway';
+import NotificationCompleteIconUrl from './images/record-complete-notification-icon.png';
 const mediaRecorderService = new MediaRecorderService();
 const localFiles = new BrowserLocalFileGateway();
 serviceRegistry.localAudioInput = new BrowserAudioInput(mediaRecorderService);
 serviceRegistry.mediaSessionService = new BrowserMediaSessionService(store);
 serviceRegistry.importWriter = new BrowserImportWriter({
     getApplication: () => serviceRegistry.application,
+    getAudioExportService: () => serviceRegistry.audioEncoderManager.getService(),
+    getUseFullWidthTitles: () => serviceRegistry.settingsStore.getSnapshot().values.fullWidthSupport,
     localFiles,
-    startUpload: async (files, format, parameters, taskId, deviceVersion, tasks) => {
-        const audioExportService = await serviceRegistry.audioEncoderManager.getService();
-        await store.dispatch(
-            convertAndUpload(files, format, parameters, {
-                taskId,
-                deviceVersion,
-                taskManager: tasks,
-                audioExportService,
-            })
+    confirmHomebrew: (requiredCapabilities) => {
+        const modes = [
+            requiredCapabilities.includes('uploadAtrac1') && 'ATRAC1 restore',
+            requiredCapabilities.includes('uploadMonoSP') && 'SP Mono recording',
+        ].filter(Boolean);
+        return window.confirm(
+            `${modes.join(' and ')} requires Homebrew mode. Continue with advanced device access?`
         );
     },
     showImportDialog: () => {
         store.dispatch(convertDialogActions.setVisible(true));
+    },
+    updateDeviceSnapshot: (snapshot) => applyDeviceSnapshot(store.dispatch, snapshot),
+    notifyCompleted: () => {
+        const state = store.getState().appState;
+        if (!state.hasNotificationSupport || !state.notifyWhenFinished) return;
+        const notification = new Notification('MiniDisc recording completed', {
+            icon: NotificationCompleteIconUrl,
+        });
+        notification.onclick = function () {
+            window.focus();
+            this.close();
+        };
+    },
+    presentation: {
+        start: () => {
+            store.dispatch(
+                batchActions([
+                    uploadDialogActions.setVisible(true),
+                    uploadDialogActions.setCancelUpload(false),
+                    uploadDialogActions.setWriteProgress({ written: 0, encrypted: 0, total: 1 }),
+                ])
+            );
+        },
+        updateTrack: (progress) => {
+            store.dispatch(
+                batchActions([
+                    uploadDialogActions.setTrackProgress(progress),
+                    uploadDialogActions.setTrackEncodingProgress({ state: 0, total: 0 }),
+                ])
+            );
+        },
+        updateEncoding: (progress) => store.dispatch(uploadDialogActions.setTrackEncodingProgress(progress)),
+        updateTransfer: (progress) => store.dispatch(uploadDialogActions.setWriteProgress(progress)),
+        finish: (errorMessage) => {
+            const actions: UnknownAction[] = [uploadDialogActions.setVisible(false)];
+            if (errorMessage) {
+                actions.push(errorDialogActions.setVisible(true));
+                actions.push(errorDialogActions.setErrorMessage(errorMessage));
+            }
+            store.dispatch(batchActions(actions));
+        },
+        isCancellationRequested: () => store.getState().uploadDialog.cancelled,
     },
 });
 serviceRegistry.trackExporter = new BrowserTrackExporter(localFiles);
