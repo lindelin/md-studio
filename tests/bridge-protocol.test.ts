@@ -71,5 +71,19 @@ describe('bridge protocol validation', () => {
             () => parseBridgeMessage({ type: 'unknown', protocolVersion: BRIDGE_PROTOCOL_VERSION }),
             /Unknown bridge message type/
         );
+        assert.throws(
+            () =>
+                parseBridgeMessage({
+                    type: 'request',
+                    protocolVersion: BRIDGE_PROTOCOL_VERSION,
+                    id: 'advanced-1',
+                    command: {
+                        type: 'advanced.writeToc',
+                        dataBase64: 'AQID',
+                        confirmation: { confirmed: true, reason: 'Forged JSON confirmation' },
+                    },
+                }),
+            /restricted to the local browser UI/
+        );
     });
 });
