@@ -283,8 +283,9 @@ export function exploitDownloadTracks(
     return async function(dispatch: AppDispatch, getState: () => RootState) {
         const disc = getApplicationClient().getWorkspaceSnapshot().device?.disc;
         if (!disc) throw new Error('No MiniDisc is loaded.');
-        const useSlowerExploit = getState().appState.factoryModeUseSlowerExploit;
-        const nerawDownload = getState().appState.factoryModeNERAWDownload;
+        const settings = getApplicationClient().getWorkspaceSnapshot().settings.values;
+        const useSlowerExploit = settings.factoryModeUseSlowerExploit;
+        const nerawDownload = settings.factoryModeNERAWDownload;
         const tracks = getTracks(disc);
         if (nerawDownload && convertOutputToWav) {
             alert('Cannot convert to WAV and use NERAW files at the same time!');
@@ -424,7 +425,7 @@ export function stripTrProtect() {
 
 export function archiveDisc() {
     return async function(dispatch: AppDispatch, getState: () => RootState) {
-        const { archiveDiscCreateZip } = getState().appState;
+        const { archiveDiscCreateZip } = getApplicationClient().getWorkspaceSnapshot().settings.values;
         const canDownloadTracks =
             getApplicationClient().getWorkspaceSnapshot().device?.capabilities.includes('track.download') ?? false;
         let callback = downloadBlob;

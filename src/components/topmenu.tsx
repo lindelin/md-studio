@@ -56,7 +56,7 @@ const W95TopMenu = React.lazy(() =>
     import('./win95/topmenu').then(({ W95TopMenu }) => ({ default: W95TopMenu }))
 );
 import { ExploitCapability } from '../services/interfaces/capabilities';
-import { useApplicationWorkspace } from './use-application-client';
+import { useApplicationWorkspace, useUpdateApplicationSettings } from './use-application-client';
 
 const loadFactoryActions = () => import('../redux/factory/factory-actions');
 
@@ -74,8 +74,11 @@ export const TopMenu = function (props: { tracksSelected?: number[]; onClick?: (
     const { classes } = useStyles();
     const dispatch = useDispatch();
 
-    const { mainView, vintageMode, factoryModeRippingInMainUi, factoryModeShortcuts } = useShallowEqualSelector((state) => state.appState);
-    const device = useApplicationWorkspace().device;
+    const { mainView, factoryModeRippingInMainUi } = useShallowEqualSelector((state) => state.appState);
+    const workspace = useApplicationWorkspace();
+    const updateSettings = useUpdateApplicationSettings();
+    const { vintageMode, factoryModeShortcuts } = workspace.settings.values;
+    const device = workspace.device;
     const disc = device?.disc ?? null;
     const { spUploadSpeedupActive, deviceDiscSwapDetectionDisabled } = useShallowEqualSelector((state) => state.factory);
     const discTitle = disc?.title ?? ``;
@@ -119,8 +122,10 @@ export const TopMenu = function (props: { tracksSelected?: number[]; onClick?: (
     );
 
     const handleVintageMode = useCallback(() => {
-        dispatch(appActions.setVintageMode(!vintageMode));
-    }, [dispatch, vintageMode]);
+        void updateSettings({ vintageMode: !vintageMode }).catch((error) =>
+            window.alert(error instanceof Error ? error.message : String(error))
+        );
+    }, [updateSettings, vintageMode]);
 
     const handleShortcutsClose = useCallback(() => {
         setShortcutsAnchorEl(null);

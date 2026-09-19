@@ -20,6 +20,7 @@ const W95UploadDialog = React.lazy(() =>
     import('./win95/upload-dialog').then(({ W95UploadDialog }) => ({ default: W95UploadDialog }))
 );
 import { setNotifyWhenFinished } from '../redux/actions';
+import { useApplicationSettings } from './use-application-client';
 
 const useStyles = makeStyles()((theme) => ({
     progressPerc: {
@@ -63,7 +64,8 @@ export const UploadDialog = () => {
         trackEncodeProgress,
         trackEncodeProgressOutOf,
     } = useShallowEqualSelector((state) => state.uploadDialog);
-    const { vintageMode, notifyWhenFinished, hasNotificationSupport } = useShallowEqualSelector((state) => state.appState);
+    const { hasNotificationSupport } = useShallowEqualSelector((state) => state.appState);
+    const { vintageMode, notifyWhenFinished } = useApplicationSettings();
 
     const handleCancelUpload = useCallback(() => {
         dispatch(uploadDialogActions.setCancelUpload(true));

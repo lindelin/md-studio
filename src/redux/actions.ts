@@ -563,11 +563,19 @@ export function setNotifyWhenFinished(value: boolean) {
             const result = await askNotificationPermission();
             if (result !== 'granted') {
                 dispatch(appStateActions.setNotificationSupport(false));
-                dispatch(appStateActions.setNotifyWhenFinished(false));
+                const update = await getApplicationClient().execute({
+                    type: 'settings.update',
+                    changes: { notifyWhenFinished: false },
+                });
+                if (!update.ok) throw new Error(update.error.message);
                 return;
             }
         }
-        dispatch(appStateActions.setNotifyWhenFinished(value));
+        const update = await getApplicationClient().execute({
+            type: 'settings.update',
+            changes: { notifyWhenFinished: value },
+        });
+        if (!update.ok) throw new Error(update.error.message);
     };
 }
 
@@ -741,7 +749,8 @@ export function recognizeTracks(_trackEntries: TitleEntry[], mode: 'exploits' | 
                 {
                     mode,
                     deviceId: inputModeConfiguration?.deviceId,
-                    useSlowerExploit: getState().appState.factoryModeUseSlowerExploit,
+                    useSlowerExploit:
+                        getApplicationClient().getWorkspaceSnapshot().settings.values.factoryModeUseSlowerExploit,
                     tracks: trackEntries.map((entry) => ({
                         index: entry.index,
                         duration: tracks.get(entry.index)?.duration ?? 0,

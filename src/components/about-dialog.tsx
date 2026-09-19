@@ -16,6 +16,7 @@ const W95AboutDialog = React.lazy(() =>
     import('./win95/about-dialog').then(({ W95AboutDialog }) => ({ default: W95AboutDialog }))
 );
 import { GIT_DIFF, GIT_HASH, BUILD_DATE } from '../version-info';
+import { useApplicationSettings } from './use-application-client';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
@@ -25,7 +26,7 @@ export const AboutDialog = () => {
     const dispatch = useDispatch();
 
     const visible = useShallowEqualSelector((state) => state.appState.aboutDialogVisible);
-    const vintageMode = useShallowEqualSelector((state) => state.appState.vintageMode);
+    const { vintageMode } = useApplicationSettings();
 
     const handleClose = () => {
         dispatch(appActions.showAboutDialog(false));

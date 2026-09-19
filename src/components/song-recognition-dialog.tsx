@@ -128,8 +128,9 @@ export const SongRecognitionDialog = () => {
     const { classes } = useStyles();
 
     const { visible, titles, titleFormat, importMethod } = useShallowEqualSelector((state) => state.songRecognitionDialog);
-    const { fullWidthSupport } = useShallowEqualSelector((state) => state.appState);
-    const device = useApplicationWorkspace().device;
+    const workspace = useApplicationWorkspace();
+    const { fullWidthSupport } = workspace.settings.values;
+    const device = workspace.device;
     const disc = device?.disc ?? null;
     const recordingProfile = device?.recording;
     const supportsFactoryMode = device?.capabilities.includes('advanced.factory') ?? false;

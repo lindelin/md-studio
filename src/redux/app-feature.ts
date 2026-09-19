@@ -1,11 +1,8 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { enableBatching } from 'redux-batched-actions';
-import { CustomParameters } from '../custom-parameters';
 import { filterOutCorrupted, getSimpleServices, ServiceConstructionInfo } from '../services/interface-service-manager';
 import { savePreference, loadPreference } from '../utils';
-import { resolveAudioServiceIndexById } from '../services/audio-export-service-manager';
 import { isBoolean, isFiniteNumber, isServiceList } from '../preferences';
-import { applicationSettings, type UserSettings } from '../application/settings-store';
 
 export type Views = 'WELCOME' | 'MAIN' | 'FACTORY';
 
@@ -14,49 +11,28 @@ export interface AppState {
     loading: boolean;
     browserSupported: boolean;
     runningChrome: boolean;
-    colorTheme: 'dark' | 'light' | 'system';
-    vintageMode: boolean;
     aboutDialogVisible: boolean;
     discProtectedDialogVisible: boolean;
-    discProtectedDialogDisabled: boolean;
     settingsDialogVisible: boolean;
     changelogDialogVisible: boolean;
-    notifyWhenFinished: boolean;
     hasNotificationSupport: boolean;
-    fullWidthSupport: boolean;
     localBridgeEnabled: boolean;
     availableServices: ServiceConstructionInfo[];
     lastSelectedService: number;
     factoryModeRippingInMainUi: boolean;
-    audioExportService: number;
-    audioExportServiceConfig: CustomParameters;
-    libraryService: number;
-    libraryServiceConfig: CustomParameters;
-    pageFullHeight: boolean;
-    pageFullWidth: boolean;
-    archiveDiscCreateZip: boolean;
-    factoryModeUseSlowerExploit: boolean;
-    factoryModeShortcuts: boolean;
-    factoryModeNERAWDownload: boolean;
 }
 
 export const buildInitialState = (): AppState => {
-    const sharedSettings = applicationSettings.getSnapshot().values;
     return {
         mainView: 'WELCOME',
         loading: false,
         browserSupported: true,
         runningChrome: true,
-        colorTheme: sharedSettings.colorTheme,
-        vintageMode: sharedSettings.vintageMode,
         changelogDialogVisible: false,
         aboutDialogVisible: false,
         discProtectedDialogVisible: false,
-        discProtectedDialogDisabled: sharedSettings.discProtectedDialogDisabled,
         settingsDialogVisible: false,
-        notifyWhenFinished: sharedSettings.notifyWhenFinished,
         hasNotificationSupport: true,
-        fullWidthSupport: sharedSettings.fullWidthSupport,
         localBridgeEnabled: loadPreference('minidiscLocalBridgeEnabled', false, isBoolean),
         availableServices: [
             ...getSimpleServices(),
@@ -65,19 +41,6 @@ export const buildInitialState = (): AppState => {
         lastSelectedService: loadPreference('lastSelectedService', 0, isFiniteNumber),
         factoryModeRippingInMainUi: false, // As this value is heavily device-dependent and not really that stable yet
         // it should not be stored in the preferences, and should default to false.
-        audioExportService: resolveAudioServiceIndexById(
-            sharedSettings.audioEncoderId,
-            sharedSettings.audioExportService
-        ),
-        audioExportServiceConfig: sharedSettings.audioExportServiceConfig,
-        libraryService: sharedSettings.libraryService,
-        libraryServiceConfig: sharedSettings.libraryServiceConfig,
-        pageFullHeight: sharedSettings.pageFullHeight,
-        pageFullWidth: sharedSettings.pageFullWidth,
-        archiveDiscCreateZip: sharedSettings.archiveDiscCreateZip,
-        factoryModeUseSlowerExploit: sharedSettings.factoryModeUseSlowerExploit,
-        factoryModeShortcuts: sharedSettings.factoryModeShortcuts,
-        factoryModeNERAWDownload: sharedSettings.factoryModeNERAWDownload,
     };
 };
 
@@ -100,17 +63,8 @@ export const slice = createSlice({
         setRunningChrome: (state, action: PayloadAction<boolean>) => {
             state.runningChrome = action.payload;
         },
-        setDarkMode: (state, action: PayloadAction<'dark' | 'light' | 'system'>) => {
-            state.colorTheme = action.payload;
-        },
-        setNotifyWhenFinished: (state, action: PayloadAction<boolean>) => {
-            state.notifyWhenFinished = action.payload;
-        },
         setNotificationSupport: (state, action: PayloadAction<boolean>) => {
             state.hasNotificationSupport = action.payload;
-        },
-        setVintageMode: (state, action: PayloadAction<boolean>) => {
-            state.vintageMode = action.payload;
         },
         showAboutDialog: (state, action: PayloadAction<boolean>) => {
             state.aboutDialogVisible = action.payload;
@@ -118,17 +72,11 @@ export const slice = createSlice({
         showDiscProtectedDialog: (state, action: PayloadAction<boolean>) => {
             state.discProtectedDialogVisible = action.payload;
         },
-        disableDiscProtectedDialog: (state, action: PayloadAction<boolean>) => {
-            state.discProtectedDialogDisabled = action.payload;
-        },
         showSettingsDialog: (state, action: PayloadAction<boolean>) => {
             state.settingsDialogVisible = action.payload;
         },
         showChangelogDialog: (state, action: PayloadAction<boolean>) => {
             state.changelogDialogVisible = action.payload;
-        },
-        setFullWidthSupport: (state, action: PayloadAction<boolean>) => {
-            state.fullWidthSupport = action.payload;
         },
         setLocalBridgeEnabled: (state, action: PayloadAction<boolean>) => {
             state.localBridgeEnabled = action.payload;
@@ -148,54 +96,6 @@ export const slice = createSlice({
         },
         setFactoryModeRippingInMainUi: (state, action: PayloadAction<boolean>) => {
             state.factoryModeRippingInMainUi = action.payload;
-        },
-        setAudioExportService: (state, action: PayloadAction<number>) => {
-            state.audioExportService = action.payload;
-        },
-        setAudioExportServiceConfig: (state, action: PayloadAction<CustomParameters>) => {
-            state.audioExportServiceConfig = action.payload;
-        },
-        setLibraryService: (state, action: PayloadAction<number>) => {
-            state.libraryService = action.payload;
-        },
-        setLibraryServiceConfig: (state, action: PayloadAction<CustomParameters>) => {
-            state.libraryServiceConfig = action.payload;
-        },
-        setPageFullHeight: (state, action: PayloadAction<boolean>) => {
-            state.pageFullHeight = action.payload;
-        },
-        setPageFullWidth: (state, action: PayloadAction<boolean>) => {
-            state.pageFullWidth = action.payload;
-        },
-        setArchiveDiscCreateZip: (state, action: PayloadAction<boolean>) => {
-            state.archiveDiscCreateZip = action.payload;
-        },
-        setFactoryModeUseSlowerExploit: (state, action: PayloadAction<boolean>) => {
-            state.factoryModeUseSlowerExploit = action.payload;
-        },
-        setFactoryModeShortcuts: (state, action: PayloadAction<boolean>) => {
-            state.factoryModeShortcuts = action.payload;
-        },
-        setFactoryModeNERAWDownload: (state, action: PayloadAction<boolean>) => {
-            state.factoryModeNERAWDownload = action.payload;
-        },
-        applySharedSettings: (state, action: PayloadAction<UserSettings>) => {
-            const source = action.payload;
-            state.colorTheme = source.colorTheme;
-            state.vintageMode = source.vintageMode;
-            state.discProtectedDialogDisabled = source.discProtectedDialogDisabled;
-            state.notifyWhenFinished = source.notifyWhenFinished;
-            state.fullWidthSupport = source.fullWidthSupport;
-            state.pageFullHeight = source.pageFullHeight;
-            state.pageFullWidth = source.pageFullWidth;
-            state.archiveDiscCreateZip = source.archiveDiscCreateZip;
-            state.factoryModeUseSlowerExploit = source.factoryModeUseSlowerExploit;
-            state.factoryModeShortcuts = source.factoryModeShortcuts;
-            state.factoryModeNERAWDownload = source.factoryModeNERAWDownload;
-            state.audioExportService = resolveAudioServiceIndexById(source.audioEncoderId, source.audioExportService);
-            state.audioExportServiceConfig = source.audioExportServiceConfig;
-            state.libraryService = source.libraryService;
-            state.libraryServiceConfig = source.libraryServiceConfig;
         },
     },
 });

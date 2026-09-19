@@ -13,7 +13,7 @@ import songRecognitionDialog, {
     type SongRecognitionDialogFeature,
 } from './song-recognition-dialog-feature';
 import songRecognitionProgressDialog from './song-recognition-progress-dialog-feature';
-import appState, { actions as appActions, buildInitialState as buildInitialAppState, type AppState } from './app-feature';
+import appState, { actions as appActions, buildInitialState as buildInitialAppState } from './app-feature';
 import localLibrary from './local-library-feature';
 import factory from './factory/factory-feature';
 
@@ -28,32 +28,22 @@ import factoryBadSectorDialog, {
 
 import { batchActions, batchDispatchMiddleware } from 'redux-batched-actions';
 import { applicationSettings, type UserSettings } from '../application/settings-store';
-import { AudioServices, DEFAULT_AUDIO_SERVICE_ID } from '../services/audio-export-service-manager';
+
+type DialogBackedSettings = Pick<
+    UserSettings,
+    | 'uploadFormat'
+    | 'trackTitleFormat'
+    | 'recognitionTrackTitleFormat'
+    | 'recognitionImportMethod'
+    | 'factoryBadSectorRememberChoice'
+>;
 
 function sharedSettingsFromState(state: {
-    appState: AppState;
     convertDialog: ConvertDialogFeature;
     songRecognitionDialog: SongRecognitionDialogFeature;
     factoryBadSectorDialog: FactoryModeEditDialogState;
-}): UserSettings {
-    const source = state.appState;
+}): DialogBackedSettings {
     return {
-        colorTheme: source.colorTheme,
-        vintageMode: source.vintageMode,
-        discProtectedDialogDisabled: source.discProtectedDialogDisabled,
-        notifyWhenFinished: source.notifyWhenFinished,
-        fullWidthSupport: source.fullWidthSupport,
-        pageFullHeight: source.pageFullHeight,
-        pageFullWidth: source.pageFullWidth,
-        archiveDiscCreateZip: source.archiveDiscCreateZip,
-        factoryModeUseSlowerExploit: source.factoryModeUseSlowerExploit,
-        factoryModeShortcuts: source.factoryModeShortcuts,
-        factoryModeNERAWDownload: source.factoryModeNERAWDownload,
-        audioEncoderId: AudioServices[source.audioExportService]?.id ?? DEFAULT_AUDIO_SERVICE_ID,
-        audioExportService: source.audioExportService,
-        audioExportServiceConfig: source.audioExportServiceConfig,
-        libraryService: source.libraryService,
-        libraryServiceConfig: source.libraryServiceConfig,
         uploadFormat: state.convertDialog.format,
         trackTitleFormat: state.convertDialog.titleFormat,
         recognitionTrackTitleFormat: state.songRecognitionDialog.titleFormat,
@@ -101,7 +91,6 @@ const resetStatePayload = 'WELCOME';
 const sharedSettingsPersistence: Middleware = (storeApi) => (next) => (action) => {
     const result = next(action);
     if (
-        (action as { type?: string }).type === appActions.applySharedSettings.toString() ||
         (action as { type?: string }).type === convertDialogActions.applySharedSettings.toString() ||
         (action as { type?: string }).type === songRecognitionDialogActions.applySharedSettings.toString() ||
         (action as { type?: string }).type === factoryBadSectorDialogActions.applySharedSettings.toString()
@@ -109,7 +98,6 @@ const sharedSettingsPersistence: Middleware = (storeApi) => (next) => (action) =
         return result;
     const values = sharedSettingsFromState(
         storeApi.getState() as {
-            appState: AppState;
             convertDialog: ConvertDialogFeature;
             songRecognitionDialog: SongRecognitionDialogFeature;
             factoryBadSectorDialog: FactoryModeEditDialogState;
@@ -117,7 +105,7 @@ const sharedSettingsPersistence: Middleware = (storeApi) => (next) => (action) =
     );
     const current = applicationSettings.getSnapshot().values;
     const changes = Object.fromEntries(
-        (Object.keys(values) as (keyof UserSettings)[])
+        (Object.keys(values) as (keyof DialogBackedSettings)[])
             .filter((key) =>
                 typeof values[key] === 'object'
                     ? JSON.stringify(values[key]) !== JSON.stringify(current[key])
@@ -165,7 +153,6 @@ export const store = configureStore({
 
 const initialState = Object.freeze(store.getState());
 applicationSettings.subscribe((snapshot) => {
-    store.dispatch(appActions.applySharedSettings(snapshot.values));
     store.dispatch(convertDialogActions.applySharedSettings(snapshot.values));
     store.dispatch(songRecognitionDialogActions.applySharedSettings(snapshot.values));
     store.dispatch(factoryBadSectorDialogActions.applySharedSettings(snapshot.values));

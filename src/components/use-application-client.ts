@@ -1,2 +1,7 @@
 export { ApplicationClientProvider } from '../frontend/application-client-provider';
-export { useApplicationClient, useApplicationWorkspace } from '../frontend/use-application-client';
+export {
+    useApplicationClient,
+    useApplicationSettings,
+    useApplicationWorkspace,
+    useUpdateApplicationSettings,
+} from '../frontend/use-application-client';

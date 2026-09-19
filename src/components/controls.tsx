@@ -326,7 +326,7 @@ export const Controls = () => {
 
     const DiscFrame = frames[lcdIconFrame];
 
-    const vintageMode = useShallowEqualSelector((state) => state.appState.vintageMode);
+    const { vintageMode } = workspace.settings.values;
     if (vintageMode) {
         const p = {
             handlePrev,

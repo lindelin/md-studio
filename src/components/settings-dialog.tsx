@@ -1,5 +1,5 @@
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { batchActions, useDispatch } from '../frontend-utils';
+import { useDispatch } from '../frontend-utils';
 import { forAnyDesktop, forWideDesktop, useShallowEqualSelector } from '../frontend-utils';
 
 import { actions as appActions } from '../redux/app-feature';
@@ -24,6 +24,8 @@ import { renderCustomParameter } from './custom-parameters-renderer';
 import { initializeParameters, isAllValid } from '../custom-parameters';
 import { SettingInterface } from '../bridge-types';
 import { LibraryServices } from '../services/library-services';
+import { useApplicationSettings, useUpdateApplicationSettings } from './use-application-client';
+import type { UserSettingsUpdate } from '../application/settings-store';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
@@ -174,27 +176,26 @@ export const SettingsDialog = () => {
     const { classes } = useStyles();
 
     const visible = useShallowEqualSelector((state) => state.appState.settingsDialogVisible);
-
-    // Appearance properties
-    const { colorTheme, pageFullHeight, pageFullWidth } = useShallowEqualSelector((state) => state.appState);
-
-    // Functionality properties
-    const { fullWidthSupport, localBridgeEnabled } = useShallowEqualSelector((state) => state.appState);
+    const localBridgeEnabled = useShallowEqualSelector((state) => state.appState.localBridgeEnabled);
+    const settings = useApplicationSettings();
+    const updateSettings = useUpdateApplicationSettings();
     const {
+        colorTheme,
+        pageFullHeight,
+        pageFullWidth,
+        fullWidthSupport,
         archiveDiscCreateZip,
         factoryModeUseSlowerExploit,
         factoryModeShortcuts,
         factoryModeNERAWDownload,
         discProtectedDialogDisabled,
-    } = useShallowEqualSelector((state) => state.appState);
-
-    // Encoder properties
-    const {
         audioExportService: globalStateAudioExportService,
         audioExportServiceConfig: globalStateAudioExportServiceConfig,
         libraryService: globalStateLibraryService,
         libraryServiceConfig: globalStateLibraryServiceConfig,
-    } = useShallowEqualSelector((state) => state.appState);
+    } = settings;
+
+    // Encoder properties
     const [currentExportService, setCurrentExportService] = useState(resolveAudioServiceIndex(globalStateAudioExportService));
     const [currentExportServiceConfig, setExportServiceConfig] = useState(globalStateAudioExportServiceConfig);
     const [currentLibraryService, setCurrentLibraryService] = useState(globalStateLibraryService);
@@ -215,16 +216,16 @@ export const SettingsDialog = () => {
         }),
         [currentExportServiceConfig, currentExportService, currentLibraryService, currentLibraryServiceConfig, localBridgeEnabled]
     );
-    const saveBeforeReset = useCallback(() => {
-        dispatch(
-            batchActions([
-                appActions.setAudioExportService(currentExportService),
-                appActions.setAudioExportServiceConfig(currentExportServiceConfig),
-                appActions.setLibraryService(currentLibraryService),
-                appActions.setLibraryServiceConfig(currentLibraryServiceConfig),
-            ])
-        );
-    }, [dispatch, currentExportService, currentExportServiceConfig, currentLibraryService, currentLibraryServiceConfig]);
+    const saveBeforeReset = useCallback(
+        () =>
+            updateSettings({
+                audioExportService: currentExportService,
+                audioExportServiceConfig: currentExportServiceConfig,
+                libraryService: currentLibraryService,
+                libraryServiceConfig: currentLibraryServiceConfig,
+            }),
+        [currentExportService, currentExportServiceConfig, currentLibraryService, currentLibraryServiceConfig, updateSettings]
+    );
 
     const [initialState, setInitialState] = useState<ReturnType<typeof getStateRebootRequired> | null>(null);
 
@@ -247,42 +248,51 @@ export const SettingsDialog = () => {
         return canExit;
     }, [currentExportServiceConfig, currentService.customParameters]);
 
+    const applySetting = useCallback(
+        (changes: UserSettingsUpdate) => {
+            void updateSettings(changes).catch((error) => {
+                window.alert(error instanceof Error ? error.message : String(error));
+            });
+        },
+        [updateSettings]
+    );
+
     //Appearance configuration
     const handleThemeChange = useCallback(
         (event: any) => {
-            dispatch(appActions.setDarkMode(event.target.value as any));
+            applySetting({ colorTheme: event.target.value as 'dark' | 'light' | 'system' });
         },
-        [dispatch]
+        [applySetting]
     );
     const handlePageFullHeightChange = useCallback(() => {
-        dispatch(appActions.setPageFullHeight(!pageFullHeight));
-    }, [dispatch, pageFullHeight]);
+        applySetting({ pageFullHeight: !pageFullHeight });
+    }, [applySetting, pageFullHeight]);
     const handlePageFullWidthChange = useCallback(() => {
-        dispatch(appActions.setPageFullWidth(!pageFullWidth));
-    }, [dispatch, pageFullWidth]);
+        applySetting({ pageFullWidth: !pageFullWidth });
+    }, [applySetting, pageFullWidth]);
 
     // Functionality configuration
     const handleToggleFullWidth = useCallback(() => {
-        dispatch(appActions.setFullWidthSupport(!fullWidthSupport));
-    }, [dispatch, fullWidthSupport]);
+        applySetting({ fullWidthSupport: !fullWidthSupport });
+    }, [applySetting, fullWidthSupport]);
     const handleToggleLocalBridge = useCallback(() => {
         dispatch(appActions.setLocalBridgeEnabled(!localBridgeEnabled));
     }, [dispatch, localBridgeEnabled]);
     const handleToggleDiscProtectedDialogDisabled = useCallback(() => {
-        dispatch(appActions.disableDiscProtectedDialog(!discProtectedDialogDisabled));
-    }, [dispatch, discProtectedDialogDisabled]);
+        applySetting({ discProtectedDialogDisabled: !discProtectedDialogDisabled });
+    }, [applySetting, discProtectedDialogDisabled]);
     const handleToggleArchiveDiscCreateZip = useCallback(() => {
-        dispatch(appActions.setArchiveDiscCreateZip(!archiveDiscCreateZip));
-    }, [dispatch, archiveDiscCreateZip]);
+        applySetting({ archiveDiscCreateZip: !archiveDiscCreateZip });
+    }, [applySetting, archiveDiscCreateZip]);
     const handleToggleFactoryModeUseSlowerExploits = useCallback(() => {
-        dispatch(appActions.setFactoryModeUseSlowerExploit(!factoryModeUseSlowerExploit));
-    }, [dispatch, factoryModeUseSlowerExploit]);
+        applySetting({ factoryModeUseSlowerExploit: !factoryModeUseSlowerExploit });
+    }, [applySetting, factoryModeUseSlowerExploit]);
     const handleToggleFactoryModeShortcuts = useCallback(() => {
-        dispatch(appActions.setFactoryModeShortcuts(!factoryModeShortcuts));
-    }, [dispatch, factoryModeShortcuts]);
+        applySetting({ factoryModeShortcuts: !factoryModeShortcuts });
+    }, [applySetting, factoryModeShortcuts]);
     const handleToggleFactoryModeNERAWDownload = useCallback(() => {
-        dispatch(appActions.setFactoryModeNERAWDownload(!factoryModeNERAWDownload));
-    }, [dispatch, factoryModeNERAWDownload]);
+        applySetting({ factoryModeNERAWDownload: !factoryModeNERAWDownload });
+    }, [applySetting, factoryModeNERAWDownload]);
 
     //Encoder configuration
     const handleExportServiceChanges = useCallback((event: any) => {
@@ -316,9 +326,9 @@ export const SettingsDialog = () => {
     const handleClose = useCallback(() => {
         setInitialState(null);
         if (isRestartRequired()) {
-            saveBeforeReset();
-            // Trigger a reset.
-            window.reload();
+            void saveBeforeReset()
+                .then(() => window.reload())
+                .catch((error) => window.alert(error instanceof Error ? error.message : String(error)));
         } else {
             dispatch(appActions.showSettingsDialog(false));
         }

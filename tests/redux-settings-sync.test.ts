@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-describe('legacy Redux settings projection', () => {
+describe('legacy dialog settings projection', () => {
     it('keeps recording format and title template synchronized with the shared settings store', async () => {
         (globalThis as unknown as { window: Record<string, unknown> }).window = {};
         const [

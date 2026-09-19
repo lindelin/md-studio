@@ -11,7 +11,7 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import Link from '@mui/material/Link';
 import Box from '@mui/material/Box';
-import { useApplicationWorkspace } from './use-application-client';
+import { useApplicationSettings, useApplicationWorkspace } from './use-application-client';
 
 const Toc = lazy(() => import('./factory/factory'));
 const Controls = lazy(() => import('./controls'));
@@ -226,7 +226,8 @@ const lightTheme = createTheme({
 });
 
 const InternalApp = () => {
-    const { mainView, loading, pageFullHeight, pageFullWidth } = useShallowEqualSelector((state) => state.appState);
+    const { mainView, loading } = useShallowEqualSelector((state) => state.appState);
+    const { pageFullHeight, pageFullWidth } = useApplicationSettings();
     const canListContent = useApplicationWorkspace().device?.capabilities.includes('content.read') ?? false;
     const { classes, cx } = useStyles();
 
@@ -279,7 +280,7 @@ const InternalApp = () => {
 };
 
 const App = () => {
-    const { colorTheme, vintageMode } = useShallowEqualSelector((state) => state.appState);
+    const { colorTheme, vintageMode } = useApplicationSettings();
     const systemIsDarkTheme = useThemeDetector();
 
     const theme = useMemo(() => {

@@ -10,7 +10,6 @@ import { belowDesktop, useShallowEqualSelector, batchActions } from '../frontend
 
 import { actions as convertDialogActions, ForcedEncodingFormat, TitleFormatType } from '../redux/convert-dialog-feature';
 import { actions as renameDialogActions, RenameType } from '../redux/rename-dialog-feature';
-import { actions as appActions } from '../redux/app-feature';
 import { actions as errorDialogActions } from '../redux/error-dialog-feature';
 import { openLocalLibrary } from '../redux/actions';
 
@@ -55,7 +54,7 @@ const W95ConvertDialog = React.lazy(() =>
 );
 import type { Codec } from '../services/interfaces/netmd';
 import { INTERACTIVE_HOMEBREW_AUTHORIZATION } from '../application/interactive-authorization';
-import { useApplicationClient, useApplicationWorkspace } from './use-application-client';
+import { useApplicationClient, useApplicationWorkspace, useUpdateApplicationSettings } from './use-application-client';
 import Link from '@mui/material/Link';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -270,8 +269,9 @@ const ConnectedConvertDialog = (props: {
     const { classes, cx } = useStyles();
 
     const { visible, format, titleFormat, titles } = useShallowEqualSelector((state) => state.convertDialog);
-    const { fullWidthSupport } = useShallowEqualSelector((state) => state.appState);
     const workspace = useApplicationWorkspace();
+    const updateSettings = useUpdateApplicationSettings();
+    const { fullWidthSupport, vintageMode, libraryService } = workspace.settings.values;
     const device = workspace.device;
     const disc = device?.disc ?? null;
     const recordingProfile = props.recordingProfile;
@@ -596,9 +596,11 @@ const ConnectedConvertDialog = (props: {
 
     const handleToggleFullWidthSupport = useCallback(() => {
         const enabled = !fullWidthSupport;
-        dispatch(appActions.setFullWidthSupport(enabled));
-        void refreshTitledFiles(files, usesHimdTitles ? 'title' : titleFormat, enabled).catch(reportApplicationError);
-    }, [dispatch, files, fullWidthSupport, refreshTitledFiles, reportApplicationError, titleFormat, usesHimdTitles]);
+        void Promise.all([
+            updateSettings({ fullWidthSupport: enabled }),
+            refreshTitledFiles(files, usesHimdTitles ? 'title' : titleFormat, enabled),
+        ]).catch(reportApplicationError);
+    }, [files, fullWidthSupport, refreshTitledFiles, reportApplicationError, titleFormat, updateSettings, usesHimdTitles]);
 
     useEffect(() => {
         const device = workspace.device;
@@ -880,8 +882,6 @@ const ConnectedConvertDialog = (props: {
     const formatsSupport = recordingProfile.availableFormats.map(
         (format) => workspace.encoder.support[format.codec] ?? { state: 'unsupported' as const, gapless: false }
     );
-
-    const { vintageMode, libraryService } = useShallowEqualSelector((state) => state.appState);
 
     if (vintageMode) {
         const p = {

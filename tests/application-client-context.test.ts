@@ -5,13 +5,18 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import type { ApplicationClient } from '../src/application/application-client.ts';
 import type { WorkspaceSnapshot } from '../src/application/workspace-store.ts';
 import { ApplicationClientProvider } from '../src/frontend/application-client-provider.tsx';
-import { useApplicationClient, useApplicationWorkspace } from '../src/frontend/use-application-client.ts';
+import {
+    useApplicationClient,
+    useApplicationSettings,
+    useApplicationWorkspace,
+    updateApplicationSettings,
+} from '../src/frontend/use-application-client.ts';
 
 const snapshot = {
     device: null,
     imports: { revision: 3, items: [] },
     tasks: [],
-    settings: { revision: 0, values: {} },
+    settings: { revision: 0, values: { colorTheme: 'dark' } },
     library: { revision: 0, status: 'idle', entryCount: 0, error: null },
     encoder: { revision: 0, status: 'idle', index: null, id: null, name: null, error: null, support: {} },
 } as WorkspaceSnapshot;
@@ -24,7 +29,8 @@ const client = {
 function Probe() {
     const activeClient = useApplicationClient();
     const workspace = useApplicationWorkspace();
-    return React.createElement('span', null, `${activeClient === client}:${workspace.imports.revision}`);
+    const settings = useApplicationSettings();
+    return React.createElement('span', null, `${activeClient === client}:${workspace.imports.revision}:${settings.colorTheme}`);
 }
 
 describe('ApplicationClientProvider', () => {
@@ -32,10 +38,29 @@ describe('ApplicationClientProvider', () => {
         const markup = renderToStaticMarkup(
             React.createElement(ApplicationClientProvider, { client }, React.createElement(Probe))
         );
-        assert.equal(markup, '<span>true:3</span>');
+        assert.equal(markup, '<span>true:3:dark</span>');
     });
 
     it('fails clearly when a component bypasses the composition root', () => {
         assert.throws(() => renderToStaticMarkup(React.createElement(Probe)), /ApplicationClientProvider is missing/);
+    });
+
+    it('updates settings through the current workspace revision', async () => {
+        let received: unknown;
+        const updatingClient = {
+            getWorkspaceSnapshot: () => ({ ...snapshot, settings: { ...snapshot.settings, revision: 7 } }),
+            execute: async (command: unknown) => {
+                received = command;
+                return { ok: true, settings: snapshot.settings };
+            },
+        } as unknown as ApplicationClient;
+
+        await updateApplicationSettings(updatingClient, { pageFullWidth: true });
+
+        assert.deepEqual(received, {
+            type: 'settings.update',
+            changes: { pageFullWidth: true },
+            expectedRevision: 7,
+        });
     });
 });

@@ -14,6 +14,7 @@ import Button from '@mui/material/Button';
 import Warning from '../images/md_lock.svg?react';
 import { Checkbox, FormControlLabel } from '@mui/material';
 import { makeStyles } from 'tss-react/mui';
+import { useUpdateApplicationSettings } from './use-application-client';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
@@ -32,6 +33,7 @@ const useStyles = makeStyles()((theme) => ({
 
 export const DiscProtectedDialog = () => {
     const dispatch = useDispatch();
+    const updateSettings = useUpdateApplicationSettings();
     const { classes } = useStyles();
 
     const visible = useShallowEqualSelector((state) => state.appState.discProtectedDialogVisible);
@@ -39,10 +41,12 @@ export const DiscProtectedDialog = () => {
 
     const handleClose = useCallback(() => {
         if (doNotShowAgain) {
-            dispatch(appActions.disableDiscProtectedDialog(true));
+            void updateSettings({ discProtectedDialogDisabled: true }).catch((error) =>
+                window.alert(error instanceof Error ? error.message : String(error))
+            );
         }
         dispatch(appActions.showDiscProtectedDialog(false));
-    }, [dispatch, doNotShowAgain]);
+    }, [dispatch, doNotShowAgain, updateSettings]);
 
     return (
         <Dialog

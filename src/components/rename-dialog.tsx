@@ -2,7 +2,6 @@ import React, { useCallback } from 'react';
 import { useDispatch, batchActions } from '../frontend-utils';
 import { useShallowEqualSelector } from '../frontend-utils';
 import { actions as renameDialogActions, RenameType } from '../redux/rename-dialog-feature';
-import { actions as appActions } from '../redux/app-feature';
 import {
     renameTrack,
     renameDisc,
@@ -26,7 +25,7 @@ import Typography from '@mui/material/Typography';
 const W95RenameDialog = React.lazy(() =>
     import('./win95/rename-dialog').then(({ W95RenameDialog }) => ({ default: W95RenameDialog }))
 );
-import { useApplicationWorkspace } from './use-application-client';
+import { useApplicationSettings, useApplicationWorkspace, useUpdateApplicationSettings } from './use-application-client';
 import { sanitizeDeviceFullWidthTitle } from '../application/device-profile';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
@@ -58,7 +57,8 @@ export const RenameDialog = () => {
     const { fullWidthTitle, himdAlbum, himdArtist, himdTitle, index, renameType, title, visible } = useShallowEqualSelector(
         (state) => state.renameDialog
     );
-    const allowFullWidth = useShallowEqualSelector((state) => state.appState.fullWidthSupport);
+    const { fullWidthSupport: allowFullWidth, vintageMode } = useApplicationSettings();
+    const updateSettings = useUpdateApplicationSettings();
     const device = useApplicationWorkspace().device;
     const supportsFullWidth = device?.capabilities.includes('metadata.fullWidth') ?? false;
 
@@ -175,15 +175,17 @@ export const RenameDialog = () => {
 
     const handleSwitchToFullWidth = useCallback(
         () => {
+            void updateSettings({ fullWidthSupport: true }).catch((error) =>
+                window.alert(error instanceof Error ? error.message : String(error))
+            );
             dispatch(
                 batchActions([
-                    appActions.setFullWidthSupport(true),
                     renameDialogActions.setCurrentFullWidthName(sanitizeDeviceFullWidthTitle(recordingProfile, title)),
                     renameDialogActions.setCurrentName(''),
                 ])
             );
         },
-        [title, dispatch, recordingProfile]
+        [title, dispatch, recordingProfile, updateSettings]
     );
 
     // HIMD:
@@ -207,7 +209,6 @@ export const RenameDialog = () => {
     );
     // /HIMD
 
-    const { vintageMode } = useShallowEqualSelector((state) => state.appState);
     if (vintageMode) {
         const p = {
             renameDialogVisible: visible,

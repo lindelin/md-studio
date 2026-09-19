@@ -18,6 +18,7 @@ const W95ChangelogDialog = React.lazy(() =>
 import { saveRawPreference } from '../preferences';
 import { CHANGELOG } from '../changelog';
 import { ChangelogEntry } from '../bridge-types';
+import { useApplicationSettings } from './use-application-client';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
@@ -52,7 +53,7 @@ export const ChangelogDialog = () => {
     const dispatch = useDispatch();
     const { classes } = useStyles();
 
-    const vintageMode = useShallowEqualSelector((state) => state.appState.vintageMode);
+    const { vintageMode } = useApplicationSettings();
     const visible = useShallowEqualSelector((state) => state.appState.changelogDialogVisible);
 
     const handleClose = useCallback(() => {

@@ -16,6 +16,7 @@ const W95RecordDialog = React.lazy(() =>
 );
 import { useDispatch } from '../frontend-utils';
 import { requestTaskCancellation } from '../redux/actions';
+import { useApplicationSettings } from './use-application-client';
 
 const useStyles = makeStyles()((theme) => ({
     progressPerc: {
@@ -40,7 +41,7 @@ export const RecordDialog = () => {
 
     const progressValue = Math.round(trackCurrent);
 
-    const vintageMode = useShallowEqualSelector((state) => state.appState.vintageMode);
+    const { vintageMode } = useApplicationSettings();
     if (vintageMode) {
         const p = {
             visible,

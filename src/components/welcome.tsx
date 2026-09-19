@@ -104,14 +104,12 @@ export const Welcome = () => {
     const { classes } = useStyles();
     const dispatch = useDispatch();
     const applicationClient = useApplicationClient();
-    const { connection } = useApplicationWorkspace();
-    const {
-        browserSupported,
-        runningChrome,
-        availableServices,
-        vintageMode,
-        lastSelectedService,
-    } = useShallowEqualSelector((state) => state.appState);
+    const workspace = useApplicationWorkspace();
+    const { connection } = workspace;
+    const { vintageMode } = workspace.settings.values;
+    const { browserSupported, runningChrome, availableServices, lastSelectedService } = useShallowEqualSelector(
+        (state) => state.appState
+    );
     const pairingFailed = connection.phase === 'error';
     const pairingMessage = connection.message ?? '';
     const connectingInProgress = connection.phase === 'connecting';

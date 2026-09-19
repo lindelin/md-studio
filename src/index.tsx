@@ -57,7 +57,7 @@ serviceRegistry.importWriter = new BrowserImportWriter({
     },
     notifyCompleted: () => {
         const state = store.getState().appState;
-        if (!state.hasNotificationSupport || !state.notifyWhenFinished) return;
+        if (!state.hasNotificationSupport || !serviceRegistry.settingsStore.getSnapshot().values.notifyWhenFinished) return;
         const notification = new Notification('MiniDisc recording completed', {
             icon: NotificationCompleteIconUrl,
         });
@@ -153,7 +153,9 @@ if (readRawPreference('version') !== (window as any).wmdVersion) {
 
     if (!('Notification' in window) || Notification.permission === 'denied') {
         store.dispatch(appActions.setNotificationSupport(false));
-        store.dispatch(appActions.setNotifyWhenFinished(false));
+        if (serviceRegistry.settingsStore.getSnapshot().values.notifyWhenFinished) {
+            serviceRegistry.settingsStore.update({ notifyWhenFinished: false });
+        }
     }
 })();
 

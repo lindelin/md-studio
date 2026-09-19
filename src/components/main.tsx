@@ -197,7 +197,7 @@ export const Main = () => {
     const deviceName = device?.deviceName ?? '';
     const deviceStatus = device?.status ?? null;
     const factoryModeRippingInMainUi = useShallowEqualSelector((state) => state.appState.factoryModeRippingInMainUi);
-    const { vintageMode, libraryService } = useShallowEqualSelector((state) => state.appState);
+    const { vintageMode, libraryService, discProtectedDialogDisabled } = workspace.settings.values;
 
     const [selected, setSelected] = React.useState<number[]>([]);
     const [selectedGroups, setSelectedGroups] = React.useState<number[]>([]);
@@ -260,7 +260,6 @@ export const Main = () => {
     }, [disc]);
 
     const [wasLastDiscNull, setWasLastDiscNull] = useState<boolean>(false);
-    const discProtectedDialogDisabled = useShallowEqualSelector((state) => state.appState.discProtectedDialogDisabled);
     useEffect(() => {
         if (disc === null && !wasLastDiscNull) {
             setWasLastDiscNull(true);
