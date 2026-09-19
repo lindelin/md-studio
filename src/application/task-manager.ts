@@ -167,7 +167,9 @@ export class TaskManager {
 
     subscribe(listener: TaskListener) {
         this.listeners.add(listener);
-        return () => this.listeners.delete(listener);
+        return () => {
+            this.listeners.delete(listener);
+        };
     }
 
     private updateActive(id: string, update: (task: TaskSnapshot) => void) {

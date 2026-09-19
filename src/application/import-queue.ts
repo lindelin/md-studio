@@ -13,9 +13,12 @@ export interface ImportSourceDescriptor {
 
 export interface ImportTrackMetadata {
     title: string;
+    sourceTitle?: string;
     fullWidthTitle?: string;
     artist?: string;
+    sourceArtist?: string;
     album?: string;
+    sourceAlbum?: string;
     duration?: number;
     forcedEncoding?: { codec: string; bitrate: number } | null;
     bytesToSkip?: number;
@@ -170,7 +173,9 @@ export class ImportQueue {
 
     subscribe(listener: ImportQueueListener) {
         this.listeners.add(listener);
-        return () => this.listeners.delete(listener);
+        return () => {
+            this.listeners.delete(listener);
+        };
     }
 
     private validateInput(input: ImportQueueInput) {

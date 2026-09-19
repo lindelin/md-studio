@@ -664,14 +664,15 @@ export function recordTracks(indexes: number[], deviceId: string, options: { ope
 }
 
 export function renameInConvertDialog({ index, newName, newFullWidthName }: { index: number; newName: string; newFullWidthName: string }) {
-    return async function (dispatch: AppDispatch, getState: () => RootState) {
-        const newTitles = [...getState().convertDialog.titles];
-        newTitles.splice(index, 1, {
-            ...newTitles[index],
-            title: newName,
-            fullWidthTitle: newFullWidthName,
-        });
-        dispatch(convertDialogActions.setTitles(newTitles));
+    return async function () {
+        const snapshot = serviceRegistry.importQueue.snapshot();
+        const item = snapshot.items[index];
+        if (!item) throw new Error(`Import queue item ${index} does not exist.`);
+        serviceRegistry.importQueue.update(
+            item.id,
+            { title: newName, fullWidthTitle: newFullWidthName },
+            snapshot.revision
+        );
     };
 }
 
@@ -686,15 +687,11 @@ export function renameInConvertDialogHiMD({
     album: string;
     artist: string;
 }) {
-    return async function (dispatch: AppDispatch, getState: () => RootState) {
-        const newTitles = [...getState().convertDialog.titles];
-        newTitles.splice(index, 1, {
-            ...newTitles[index],
-            title,
-            artist,
-            album,
-        });
-        dispatch(convertDialogActions.setTitles(newTitles));
+    return async function () {
+        const snapshot = serviceRegistry.importQueue.snapshot();
+        const item = snapshot.items[index];
+        if (!item) throw new Error(`Import queue item ${index} does not exist.`);
+        serviceRegistry.importQueue.update(item.id, { title, artist, album }, snapshot.revision);
     };
 }
 

@@ -1,5 +1,6 @@
 import type { AppDispatch } from '../redux/store';
 import { convertAndUpload } from '../redux/actions';
+import { actions as convertDialogActions } from '../redux/convert-dialog-feature';
 import serviceRegistry from '../services/registry';
 import { Capability, getDefaultCodec, type Codec } from '../services/interfaces/netmd';
 import type { TitledFile } from '../utils';
@@ -87,10 +88,13 @@ export class BrowserImportWriter implements ImportWriter {
             const finalTask = tasks.get(taskId);
             if (finalTask.status === 'succeeded' && request.removeOnSuccess) {
                 queue.remove(selected.map(({ item }) => item.id));
+            } else if (finalTask.status === 'failed' || finalTask.status === 'cancelled') {
+                this.dispatch(convertDialogActions.setVisible(true));
             }
         } catch (error) {
             const task = tasks.get(taskId);
             if (task.status === 'queued' || task.status === 'running') tasks.fail(taskId, error);
+            this.dispatch(convertDialogActions.setVisible(true));
         }
     }
 

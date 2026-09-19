@@ -16,7 +16,8 @@ import { belowDesktop, useShallowEqualSelector, batchActions } from '../frontend
 import { actions as convertDialogActions, ForcedEncodingFormat, TitleFormatType } from '../redux/convert-dialog-feature';
 import { actions as renameDialogActions, RenameType } from '../redux/rename-dialog-feature';
 import { actions as appActions } from '../redux/app-feature';
-import { convertAndUpload, openLocalLibrary } from '../redux/actions';
+import { actions as errorDialogActions } from '../redux/error-dialog-feature';
+import { openLocalLibrary } from '../redux/actions';
 
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
@@ -52,7 +53,7 @@ import Toolbar from '@mui/material/Toolbar';
 import { lighten } from '@mui/material/styles';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import Radio from '@mui/material/Radio';
-import { FileRejection, useDropzone } from 'react-dropzone';
+import { useDropzone } from 'react-dropzone';
 import Backdrop from '@mui/material/Backdrop';
 import { W95ConvertDialog } from './win95/convert-dialog';
 import {
@@ -218,7 +219,7 @@ const useStyles = makeStyles()((theme) => ({
     },
 }));
 
-type FileWithMetadata = {
+type InspectedFile = {
     file: File | AdaptiveFile;
     title: string;
     album: string;
@@ -227,6 +228,10 @@ type FileWithMetadata = {
     forcedEncoding: ForcedEncodingFormat;
     bytesToSkip: number;
 };
+
+function createBrowserFileReference() {
+    return `browser-file:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
+}
 
 function createForcedEncodingText(selectedCodec: Codec, file: { forcedEncoding: ForcedEncodingFormat }) {
     const remapTable: { [name: string]: string } = {
@@ -256,7 +261,8 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
     const { disc, deviceCapabilities } = useShallowEqualSelector((state) => state.main);
     const minidiscSpec = serviceRegistry.netmdSpec!;
 
-    const [files, setFiles] = useState<FileWithMetadata[]>([]);
+    const [queueSnapshot, setQueueSnapshot] = useState(() => serviceRegistry.importQueue.snapshot());
+    const files = queueSnapshot.items;
     const [selectedTrackIndex, setSelectedTrack] = useState(-1);
     const [availableCharacters, setAvailableCharacters] = useState<{ halfWidth: number; fullWidth: number }>({
         fullWidth: 0,
@@ -269,7 +275,25 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
     const [beforeConversionAvailableDurationUnits, setBeforeConversionAvailableDurationUnits] = useState(0);
     const [availableDurationUnits, setAvailableDurationUnits] = useState(0);
     const [availableSPSeconds, setAvailableSPSeconds] = useState(0);
-    const [loadingMetadata, setLoadingMetadata] = useState(true);
+    const [loadingMetadata, setLoadingMetadata] = useState(false);
+
+    useEffect(() => serviceRegistry.importQueue.subscribe(setQueueSnapshot), []);
+
+    useEffect(() => {
+        dispatch(
+            convertDialogActions.setTitles(
+                files.map((file) => ({
+                    title: file.title,
+                    fullWidthTitle: file.fullWidthTitle ?? '',
+                    duration: file.duration ?? 0,
+                    forcedEncoding: (file.forcedEncoding as ForcedEncodingFormat) ?? null,
+                    bytesToSkip: file.bytesToSkip ?? 0,
+                    album: file.album,
+                    artist: file.artist,
+                }))
+            )
+        );
+    }, [dispatch, files]);
 
     const fullWidthCharactersUsed = useMemo(() => {
         return (
@@ -307,9 +331,9 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
 
     const loadMetadataFromFiles = useMemo(
         () =>
-            async (files: (File | AdaptiveFile)[]): Promise<FileWithMetadata[]> => {
+            async (files: (File | AdaptiveFile)[]): Promise<InspectedFile[]> => {
                 setLoadingMetadata(true);
-                const titledFiles: FileWithMetadata[] = [];
+                const titledFiles: InspectedFile[] = [];
                 for (const _file of files) {
                     // If the file is an adaptive file...:
                     if ((_file as any).getForEncoding) {
@@ -354,7 +378,7 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
 
                         if (forcedEncoding !== null && forcedEncoding !== 'ILLEGAL') {
                             // There's an encoding forced by either the SP upload functionality or OMA
-                            let asCodec: CodecFamily = forcedEncoding.format!.codec;
+                            const asCodec: CodecFamily = forcedEncoding.format!.codec;
                             const isIllegalForThisFormat = () => !minidiscSpec.availableFormats.some((e) => e.codec === asCodec);
                             if (isIllegalForThisFormat()) {
                                 // If it's still invalid, do not force an encoding
@@ -374,7 +398,6 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
                         }
                     }
                 }
-                setLoadingMetadata(false);
                 return titledFiles;
             },
         [minidiscSpec.availableFormats]
@@ -394,68 +417,99 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
                 unlessUnset: true,
             })
         );
-    }, [dispatch, minidiscSpec, minidiscSpec.specName]);
-
-    useEffect(() => {
-        // Trigger a reset if needed
-        const newFiles = Array.from(props.files);
-        loadMetadataFromFiles(newFiles)
-            .then((withMetadata) => {
-                setFiles(withMetadata);
-            })
-            .catch(console.error);
-    }, [props.files, loadMetadataFromFiles, resetDialog]);
+    }, [dispatch, minidiscSpec]);
 
     const refreshTitledFiles = useCallback(
-        (files: FileWithMetadata[], format: TitleFormatType) => {
-            dispatch(
-                convertDialogActions.setTitles(
-                    files.map((file) => {
-                        let rawTitle = '';
-                        switch (format) {
-                            case 'title': {
-                                rawTitle = file.title;
-                                break;
-                            }
-                            case 'artist-title': {
-                                rawTitle = `${file.artist} - ${file.title}`;
-                                break;
-                            }
-                            case 'title-artist': {
-                                rawTitle = `${file.title} - ${file.artist}`;
-                                break;
-                            }
-                            case 'album-title': {
-                                rawTitle = `${file.album} - ${file.title}`;
-                                break;
-                            }
-                            case 'artist-album-title': {
-                                rawTitle = `${file.artist} - ${file.album} - ${file.title}`;
-                                break;
-                            }
-                            case 'filename': {
-                                rawTitle = removeExtension(file.file.name);
-                                break;
-                            }
-                        }
-                        const halfWidth = minidiscSpec.sanitizeHalfWidthTitle(rawTitle);
-                        const fullWidth = minidiscSpec.sanitizeFullWidthTitle(rawTitle);
-                        const halfAsFull = minidiscSpec.sanitizeFullWidthTitle(halfWidth);
-                        return {
+        (queuedFiles: typeof files, selectedFormat: TitleFormatType, allowFullWidth = fullWidthSupport) => {
+            if (queuedFiles.length === 0) return;
+            const snapshot = serviceRegistry.importQueue.snapshot();
+            serviceRegistry.importQueue.updateMany(
+                queuedFiles.map((file) => {
+                    const sourceTitle = file.sourceTitle ?? file.title;
+                    const sourceArtist = file.sourceArtist ?? file.artist ?? '';
+                    const sourceAlbum = file.sourceAlbum ?? file.album ?? '';
+                    let rawTitle = '';
+                    switch (selectedFormat) {
+                        case 'title':
+                            rawTitle = sourceTitle;
+                            break;
+                        case 'artist-title':
+                            rawTitle = `${sourceArtist} - ${sourceTitle}`;
+                            break;
+                        case 'title-artist':
+                            rawTitle = `${sourceTitle} - ${sourceArtist}`;
+                            break;
+                        case 'album-title':
+                            rawTitle = `${sourceAlbum} - ${sourceTitle}`;
+                            break;
+                        case 'artist-album-title':
+                            rawTitle = `${sourceArtist} - ${sourceAlbum} - ${sourceTitle}`;
+                            break;
+                        case 'filename':
+                            rawTitle = removeExtension(file.name);
+                            break;
+                    }
+                    const halfWidth = minidiscSpec.sanitizeHalfWidthTitle(rawTitle);
+                    const fullWidth = minidiscSpec.sanitizeFullWidthTitle(rawTitle);
+                    const halfAsFull = minidiscSpec.sanitizeFullWidthTitle(halfWidth);
+                    return {
+                        id: file.id,
+                        changes: {
                             title: halfWidth,
-                            fullWidthTitle: fullWidthSupport && deviceSupportsFullWidth && fullWidth !== halfAsFull ? fullWidth : '', // If there are no differences between half and full width, skip the full width
-                            duration: file.duration,
-                            forcedEncoding: file.forcedEncoding,
-                            bytesToSkip: file.bytesToSkip,
-                            album: file.album,
-                            artist: file.artist,
-                        };
-                    })
-                )
+                            fullWidthTitle:
+                                allowFullWidth && deviceSupportsFullWidth && fullWidth !== halfAsFull ? fullWidth : '',
+                        },
+                    };
+                }),
+                snapshot.revision
             );
         },
-        [fullWidthSupport, dispatch, minidiscSpec, deviceSupportsFullWidth]
+        [deviceSupportsFullWidth, fullWidthSupport, minidiscSpec]
     );
+
+    const addInspectedFiles = useCallback(
+        (inspectedFiles: InspectedFile[]) => {
+            if (inspectedFiles.length === 0) return;
+            const selectedTitleFormat = usesHimdTitles ? 'title' : titleFormat;
+            const added = serviceRegistry.importQueue.add(
+                inspectedFiles.map((inspected) => ({
+                    source: {
+                        kind: 'browser-file' as const,
+                        name: inspected.file.name,
+                        reference: createBrowserFileReference(),
+                        size: inspected.file instanceof File ? inspected.file.size : undefined,
+                        mimeType: inspected.file instanceof File ? inspected.file.type : undefined,
+                    },
+                    metadata: {
+                        title: inspected.title,
+                        sourceTitle: inspected.title,
+                        fullWidthTitle: '',
+                        artist: inspected.artist,
+                        sourceArtist: inspected.artist,
+                        album: inspected.album,
+                        sourceAlbum: inspected.album,
+                        duration: inspected.duration,
+                        forcedEncoding: inspected.forcedEncoding,
+                        bytesToSkip: inspected.bytesToSkip,
+                    },
+                    payload: inspected.file,
+                }))
+            );
+            const addedIds = new Set(added.items.slice(-inspectedFiles.length).map((item) => item.id));
+            refreshTitledFiles(
+                added.items.filter((item) => addedIds.has(item.id)),
+                selectedTitleFormat
+            );
+        },
+        [refreshTitledFiles, titleFormat, usesHimdTitles]
+    );
+
+    useEffect(() => {
+        const newFiles = Array.from(props.files);
+        if (newFiles.length === 0) return;
+        resetDialog();
+        loadMetadataFromFiles(newFiles).then(addInspectedFiles).catch(console.error).finally(() => setLoadingMetadata(false));
+    }, [props.files, loadMetadataFromFiles, resetDialog, addInspectedFiles]);
 
     const renameTrackManually = useCallback(
         (index: number) => {
@@ -487,17 +541,10 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
                 return; // This should not be allowed by the UI
             }
 
-            const newFileArray = files.slice();
-
-            // Swap trakcs
-            const tmp = newFileArray[selectedTrackIndex];
-            newFileArray[selectedTrackIndex] = newFileArray[targetIndex];
-            newFileArray[targetIndex] = tmp;
-
-            setFiles(newFileArray);
+            serviceRegistry.importQueue.move(files[selectedTrackIndex].id, targetIndex, queueSnapshot.revision);
             setSelectedTrack(targetIndex);
         },
-        [files, selectedTrackIndex]
+        [files, queueSnapshot.revision, selectedTrackIndex]
     );
 
     const moveFileUp = useCallback(() => {
@@ -509,10 +556,17 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
     }, [moveFile]);
 
     const handleClose = useCallback(() => {
-        setFiles([]);
+        const snapshot = serviceRegistry.importQueue.snapshot();
+        if (snapshot.items.length > 0) serviceRegistry.importQueue.clear(snapshot.revision);
         resetDialog();
         dispatch(convertDialogActions.setVisible(false));
     }, [dispatch, resetDialog]);
+
+    const hideDialog = useCallback(() => {
+        setSelectedTrack(-1);
+        setTracksOrderVisible(false);
+        dispatch(convertDialogActions.setVisible(false));
+    }, [dispatch]);
 
     const handleChangeFormat = useCallback(
         (_ev: SyntheticEvent, newFormatIndex?: number) => {
@@ -544,9 +598,11 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
 
     const handleChangeTitleFormat = useCallback(
         (event: any) => {
-            dispatch(convertDialogActions.setTitleFormat(event.target.value));
+            const selectedFormat = event.target.value as TitleFormatType;
+            dispatch(convertDialogActions.setTitleFormat(selectedFormat));
+            refreshTitledFiles(files, usesHimdTitles ? 'title' : selectedFormat);
         },
-        [dispatch]
+        [dispatch, files, refreshTitledFiles, usesHimdTitles]
     );
 
     const [tracksOrderVisible, setTracksOrderVisible] = useState(false);
@@ -566,8 +622,10 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
     }, [setEnableGapless]);
 
     const handleToggleFullWidthSupport = useCallback(() => {
-        dispatch(appActions.setFullWidthSupport(!fullWidthSupport));
-    }, [dispatch, fullWidthSupport]);
+        const enabled = !fullWidthSupport;
+        dispatch(appActions.setFullWidthSupport(enabled));
+        refreshTitledFiles(files, usesHimdTitles ? 'title' : titleFormat, enabled);
+    }, [dispatch, files, fullWidthSupport, refreshTitledFiles, titleFormat, usesHimdTitles]);
 
     const calculateFreeSpaceBytes = useCallback(() => {
         if (!disc) return;
@@ -636,12 +694,7 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
         setBeforeConversionAvailableCharacters(minidiscSpec.getRemainingCharactersForTitles(disc));
         if (minidiscSpec.measurementUnits === 'bytes') calculateFreeSpaceBytes();
         else calculateFreeSpaceFrames();
-    }, [disc, titles, currentlySelectedCodec, minidiscSpec]);
-
-    // Reload titles when files changed
-    useEffect(() => {
-        refreshTitledFiles(files, usesHimdTitles ? 'title' : titleFormat);
-    }, [refreshTitledFiles, files, titleFormat, usesHimdTitles]);
+    }, [calculateFreeSpaceBytes, calculateFreeSpaceFrames, disc, titles, minidiscSpec]);
 
     const handleRenameSelectedTrack = useCallback(() => {
         renameTrackManually(selectedTrackIndex);
@@ -726,6 +779,7 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
         classes.forcedEncodingLabel,
         currentlySelectedCodec,
         minidiscSpec,
+        isUsingFrames,
     ]);
 
     const renderHiMDTracks = useCallback(() => {
@@ -789,18 +843,17 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
 
     // Add/Remove tracks
     const onDrop = useCallback(
-        (acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
+        (acceptedFiles: File[]) => {
             const bannedTypes = ['audio/mpegurl', 'audio/x-mpegurl'];
             const accepted = acceptedFiles.filter((n) => !bannedTypes.includes(n.type));
             if (accepted.length > 0) {
                 loadMetadataFromFiles(accepted)
-                    .then((acceptedTitledFiles) => {
-                        setFiles((files) => files.slice().concat(acceptedTitledFiles));
-                    })
-                    .catch(console.error);
+                    .then(addInspectedFiles)
+                    .catch(console.error)
+                    .finally(() => setLoadingMetadata(false));
             }
         },
-        [setFiles, loadMetadataFromFiles]
+        [addInspectedFiles, loadMetadataFromFiles]
     );
     const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
         onDrop,
@@ -810,37 +863,45 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
     const handleOpenLocalLibrary = useCallback(() => dispatch(openLocalLibrary()), [dispatch]);
     const disableRemove = selectedTrackIndex < 0 || selectedTrackIndex >= files.length;
     const handleRemoveSelectedTrack = useCallback(() => {
-        const newFileArray = files.filter((f, i) => i !== selectedTrackIndex);
-        setFiles(newFileArray);
-        if (selectedTrackIndex >= newFileArray.length) {
-            setSelectedTrack(newFileArray.length - 1);
+        const selected = files[selectedTrackIndex];
+        if (!selected) return;
+        serviceRegistry.importQueue.remove([selected.id], queueSnapshot.revision);
+        const remainingCount = files.length - 1;
+        if (selectedTrackIndex >= remainingCount) {
+            setSelectedTrack(remainingCount - 1);
         }
-        if (newFileArray.length === 0) handleClose();
-    }, [selectedTrackIndex, files, setFiles, handleClose]);
+        if (remainingCount === 0) handleClose();
+    }, [selectedTrackIndex, files, queueSnapshot.revision, handleClose]);
 
     const dialogVisible = useShallowEqualSelector((state) => state.convertDialog.visible);
 
-    const handleConvert = useCallback(() => {
-        handleClose();
+    const handleConvert = useCallback(async () => {
+        const initial = serviceRegistry.importQueue.snapshot();
+        const mp3Updates = initial.items
+            .filter((item) => item.forcedEncoding?.codec === 'MP3' && currentlySelectedCodec.codec !== 'MP3')
+            .map((item) => ({ id: item.id, changes: { forcedEncoding: null } }));
+        const prepared =
+            mp3Updates.length > 0 ? serviceRegistry.importQueue.updateMany(mp3Updates, initial.revision) : initial;
+        hideDialog();
         setEnableReplayGain(false);
-        dispatch(
-            convertAndUpload(
-                titles.map((n, i) => ({
-                    ...n,
-                    file: files[i].file,
-                    artist: n.artist ?? '',
-                    album: n.album ?? '',
-                    // Exception: If an MP3 file was selected, do not 'force' upload it - treat it merely as a suggestion for the bitrate
-                    forcedEncoding: n.forcedEncoding?.codec === 'MP3' && currentlySelectedCodec.codec !== 'MP3' ? null : n.forcedEncoding,
-                })),
-                currentlySelectedCodec,
-                {
-                    enableReplayGain,
-                    enableGapless,
-                }
-            )
-        );
-    }, [dispatch, handleClose, titles, currentlySelectedCodec, files, enableReplayGain, enableGapless]);
+        const result = await serviceRegistry.commandBus!.execute({
+            type: 'import.write',
+            format: currentlySelectedCodec,
+            enableReplayGain,
+            enableGapless,
+            removeOnSuccess: true,
+            expectedRevision: prepared.revision,
+        });
+        if (!result.ok) {
+            dispatch(
+                batchActions([
+                    convertDialogActions.setVisible(true),
+                    errorDialogActions.setVisible(true),
+                    errorDialogActions.setErrorMessage(result.error.message),
+                ])
+            );
+        }
+    }, [currentlySelectedCodec, dispatch, enableGapless, enableReplayGain, hideDialog]);
 
     const encoderSupportState = useMemo(
         () => serviceRegistry.audioExportService!.getSupport(currentlySelectedCodec.codec),
