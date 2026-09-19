@@ -10,6 +10,7 @@ import { startLocalBridgeServer } from './websocket-server.ts';
 const localFiles = new LocalFileRegistry();
 const localOutputs = new LocalOutputRegistry();
 const broker = new LocalBridgeBroker(localFiles, localOutputs);
+const pendingLocalFileHandles = new Set<string>();
 const bridge = startLocalBridgeServer(broker, {
     host: process.env.MINIDISC_BRIDGE_HOST,
     port: process.env.MINIDISC_BRIDGE_PORT ? Number(process.env.MINIDISC_BRIDGE_PORT) : undefined,
@@ -25,9 +26,34 @@ function asToolResult(result: CommandResult) {
     };
 }
 
+function reconcileLocalFiles(result: CommandResult) {
+    if (!result.ok) return;
+    const queue = result.importQueue ?? result.workspace?.imports;
+    if (!queue) return;
+    localFiles.revokeUnreferenced(
+        queue.items.filter((item) => item.kind === 'local-path').map((item) => item.reference),
+        pendingLocalFileHandles
+    );
+}
+
+async function executeResult(command: ApplicationCommand) {
+    const result = await broker.execute(command);
+    reconcileLocalFiles(result);
+    if (
+        command.type === 'task.get' &&
+        result.ok &&
+        result.task &&
+        !['queued', 'running'].includes(result.task.status)
+    ) {
+        const imports = await broker.execute({ type: 'import.list' });
+        reconcileLocalFiles(imports);
+    }
+    return result;
+}
+
 async function execute(command: ApplicationCommand) {
     try {
-        return asToolResult(await broker.execute(command));
+        return asToolResult(await executeResult(command));
     } catch (error) {
         return {
             content: [{ type: 'text' as const, text: error instanceof Error ? error.message : String(error) }],
@@ -514,6 +540,7 @@ function createServer() {
                     inputs.map(async (input) => {
                         const staged = await localFiles.register(input.source.reference);
                         stagedHandles.push(staged.handle);
+                        pendingLocalFileHandles.add(staged.handle);
                         return {
                             ...input,
                             source: {
@@ -526,13 +553,19 @@ function createServer() {
                         };
                     })
                 );
-                return await execute({ type: 'import.add', inputs: stagedInputs, expectedRevision });
+                const result = await executeResult({ type: 'import.add', inputs: stagedInputs, expectedRevision });
+                if (!result.ok) {
+                    for (const handle of stagedHandles) localFiles.revoke(handle);
+                }
+                return asToolResult(result);
             } catch (error) {
                 for (const handle of stagedHandles) localFiles.revoke(handle);
                 return {
                     content: [{ type: 'text' as const, text: error instanceof Error ? error.message : String(error) }],
                     isError: true,
                 };
+            } finally {
+                for (const handle of stagedHandles) pendingLocalFileHandles.delete(handle);
             }
         }
     );
@@ -641,5 +674,6 @@ const stdio = serveStdio(createServer);
 console.error(`MiniDisc MCP bridge listening on ws://${bridge.host}:${bridge.port}`);
 
 process.on('SIGINT', () => {
+    localFiles.clear();
     void Promise.allSettled([stdio.close(), bridge.close(), localOutputs.close()]).then(() => process.exit(0));
 });

@@ -256,6 +256,7 @@ async function main() {
         } catch (error) {
             console.error(`Could not remove temporary imports: ${error instanceof Error ? error.message : String(error)}`);
         }
+        files.clear();
         await Promise.allSettled([bridge.close(), outputs.close()]);
     }
 }

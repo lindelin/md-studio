@@ -35,4 +35,19 @@ describe('LocalFileRegistry', () => {
         const registered = await registry.register(filePath);
         await assert.rejects(registry.readChunk(registered.handle, 0, 1024 * 1024 + 1), /chunk length/);
     });
+
+    it('revokes files that are no longer referenced while preserving staged handles', async () => {
+        const registry = new LocalFileRegistry();
+        const retained = await registry.register(filePath);
+        const staged = await registry.register(filePath);
+        const expired = await registry.register(filePath);
+
+        assert.equal(registry.revokeUnreferenced([retained.reference], [staged.handle]), 1);
+        assert.deepEqual([...(await registry.readChunk(retained.handle, 0, 1)).data], [1]);
+        assert.deepEqual([...(await registry.readChunk(staged.reference, 0, 1)).data], [1]);
+        await assert.rejects(registry.readChunk(expired.handle, 0, 1), /unknown or expired/);
+
+        registry.clear();
+        await assert.rejects(registry.readChunk(retained.handle, 0, 1), /unknown or expired/);
+    });
 });

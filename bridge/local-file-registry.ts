@@ -50,7 +50,22 @@ export class LocalFileRegistry implements FileChunkProvider {
     }
 
     revoke(handleOrReference: string) {
-        this.files.delete(stripReferencePrefix(handleOrReference));
+        return this.files.delete(stripReferencePrefix(handleOrReference));
+    }
+
+    revokeUnreferenced(references: Iterable<string>, protectedReferences: Iterable<string> = []) {
+        const retained = new Set(
+            [...references, ...protectedReferences].map((reference) => stripReferencePrefix(reference))
+        );
+        let revoked = 0;
+        for (const handle of this.files.keys()) {
+            if (!retained.has(handle) && this.files.delete(handle)) revoked += 1;
+        }
+        return revoked;
+    }
+
+    clear() {
+        this.files.clear();
     }
 
     async readChunk(handleOrReference: string, offset: number, length: number): Promise<FileChunk> {
