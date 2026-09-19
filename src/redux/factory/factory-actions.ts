@@ -4,7 +4,6 @@ import { actions as factoryActions } from '../factory/factory-feature';
 import { batchActions } from '../../frontend-utils';
 import { AppDispatch, RootState } from '../store';
 import { actions as appStateActions } from '../app-feature';
-import serviceRegistry from '../../services/registry';
 import { downloadBlob, getTracks, Promised, sleep } from '../../utils';
 import { ExploitCapability, Capability } from '../../services/interfaces/netmd';
 import { parseTOC, getTitleByTrackNumber, reconstructTOC, updateFlagAllFragmentsOfTrack, ModeFlag, ToC } from 'netmd-tocmanip';
@@ -55,7 +54,6 @@ async function monitorAdvancedMemoryExport(dispatch: AppDispatch, taskId: string
 
 export function initializeFactoryMode() {
     return async function(dispatch: AppDispatch) {
-        if (serviceRegistry.netmdFactoryService !== undefined) return;
         dispatch(appStateActions.setLoading(true));
         try {
             const result = await getApplicationClient().execute({ type: 'advanced.inspect' });

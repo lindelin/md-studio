@@ -237,6 +237,22 @@ export class NetMDAdvancedDeviceGateway implements AdvancedDeviceGateway {
         await factory.finalizeDownload();
     }
 
+    async uploadSP(
+        title: string,
+        fullWidthTitle: string,
+        mono: boolean,
+        data: ArrayBuffer,
+        onProgress: (progress: { written: number; encrypted: number; total: number }) => void
+    ) {
+        const factory = await this.getFactoryService();
+        return factory.uploadSP(title, fullWidthTitle, mono, data, onProgress);
+    }
+
+    async enableMonoUpload(enabled: boolean) {
+        const factory = await this.getFactoryService();
+        await factory.enableMonoUpload(enabled);
+    }
+
     private async getFactoryService() {
         if (this.factoryService) return this.factoryService;
         const factory = await this.service.factory();

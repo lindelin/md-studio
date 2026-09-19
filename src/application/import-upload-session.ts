@@ -1,11 +1,12 @@
-import type { Disc, Codec, MinidiscSpec, NetMDFactoryService, NetMDService } from '../services/interfaces/netmd';
+import type { Disc, Codec, MinidiscSpec, NetMDService } from '../services/interfaces/netmd';
 import type { TitledFile } from '../utils';
 import { allocateRecordingTitle } from '../domain/recording-title-budget';
 import type { ConvertedImportAudio } from './audio-conversion-pipeline';
 import { ImportAudioConversionError } from './audio-conversion-pipeline';
+import type { AdvancedUploadService } from './contracts';
 
 type UploadService = Pick<NetMDService, 'prepareUpload' | 'finalizeUpload' | 'upload'>;
-type FactoryUploadService = Pick<NetMDFactoryService, 'uploadSP' | 'enableMonoUpload'>;
+type FactoryUploadService = AdvancedUploadService;
 
 export type ImportUploadPhase = 'converting' | 'transferring' | 'finalizing';
 

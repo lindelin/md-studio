@@ -3,7 +3,13 @@ import type { ImportQueue, ImportQueueInput, ImportQueueSnapshot } from './impor
 import type { TaskSnapshot } from './task-manager';
 import type { TrackExportRequest, TrackExportSink } from './track-export';
 import type { WorkspaceSnapshot, WorkspaceStore } from './workspace-store';
-import type { AdvancedMemoryKind, AdvancedMemoryRegion, AdvancedTrackReader } from './contracts';
+import type {
+    AdvancedMemoryKind,
+    AdvancedMemoryRegion,
+    AdvancedTrackReader,
+    AdvancedUploadService,
+    DeviceSnapshot,
+} from './contracts';
 import type { AdvancedBadSectorHandler, AdvancedTrackExportRequest } from './advanced-track-export';
 
 export type LocalAdvancedMemorySink = (
@@ -29,6 +35,10 @@ export interface ApplicationClient {
         useSlowerExploit: boolean,
         operation: (readTrack: AdvancedTrackReader) => Promise<T>
     ): Promise<T>;
+    runLocalDeviceUploadSession<T>(
+        requiredExploitCapabilities: string[],
+        operation: (advancedUploadService?: AdvancedUploadService) => Promise<T>
+    ): Promise<{ value: T; snapshot: DeviceSnapshot }>;
     getWorkspaceSnapshot(): WorkspaceSnapshot;
     subscribe(listener: () => void): () => void;
 }
@@ -51,7 +61,11 @@ export class InProcessApplicationClient implements ApplicationClient {
         private readonly localAdvancedTrackDownloadSession: <T>(
             useSlowerExploit: boolean,
             operation: (readTrack: AdvancedTrackReader) => Promise<T>
-        ) => Promise<T>
+        ) => Promise<T>,
+        private readonly localDeviceUploadSession: <T>(
+            requiredExploitCapabilities: string[],
+            operation: (advancedUploadService?: AdvancedUploadService) => Promise<T>
+        ) => Promise<{ value: T; snapshot: DeviceSnapshot }>
     ) {}
 
     execute = (command: ApplicationCommand) => this.commands.execute(command);
@@ -69,6 +83,10 @@ export class InProcessApplicationClient implements ApplicationClient {
         useSlowerExploit: boolean,
         operation: (readTrack: AdvancedTrackReader) => Promise<T>
     ) => this.localAdvancedTrackDownloadSession(useSlowerExploit, operation);
+    runLocalDeviceUploadSession = <T>(
+        requiredExploitCapabilities: string[],
+        operation: (advancedUploadService?: AdvancedUploadService) => Promise<T>
+    ) => this.localDeviceUploadSession(requiredExploitCapabilities, operation);
     getWorkspaceSnapshot = this.workspace.getSnapshot;
     subscribe = this.workspace.subscribe;
 }

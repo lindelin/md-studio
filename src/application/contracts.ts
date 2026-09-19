@@ -103,6 +103,17 @@ export type AdvancedTrackReader = (
     onProgress: (progress: AdvancedTrackReadProgress) => void
 ) => Promise<AdvancedTrackData>;
 
+export interface AdvancedUploadService {
+    uploadSP(
+        title: string,
+        fullWidthTitle: string,
+        mono: boolean,
+        data: ArrayBuffer,
+        onProgress: (progress: { written: number; encrypted: number; total: number }) => void
+    ): Promise<number>;
+    enableMonoUpload(enabled: boolean): Promise<void>;
+}
+
 export interface DiagnosticProgress {
     completed: number;
     total: number;
@@ -134,6 +145,8 @@ export interface AdvancedDeviceGateway {
         onProgress: (progress: AdvancedTrackReadProgress) => void
     ): Promise<AdvancedTrackData>;
     finalizeTrackDownload(): Promise<void>;
+    uploadSP: AdvancedUploadService['uploadSP'];
+    enableMonoUpload(enabled: boolean): Promise<void>;
 }
 
 export type PlaybackCommand =

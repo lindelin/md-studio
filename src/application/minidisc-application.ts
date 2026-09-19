@@ -9,6 +9,7 @@ import {
     type AdvancedTrackReadOptions,
     type AdvancedTrackReadProgress,
     type AdvancedTrackReader,
+    type AdvancedUploadService,
     type ApplicationCapability,
     type DestructiveConfirmation,
     type DiagnosticProgress,
@@ -274,6 +275,48 @@ export class MiniDiscApplication {
             } finally {
                 await gateway.finalizeTrackDownload();
             }
+        });
+    }
+
+    runDeviceUploadSession<T>(
+        requiredExploitCapabilities: string[],
+        interactiveAuthorization: typeof INTERACTIVE_ADVANCED_AUTHORIZATION | undefined,
+        operation: (advancedUploadService?: AdvancedUploadService) => Promise<T>
+    ): Promise<{ value: T; snapshot: DeviceSnapshot }> {
+        return this.serial(async () => {
+            this.requireCapability('track.upload');
+            let advancedUploadService: AdvancedUploadService | undefined;
+            if (requiredExploitCapabilities.length > 0) {
+                this.requireInteractiveAdvancedAuthorization(interactiveAuthorization);
+                this.requireCapability('advanced.factory');
+                const gateway = this.requireAdvancedGateway();
+                for (const capability of requiredExploitCapabilities) {
+                    await this.requireExploitCapability(gateway, capability);
+                }
+                advancedUploadService = {
+                    uploadSP: (title, fullWidthTitle, mono, data, onProgress) =>
+                        gateway.uploadSP(title, fullWidthTitle, mono, data, onProgress),
+                    enableMonoUpload: (enabled) => gateway.enableMonoUpload(enabled),
+                };
+            }
+
+            let value: T | undefined;
+            let primaryError: unknown;
+            try {
+                value = await operation(advancedUploadService);
+            } catch (error) {
+                primaryError = error;
+            }
+            let snapshot: DeviceSnapshot | undefined;
+            try {
+                this.revision += 1;
+                const next = await this.gateway.readSnapshot(true);
+                snapshot = this.commitSnapshot({ ...next, sessionId: this.sessionId, revision: this.revision });
+            } catch (error) {
+                primaryError ??= error;
+            }
+            if (primaryError) throw primaryError;
+            return { value: value as T, snapshot: snapshot! };
         });
     }
 

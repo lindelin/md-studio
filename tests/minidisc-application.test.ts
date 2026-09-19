@@ -41,6 +41,7 @@ function makeGateway() {
                     'metadata.himd',
                     'metadata.fullWidth',
                     'playback.control',
+                    'track.upload',
                     'disc.eject',
                     'disc.formatHimd',
                     'advanced.factory',
@@ -600,6 +601,57 @@ describe('MiniDiscApplication', () => {
             /recognition failed/
         );
         assert.deepEqual(actions.slice(-2), ['prepare:false', 'finalize']);
+    });
+
+    it('runs browser uploads inside one revisioned application transaction', async () => {
+        const { gateway } = makeGateway();
+        const actions: string[] = [];
+        const application = new MiniDiscApplication(gateway, undefined, {
+            async readInfo() { return { firmwareVersion: 'S1.600', capabilities: ['uploadAtrac1', 'uploadMonoSP'] }; },
+            async readTocSector() { return new Uint8Array(2352); },
+            async writeTocSector() {},
+            async flushToc() {},
+            async runTetris() {},
+            async setSpUploadSpeedup() {},
+            async setDiscSwapDetectionDisabled() {},
+            async enableHimdFullMode() {},
+            async enterServiceMode() {},
+            async readRam() { return new Uint8Array(); },
+            async readFirmware() { return { ram: new Uint8Array(), rom: new Uint8Array() }; },
+            async prepareTrackDownload() {},
+            async readTrack() { return { data: new Uint8Array(), extension: 'aea' }; },
+            async finalizeTrackDownload() {},
+            async uploadSP(title, _fullWidthTitle, mono, _data, onProgress) {
+                actions.push(`upload:${title}:${mono}`);
+                onProgress({ written: 4, encrypted: 4, total: 4 });
+                return 0;
+            },
+            async enableMonoUpload(enabled) { actions.push(`mono:${enabled}`); },
+        });
+        await application.refresh();
+
+        const result = await application.runDeviceUploadSession(
+            ['uploadAtrac1', 'uploadMonoSP'],
+            INTERACTIVE_ADVANCED_AUTHORIZATION,
+            async (service) => {
+                await service!.enableMonoUpload(true);
+                await service!.uploadSP('Track', '', true, new ArrayBuffer(1), () => {});
+                await service!.enableMonoUpload(false);
+                return 'written';
+            }
+        );
+
+        assert.equal(result.value, 'written');
+        assert.equal(result.snapshot.revision, 1);
+        assert.deepEqual(actions, ['mono:true', 'upload:Track:true', 'mono:false']);
+        await assert.rejects(
+            () =>
+                application.runDeviceUploadSession([], undefined, async () => {
+                    throw new Error('encoder failed');
+                }),
+            /encoder failed/
+        );
+        assert.equal(application.readSnapshot()?.revision, 2);
     });
 
     it('runs the destructive self-test as one revisioned transaction and leaves a verified empty disc', async () => {

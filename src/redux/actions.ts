@@ -27,7 +27,7 @@ import { assertNumber } from 'netmd-js/dist/utils';
 import { Capability, NetMDService, Codec, MinidiscSpec, ExploitCapability } from '../services/interfaces/netmd';
 import { getSimpleServices, ServiceConstructionInfo } from '../services/interface-service-manager';
 import { AudioServices, resolveAudioServiceIndex } from '../services/audio-export-service-manager';
-import { checkFactoryCapability, initializeFactoryMode } from './factory/factory-actions';
+import { checkFactoryCapability } from './factory/factory-actions';
 import { LibraryServices } from '../services/library-services';
 import { s16LEToSamplesArray, Shazam } from 'shazam-api';
 import { bindApplicationRuntime, getApplicationClient, releaseDeviceSession } from '../application/runtime';
@@ -40,7 +40,7 @@ import { convertImportAudio } from '../application/audio-conversion-pipeline';
 import { ImportUploadSessionError, runImportUploadSession } from '../application/import-upload-session';
 import { finishRejectedImportWrite } from '../application/import-write-task';
 import type { ApplicationCommand } from '../application/command-bus';
-import type { AdvancedTrackReader, PlaybackCommand } from '../application/contracts';
+import type { AdvancedTrackReader, AdvancedUploadService, PlaybackCommand } from '../application/contracts';
 
 async function executeDeviceCommand(dispatch: AppDispatch, command: ApplicationCommand) {
     const result = await getApplicationClient().execute(command);
@@ -955,16 +955,18 @@ export function convertAndUpload(
     files: TitledFile[],
     format: Codec,
     additionalParameters: { enableReplayGain: boolean; enableGapless: boolean },
-    options: { taskId?: string; operationLockHeld?: boolean } = {}
+    options: {
+        taskId?: string;
+        operationLockHeld?: boolean;
+        preflightComplete?: boolean;
+        advancedUploadService?: AdvancedUploadService;
+    } = {}
 ) {
     return async function (dispatch: AppDispatch, getState: () => RootState): Promise<void> {
-        if (!options.operationLockHeld) {
-            return serviceRegistry.operationCoordinator.run(() =>
-                convertAndUpload(files, format, additionalParameters, { ...options, operationLockHeld: true })(dispatch, getState)
-            );
-        }
         const deviceCapabilities = getState().main.deviceCapabilities;
-        if (files.some((e) => e.forcedEncoding?.codec === 'SPS' || e.forcedEncoding?.codec === 'SPM')) {
+        const usesAtrac1Upload = files.some((e) => e.forcedEncoding?.codec === 'SPS' || e.forcedEncoding?.codec === 'SPM');
+        const usesMonoUploadExploit = format.codec === 'SPM' && !deviceCapabilities.includes(Capability.nativeMonoUpload);
+        if (!options.preflightComplete && usesAtrac1Upload) {
             if (!deviceCapabilities.includes(Capability.factoryMode)) {
                 const message = 'This device cannot enter Homebrew mode, so ATRAC1 upload is unavailable.';
                 window.alert(message);
@@ -1000,7 +1002,7 @@ export function convertAndUpload(
                 return;
             }
         }
-        if (files.length === 0) {
+        if (!options.preflightComplete && files.length === 0) {
             finishRejectedImportWrite(serviceRegistry.taskManager, options.taskId, {
                 kind: 'cancelled',
                 reason: 'The write request did not contain any tracks.',
@@ -1009,10 +1011,7 @@ export function convertAndUpload(
             return;
         }
 
-        const { audioExportService, netmdService, netmdSpec } = serviceRegistry;
-        let { netmdFactoryService } = serviceRegistry;
-        const usesMonoUploadExploit = format.codec === 'SPM' && !deviceCapabilities.includes(Capability.nativeMonoUpload);
-        if (usesMonoUploadExploit) {
+        if (!options.preflightComplete && usesMonoUploadExploit) {
             // SP MONO is a homebrew feature
             if (!deviceCapabilities.includes(Capability.factoryMode)) {
                 const message = 'This device cannot enter Homebrew mode, so SP MONO upload is unavailable.';
@@ -1052,11 +1051,37 @@ export function convertAndUpload(
                 return;
             }
 
-            // Reload the factory service from registry
-            await initializeFactoryMode()(dispatch);
-            netmdFactoryService = serviceRegistry.netmdFactoryService;
+        }
 
-            // All good - load the exploit
+        if (!options.preflightComplete) {
+            const requiredExploitCapabilities = [
+                usesAtrac1Upload && 'uploadAtrac1',
+                usesMonoUploadExploit && 'uploadMonoSP',
+            ].filter((value): value is string => Boolean(value));
+            const client = getApplicationClient();
+            try {
+                await client.runLocalDeviceUploadSession(requiredExploitCapabilities, (advancedUploadService) =>
+                    convertAndUpload(files, format, additionalParameters, {
+                        ...options,
+                        operationLockHeld: true,
+                        preflightComplete: true,
+                        advancedUploadService,
+                    })(dispatch, getState)
+                );
+            } finally {
+                const snapshot = client.getWorkspaceSnapshot().device;
+                if (snapshot) applyDeviceSnapshot(dispatch, snapshot);
+            }
+            return;
+        }
+        if (!options.operationLockHeld) throw new Error('The upload transaction was not acquired.');
+
+        const { audioExportService, netmdService, netmdSpec } = serviceRegistry;
+        const netmdFactoryService = options.advancedUploadService;
+        if ((usesAtrac1Upload || usesMonoUploadExploit) && !netmdFactoryService) {
+            throw new Error('The advanced upload service was not initialized during preflight.');
+        }
+        if (usesMonoUploadExploit) {
             await netmdFactoryService!.enableMonoUpload(true);
         }
 
@@ -1305,7 +1330,6 @@ export function convertAndUpload(
                 }
             }
             await releaseScreenLockIfPresent();
-            await listContent()(dispatch);
         }
     };
 }

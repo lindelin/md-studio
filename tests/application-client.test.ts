@@ -5,13 +5,20 @@ import { ImportQueue } from '../src/application/import-queue.ts';
 import { SettingsStore } from '../src/application/settings-store.ts';
 import { TaskManager } from '../src/application/task-manager.ts';
 import { WorkspaceStore } from '../src/application/workspace-store.ts';
-import type { AdvancedTrackReader } from '../src/application/contracts.ts';
+import type { AdvancedTrackReader, AdvancedUploadService, DeviceSnapshot } from '../src/application/contracts.ts';
 
 async function runAdvancedSession<T>(
     _useSlowerExploit: boolean,
     operation: (readTrack: AdvancedTrackReader) => Promise<T>
 ) {
     return operation(async () => ({ data: new Uint8Array(), extension: 'aea' }));
+}
+
+async function runUploadSession<T>(
+    _requiredCapabilities: string[],
+    operation: (service?: AdvancedUploadService) => Promise<T>
+) {
+    return { value: await operation(), snapshot: {} as DeviceSnapshot };
 }
 
 describe('InProcessApplicationClient', () => {
@@ -32,7 +39,8 @@ describe('InProcessApplicationClient', () => {
             async () => tasks.create('export', 'Local export'),
             async () => tasks.create('advanced.memory-export', 'Memory export'),
             async () => tasks.create('advanced.track-export', 'Advanced export'),
-            runAdvancedSession
+            runAdvancedSession,
+            runUploadSession
         );
         const initial = client.getWorkspaceSnapshot();
         let notifications = 0;
@@ -71,7 +79,8 @@ describe('InProcessApplicationClient', () => {
             async () => tasks.create('export', 'Local export'),
             async () => tasks.create('advanced.memory-export', 'Memory export'),
             async () => tasks.create('advanced.track-export', 'Advanced export'),
-            runAdvancedSession
+            runAdvancedSession,
+            runUploadSession
         );
         const payload = { browserFile: true };
 
@@ -106,7 +115,8 @@ describe('InProcessApplicationClient', () => {
             },
             async () => tasks.create('advanced.memory-export', 'Memory export'),
             async () => tasks.create('advanced.track-export', 'Advanced export'),
-            runAdvancedSession
+            runAdvancedSession,
+            runUploadSession
         );
 
         const task = await client.startLocalTrackExport({ indexes: [0, 2], convertToWav: true }, async () => {});
@@ -134,7 +144,8 @@ describe('InProcessApplicationClient', () => {
                 return tasks.create('advanced.memory-export', 'Memory export');
             },
             async () => tasks.create('advanced.track-export', 'Advanced export'),
-            runAdvancedSession
+            runAdvancedSession,
+            runUploadSession
         );
 
         const task = await client.startLocalAdvancedMemoryExport('firmware', async () => {});
@@ -158,7 +169,8 @@ describe('InProcessApplicationClient', () => {
                 indexes.push(request.indexes);
                 return tasks.create('advanced.track-export', 'Advanced export');
             },
-            runAdvancedSession
+            runAdvancedSession,
+            runUploadSession
         );
 
         const task = await client.startLocalAdvancedTrackExport(
@@ -186,7 +198,8 @@ describe('InProcessApplicationClient', () => {
             async (slower, operation) => {
                 sessionModes.push(slower);
                 return operation(async () => ({ data: Uint8Array.from([7]), extension: 'aea' }));
-            }
+            },
+            runUploadSession
         );
 
         const extension = await client.runLocalAdvancedTrackDownloadSession(true, async (readTrack) =>
@@ -199,5 +212,37 @@ describe('InProcessApplicationClient', () => {
 
         assert.equal(extension, 'aea');
         assert.deepEqual(sessionModes, [true]);
+    });
+
+    it('keeps advanced upload adapters out of serializable commands', async () => {
+        const tasks = new TaskManager();
+        const imports = new ImportQueue();
+        const workspace = new WorkspaceStore(tasks, imports, new SettingsStore(null));
+        const capabilities: string[][] = [];
+        const client = new InProcessApplicationClient(
+            { async execute() { return { ok: true }; } },
+            workspace,
+            imports,
+            async () => tasks.create('track-export', 'Local export'),
+            async () => tasks.create('advanced.memory-export', 'Memory export'),
+            async () => tasks.create('advanced.track-export', 'Advanced export'),
+            runAdvancedSession,
+            async (required, operation) => {
+                capabilities.push(required);
+                const value = await operation({
+                    async uploadSP() { return 0; },
+                    async enableMonoUpload() {},
+                });
+                return { value, snapshot: {} as DeviceSnapshot };
+            }
+        );
+
+        const value = await client.runLocalDeviceUploadSession(['uploadAtrac1'], async (service) => {
+            await service!.uploadSP('Title', '', false, new ArrayBuffer(0), () => {});
+            return 'done';
+        });
+
+        assert.equal(value.value, 'done');
+        assert.deepEqual(capabilities, [['uploadAtrac1']]);
     });
 });

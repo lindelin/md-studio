@@ -114,6 +114,12 @@ export function getApplicationClient() {
                     useSlowerExploit,
                     INTERACTIVE_ADVANCED_AUTHORIZATION,
                     operation
+                ),
+            (requiredExploitCapabilities, operation) =>
+                getApplicationRuntime().runDeviceUploadSession(
+                    requiredExploitCapabilities,
+                    requiredExploitCapabilities.length > 0 ? INTERACTIVE_ADVANCED_AUTHORIZATION : undefined,
+                    operation
                 )
         );
     }
