@@ -24,11 +24,10 @@ const W95Welcome = React.lazy(() => import('./win95/welcome').then(({ W95Welcome
 
 import SplitButton, { OptionType } from './split-button';
 import {
-    createService,
     doesServiceRequireChrome,
     getConnectButtonName,
-    getServiceSpec,
     getSimpleServices,
+    loadService,
     Services,
 } from '../services/interface-service-manager';
 
@@ -140,26 +139,46 @@ export const Welcome = () => {
 
     if (vintageMode) {
         const p = {
-            dispatch,
             pairingFailed,
             pairingMessage,
-            createService: () => createService(availableServices[lastSelectedService]) ?? null,
-            spec: getServiceSpec(availableServices[lastSelectedService])!,
+            connectService: () => connectToService(lastSelectedService),
             connectName: getConnectButtonName(availableServices[lastSelectedService]),
+            connectingInProgress,
         };
         return <W95Welcome {...p}></W95Welcome>;
+    }
+
+    async function connectToService(index: number) {
+        dispatch(
+            batchActions([
+                appActions.setLastSelectedService(index),
+                appActions.setPairingFailed(false),
+                appActions.setConnectingInProgress(true),
+            ])
+        );
+        try {
+            const loaded = await loadService(availableServices[index]);
+            if (!loaded) {
+                dispatch(appActions.setConnectingInProgress(false));
+                return;
+            }
+            dispatch(pair(loaded.service, loaded.spec));
+        } catch (error) {
+            console.error(error);
+            dispatch(
+                batchActions([
+                    appActions.setPairingMessage(error instanceof Error ? error.message : String(error)),
+                    appActions.setPairingFailed(true),
+                    appActions.setConnectingInProgress(false),
+                ])
+            );
+        }
     }
 
     const options: OptionType[] = availableServices.map((n, i) => ({
         name: getConnectButtonName(n),
         switchTo: true,
-        handler: () => {
-            const instance = createService(availableServices[i]);
-            if (instance) {
-                dispatch(appActions.setLastSelectedService(i));
-                dispatch(pair(instance, getServiceSpec(availableServices[i])!));
-            }
-        },
+        handler: () => connectToService(i),
         id: i,
         disabled: !runningChrome && doesServiceRequireChrome(availableServices[i]),
     }));
@@ -225,7 +244,7 @@ export const Welcome = () => {
                                 color="primary"
                                 boxClassName={classes.buttonBox}
                                 width={200}
-                                disabled={Services[lastSelectedService].requiresChrome && !runningChrome}
+                                disabled={doesServiceRequireChrome(availableServices[lastSelectedService]) && !runningChrome}
                                 selectedIndex={lastSelectedService}
                                 dropdownMapping={mapToEntry}
                                 loading={connectingInProgress}

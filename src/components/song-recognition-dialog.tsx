@@ -27,7 +27,7 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
-import { Capability } from '../services/interfaces/netmd';
+import { Capability } from '../services/interfaces/capabilities';
 import { getApplicationClient } from '../application/runtime';
 import { LineInDeviceSelect } from './line-in-helpers';
 import { useApplicationWorkspace } from './use-application-client';

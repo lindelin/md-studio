@@ -55,7 +55,7 @@ import CodeIcon from '@mui/icons-material/Code';
 const W95TopMenu = React.lazy(() =>
     import('./win95/topmenu').then(({ W95TopMenu }) => ({ default: W95TopMenu }))
 );
-import { ExploitCapability } from '../services/interfaces/netmd';
+import { ExploitCapability } from '../services/interfaces/capabilities';
 
 const loadFactoryActions = () => import('../redux/factory/factory-actions');
 

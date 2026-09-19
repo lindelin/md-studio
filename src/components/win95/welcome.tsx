@@ -1,10 +1,7 @@
 import React from 'react';
 import { Button, WindowContent } from 'react95';
 import { makeStyles } from 'tss-react/mui';
-import { pair } from '../../redux/actions';
-import { Dispatch } from '@reduxjs/toolkit';
 import { AboutDialog } from '../about-dialog';
-import { MinidiscSpec, NetMDService } from '../../services/interfaces/netmd';
 
 const useStyles = makeStyles()(theme => ({
     pairingMessage: {
@@ -21,26 +18,22 @@ const useStyles = makeStyles()(theme => ({
 }));
 
 export interface W95WelcomeProps {
-    dispatch: Dispatch<any>;
     pairingFailed: boolean;
     pairingMessage: string;
-    createService: () => NetMDService | null;
-    spec: MinidiscSpec;
+    connectService: () => Promise<void>;
     connectName: string;
+    connectingInProgress: boolean;
 }
 
 export const W95Welcome = (props: W95WelcomeProps) => {
-    const { dispatch, pairingFailed, pairingMessage, createService, spec, connectName } = props;
+    const { pairingFailed, pairingMessage, connectService, connectName, connectingInProgress } = props;
     const { classes } = useStyles();
     return (
         <>
             <WindowContent className={classes.windowContent}>
                 <p style={{ paddingBottom: 8 }}>Press the button to connect to a NetMD device</p>
-                <Button style={{ minWidth: 90 }} onClick={() => {
-                    const instance = createService();
-                    if(instance) dispatch(pair(instance, spec));
-                }}>
-                    {connectName}
+                <Button style={{ minWidth: 90 }} disabled={connectingInProgress} onClick={connectService}>
+                    {connectingInProgress ? 'Connecting…' : connectName}
                 </Button>
                 <p style={{ visibility: pairingFailed ? 'visible' : 'hidden' }} className={classes.pairingMessage}>
                     {pairingMessage}

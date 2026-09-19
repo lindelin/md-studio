@@ -22,7 +22,8 @@ import {
 } from '../utils';
 import NotificationCompleteIconUrl from '../images/record-complete-notification-icon.png';
 import { assertNumber } from 'netmd-js/dist/utils';
-import { Capability, NetMDService, Codec, MinidiscSpec, ExploitCapability } from '../services/interfaces/netmd';
+import { Capability, ExploitCapability } from '../services/interfaces/capabilities';
+import type { NetMDService, Codec, MinidiscSpec } from '../services/interfaces/netmd';
 import { getSimpleServices, ServiceConstructionInfo } from '../services/interface-service-manager';
 import { connectDeviceSession, getApplicationClient, releaseDeviceSession } from '../application/runtime';
 import { applyDeviceSnapshot } from './application-adapter';

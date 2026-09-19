@@ -26,7 +26,7 @@ import Typography from '@mui/material/Typography';
 const W95RenameDialog = React.lazy(() =>
     import('./win95/rename-dialog').then(({ W95RenameDialog }) => ({ default: W95RenameDialog }))
 );
-import { Capability } from '../services/interfaces/netmd';
+import { Capability } from '../services/interfaces/capabilities';
 import { useApplicationWorkspace } from './use-application-client';
 import { sanitizeDeviceFullWidthTitle } from '../application/device-profile';
 

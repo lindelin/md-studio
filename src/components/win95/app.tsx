@@ -12,7 +12,7 @@ import { useDispatch } from '../../frontend-utils';
 
 import CDPlayerIconUrl from '../../images/win95/cdplayer.png';
 import { WindowCloseIcon } from './common';
-import { Capability } from '../../services/interfaces/netmd';
+import { Capability } from '../../services/interfaces/capabilities';
 import { disconnectDevice } from '../../redux/actions';
 
 const GlobalStyles = createGlobalStyle`

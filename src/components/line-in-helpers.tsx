@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Capability } from '../services/interfaces/netmd';
+import { Capability } from '../services/interfaces/capabilities';
 import { useShallowEqualSelector } from '../frontend-utils';
 
 import FormHelperText from '@mui/material/FormHelperText';

@@ -1,7 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { ToC } from 'netmd-tocmanip';
 import { enableBatching } from 'redux-batched-actions';
-import { ExploitCapability } from '../../services/interfaces/netmd';
+import { ExploitCapability } from '../../services/interfaces/capabilities';
 
 export interface FactoryState {
     toc?: ToC;

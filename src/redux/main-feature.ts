@@ -1,7 +1,8 @@
 import { DeviceStatus } from 'netmd-js';
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { enableBatching } from 'redux-batched-actions';
-import { Capability, Disc } from '../services/interfaces/netmd';
+import { Capability } from '../services/interfaces/capabilities';
+import type { Disc } from '../services/interfaces/netmd';
 
 export interface MainState {
     disc: Disc | null;

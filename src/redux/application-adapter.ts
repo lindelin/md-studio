@@ -1,6 +1,6 @@
 import type { AppDispatch } from './store';
 import type { DeviceSnapshot } from '../application/contracts';
-import { Capability } from '../services/interfaces/netmd';
+import { Capability } from '../services/interfaces/capabilities';
 import { batchActions } from '../frontend-utils';
 import { actions as mainActions } from './main-feature';
 

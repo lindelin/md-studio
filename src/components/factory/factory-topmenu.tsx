@@ -50,7 +50,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import HomeRepairServiceIcon from '@mui/icons-material/HomeRepairService';
 import DiscFullIcon from '@mui/icons-material/DiscFull';
 
-import { Capability, ExploitCapability } from '../../services/interfaces/netmd';
+import { Capability, ExploitCapability } from '../../services/interfaces/capabilities';
 
 const useStyles = makeStyles()(theme => ({
     listItemIcon: {

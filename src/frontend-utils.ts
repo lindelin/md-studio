@@ -4,7 +4,7 @@ import { Theme } from '@mui/material';
 import {  useEffect, useMemo, useState } from 'react';
 import type { AppDispatch, RootState } from './redux/store';
 import { UnknownAction } from '@reduxjs/toolkit';
-import { Capability } from './services/interfaces/netmd';
+import { Capability } from './services/interfaces/capabilities';
 
 type CapabilityKey = keyof typeof Capability;
 type ComputedCapabilities = {[K in CapabilityKey]: boolean};

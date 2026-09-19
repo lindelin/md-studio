@@ -9,13 +9,12 @@ import type {
     AdvancedTrackReadOptions,
     AdvancedTrackReadProgress,
 } from './contracts';
-import {
-    Capability,
-    ExploitCapability,
-    type Group,
-    type MinidiscSpec,
-    type NetMDFactoryService,
-    type NetMDService,
+import { Capability, ExploitCapability } from '../services/interfaces/capabilities';
+import type {
+    Group,
+    MinidiscSpec,
+    NetMDFactoryService,
+    NetMDService,
 } from '../services/interfaces/netmd';
 import { createDeviceRecordingProfile } from './device-profile';
 import { calculateImportPreview } from './import-preview';

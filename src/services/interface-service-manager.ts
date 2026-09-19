@@ -1,15 +1,15 @@
 import React, { ReactHTMLElement } from 'react';
 import { CustomParameterInfo, CustomParameters } from '../custom-parameters';
-import { HiMDFullService, HiMDRestrictedService, HiMDSpec } from './interfaces/himd';
-import { Codec, DefaultMinidiscSpec, MinidiscSpec, NetMDService, NetMDUSBService, RecordingCodec } from './interfaces/netmd';
-import { NetMDMockService } from './interfaces/netmd-mock';
-import { NetMDRemoteService } from './interfaces/remote-netmd';
+import type { Codec, MinidiscSpec, NetMDService, RecordingCodec } from './interfaces/netmd';
 import { DeviceIds } from 'networkwm-js';
-import { NetworkWMService } from './interfaces/networkwm-nodrm';
+
+export interface LoadedService {
+    service: NetMDService;
+    spec: MinidiscSpec;
+}
 
 interface ServicePrototype {
-    create: (parameters?: CustomParameters) => NetMDService | null;
-    spec: MinidiscSpec;
+    load: (parameters?: CustomParameters) => Promise<LoadedService | null>;
     getConnectName: (parameters?: CustomParameters) => string;
     name: string;
     customParameters?: CustomParameterInfo[];
@@ -22,39 +22,42 @@ export interface ServiceConstructionInfo {
     parameters?: CustomParameters;
 }
 
-// For MockMD-Bytes only:
-const BYTES_DEFAULT_SPEC = new DefaultMinidiscSpec();
-(BYTES_DEFAULT_SPEC as any).measurementUnits = 'bytes';
-BYTES_DEFAULT_SPEC.translateToDefaultMeasuringModeFrom = new HiMDSpec().translateToDefaultMeasuringModeFrom;
-
 export const Services: ServicePrototype[] = [
     {
         name: 'USB NetMD',
         getConnectName: () => 'Connect',
-        create: () => window.native?.interface ?? new NetMDUSBService({ debug: true }),
-        spec: new DefaultMinidiscSpec(),
+        load: async () => {
+            const { DefaultMinidiscSpec, NetMDUSBService } = await import('./interfaces/netmd');
+            return {
+                service: window.native?.interface ?? new NetMDUSBService({ debug: true }),
+                spec: new DefaultMinidiscSpec(),
+            };
+        },
         requiresChrome: true,
     },
     {
         name: 'HiMD (metadata and export)',
         getConnectName: () => 'Connect to HiMD (metadata and export)',
-        create: () => new HiMDRestrictedService({ debug: true }),
-        spec: new HiMDSpec(),
+        load: async () => {
+            const { HiMDRestrictedService, HiMDSpec } = await import('./interfaces/himd');
+            return { service: new HiMDRestrictedService({ debug: true }), spec: new HiMDSpec() };
+        },
         requiresChrome: true,
     },
     {
         name: 'HiMD (secure full access)',
         getConnectName: () => 'Connect to HiMD (secure full access)',
-        create: () => {
+        load: async () => {
             if (window.native?.himdFullInterface) {
-                return window.native?.himdFullInterface;
+                const { HiMDSpec } = await import('./interfaces/himd');
+                return { service: window.native.himdFullInterface, spec: new HiMDSpec() };
             }
             if (!confirm('Warning: For Full HiMD mode, it is recommended to use ElectronWMD instead! Continue?')) {
                 return null;
             }
-            return new HiMDFullService({ debug: true });
+            const { HiMDFullService, HiMDSpec } = await import('./interfaces/himd');
+            return { service: new HiMDFullService({ debug: true }), spec: new HiMDSpec() };
         },
-        spec: new HiMDSpec(),
         requiresChrome: true,
     },
     {
@@ -63,12 +66,18 @@ export const Services: ServicePrototype[] = [
             const intPid = parseInt(params!.pid as string);
             return `Connect to ${DeviceIds.find((e) => e.productId == intPid)!.name}`;
         },
-        create: (params) => {
+        load: async (params) => {
             const intPid = parseInt(params!.pid as string);
-            return new NetworkWMService(DeviceIds.find((e) => e.productId == intPid)!);
+            const [{ NetworkWMService }, { HiMDSpec }] = await Promise.all([
+                import('./interfaces/networkwm-nodrm'),
+                import('./interfaces/himd'),
+            ]);
+            return {
+                service: new NetworkWMService(DeviceIds.find((e) => e.productId == intPid)!),
+                spec: new HiMDSpec(),
+            };
         },
         requiresChrome: true,
-        spec: new HiMDSpec(),
         customParameters: [
             {
                 varName: 'pid',
@@ -87,8 +96,16 @@ export const Services: ServicePrototype[] = [
             'Connect to a remote NetMD device with the help of ',
             React.createElement('a', { href: 'https://github.com/asivery/remote-netmd-server' }, 'Remote NetMD')
         ),
-        create: (parameters) => new NetMDRemoteService({ debug: true, ...parameters } as any),
-        spec: new DefaultMinidiscSpec(),
+        load: async (parameters) => {
+            const [{ NetMDRemoteService }, { DefaultMinidiscSpec }] = await Promise.all([
+                import('./interfaces/remote-netmd'),
+                import('./interfaces/netmd'),
+            ]);
+            return {
+                service: new NetMDRemoteService({ debug: true, ...parameters } as any),
+                spec: new DefaultMinidiscSpec(),
+            };
+        },
         requiresChrome: false,
         customParameters: [
             {
@@ -115,11 +132,14 @@ export const Services: ServicePrototype[] = [
         name: 'MockMD',
         getConnectName: () => 'Connect to MockMD',
         description: React.createElement('p', null, 'Test NetMD interface. It does nothing'),
-        create: (parameters) => {
+        load: async (parameters) => {
             console.log(`Given parameters: ${JSON.stringify(parameters)}`);
-            return new NetMDMockService(parameters, false);
+            const [{ NetMDMockService }, { DefaultMinidiscSpec }] = await Promise.all([
+                import('./interfaces/netmd-mock'),
+                import('./interfaces/netmd'),
+            ]);
+            return { service: new NetMDMockService(parameters, false), spec: new DefaultMinidiscSpec() };
         },
-        spec: new DefaultMinidiscSpec(),
         requiresChrome: false,
         customParameters: [
             {
@@ -194,11 +214,18 @@ export const Services: ServicePrototype[] = [
         name: 'MockMD - Byte-Based',
         getConnectName: () => 'Connect to MockMD (bytes)',
         description: React.createElement('p', null, 'Test NetMD interface. It does nothing'),
-        create: (parameters) => {
+        load: async (parameters) => {
             console.log(`Given parameters: ${JSON.stringify(parameters)}`);
-            return new NetMDMockService(parameters, true);
+            const [{ NetMDMockService }, { DefaultMinidiscSpec }, { HiMDSpec }] = await Promise.all([
+                import('./interfaces/netmd-mock'),
+                import('./interfaces/netmd'),
+                import('./interfaces/himd'),
+            ]);
+            const spec = new DefaultMinidiscSpec();
+            Object.defineProperty(spec, 'measurementUnits', { value: 'bytes' });
+            spec.translateToDefaultMeasuringModeFrom = new HiMDSpec().translateToDefaultMeasuringModeFrom;
+            return { service: new NetMDMockService(parameters, true), spec };
         },
-        spec: BYTES_DEFAULT_SPEC,
         requiresChrome: false,
         customParameters: [
             {
@@ -248,26 +275,30 @@ export const Services: ServicePrototype[] = [
 ];
 
 if (window.native?.nwInterface) {
-    class NetworkWMSpec extends HiMDSpec {
-        public availableFormats: RecordingCodec[] = [
-            { codec: 'AT3', availableBitrates: [132, 105, 66], defaultBitrate: 132 },
-            { codec: 'A3+', availableBitrates: [352, 256, 192, 64, 48], defaultBitrate: 256 },
-            { codec: 'MP3', availableBitrates: [320, 256, 192, 128, 96, 64], defaultBitrate: 192 },
-        ];
-        public readonly measurementUnits = 'bytes';
-        public defaultFormat = [1, 1] as [number, number];
-        public specName = 'NetworkWM';
-
-        translateToDefaultMeasuringModeFrom(codec: Codec, defaultMeasuringModeDuration: number): number {
-            return super.translateToDefaultMeasuringModeFrom(codec, defaultMeasuringModeDuration) + 32768; // For initial metadata sections!
-        }
-    }
     Services.push({
         name: 'NetworkWM',
         requiresChrome: true,
-        spec: new NetworkWMSpec(),
         getConnectName: () => 'Connect to Network Walkman',
-        create: () => window.native?.nwInterface ?? null,
+        load: async () => {
+            const nativeService = window.native?.nwInterface;
+            if (!nativeService) return null;
+            const { HiMDSpec } = await import('./interfaces/himd');
+            class NetworkWMSpec extends HiMDSpec {
+                public availableFormats: RecordingCodec[] = [
+                    { codec: 'AT3', availableBitrates: [132, 105, 66], defaultBitrate: 132 },
+                    { codec: 'A3+', availableBitrates: [352, 256, 192, 64, 48], defaultBitrate: 256 },
+                    { codec: 'MP3', availableBitrates: [320, 256, 192, 128, 96, 64], defaultBitrate: 192 },
+                ];
+                public readonly measurementUnits = 'bytes';
+                public defaultFormat = [1, 1] as [number, number];
+                public specName = 'NetworkWM';
+
+                translateToDefaultMeasuringModeFrom(codec: Codec, defaultMeasuringModeDuration: number): number {
+                    return super.translateToDefaultMeasuringModeFrom(codec, defaultMeasuringModeDuration) + 32768;
+                }
+            }
+            return { service: nativeService, spec: new NetworkWMSpec() };
+        },
     });
 }
 
@@ -308,12 +339,8 @@ export function filterOutCorrupted(savedCustomServices: unknown) {
     return legalCustomServices;
 }
 
-export function createService(info: ServiceConstructionInfo) {
-    return getPrototypeByName(info.name)?.create(info.parameters) ?? null;
-}
-
-export function getServiceSpec(info: ServiceConstructionInfo) {
-    return getPrototypeByName(info.name)?.spec;
+export function loadService(info: ServiceConstructionInfo) {
+    return getPrototypeByName(info.name)?.load(info.parameters) ?? Promise.resolve(null);
 }
 
 export function getConnectButtonName(service: ServiceConstructionInfo) {

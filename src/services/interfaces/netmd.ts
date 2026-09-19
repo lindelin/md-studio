@@ -63,34 +63,8 @@ import netmdExploits from 'netmd-exploits';
 import netmdTocmanip from 'netmd-tocmanip';
 import { HiMDCodecName } from 'himd-js';
 import Worker from 'netmd-js/dist/web-encrypt-worker?worker';
-
-export enum Capability {
-    contentList,
-    playbackControl,
-    metadataEdit,
-    trackUpload,
-    trackDownload,
-    discEject,
-    factoryMode,
-    himdTitles,
-    fullWidthSupport,
-    nativeMonoUpload,
-    himdFormat,
-}
-
-export enum ExploitCapability {
-    runTetris,
-    flushUTOC,
-    downloadAtrac,
-    readFirmware,
-    spUploadSpeedup,
-    uploadAtrac1,
-    himdFullMode,
-    readRam,
-    uploadMonoSP,
-    disableDiscSwapDetection,
-    enterServiceMode,
-}
+import { Capability, ExploitCapability } from './capabilities';
+export { Capability, ExploitCapability } from './capabilities';
 
 export type CodecFamily = 'SPS' | 'SPM' | HiMDCodecName;
 export interface RecordingCodec {

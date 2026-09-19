@@ -53,10 +53,8 @@ import Backdrop from '@mui/material/Backdrop';
 const W95ConvertDialog = React.lazy(() =>
     import('./win95/convert-dialog').then(({ W95ConvertDialog }) => ({ default: W95ConvertDialog }))
 );
-import {
-    Capability,
-    Codec,
-} from '../services/interfaces/netmd';
+import { Capability } from '../services/interfaces/capabilities';
+import type { Codec } from '../services/interfaces/netmd';
 import { INTERACTIVE_HOMEBREW_AUTHORIZATION } from '../application/interactive-authorization';
 import { getApplicationClient } from '../application/runtime';
 import { useApplicationWorkspace } from './use-application-client';

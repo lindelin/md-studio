@@ -11,7 +11,7 @@ import { exploitDownloadTracks, readToc, writeModifiedTOC } from '../../redux/fa
 import { useShallowEqualSelector } from "../../frontend-utils";
 import { actions as factoryActions } from '../../redux/factory/factory-feature';
 import { FactoryModeEditDialog } from './factory-fragment-mode-edit-dialog';
-import { ExploitCapability } from '../../services/interfaces/netmd';
+import { ExploitCapability } from '../../services/interfaces/capabilities';
 import DoneIcon from '@mui/icons-material/Done';
 import CloseIcon from '@mui/icons-material/Close';
 import GetAppIcon from '@mui/icons-material/GetApp';
