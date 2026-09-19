@@ -1,12 +1,11 @@
 import React, { useEffect, useCallback, useState } from 'react';
 import { useDeviceCapabilities, useDispatch } from '../frontend-utils';
-import { FileRejection, useDropzone } from 'react-dropzone';
+import { useDropzone } from 'react-dropzone';
 import {
     DragDropContext,
     Draggable,
     DraggableProvided,
     DropResult,
-    ResponderProvided,
     Droppable,
     DroppableProvided,
     DroppableStateSnapshot,
@@ -23,13 +22,13 @@ import { control, openLocalLibrary } from '../redux/actions';
 
 import {
     formatTimeFromSeconds,
-    getGroupedTracks,
     getSortedTracks,
     isSequential,
     acceptedTypes,
     AdaptiveFile,
     bytesToHumanReadable,
 } from '../utils';
+import { getGroupedTracks } from '../domain/disc-layout';
 import { belowDesktop, forAnyDesktop, useShallowEqualSelector, themeSpacing, batchActions } from '../frontend-utils';
 
 import { makeStyles } from 'tss-react/mui';
@@ -185,7 +184,7 @@ function getTrackStatus(track: Track, deviceStatus: DeviceStatus | null): 'playi
     }
 }
 
-export const Main = (props: {}) => {
+export const Main = () => {
     const dispatch = useDispatch();
     const disc = useShallowEqualSelector((state) => state.main.disc);
     const flushable = useShallowEqualSelector((state) => state.main.flushable);
@@ -223,7 +222,7 @@ export const Main = (props: {}) => {
     );
 
     const handleDrop = useCallback(
-        (result: DropResult, provided: ResponderProvided) => {
+        (result: DropResult) => {
             if (!result.destination) return;
             const sourceList = parseInt(result.source.droppableId),
                 sourceIndex = result.source.index,
@@ -262,7 +261,7 @@ export const Main = (props: {}) => {
     }, [dispatch, disc, wasLastDiscNull, discProtectedDialogDisabled, setWasLastDiscNull]);
 
     const onDrop = useCallback(
-        (acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
+        (acceptedFiles: File[]) => {
             const bannedTypes = ['audio/mpegurl', 'audio/x-mpegurl'];
             const accepted = acceptedFiles.filter((n) => !bannedTypes.includes(n.type));
             if (accepted.length > 0) {
@@ -319,7 +318,8 @@ export const Main = (props: {}) => {
     );
 
     const handleSelectGroupClick = useCallback(
-        (event: React.MouseEvent, item: number) => {
+        (_event: React.MouseEvent, item: number) => {
+            void _event;
             setSelected([]);
             if (selectedGroups.includes(item)) {
                 setSelectedGroups(selectedGroups.filter((i) => i !== item));
@@ -331,7 +331,7 @@ export const Main = (props: {}) => {
     );
 
     const handleSelectAllClick = useCallback(
-        (event: React.ChangeEvent<HTMLInputElement>) => {
+        () => {
             setSelectedGroups([]);
             if (selected.length < tracks.length) {
                 setSelected(tracks.map((t) => t.index));
@@ -396,21 +396,22 @@ export const Main = (props: {}) => {
     );
 
     const handleDeleteSelected = useCallback(
-        (event: React.MouseEvent) => {
+        () => {
             dispatch(deleteTracks(selected));
         },
         [dispatch, selected]
     );
 
     const handleDeleteTrack = useCallback(
-        (event: React.MouseEvent, index: number) => {
+        (_event: React.MouseEvent, index: number) => {
+            void _event;
             dispatch(deleteTracks([index]));
         },
         [dispatch]
     );
 
     const handleGroupTracks = useCallback(
-        (event: React.MouseEvent) => {
+        () => {
             dispatch(groupTracks(selected));
         },
         [dispatch, selected]
@@ -425,7 +426,7 @@ export const Main = (props: {}) => {
     );
 
     const handleDeleteSelectedGroups = useCallback(
-        (event: React.MouseEvent) => {
+        () => {
             dispatch(deleteGroups(selectedGroups));
             setSelectedGroups([]);
         },
@@ -433,21 +434,21 @@ export const Main = (props: {}) => {
     );
 
     const handleEject = useCallback(
-        (event: React.MouseEvent) => {
+        () => {
             dispatch(ejectDisc());
         },
         [dispatch]
     );
 
     const handleFlush = useCallback(
-        (event: React.MouseEvent) => {
+        () => {
             dispatch(flushDevice());
         },
         [dispatch]
     );
 
     const handleRenameDisc = useCallback(
-        (event: React.MouseEvent) => {
+        () => {
             if (!deviceCapabilities.metadataEdit) return;
             dispatch(
                 batchActions([

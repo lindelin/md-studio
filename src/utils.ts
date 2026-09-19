@@ -1,7 +1,7 @@
 import { AppDispatch, RootState } from './redux/store';
 import { Mutex } from 'async-mutex';
 import * as mm from 'music-metadata';
-import { Disc, Group, Track } from './services/interfaces/netmd';
+import { Disc, Track } from './services/interfaces/netmd';
 import { createWorker } from '@ffmpeg/ffmpeg';
 import { ForcedEncodingFormat } from './redux/convert-dialog-feature';
 import { HiMDKBPSToFrameSize } from 'himd-js';
@@ -344,38 +344,6 @@ export function getSortedTracks(disc: Disc | null): DisplayTrack[] {
     }
     tracks.sort((l, r) => l.index - r.index);
     return tracks;
-}
-
-export function getGroupedTracks(disc: Disc | null) {
-    if (!disc) {
-        return [];
-    }
-    const groupedList: Group[] = [];
-    const ungroupedTracks = [...(disc.groups.find((n) => n.title === null)?.tracks ?? [])];
-
-    let lastIndex = 0;
-
-    for (const group of disc.groups) {
-        if (group.title === null) {
-            continue; // Ungrouped tracks
-        }
-        const toCopy = group.tracks[0].index - lastIndex;
-        groupedList.push({
-            index: -1,
-            title: null,
-            fullWidthTitle: null,
-            tracks: toCopy === 0 ? [] : ungroupedTracks.splice(0, toCopy),
-        });
-        lastIndex = group.tracks[group.tracks.length - 1].index + 1;
-        groupedList.push(group);
-    }
-    groupedList.push({
-        index: -1,
-        title: null,
-        fullWidthTitle: null,
-        tracks: ungroupedTracks,
-    });
-    return groupedList;
 }
 
 export function isSequential(numbers: number[]) {

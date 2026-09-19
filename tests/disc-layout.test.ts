@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { recomputeGroupsAfterTrackMove } from '../src/domain/disc-layout.ts';
+import { recomputeGroupsAfterTrackMove, resolveGroupedTrackMove } from '../src/domain/disc-layout.ts';
 
 function makeDisc() {
     const tracks = ['A', 'B', 'C', 'D'].map((title, index) => ({
@@ -76,5 +76,24 @@ describe('recomputeGroupsAfterTrackMove', () => {
             source.groups.flatMap((group: any) => group.tracks).map((track: any) => track.index),
             [0, 3, 1, 2]
         );
+    });
+});
+
+describe('resolveGroupedTrackMove', () => {
+    it('maps a move from a named group into trailing ungrouped tracks', () => {
+        assert.deepEqual(resolveGroupedTrackMove(makeDisc(), 1, 0, 2, 1), { sourceIndex: 1, destinationIndex: 3 });
+    });
+
+    it('maps an ungrouped track into the middle of a named group', () => {
+        assert.deepEqual(resolveGroupedTrackMove(makeDisc(), 2, 0, 1, 1), { sourceIndex: 3, destinationIndex: 2 });
+    });
+
+    it('uses post-removal positions for reordering inside one group', () => {
+        assert.deepEqual(resolveGroupedTrackMove(makeDisc(), 1, 0, 1, 1), { sourceIndex: 1, destinationIndex: 2 });
+    });
+
+    it('rejects stale drag positions before issuing a device command', () => {
+        assert.throws(() => resolveGroupedTrackMove(makeDisc(), 1, 3, 2, 0), /source is outside/);
+        assert.throws(() => resolveGroupedTrackMove(makeDisc(), 1, 0, 2, 2), /destination is outside/);
     });
 });

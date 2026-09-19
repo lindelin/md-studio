@@ -1,4 +1,51 @@
-import type { Disc } from '../services/interfaces/netmd';
+import type { Disc, Group } from '../services/interfaces/netmd';
+
+export function getGroupedTracks(disc: Disc | null) {
+    if (!disc) return [];
+    const groupedList: Group[] = [];
+    const ungroupedTracks = [...(disc.groups.find((group) => group.title === null)?.tracks ?? [])];
+    let lastIndex = 0;
+
+    for (const group of disc.groups) {
+        if (group.title === null) continue;
+        const countBeforeGroup = group.tracks[0].index - lastIndex;
+        groupedList.push({
+            index: -1,
+            title: null,
+            fullWidthTitle: null,
+            tracks: countBeforeGroup === 0 ? [] : ungroupedTracks.splice(0, countBeforeGroup),
+        });
+        lastIndex = group.tracks[group.tracks.length - 1].index + 1;
+        groupedList.push(group);
+    }
+    groupedList.push({ index: -1, title: null, fullWidthTitle: null, tracks: ungroupedTracks });
+    return groupedList;
+}
+
+export function resolveGroupedTrackMove(
+    disc: Disc,
+    sourceList: number,
+    sourcePosition: number,
+    targetList: number,
+    targetPosition: number
+) {
+    const groups = getGroupedTracks(disc).map((group) => ({ ...group, tracks: [...group.tracks] }));
+    const sourceGroup = groups[sourceList];
+    const targetGroup = groups[targetList];
+    if (!sourceGroup || !targetGroup) throw new Error('The track move references a group that does not exist.');
+    if (!Number.isInteger(sourcePosition) || sourcePosition < 0 || sourcePosition >= sourceGroup.tracks.length) {
+        throw new Error('The track move source is outside its group.');
+    }
+
+    const [movedTrack] = sourceGroup.tracks.splice(sourcePosition, 1);
+    if (!Number.isInteger(targetPosition) || targetPosition < 0 || targetPosition > targetGroup.tracks.length) {
+        throw new Error('The track move destination is outside its group.');
+    }
+    targetGroup.tracks.splice(targetPosition, 0, movedTrack);
+    const destinationIndex = groups.flatMap((group) => group.tracks).findIndex((track) => track.index === movedTrack.index);
+    if (destinationIndex === -1) throw new Error('The moved track is missing from the planned disc layout.');
+    return { sourceIndex: movedTrack.index, destinationIndex };
+}
 
 export function recomputeGroupsAfterTrackMove(disc: Disc, trackIndex: number, targetIndex: number): Disc {
     let offset = trackIndex > targetIndex ? 1 : -1;

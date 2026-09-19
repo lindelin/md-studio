@@ -93,7 +93,10 @@ export class NetMDDeviceGateway implements DeviceGateway {
     }
 
     async moveTrack(sourceIndex: number, destinationIndex: number) {
-        await this.service.moveTrack(sourceIndex, destinationIndex);
+        // NetMD and Hi-MD historically disagree about what an omitted third
+        // argument means. Application-level moves always preserve group
+        // membership, so make that contract explicit at the adapter boundary.
+        await this.service.moveTrack(sourceIndex, destinationIndex, true);
     }
 
     async wipeDisc() {

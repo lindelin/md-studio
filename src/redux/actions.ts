@@ -15,7 +15,6 @@ import {
     sleepWithProgressCallback,
     sleep,
     askNotificationPermission,
-    getGroupedTracks,
     timeToSeekArgs,
     TitledFile,
     downloadBlob,
@@ -41,6 +40,7 @@ import type { DeviceSnapshot } from '../application/contracts';
 import { applyDeviceSnapshot } from './application-adapter';
 import { MetadataImportError } from '../domain/metadata-import';
 import { waitForTrackReady } from '../domain/playback-position';
+import { resolveGroupedTrackMove } from '../domain/disc-layout';
 
 export function requestTaskCancellation(id: string) {
     return async function () {
@@ -145,98 +145,19 @@ export function deleteGroups(indexes: number[]) {
 }
 
 export function dragDropTrack(sourceList: number, sourceIndex: number, targetList: number, targetIndex: number) {
-    // This code is here, because it would need to be duplicated in both netmd and netmd-mock.
     return async function (dispatch: AppDispatch): Promise<void> {
         if (sourceList === targetList && sourceIndex === targetIndex) return;
         dispatch(appStateActions.setLoading(true));
-        const groupedTracks = getGroupedTracks(await serviceRegistry.netmdService!.listContent());
-        // Remove the moved item from its current list
-        const movedItem = groupedTracks[sourceList].tracks.splice(sourceIndex, 1)[0];
-        let newIndex: number;
-
-        // Calculate bounds
-        let boundsStartList, boundsEndList, boundsStartIndex, boundsEndIndex, offset;
-
-        if (sourceList < targetList) {
-            boundsStartList = sourceList;
-            boundsStartIndex = sourceIndex;
-            boundsEndList = targetList;
-            boundsEndIndex = targetIndex;
-            offset = -1;
-        } else if (sourceList > targetList) {
-            boundsStartList = targetList;
-            boundsStartIndex = targetIndex;
-            boundsEndList = sourceList;
-            boundsEndIndex = sourceIndex;
-            offset = 1;
-        } else {
-            if (sourceIndex < targetIndex) {
-                boundsStartList = boundsEndList = sourceList;
-                boundsStartIndex = sourceIndex;
-                boundsEndIndex = targetIndex;
-                offset = -1;
-            } else {
-                boundsStartList = boundsEndList = targetList;
-                boundsStartIndex = targetIndex;
-                boundsEndIndex = sourceIndex;
-                offset = 1;
-            }
+        try {
+            const application = getApplicationRuntime();
+            const snapshot = application.readSnapshot() ?? (await application.refresh());
+            if (!snapshot.disc) return;
+            const move = resolveGroupedTrackMove(snapshot.disc, sourceList, sourceIndex, targetList, targetIndex);
+            if (move.sourceIndex === move.destinationIndex) return;
+            applyDeviceSnapshot(dispatch, await application.moveTrack(move.sourceIndex, move.destinationIndex, snapshot.revision));
+        } finally {
+            dispatch(appStateActions.setLoading(false));
         }
-
-        // Shift indices
-        for (let i = boundsStartList; i <= boundsEndList; i++) {
-            const startingIndex = i === boundsStartList ? boundsStartIndex : 0;
-            const endingIndex = i === boundsEndList ? boundsEndIndex : groupedTracks[i].tracks.length;
-            for (let j = startingIndex; j < endingIndex; j++) {
-                groupedTracks[i].tracks[j].index += offset;
-            }
-        }
-
-        // Calculate the moved track's destination index
-        if (targetList === 0) {
-            newIndex = targetIndex;
-        } else {
-            if (targetIndex === 0) {
-                let prevList = groupedTracks[targetList - 1];
-                let i = 2;
-                while (prevList && prevList.tracks.length === 0) {
-                    // Skip past all the empty lists
-                    prevList = groupedTracks[targetList - i++];
-                }
-                if (prevList) {
-                    // If there's a previous list, make this tracks's index previous list's last item's index + 1
-                    const lastIndexOfPrevList = prevList.tracks[prevList.tracks.length - 1].index;
-                    newIndex = lastIndexOfPrevList + 1;
-                } else newIndex = 0; // Else default to index 0
-            } else {
-                newIndex = groupedTracks[targetList].tracks[0].index + targetIndex;
-            }
-        }
-
-        if (movedItem.index !== newIndex) {
-            await serviceRegistry!.netmdService!.moveTrack(movedItem.index, newIndex, false);
-        }
-
-        movedItem.index = newIndex;
-        groupedTracks[targetList].tracks.splice(targetIndex, 0, movedItem);
-        const ungrouped = [];
-
-        // Recompile the groups and update them on the player
-        const normalGroups = [];
-        for (const group of groupedTracks) {
-            if (group.tracks.length === 0) continue;
-            if (group.index === -1) ungrouped.push(...group.tracks);
-            else normalGroups.push(group);
-        }
-        if (ungrouped.length)
-            normalGroups.unshift({
-                index: 0,
-                title: null,
-                fullWidthTitle: null,
-                tracks: ungrouped,
-            });
-        await serviceRegistry.netmdService!.rewriteGroups(normalGroups);
-        await listContent()(dispatch);
     };
 }
 
