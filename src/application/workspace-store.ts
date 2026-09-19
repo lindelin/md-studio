@@ -25,6 +25,12 @@ export interface WorkspaceSnapshot {
 
 type WorkspaceListener = () => void;
 
+function freezeSnapshot<T>(value: T): T {
+    if (value === null || typeof value !== 'object' || ArrayBuffer.isView(value) || Object.isFrozen(value)) return value;
+    for (const child of Object.values(value)) freezeSnapshot(child);
+    return Object.freeze(value);
+}
+
 export class WorkspaceStore {
     private snapshot: WorkspaceSnapshot;
     private readonly listeners = new Set<WorkspaceListener>();
@@ -37,7 +43,7 @@ export class WorkspaceStore {
         libraryCatalog?: LibraryCatalog,
         audioEncoderManager?: AudioEncoderManager
     ) {
-        this.snapshot = {
+        this.snapshot = freezeSnapshot({
             connection: {
                 phase: 'disconnected',
                 serviceName: null,
@@ -58,7 +64,7 @@ export class WorkspaceStore {
                 error: null,
                 support: {},
             },
-        };
+        });
         taskManager.subscribe(() => this.update({ tasks: taskManager.list() }));
         importQueue.subscribe((imports) => this.update({ imports }));
         settingsStore.subscribe((settings) => this.update({ settings }));
@@ -92,7 +98,7 @@ export class WorkspaceStore {
     }
 
     private update(changes: Partial<WorkspaceSnapshot>) {
-        this.snapshot = { ...this.snapshot, ...structuredClone(changes) };
+        this.snapshot = freezeSnapshot({ ...this.snapshot, ...structuredClone(changes) });
         for (const listener of this.listeners) listener();
     }
 }

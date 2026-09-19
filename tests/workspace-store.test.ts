@@ -127,4 +127,33 @@ describe('WorkspaceStore', () => {
         assert.equal(store.getSnapshot().device, null);
         assert.equal(changes, 2);
     });
+
+    it('publishes stable immutable snapshots that clients cannot use to corrupt shared state', () => {
+        const imports = new ImportQueue();
+        const store = new WorkspaceStore(new TaskManager(), imports, new SettingsStore(null));
+        imports.add([
+            {
+                source: { kind: 'browser-file', name: 'safe.wav', reference: 'browser:safe' },
+                metadata: { title: 'Safe' },
+            },
+        ]);
+
+        const snapshot = store.getSnapshot();
+        assert.equal(store.getSnapshot(), snapshot);
+        assert.equal(Object.isFrozen(snapshot), true);
+        assert.equal(Object.isFrozen(snapshot.imports), true);
+        assert.equal(Object.isFrozen(snapshot.imports.items), true);
+        assert.equal(Object.isFrozen(snapshot.imports.items[0]), true);
+        assert.throws(() => {
+            snapshot.imports.items[0].title = 'Mutated';
+        }, TypeError);
+        assert.throws(() => {
+            snapshot.imports.items.push({ ...snapshot.imports.items[0], id: 'injected' });
+        }, TypeError);
+        assert.equal(store.getSnapshot().imports.items[0].title, 'Safe');
+
+        store.setConnection({ phase: 'connecting', serviceName: 'USB NetMD', method: null, message: null });
+        assert.notEqual(store.getSnapshot(), snapshot);
+        assert.equal(snapshot.connection.phase, 'disconnected');
+    });
 });
