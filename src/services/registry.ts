@@ -17,6 +17,7 @@ import { AudioEncoderManager } from '../application/audio-encoder-manager';
 import { AudioServices, createAudioEncoder } from './audio-export-service-manager';
 import { createServiceCatalog, type ServiceCatalogSnapshot } from '../application/service-catalog';
 import type { LocalAudioInput } from '../application/browser-audio-input';
+import type { TrackRecognizer } from '../application/browser-track-recognizer';
 
 interface ServiceRegistry {
     netmdService?: NetMDService;
@@ -35,6 +36,7 @@ interface ServiceRegistry {
     importWriter?: ImportWriter;
     trackExporter?: TrackExporter;
     trackRecorder?: TrackRecorder;
+    trackRecognizer?: TrackRecognizer;
     operationCoordinator: DeviceOperationCoordinator;
     workspaceStore: WorkspaceStore;
     settingsStore: SettingsStore;

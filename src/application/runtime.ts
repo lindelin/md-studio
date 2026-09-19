@@ -194,6 +194,13 @@ export function getApplicationClient() {
     return serviceRegistry.applicationClient;
 }
 
+export function getTrackRecognizer() {
+    if (!serviceRegistry.trackRecognizer) {
+        throw new Error('Song recognition is unavailable in this application environment.');
+    }
+    return serviceRegistry.trackRecognizer;
+}
+
 export function getApplicationRuntime() {
     return serviceRegistry.application ?? bindApplicationRuntime();
 }

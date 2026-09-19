@@ -32,6 +32,7 @@ import { getApplicationClient, isActiveUsbDevice } from './application/runtime';
 import { applyDeviceSnapshot } from './redux/application-adapter';
 import { BrowserAudioInput } from './application/browser-audio-input';
 import { BrowserLocalFileGateway } from './application/browser-local-file-gateway';
+import { BrowserTrackRecognizer } from './application/browser-track-recognizer';
 import NotificationCompleteIconUrl from './images/record-complete-notification-icon.png';
 const mediaRecorderService = new MediaRecorderService();
 const localFiles = new BrowserLocalFileGateway();
@@ -99,7 +100,7 @@ serviceRegistry.importWriter = new BrowserImportWriter({
 });
 serviceRegistry.trackExporter = new BrowserTrackExporter(localFiles);
 serviceRegistry.trackRecorder = new BrowserTrackRecorder(mediaRecorderService);
-getApplicationClient();
+serviceRegistry.trackRecognizer = new BrowserTrackRecognizer(getApplicationClient());
 startLocalApplicationBridge(localFiles);
 
 Object.defineProperty(window, 'wmdVersion', {

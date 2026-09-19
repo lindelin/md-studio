@@ -14,25 +14,20 @@ import {
     downloadBlob,
     secondsToHumanReadable,
     getTracks,
-    ffmpegTranscode,
 } from '../utils';
 import { assertNumber } from 'netmd-js/dist/utils';
-import { Capability, ExploitCapability } from '../services/interfaces/capabilities';
+import { Capability } from '../services/interfaces/capabilities';
 import type { NetMDService, MinidiscSpec } from '../services/interfaces/netmd';
 import { getSimpleServices, ServiceConstructionInfo } from '../services/interface-service-manager';
-import { connectDeviceSession, getApplicationClient, releaseDeviceSession } from '../application/runtime';
+import { connectDeviceSession, getApplicationClient, getTrackRecognizer, releaseDeviceSession } from '../application/runtime';
 import { applyDeviceSnapshot } from './application-adapter';
 import { MetadataImportError } from '../domain/metadata-import';
 import { resolveGroupedTrackMove } from '../domain/disc-layout';
 import { describeDeviceSessionFailure } from '../application/device-session';
 import type { TaskSnapshot } from '../application/task-manager';
 import type { ApplicationCommand } from '../application/command-bus';
-import type { AdvancedTrackReader, PlaybackCommand } from '../application/contracts';
-
-async function checkFactoryCapability(dispatch: AppDispatch, capability: ExploitCapability) {
-    const factoryActions = await import('./factory/factory-actions');
-    return factoryActions.checkFactoryCapability(dispatch, capability);
-}
+import type { PlaybackCommand } from '../application/contracts';
+import type { TrackRecognitionProgress } from '../application/browser-track-recognizer';
 
 async function executeDeviceCommand(dispatch: AppDispatch, command: ApplicationCommand) {
     const result = await getApplicationClient().execute(command);
@@ -747,20 +742,7 @@ export function openRecognizeTrackDialog(selectedTracks: number[]) {
 export function recognizeTracks(_trackEntries: TitleEntry[], mode: 'exploits' | 'line-in', inputModeConfiguration?: { deviceId?: string }) {
     const trackEntries = [..._trackEntries];
     return async function (dispatch: AppDispatch, getState: () => RootState) {
-        const { s16LEToSamplesArray, Shazam } = await import('shazam-api');
-        const shazam = new Shazam();
-
-        // Bypass CORS
-        shazam.endpoint.sendRecognizeRequest = async (url: string, body: string) => {
-            return await window.native!.unrestrictedFetchJSON(url, {
-                method: 'POST',
-                body,
-                headers: shazam.endpoint.headers(),
-            });
-        };
-
         const toRecognize = trackEntries.filter((n) => n.selectedToRecognize && !n.alreadyRecognized);
-
         dispatch(
             batchActions([
                 songRecognitionProgressDialogActions.setCancelled(false),
@@ -769,163 +751,76 @@ export function recognizeTracks(_trackEntries: TitleEntry[], mode: 'exploits' | 
                 songRecognitionProgressDialogActions.setTotalTracks(toRecognize.length),
             ])
         );
-
-        if (mode === 'exploits') {
-            if (!(await checkFactoryCapability(dispatch, ExploitCapability.downloadAtrac))) {
-                window.alert(
-                    'Cannot enable homebrew mode ripping in main UI.\nThis device is not supported yet.\nStay tuned for future updates.'
-                );
-                dispatch(songRecognitionProgressDialogActions.setVisible(false));
-                return;
-            }
-        }
-
-        const runRecognition = async (readAdvancedTrack?: AdvancedTrackReader) => {
-            let toRecognizeTrackCounter = -1;
-            for (let i = 0; i < trackEntries.length; i++) {
-                const trackEntry = trackEntries[i];
-                if (!trackEntry.selectedToRecognize || trackEntry.alreadyRecognized) {
-                    continue;
-                }
-                const TRY_COUNT = 3;
-                const SECONDS_TO_READ = 12;
-                const MIN_DURATION = SECONDS_TO_READ * TRY_COUNT;
-
-                // TRY_COUNT tries to get the song right:
-                const track = getTracks(getState().main.disc!).find((e) => e.index === trackEntry.index)!;
-
-                if (track.duration < MIN_DURATION) {
-                    trackEntries[i] = {
-                        ...trackEntries[i],
-                        recognizeFail: true,
-                    };
-                    continue;
-                }
-                toRecognizeTrackCounter++;
-                dispatch(songRecognitionProgressDialogActions.setCurrentTrack(toRecognizeTrackCounter));
-
-                for (let offset = 0; offset < SECONDS_TO_READ * TRY_COUNT; offset += SECONDS_TO_READ) {
-                    let rawSamples: Uint8Array;
+        const tracks = new Map(getTracks(getState().main.disc!).map((track) => [track.index, track]));
+        const publishProgress = (progress: TrackRecognitionProgress) => {
+            switch (progress.type) {
+                case 'track':
+                    dispatch(songRecognitionProgressDialogActions.setCurrentTrack(progress.current));
+                    break;
+                case 'phase':
+                    dispatch(
+                        songRecognitionProgressDialogActions.setCurrentStep(
+                            progress.phase === 'reading' ? 0 : progress.phase === 'calculating' ? 1 : 2
+                        )
+                    );
+                    if (progress.phase !== 'reading') {
+                        dispatch(
+                            batchActions([
+                                songRecognitionProgressDialogActions.setCurrentStepProgress(-1),
+                                songRecognitionProgressDialogActions.setCurrentStepTotal(0),
+                            ])
+                        );
+                    }
+                    break;
+                case 'read':
                     dispatch(
                         batchActions([
-                            songRecognitionProgressDialogActions.setCurrentStep(0),
-                            songRecognitionProgressDialogActions.setCurrentStepProgress(0),
-                            songRecognitionProgressDialogActions.setCurrentStepTotal(1),
+                            songRecognitionProgressDialogActions.setCurrentStepProgress(progress.current),
+                            songRecognitionProgressDialogActions.setCurrentStepTotal(progress.total),
                         ])
                     );
-
-                    const optimalStartSeconds = offset;
-
-                    if (mode === 'exploits') {
-                        // Download the track
-
-                        if (!readAdvancedTrack) throw new Error('The advanced track reader is unavailable.');
-                        const atracData = await readAdvancedTrack(
-                            trackEntry.index,
-                            {
-                                nerawDownload: false,
-                                shouldCancel: () => getState().songRecognitionProgressDialog.cancelled,
-                                handleBadSector: async () => 'abort',
-                                secondsToRead: SECONDS_TO_READ,
-                                startSeconds: optimalStartSeconds,
-                                writeHeader: true,
-                            },
-                            (e) =>
-                                dispatch(
-                                    batchActions([
-                                        songRecognitionProgressDialogActions.setCurrentStepProgress(e.read),
-                                        songRecognitionProgressDialogActions.setCurrentStepTotal(e.total),
-                                    ])
-                                )
-                        );
-
-                        dispatch(
-                            batchActions([
-                                songRecognitionProgressDialogActions.setCurrentStepProgress(-1),
-                                songRecognitionProgressDialogActions.setCurrentStepTotal(0),
-                                songRecognitionProgressDialogActions.setCurrentStep(1),
-                            ])
-                        );
-
-                        rawSamples = await ffmpegTranscode(atracData.data, atracData.extension, '-ar 16000 -ac 1 -f s16le');
-                    } else {
-                        const deviceId = inputModeConfiguration!.deviceId!;
-                        dispatch(songRecognitionProgressDialogActions.setCurrentStepTotal(100));
-                        const client = getApplicationClient();
-                        const device = client.getWorkspaceSnapshot().device;
-                        if (!device) throw new Error('The MiniDisc device disconnected before recognition started.');
-                        const rawWav = await client.runLocalPlaybackCaptureSession(
-                            { sessionId: device.sessionId, revision: device.revision },
-                            async (playback) => {
-                                await playback.control({ action: 'stop' });
-                                await playback.control({ action: 'gotoTrack', index: track.index });
-                                const seek = timeToSeekArgs(optimalStartSeconds);
-                                await playback.control({
-                                    action: 'seek',
-                                    index: track.index,
-                                    hour: seek[0],
-                                    minute: seek[1],
-                                    second: seek[2],
-                                    frame: seek[3],
-                                });
-                                await playback.control({ action: 'play' });
-                                return client.captureLocalAudioInput(
-                                    deviceId,
-                                    SECONDS_TO_READ * 1000,
-                                    (percentage: number) => {
-                                        dispatch(songRecognitionProgressDialogActions.setCurrentStepProgress(percentage));
-                                    },
-                                    () => getState().songRecognitionProgressDialog.cancelled
-                                );
-                            }
-                        );
-                        dispatch(
-                            batchActions([
-                                songRecognitionProgressDialogActions.setCurrentStepProgress(-1),
-                                songRecognitionProgressDialogActions.setCurrentStepTotal(0),
-                                songRecognitionProgressDialogActions.setCurrentStep(1),
-                            ])
-                        );
-                        rawSamples = await ffmpegTranscode(rawWav, 'wav', '-ar 16000 -ac 1 -f s16le');
-                    }
-                    dispatch(batchActions([songRecognitionProgressDialogActions.setCurrentStepProgress(-1)]));
-
-                    const songData = await shazam.recognizeSong(s16LEToSamplesArray(rawSamples), (state) =>
-                        dispatch(songRecognitionProgressDialogActions.setCurrentStep(state === 'generating' ? 1 : 2))
-                    );
-                    if (songData !== null) {
-                        trackEntries[i] = {
-                            ...trackEntries[i],
-                            alreadyRecognized: true,
-                            recognizeFail: false,
-
-                            songTitle: songData.title,
-                            songArtist: songData.artist,
-                            songAlbum: songData.album ?? 'Unknown',
-                        };
-                        break;
-                    } else {
-                        trackEntries[i] = {
-                            ...trackEntries[i],
-                            recognizeFail: true,
-                        };
-                    }
-                    if (getState().songRecognitionProgressDialog.cancelled) break;
-                }
-                if (getState().songRecognitionProgressDialog.cancelled) break;
+                    break;
             }
         };
-        if (mode === 'exploits') {
-            await getApplicationClient().runLocalAdvancedTrackDownloadSession(
-                getState().appState.factoryModeUseSlowerExploit,
-                runRecognition
+
+        try {
+            const results = await getTrackRecognizer().recognize(
+                {
+                    mode,
+                    deviceId: inputModeConfiguration?.deviceId,
+                    useSlowerExploit: getState().appState.factoryModeUseSlowerExploit,
+                    tracks: trackEntries.map((entry) => ({
+                        index: entry.index,
+                        duration: tracks.get(entry.index)?.duration ?? 0,
+                        selected: entry.selectedToRecognize,
+                        alreadyRecognized: entry.alreadyRecognized,
+                    })),
+                },
+                {
+                    isCancelled: () => getState().songRecognitionProgressDialog.cancelled,
+                    onProgress: publishProgress,
+                }
             );
-        } else {
-            await runRecognition();
+            const byIndex = new Map(results.map((result) => [result.index, result]));
+            const updatedEntries = trackEntries.map((entry) => {
+                const result = byIndex.get(entry.index);
+                if (!result) return entry;
+                if (!result.recognized) return { ...entry, recognizeFail: true };
+                return {
+                    ...entry,
+                    alreadyRecognized: true,
+                    recognizeFail: false,
+                    songTitle: result.title!,
+                    songArtist: result.artist!,
+                    songAlbum: result.album ?? 'Unknown',
+                };
+            });
+            dispatch(songRecognitionDialogActions.setTitles(updatedEntries));
+        } catch (error) {
+            window.alert(error instanceof Error ? error.message : 'Song recognition failed.');
+        } finally {
+            dispatch(songRecognitionProgressDialogActions.setVisible(false));
         }
-        dispatch(
-            batchActions([songRecognitionDialogActions.setTitles(trackEntries), songRecognitionProgressDialogActions.setVisible(false)])
-        );
     };
 }
 
