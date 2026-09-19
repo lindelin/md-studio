@@ -76,6 +76,45 @@ function createServer() {
         async ({ updates, expectedRevision }) => execute({ type: 'track.renameMany', updates, expectedRevision })
     );
     server.registerTool(
+        'minidisc_create_group',
+        {
+            description: 'Create a named group over a contiguous range of tracks.',
+            inputSchema: z.object({
+                firstTrack: z.number().int().nonnegative(),
+                trackCount: z.number().int().positive(),
+                title: z.string().optional(),
+                fullWidthTitle: z.string().optional(),
+                expectedRevision: z.number().int().nonnegative().optional(),
+            }),
+        },
+        async (input) => execute({ type: 'group.create', ...input })
+    );
+    server.registerTool(
+        'minidisc_rename_group',
+        {
+            description: 'Rename an existing group.',
+            inputSchema: z.object({
+                index: z.number().int().nonnegative(),
+                title: z.string(),
+                fullWidthTitle: z.string().optional(),
+                expectedRevision: z.number().int().nonnegative().optional(),
+            }),
+        },
+        async ({ index, title, fullWidthTitle, expectedRevision }) =>
+            execute({ type: 'group.rename', update: { index, title, fullWidthTitle }, expectedRevision })
+    );
+    server.registerTool(
+        'minidisc_delete_groups',
+        {
+            description: 'Remove one or more group boundaries without deleting their tracks.',
+            inputSchema: z.object({
+                indexes: z.array(z.number().int().nonnegative()).min(1),
+                expectedRevision: z.number().int().nonnegative().optional(),
+            }),
+        },
+        async ({ indexes, expectedRevision }) => execute({ type: 'group.deleteMany', indexes, expectedRevision })
+    );
+    server.registerTool(
         'minidisc_move_track',
         {
             description: 'Move a track to a new zero-based position and refresh group layout.',
@@ -115,6 +154,33 @@ function createServer() {
             execute({ type: 'disc.erase', confirmation: { confirmed, reason }, expectedRevision })
     );
     server.registerTool(
+        'minidisc_eject_disc',
+        {
+            description: 'Eject the current disc when the connected device supports software eject.',
+            inputSchema: z.object({ expectedRevision: z.number().int().nonnegative().optional() }),
+        },
+        async ({ expectedRevision }) => execute({ type: 'disc.eject', expectedRevision })
+    );
+    server.registerTool(
+        'minidisc_control_playback',
+        {
+            description: 'Play, pause, stop, skip, select a track, or seek on the connected device.',
+            inputSchema: z.discriminatedUnion('action', [
+                z.object({ action: z.enum(['play', 'pause', 'stop', 'next', 'previous']) }),
+                z.object({ action: z.literal('gotoTrack'), index: z.number().int().nonnegative() }),
+                z.object({
+                    action: z.literal('seek'),
+                    index: z.number().int().nonnegative(),
+                    hour: z.number().int().nonnegative(),
+                    minute: z.number().int().nonnegative(),
+                    second: z.number().int().nonnegative(),
+                    frame: z.number().int().nonnegative(),
+                }),
+            ]),
+        },
+        async (command) => execute({ type: 'playback.control', command })
+    );
+    server.registerTool(
         'minidisc_list_tasks',
         { description: 'List current and completed MiniDisc tasks with progress and results.', inputSchema: z.object({}) },
         async () => execute({ type: 'task.list' })
@@ -125,9 +191,104 @@ function createServer() {
         async ({ id }) => execute({ type: 'task.cancel', id })
     );
     server.registerTool(
+        'minidisc_get_task',
+        { description: 'Read one MiniDisc task and its current progress.', inputSchema: z.object({ id: z.string().min(1) }) },
+        async ({ id }) => execute({ type: 'task.get', id })
+    );
+    server.registerTool(
         'minidisc_list_imports',
         { description: 'List the ordered audio import queue and its revision.', inputSchema: z.object({}) },
         async () => execute({ type: 'import.list' })
+    );
+    server.registerTool(
+        'minidisc_add_imports',
+        {
+            description:
+                'Add local-path or library references to the ordered import queue. This records the plan; audio payload transfer is handled when the write task starts.',
+            inputSchema: z.object({
+                inputs: z
+                    .array(
+                        z.object({
+                            source: z.object({
+                                kind: z.enum(['local-path', 'library']),
+                                name: z.string().min(1),
+                                reference: z.string().min(1),
+                                size: z.number().int().nonnegative().optional(),
+                                mimeType: z.string().optional(),
+                            }),
+                            metadata: z.object({
+                                title: z.string(),
+                                fullWidthTitle: z.string().optional(),
+                                artist: z.string().optional(),
+                                album: z.string().optional(),
+                                duration: z.number().nonnegative().optional(),
+                                forcedEncoding: z
+                                    .object({ codec: z.string().min(1), bitrate: z.number().int().nonnegative() })
+                                    .nullable()
+                                    .optional(),
+                                bytesToSkip: z.number().int().nonnegative().optional(),
+                            }),
+                        })
+                    )
+                    .min(1),
+                expectedRevision: z.number().int().nonnegative().optional(),
+            }),
+        },
+        async ({ inputs, expectedRevision }) => execute({ type: 'import.add', inputs, expectedRevision })
+    );
+    server.registerTool(
+        'minidisc_update_import',
+        {
+            description: 'Update title, metadata, or encoding choices for one queued import.',
+            inputSchema: z.object({
+                id: z.string().min(1),
+                changes: z.object({
+                    title: z.string().optional(),
+                    fullWidthTitle: z.string().optional(),
+                    artist: z.string().optional(),
+                    album: z.string().optional(),
+                    duration: z.number().nonnegative().optional(),
+                    forcedEncoding: z
+                        .object({ codec: z.string().min(1), bitrate: z.number().int().nonnegative() })
+                        .nullable()
+                        .optional(),
+                    bytesToSkip: z.number().int().nonnegative().optional(),
+                }),
+                expectedRevision: z.number().int().nonnegative().optional(),
+            }),
+        },
+        async ({ id, changes, expectedRevision }) => execute({ type: 'import.update', id, changes, expectedRevision })
+    );
+    server.registerTool(
+        'minidisc_move_import',
+        {
+            description: 'Move one queued import to a new zero-based position.',
+            inputSchema: z.object({
+                id: z.string().min(1),
+                destinationIndex: z.number().int().nonnegative(),
+                expectedRevision: z.number().int().nonnegative().optional(),
+            }),
+        },
+        async (input) => execute({ type: 'import.move', ...input })
+    );
+    server.registerTool(
+        'minidisc_remove_imports',
+        {
+            description: 'Remove one or more items from the import queue.',
+            inputSchema: z.object({
+                ids: z.array(z.string().min(1)).min(1),
+                expectedRevision: z.number().int().nonnegative().optional(),
+            }),
+        },
+        async ({ ids, expectedRevision }) => execute({ type: 'import.remove', ids, expectedRevision })
+    );
+    server.registerTool(
+        'minidisc_clear_imports',
+        {
+            description: 'Clear the complete import queue.',
+            inputSchema: z.object({ expectedRevision: z.number().int().nonnegative().optional() }),
+        },
+        async ({ expectedRevision }) => execute({ type: 'import.clear', expectedRevision })
     );
 
     return server;

@@ -15,9 +15,9 @@ interface PendingRequest {
 export class LocalBridgeBroker {
     private activePeer?: BridgePeer;
     private readonly pending = new Map<string, PendingRequest>();
+    private readonly connectionWaiters = new Set<{ resolve: () => void; reject: (error: Error) => void; timeout: NodeJS.Timeout }>();
 
     attach(peer: BridgePeer) {
-        this.activePeer = peer;
         return () => {
             if (this.activePeer !== peer) return;
             this.activePeer = undefined;
@@ -29,7 +29,15 @@ export class LocalBridgeBroker {
         const message = parseBridgeMessage(JSON.parse(raw));
         if (message.type === 'hello') {
             this.validateHello(message);
+            if (this.activePeer && this.activePeer !== peer) {
+                this.rejectPending(new Error('The MiniDisc application connection was replaced.'));
+            }
             this.activePeer = peer;
+            for (const waiter of this.connectionWaiters) {
+                clearTimeout(waiter.timeout);
+                waiter.resolve();
+            }
+            this.connectionWaiters.clear();
             return;
         }
         if (message.type !== 'response' || peer !== this.activePeer) return;
@@ -61,6 +69,21 @@ export class LocalBridgeBroker {
 
     isConnected() {
         return this.activePeer !== undefined;
+    }
+
+    waitForConnection(timeoutMs = 30_000) {
+        if (this.activePeer) return Promise.resolve();
+        return new Promise<void>((resolve, reject) => {
+            const waiter = {
+                resolve,
+                reject,
+                timeout: setTimeout(() => {
+                    this.connectionWaiters.delete(waiter);
+                    reject(new Error('The MiniDisc application did not connect to the local bridge in time.'));
+                }, timeoutMs),
+            };
+            this.connectionWaiters.add(waiter);
+        });
     }
 
     private validateHello(message: BridgeHello) {

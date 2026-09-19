@@ -14,6 +14,7 @@ export function startLocalBridgeServer(broker: LocalBridgeBroker, options: Local
     const host = options.host ?? '127.0.0.1';
     const port = options.port ?? 47123;
     const allowedOrigins = options.allowedOrigins?.map((origin) => new RegExp(`^${escapeRegExp(origin)}$`)) ?? defaultAllowedOrigins;
+    const clients = new Set<WebSocket>();
     const server = new WebSocketServer({
         host,
         port,
@@ -26,6 +27,7 @@ export function startLocalBridgeServer(broker: LocalBridgeBroker, options: Local
     });
 
     server.on('connection', (socket: WebSocket) => {
+        clients.add(socket);
         const detach = broker.attach(socket);
         socket.on('message', (data) => {
             try {
@@ -35,14 +37,21 @@ export function startLocalBridgeServer(broker: LocalBridgeBroker, options: Local
                 socket.close(1008, 'Invalid bridge message');
             }
         });
-        socket.on('close', detach);
+        socket.on('close', () => {
+            clients.delete(socket);
+            detach();
+        });
         socket.on('error', (error) => console.error('Browser bridge socket error:', error));
     });
 
     return {
         host,
         port,
-        close: () => new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
+        close: () =>
+            new Promise<void>((resolve, reject) => {
+                for (const client of clients) client.terminate();
+                server.close((error) => (error ? reject(error) : resolve()));
+            }),
     };
 }
 
