@@ -32,6 +32,15 @@ export class MiniDiscApplication {
         });
     }
 
+    synchronizeAfterExternalMutation(dropCache = true) {
+        return this.serial(async () => {
+            this.revision += 1;
+            const next = await this.gateway.readSnapshot(dropCache);
+            this.snapshot = { ...next, sessionId: this.sessionId, revision: this.revision };
+            return this.snapshot;
+        });
+    }
+
     renameDisc(title: string, fullWidthTitle?: string, expectedRevision?: number) {
         return this.mutate('metadata.edit', expectedRevision, async () => {
             await this.gateway.renameDisc(title, fullWidthTitle);

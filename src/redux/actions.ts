@@ -39,6 +39,7 @@ import { s16LEToSamplesArray, Shazam } from 'shazam-api';
 import { bindApplicationRuntime, getApplicationRuntime } from '../application/runtime';
 import type { DeviceSnapshot } from '../application/contracts';
 import { applyDeviceSnapshot } from './application-adapter';
+import { buildImportedGroups, createMetadataImportPlan, METADATA_CSV_HEADER_ALIASES, MetadataImportError } from '../domain/metadata-import';
 
 export function control(action: 'play' | 'stop' | 'next' | 'prev' | 'goto' | 'pause' | 'seek', params?: unknown) {
     return async function (dispatch: AppDispatch) {
@@ -834,20 +835,7 @@ export function setNotifyWhenFinished(value: boolean) {
     };
 }
 
-const csvHeaderOld = ['INDEX', 'GROUP RANGE', 'GROUP NAME', 'GROUP FULL WIDTH NAME', 'NAME', 'FULL WIDTH NAME', 'DURATION', 'ENCODING'];
-const csvHeader = [
-    ['INDEX'],
-    ['GROUP RANGE'],
-    ['GROUP NAME'],
-    ['GROUP FULL WIDTH NAME'],
-    ['NAME'],
-    ['FULL WIDTH NAME'],
-    ['HIMD ALBUM', 'ALBUM'],
-    ['HIMD ARTIST', 'ARTIST'],
-    ['DURATION'],
-    ['ENCODING'],
-    ['BITRATE'],
-];
+const csvHeader = METADATA_CSV_HEADER_ALIASES;
 
 export function exportCSV(callback: (blob: Blob, name: string) => void = downloadBlob) {
     return async function (dispatch: AppDispatch, getState: () => RootState) {
@@ -912,127 +900,66 @@ export function importCSV(file: File) {
     return async function (dispatch: AppDispatch, getState: () => RootState) {
         const text = new TextDecoder('utf-8').decode(await file.arrayBuffer());
         const usesHiMDTitles = getState().main.deviceCapabilities.includes(Capability.himdTitles);
-        const records = text
-            .split('\n')
-            .map((e) => e.trim())
-            .filter((e) => e.length !== 0)
-            .map((e) => e.split(/(?<!\\),/g).map((x) => x.replace(/\\,/g, ',')));
-
-        if (records.length === 0) {
-            alert('Empty CSV file');
-            return;
-        }
-
-        // Backwards-compatibility
-        if (records[0].every((e, i) => e === csvHeaderOld[i])) {
-            // It's using the old format
-            records[0] = csvHeader.map((e) => e[0]);
-            for (let i = 1; i < records.length; i++) {
-                records[i].splice(6, 0, '', ''); // ALBUM, ARTIST
-                records[i].push(''); // BITRATE
-            }
-        }
-
-        if (records[0].some((e, i) => !csvHeader[i].includes(e))) {
-            alert('Malformed CSV file');
-            return;
-        }
-
-        const addedGroupRanges = new Set<string>();
-
-        const isTimeDifferenceAcceptable = (a: number, b: number) => Math.abs(a - b) < 2;
-
-        // Make sure the CSV matches the disc
         dispatch(appStateActions.setLoading(true));
-        const disc = await serviceRegistry.netmdService!.listContent();
-        const ungroupedTracks = getTracks(disc).sort((a, b) => a.index - b.index);
-        if (disc.trackCount !== records.length - 2) {
-            // - 2 - one for the header, second for the disc title / info
+        try {
+            const disc = await serviceRegistry.netmdService!.listContent();
+            const plan = createMetadataImportPlan(text, disc);
             if (
+                !plan.trackCountMatches &&
                 !window.confirm(
-                    `The CSV file describes a disc with ${records.length - 2} tracks.\nThe disc inserted has ${
+                    `The CSV file describes a disc with ${plan.expectedTrackCount} tracks.\nThe disc inserted has ${
                         disc.trackCount
                     } tracks.\nContinue importing?`
                 )
             ) {
-                dispatch(appStateActions.setLoading(false));
                 return;
             }
-        }
 
-        await serviceRegistry.netmdService!.wipeDiscTitleInfo();
-
-        for (const [
-            sIndex,
-            grRange,
-            groupName,
-            groupFullWidthName,
-            name,
-            fwName,
-            album,
-            artist,
-            sDuration,
-            codec,
-            bitrate,
-        ] of records.slice(1)) {
-            const index = parseInt(sIndex),
-                duration = parseInt(sDuration),
-                gRange = grRange.replace(/ /g, '');
-            if (index === 0) {
-                // Disc title info
-                await serviceRegistry.netmdService!.renameDisc(name, fwName);
-                continue;
-            }
-            if (!ungroupedTracks[index - 1]) {
-                // Editing track that's not part of the disc.
-                // Skip.
-                continue;
+            const includedTrackIndexes = new Set<number>();
+            for (const track of plan.tracks) {
+                if (!track.actual) continue;
+                if (!track.matchesDisc) {
+                    const bitrateDescription = track.bitrate === undefined ? '' : ` (${track.bitrate} kbps)`;
+                    const actualBitrateDescription =
+                        track.actual.encoding.bitrate === undefined ? '' : ` (${track.actual.encoding.bitrate} kbps)`;
+                    if (
+                        !window.confirm(
+                            `The CSV file describes track ${track.index} as a ${secondsToHumanReadable(track.duration)} ${
+                                track.codec
+                            }${bitrateDescription} track. The actual track ${track.index} is a ${secondsToHumanReadable(
+                                track.actual.duration
+                            )} ${track.actual.encoding.codec}${actualBitrateDescription} track. Label it according to the file?`
+                        )
+                    ) {
+                        continue;
+                    }
+                }
+                includedTrackIndexes.add(track.trackIndex);
             }
 
-            const currentTrackEncoding = ungroupedTracks[index - 1].encoding;
-            if (
-                !isTimeDifferenceAcceptable(ungroupedTracks[index - 1].duration, duration) ||
-                currentTrackEncoding.codec.toLowerCase() !== codec.toLowerCase() ||
-                (bitrate !== '' && currentTrackEncoding.bitrate !== parseInt(bitrate))
-            ) {
-                const bitrateDescription = bitrate === '' ? '' : ` (${bitrate} kbps)`;
-                const actualBitrateDescription =
-                    currentTrackEncoding.bitrate === undefined ? '' : ` (${currentTrackEncoding.bitrate} kbps)`;
-                if (
-                    !window.confirm(
-                        `
-                    The CSV file describes track ${index} as a ${secondsToHumanReadable(
-                        duration
-                    )} ${codec}${bitrateDescription} track. The actual track ${index} is a ${secondsToHumanReadable(
-                        ungroupedTracks[index - 1].duration
-                    )} ${currentTrackEncoding.codec}${actualBitrateDescription} track. Label it according to the file?
-                        `.trim()
-                    )
-                ) {
-                    continue;
+            await serviceRegistry.netmdService!.renameDisc(plan.discTitle.title, plan.discTitle.fullWidthTitle);
+            for (const track of plan.tracks.filter((entry) => includedTrackIndexes.has(entry.trackIndex))) {
+                if (usesHiMDTitles) {
+                    await serviceRegistry.netmdService!.renameTrack(track.trackIndex, {
+                        title: track.title,
+                        album: track.album,
+                        artist: track.artist,
+                    });
+                } else {
+                    await serviceRegistry.netmdService!.renameTrack(track.trackIndex, track.title, track.fullWidthTitle);
                 }
             }
-
-            if (gRange !== '') {
-                // Is part of group
-                if (!addedGroupRanges.has(gRange)) {
-                    addedGroupRanges.add(gRange);
-                    const [startS, endS] = gRange.split('-');
-                    const start = parseInt(startS),
-                        end = parseInt(endS),
-                        length = end - start + 1;
-                    await serviceRegistry.netmdService!.addGroup(start, length, groupName, groupFullWidthName);
-                }
+            await serviceRegistry.netmdService!.rewriteGroups(buildImportedGroups(plan, includedTrackIndexes));
+            applyDeviceSnapshot(dispatch, await getApplicationRuntime().synchronizeAfterExternalMutation());
+        } catch (error) {
+            if (error instanceof MetadataImportError) {
+                window.alert(error.message);
+                return;
             }
-
-            if (usesHiMDTitles) {
-                await serviceRegistry.netmdService!.renameTrack(index - 1, { title: name, album, artist });
-            } else {
-                await serviceRegistry.netmdService!.renameTrack(index - 1, name, fwName);
-            }
+            throw error;
+        } finally {
+            dispatch(appStateActions.setLoading(false));
         }
-
-        await listContent()(dispatch);
     };
 }
 
