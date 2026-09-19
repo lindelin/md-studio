@@ -2,6 +2,7 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { HiMDCodecName } from 'himd-js';
 import { enableBatching } from 'redux-batched-actions';
 import { savePreference, loadPreference } from '../utils';
+import { isOneOf, isUploadFormat } from '../preferences';
 
 export type TitleFormatType = 'filename' | 'title' | 'album-title' | 'artist-title' | 'artist-album-title' | 'title-artist';
 export type ForcedEncodingFormat = { codec: 'SPM' | 'SPS' | HiMDCodecName; bitrate: number } | null;
@@ -23,8 +24,12 @@ export interface ConvertDialogFeature {
 
 const initialState: ConvertDialogFeature = {
     visible: false,
-    format: loadPreference('uploadFormat', {}),
-    titleFormat: loadPreference('trackTitleFormat', 'filename') as TitleFormatType,
+    format: loadPreference('uploadFormat', {}, isUploadFormat),
+    titleFormat: loadPreference(
+        'trackTitleFormat',
+        'filename',
+        isOneOf(['filename', 'title', 'album-title', 'artist-title', 'artist-album-title', 'title-artist'] as const)
+    ),
     titles: [],
 };
 

@@ -18,6 +18,7 @@ import { listContent } from './redux/actions';
 import { sleep } from './utils';
 import { SettingsResetErrorBoundary } from './components/settings-reset-error-boundary';
 import { startLocalApplicationBridge } from './application/browser-bridge';
+import { readRawPreference } from './preferences';
 serviceRegistry.mediaRecorderService = new MediaRecorderService();
 serviceRegistry.mediaSessionService = new BrowserMediaSessionService(store);
 startLocalApplicationBridge();
@@ -29,7 +30,7 @@ Object.defineProperty(window, 'wmdVersion', {
 
 const originalApplicationTitle = document.title;
 
-if (localStorage.getItem('version') !== (window as any).wmdVersion) {
+if (readRawPreference('version') !== (window as any).wmdVersion) {
     store.dispatch(appActions.showChangelogDialog(true));
 }
 

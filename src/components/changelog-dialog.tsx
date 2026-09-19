@@ -13,6 +13,7 @@ import Button from '@mui/material/Button';
 import Link from '@mui/material/Link';
 import { makeStyles } from 'tss-react/mui';
 import { W95ChangelogDialog } from './win95/changelog-dialog';
+import { saveRawPreference } from '../preferences';
 import { CHANGELOG } from '../changelog';
 import { ChangelogEntry } from '../bridge-types';
 
@@ -20,7 +21,7 @@ const Transition = React.forwardRef(function Transition(props: SlideProps, ref: 
     return <Slide direction="up" ref={ref} {...props} />;
 });
 
-const useStyles = makeStyles()((theme) => ({
+const useStyles = makeStyles()(() => ({
     container: {
         display: 'flex',
         flexDirection: 'row',
@@ -45,7 +46,7 @@ const useStyles = makeStyles()((theme) => ({
     },
 }));
 
-export const ChangelogDialog = (props: {}) => {
+export const ChangelogDialog = () => {
     const dispatch = useDispatch();
     const { classes } = useStyles();
 
@@ -53,7 +54,7 @@ export const ChangelogDialog = (props: {}) => {
     const visible = useShallowEqualSelector((state) => state.appState.changelogDialogVisible);
 
     const handleClose = useCallback(() => {
-        localStorage.setItem('version', (window as any).wmdVersion);
+        saveRawPreference('version', (window as any).wmdVersion);
         dispatch(appActions.showChangelogDialog(false));
     }, [dispatch]);
 
@@ -66,7 +67,7 @@ export const ChangelogDialog = (props: {}) => {
 
         // Merge with wrapper (ElectronWMD) changelog
         if (window.native?.wrapperChangelog) {
-            main: for (let injection of window.native.wrapperChangelog) {
+            main: for (const injection of window.native.wrapperChangelog) {
                 if (injection.before === null) {
                     changelog.push(injection.entry);
                 } else {
@@ -83,7 +84,7 @@ export const ChangelogDialog = (props: {}) => {
         }
 
         // Render the changelog.
-        let content: ReactNode[] = [];
+        const content: ReactNode[] = [];
 
         function renderElement(element: ChangelogEntry): ReactNode {
             if (typeof element === 'string') return element;
@@ -129,7 +130,7 @@ export const ChangelogDialog = (props: {}) => {
             );
         }
 
-        for (let version of changelog) {
+        for (const version of changelog) {
             content.push(
                 <React.Fragment key={version.name}>
                     <h2 className={classes.header}>{version.name}</h2>

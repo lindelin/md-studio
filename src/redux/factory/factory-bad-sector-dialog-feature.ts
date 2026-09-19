@@ -1,6 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { enableBatching } from 'redux-batched-actions';
 import { loadPreference } from '../../utils';
+import { isBoolean } from '../../preferences';
 
 export interface FactoryModeEditDialogState {
     address: string;
@@ -16,7 +17,7 @@ const initialState: FactoryModeEditDialogState = {
     count: 0,
     seconds: 0,
     visible: false,
-    remember: loadPreference('factoryBadSectorRememberChoice', false),
+    remember: loadPreference('factoryBadSectorRememberChoice', false, isBoolean),
     rememberForRestOfSession: false,
 };
 

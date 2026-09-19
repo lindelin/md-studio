@@ -4,6 +4,7 @@ import { CustomParameters } from '../custom-parameters';
 import { filterOutCorrupted, getSimpleServices, ServiceConstructionInfo } from '../services/interface-service-manager';
 import { savePreference, loadPreference } from '../utils';
 import { resolveAudioServiceIndex } from '../services/audio-export-service-manager';
+import { isBoolean, isFiniteNumber, isOneOf, isPrimitiveRecord, isServiceList } from '../preferences';
 
 export type Views = 'WELCOME' | 'MAIN' | 'FACTORY';
 
@@ -49,30 +50,32 @@ export const buildInitialState = (): AppState => {
         browserSupported: true,
         runningChrome: true,
         connectingInProgress: false,
-        colorTheme: loadPreference('colorTheme', 'system'),
-        vintageMode: loadPreference('vintageMode', false),
+        colorTheme: loadPreference('colorTheme', 'system', isOneOf(['dark', 'light', 'system'] as const)),
+        vintageMode: loadPreference('vintageMode', false, isBoolean),
         changelogDialogVisible: false,
         aboutDialogVisible: false,
         discProtectedDialogVisible: false,
-        discProtectedDialogDisabled: loadPreference('discProtectedDialogDisabled', false),
+        discProtectedDialogDisabled: loadPreference('discProtectedDialogDisabled', false, isBoolean),
         settingsDialogVisible: false,
-        notifyWhenFinished: loadPreference('notifyWhenFinished', false),
+        notifyWhenFinished: loadPreference('notifyWhenFinished', false, isBoolean),
         hasNotificationSupport: true,
-        fullWidthSupport: loadPreference('fullWidthSupport', false),
-        availableServices: getSimpleServices().concat(filterOutCorrupted(loadPreference('customServices', []))),
-        lastSelectedService: loadPreference('lastSelectedService', 0),
+        fullWidthSupport: loadPreference('fullWidthSupport', false, isBoolean),
+        availableServices: getSimpleServices().concat(
+            filterOutCorrupted(loadPreference<ServiceConstructionInfo[]>('customServices', [], isServiceList))
+        ),
+        lastSelectedService: loadPreference('lastSelectedService', 0, isFiniteNumber),
         factoryModeRippingInMainUi: false, // As this value is heavily device-dependent and not really that stable yet
         // it should not be stored in the preferences, and should default to false.
-        audioExportService: resolveAudioServiceIndex(loadPreference('audioExportService', 0)),
-        audioExportServiceConfig: loadPreference('audioExportServiceConfig', {}),
-        libraryService: loadPreference('libraryService', -1),
-        libraryServiceConfig: loadPreference('libraryServiceConfig', {}),
-        pageFullHeight: loadPreference('pageFullHeight', false),
-        pageFullWidth: loadPreference('pageFullWidth', false),
-        archiveDiscCreateZip: loadPreference('archiveDiscCreateZip', false),
-        factoryModeUseSlowerExploit: loadPreference('factoryModeUseSlowerExploit', false),
-        factoryModeShortcuts: loadPreference('factoryModeShortcuts', false),
-        factoryModeNERAWDownload: loadPreference('factoryModeNERAWDownload', false),
+        audioExportService: resolveAudioServiceIndex(loadPreference('audioExportService', 0, isFiniteNumber)),
+        audioExportServiceConfig: loadPreference('audioExportServiceConfig', {}, isPrimitiveRecord),
+        libraryService: loadPreference('libraryService', -1, isFiniteNumber),
+        libraryServiceConfig: loadPreference('libraryServiceConfig', {}, isPrimitiveRecord),
+        pageFullHeight: loadPreference('pageFullHeight', false, isBoolean),
+        pageFullWidth: loadPreference('pageFullWidth', false, isBoolean),
+        archiveDiscCreateZip: loadPreference('archiveDiscCreateZip', false, isBoolean),
+        factoryModeUseSlowerExploit: loadPreference('factoryModeUseSlowerExploit', false, isBoolean),
+        factoryModeShortcuts: loadPreference('factoryModeShortcuts', false, isBoolean),
+        factoryModeNERAWDownload: loadPreference('factoryModeNERAWDownload', false, isBoolean),
     };
 };
 

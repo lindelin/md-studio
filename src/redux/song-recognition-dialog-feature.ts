@@ -1,6 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { enableBatching } from 'redux-batched-actions';
 import { savePreference, loadPreference } from '../utils';
+import { isOneOf } from '../preferences';
 
 export type RecognitionTitleFormatType = 'title' | 'album-title' | 'artist-title' | 'artist-album-title' | 'title-artist';
 export type ImportMethod = 'exploits' | 'line-in';
@@ -37,9 +38,13 @@ export interface SongRecognitionDialogFeature {
 
 const initialState: SongRecognitionDialogFeature = {
     visible: false,
-    titleFormat: loadPreference('recognitionTrackTitleFormat', 'title') as RecognitionTitleFormatType,
+    titleFormat: loadPreference(
+        'recognitionTrackTitleFormat',
+        'title',
+        isOneOf(['title', 'album-title', 'artist-title', 'artist-album-title', 'title-artist'] as const)
+    ),
     titles: [],
-    importMethod: loadPreference('recognitionImportMethod', 'line-in') as ImportMethod,
+    importMethod: loadPreference('recognitionImportMethod', 'line-in', isOneOf(['exploits', 'line-in'] as const)),
 };
 
 const slice = createSlice({

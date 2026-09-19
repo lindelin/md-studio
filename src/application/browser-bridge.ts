@@ -3,6 +3,7 @@ import { BRIDGE_PROTOCOL_VERSION, parseBridgeMessage, type BridgeHello, type Bri
 import { bindApplicationRuntime } from './runtime';
 import { store } from '../redux/store';
 import { applyDeviceSnapshot } from '../redux/application-adapter';
+import { readRawPreference } from '../preferences';
 
 const DEFAULT_BRIDGE_URL = 'ws://127.0.0.1:47123';
 
@@ -84,13 +85,21 @@ export class BrowserApplicationBridge {
 
 export function startLocalApplicationBridge() {
     const localHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-    const explicitlyEnabled = window.localStorage.getItem('minidiscLocalBridgeEnabled');
+    const explicitlyEnabled = readRawPreference('minidiscLocalBridgeEnabled');
     if (!localHost && explicitlyEnabled !== 'true') return undefined;
     if (explicitlyEnabled === 'false') return undefined;
 
-    const configuredUrl = window.localStorage.getItem('minidiscLocalBridgeUrl') || DEFAULT_BRIDGE_URL;
-    const token = window.localStorage.getItem('minidiscLocalBridgeToken');
-    const url = new URL(configuredUrl);
+    const configuredUrl = readRawPreference('minidiscLocalBridgeUrl') || DEFAULT_BRIDGE_URL;
+    const token = readRawPreference('minidiscLocalBridgeToken');
+    let url: URL;
+    try {
+        url = new URL(configuredUrl);
+        const loopbackHost = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+        if (!loopbackHost || !['ws:', 'wss:'].includes(url.protocol)) throw new Error('Bridge URL must use WebSocket on loopback');
+    } catch (error) {
+        console.warn('Ignored invalid local bridge URL.', error);
+        url = new URL(DEFAULT_BRIDGE_URL);
+    }
     if (token) url.searchParams.set('token', token);
     const bridge = new BrowserApplicationBridge(url.toString());
     bridge.start();
