@@ -12,6 +12,7 @@ export function bindApplicationRuntime() {
         serviceRegistry.operationCoordinator
     );
     serviceRegistry.application = application;
+    serviceRegistry.workspaceStore.attachApplication(application);
     serviceRegistry.commandBus = new ApplicationCommandBus(
         application,
         serviceRegistry.taskManager,
@@ -32,6 +33,7 @@ export function clearApplicationRuntime() {
             serviceRegistry.taskManager.interrupt(task.id, 'The device session ended before the task completed.');
         }
     }
+    serviceRegistry.workspaceStore.detachApplication();
     serviceRegistry.application = undefined;
     serviceRegistry.commandBus = undefined;
 }

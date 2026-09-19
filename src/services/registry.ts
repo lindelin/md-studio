@@ -10,6 +10,7 @@ import { ImportQueue } from '../application/import-queue';
 import type { ImportWriter } from '../application/import-queue';
 import { DeviceOperationCoordinator } from '../application/operation-coordinator';
 import type { TrackExporter } from '../application/track-export';
+import { WorkspaceStore } from '../application/workspace-store';
 
 export interface ImportPayloadResolver {
     resolve(reference: string): Promise<File>;
@@ -36,12 +37,16 @@ interface ServiceRegistry {
     exportPayloadSink?: ExportPayloadSink;
     trackExporter?: TrackExporter;
     operationCoordinator: DeviceOperationCoordinator;
+    workspaceStore: WorkspaceStore;
 }
 
+const taskManager = new TaskManager();
+const importQueue = new ImportQueue();
 const ServiceRegistry: ServiceRegistry = {
-    taskManager: new TaskManager(),
-    importQueue: new ImportQueue(),
+    taskManager,
+    importQueue,
     operationCoordinator: new DeviceOperationCoordinator(),
+    workspaceStore: new WorkspaceStore(taskManager, importQueue),
 };
 
 export default ServiceRegistry;

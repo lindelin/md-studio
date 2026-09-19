@@ -97,6 +97,23 @@ function makeGateway() {
 }
 
 describe('MiniDiscApplication', () => {
+    it('publishes device snapshots only after successful reads and mutations', async () => {
+        const { gateway } = makeGateway();
+        const application = new MiniDiscApplication(gateway);
+        const revisions: number[] = [];
+        const unsubscribe = application.subscribe((snapshot) => revisions.push(snapshot.revision));
+
+        assert.equal(application.readSnapshot(), null);
+        await application.refresh();
+        await application.renameDisc('Published');
+        await assert.rejects(() => application.renameTracks([{ index: 99, title: 'Missing' }]));
+        unsubscribe();
+        await application.renameDisc('Not observed');
+
+        assert.deepEqual(revisions, [0, 1]);
+        assert.equal(application.readSnapshot()?.disc?.title, 'Not observed');
+    });
+
     it('returns a stable session and increments the revision only after a successful mutation', async () => {
         const { gateway, calls } = makeGateway();
         const application = new MiniDiscApplication(gateway);

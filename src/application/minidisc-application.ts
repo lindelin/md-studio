@@ -19,6 +19,7 @@ export class MiniDiscApplication {
     readonly sessionId = createSessionId();
     private revision = 0;
     private snapshot?: DeviceSnapshot;
+    private readonly listeners = new Set<(snapshot: DeviceSnapshot) => void>();
     private readonly gateway: DeviceGateway;
     private readonly operations: DeviceOperationCoordinator;
 
@@ -30,8 +31,7 @@ export class MiniDiscApplication {
     refresh(dropCache = false) {
         return this.serial(async () => {
             const next = await this.gateway.readSnapshot(dropCache);
-            this.snapshot = { ...next, sessionId: this.sessionId, revision: this.revision };
-            return this.snapshot;
+            return this.commitSnapshot({ ...next, sessionId: this.sessionId, revision: this.revision });
         });
     }
 
@@ -39,9 +39,19 @@ export class MiniDiscApplication {
         return this.serial(async () => {
             this.revision += 1;
             const next = await this.gateway.readSnapshot(dropCache);
-            this.snapshot = { ...next, sessionId: this.sessionId, revision: this.revision };
-            return this.snapshot;
+            return this.commitSnapshot({ ...next, sessionId: this.sessionId, revision: this.revision });
         });
+    }
+
+    readSnapshot() {
+        return this.snapshot ? structuredClone(this.snapshot) : null;
+    }
+
+    subscribe(listener: (snapshot: DeviceSnapshot) => void) {
+        this.listeners.add(listener);
+        return () => {
+            this.listeners.delete(listener);
+        };
     }
 
     renameDisc(title: string, fullWidthTitle?: string, expectedRevision?: number) {
@@ -176,8 +186,7 @@ export class MiniDiscApplication {
             await this.gateway.flush();
             this.revision += 1;
             const next = await this.gateway.readSnapshot(true);
-            this.snapshot = { ...next, sessionId: this.sessionId, revision: this.revision };
-            return this.snapshot;
+            return this.commitSnapshot({ ...next, sessionId: this.sessionId, revision: this.revision });
         });
     }
 
@@ -188,13 +197,12 @@ export class MiniDiscApplication {
             await this.gateway.ejectDisc();
             this.revision += 1;
             const current = this.snapshot!;
-            this.snapshot = {
+            return this.commitSnapshot({
                 ...current,
                 revision: this.revision,
                 status: { ...current.status, discPresent: false },
                 disc: null,
-            };
-            return this.snapshot;
+            });
         });
     }
 
@@ -225,8 +233,7 @@ export class MiniDiscApplication {
                 }
             }
             const next = await this.gateway.readSnapshot(false);
-            this.snapshot = { ...next, sessionId: this.sessionId, revision: this.revision };
-            return this.snapshot;
+            return this.commitSnapshot({ ...next, sessionId: this.sessionId, revision: this.revision });
         });
     }
 
@@ -241,9 +248,14 @@ export class MiniDiscApplication {
             await operation(disc);
             this.revision += 1;
             const next = await this.gateway.readSnapshot(true);
-            this.snapshot = { ...next, sessionId: this.sessionId, revision: this.revision };
-            return this.snapshot;
+            return this.commitSnapshot({ ...next, sessionId: this.sessionId, revision: this.revision });
         });
+    }
+
+    private commitSnapshot(snapshot: DeviceSnapshot) {
+        this.snapshot = snapshot;
+        for (const listener of this.listeners) listener(structuredClone(snapshot));
+        return structuredClone(snapshot);
     }
 
     private requireDisc() {
