@@ -47,7 +47,7 @@ if (localStorage.getItem('version') !== (window as any).wmdVersion) {
 
     if (navigator && navigator.usb) {
         navigator.usb.ondisconnect = function (event) {
-            if (serviceRegistry.netmdService!.isDeviceConnected(event.device)) {
+            if (serviceRegistry.netmdService?.isDeviceConnected(event.device)) {
                 store.dispatch(appActions.setMainView('WELCOME'));
                 document.title = originalApplicationTitle;
             } else {
@@ -69,21 +69,14 @@ if (localStorage.getItem('version') !== (window as any).wmdVersion) {
         store.dispatch(appActions.setNotificationSupport(false));
         store.dispatch(appActions.setNotifyWhenFinished(false));
     }
-
-    let deferredPrompt: any;
-    window.addEventListener('beforeinstallprompt', (e: any) => {
-        e.preventDefault();
-        deferredPrompt = e;
-    });
 })();
 
 (function statusMonitorManager() {
     // Polls the device for its state while playing tracks
-    let exceptionOccurred: boolean = false;
+    let consecutiveFailures = 0;
 
     function shouldMonitorBeRunning(state: ReturnType<typeof store.getState>): boolean {
         return (
-            !exceptionOccurred &&
             // App ready
             state.appState.mainView === 'MAIN' &&
             state.appState.loading === false &&
@@ -102,21 +95,29 @@ if (localStorage.getItem('version') !== (window as any).wmdVersion) {
     }
 
     async function monitor() {
+        let nextPollDelay = 500;
         const state = store.getState();
         if (shouldMonitorBeRunning(state)) {
+            const service = serviceRegistry.netmdService;
+            if (!service) {
+                setTimeout(monitor, nextPollDelay);
+                return;
+            }
             try {
                 await sleep(250);
-                let deviceStatus;
-                try {
-                    deviceStatus = await serviceRegistry.netmdService!.getDeviceStatus();
-                } catch (ex) {
-                    // In invalid state - wait it out.
-                    setTimeout(monitor, 5000);
+                if (serviceRegistry.netmdService !== service || !shouldMonitorBeRunning(store.getState())) {
+                    setTimeout(monitor, nextPollDelay);
                     return;
                 }
-                if (!deviceStatus.discPresent && state.main.disc !== null) store.dispatch(mainActions.setDisc(null));
-                if (deviceStatus.discPresent && state.main.disc === null) await listContent(true)(store.dispatch);
-                if (JSON.stringify(deviceStatus) !== JSON.stringify(state.main.deviceStatus)) {
+                const deviceStatus = await service.getDeviceStatus();
+                if (serviceRegistry.netmdService !== service) {
+                    setTimeout(monitor, nextPollDelay);
+                    return;
+                }
+                const currentState = store.getState();
+                if (!deviceStatus.discPresent && currentState.main.disc !== null) store.dispatch(mainActions.setDisc(null));
+                if (deviceStatus.discPresent && currentState.main.disc === null) await listContent(true)(store.dispatch);
+                if (JSON.stringify(deviceStatus) !== JSON.stringify(currentState.main.deviceStatus)) {
                     store.dispatch(mainActions.setDeviceStatus(deviceStatus));
                 }
                 const currentFlushability = store.getState().main.flushable;
@@ -130,12 +131,16 @@ if (localStorage.getItem('version') !== (window as any).wmdVersion) {
                     document.title = originalApplicationTitle;
                 }
                 await sleep(250);
+                consecutiveFailures = 0;
             } catch (e) {
                 console.error(e);
-                exceptionOccurred = true; // Stop monitor on exception
+                consecutiveFailures += 1;
+                nextPollDelay = Math.min(5000, 500 * 2 ** Math.min(consecutiveFailures, 4));
             }
+        } else {
+            consecutiveFailures = 0;
         }
-        setTimeout(monitor, 500);
+        setTimeout(monitor, nextPollDelay);
     }
     monitor();
 })();
