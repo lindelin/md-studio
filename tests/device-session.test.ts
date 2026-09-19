@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { DeviceSessionConnector, type DeviceSessionBindings } from '../src/application/device-session.ts';
+import {
+    describeDeviceSessionFailure,
+    DeviceSessionConnector,
+    type DeviceSessionBindings,
+} from '../src/application/device-session.ts';
 import type { MiniDiscApplication } from '../src/application/minidisc-application.ts';
 import type { MinidiscSpec, NetMDService } from '../src/services/interfaces/netmd.ts';
 
@@ -64,5 +68,20 @@ describe('DeviceSessionConnector', () => {
         assert.equal(fixture.bindCount(), 0);
         assert.equal(fixture.bindings.netmdService, undefined);
         assert.equal(fixture.bindings.netmdSpec, undefined);
+    });
+
+    it('explains a missing device and retains a cached reconnect error', () => {
+        assert.equal(
+            describeDeviceSessionFailure({ application: null, method: null }),
+            'The browser did not return a compatible MiniDisc device. Check the USB cable, device power, Windows driver, and the WebUSB chooser, then try again.'
+        );
+        assert.match(
+            describeDeviceSessionFailure({
+                application: null,
+                method: null,
+                cachedConnectionError: new Error('Access denied'),
+            }),
+            /could not reconnect \(Access denied\).*No compatible device was selected/
+        );
     });
 });

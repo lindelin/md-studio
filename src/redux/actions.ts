@@ -35,7 +35,7 @@ import type { DeviceSnapshot } from '../application/contracts';
 import { applyDeviceSnapshot } from './application-adapter';
 import { MetadataImportError } from '../domain/metadata-import';
 import { resolveGroupedTrackMove } from '../domain/disc-layout';
-import { DeviceSessionConnector } from '../application/device-session';
+import { describeDeviceSessionFailure, DeviceSessionConnector } from '../application/device-session';
 import type { TaskSnapshot } from '../application/task-manager';
 import { convertImportAudio } from '../application/audio-conversion-pipeline';
 import { ImportUploadSessionError, runImportUploadSession } from '../application/import-upload-session';
@@ -210,7 +210,12 @@ export function pair(serviceInstance: NetMDService, spec: MinidiscSpec) {
                 );
                 return;
             }
-            dispatch(batchActions([appStateActions.setPairingMessage(`Connection Failed`), appStateActions.setPairingFailed(true)]));
+            dispatch(
+                batchActions([
+                    appStateActions.setPairingMessage(describeDeviceSessionFailure(session)),
+                    appStateActions.setPairingFailed(true),
+                ])
+            );
         } catch (err) {
             console.error(err);
             const message = err instanceof Error ? err.message : String(err);

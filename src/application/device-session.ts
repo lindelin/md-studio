@@ -19,6 +19,14 @@ export interface DeviceSessionConnectionFailure {
     cachedConnectionError?: unknown;
 }
 
+export function describeDeviceSessionFailure(failure: DeviceSessionConnectionFailure) {
+    const cachedMessage = errorMessage(failure.cachedConnectionError);
+    if (cachedMessage) {
+        return `The previously authorized MiniDisc device could not reconnect (${cachedMessage}). No compatible device was selected in the browser prompt.`;
+    }
+    return 'The browser did not return a compatible MiniDisc device. Check the USB cable, device power, Windows driver, and the WebUSB chooser, then try again.';
+}
+
 export class DeviceSessionConnector {
     constructor(
         private readonly bindings: DeviceSessionBindings,
@@ -59,4 +67,10 @@ export class DeviceSessionConnector {
         this.bindings.netmdSpec = undefined;
         this.bindings.netmdFactoryService = undefined;
     }
+}
+
+function errorMessage(error: unknown) {
+    if (error instanceof Error) return error.message.trim();
+    if (typeof error === 'string') return error.trim();
+    return '';
 }
