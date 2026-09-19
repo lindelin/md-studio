@@ -27,7 +27,6 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
-import { Capability } from '../services/interfaces/capabilities';
 import { LineInDeviceSelect } from './line-in-helpers';
 import { useApplicationClient, useApplicationWorkspace } from './use-application-client';
 import { sanitizeDeviceFullWidthTitle, sanitizeDeviceHalfWidthTitle } from '../application/device-profile';
@@ -130,8 +129,11 @@ export const SongRecognitionDialog = () => {
 
     const { visible, titles, titleFormat, importMethod } = useShallowEqualSelector((state) => state.songRecognitionDialog);
     const { fullWidthSupport } = useShallowEqualSelector((state) => state.appState);
-    const { deviceCapabilities, disc } = useShallowEqualSelector((state) => state.main);
-    const recordingProfile = useApplicationWorkspace().device?.recording;
+    const device = useApplicationWorkspace().device;
+    const disc = device?.disc ?? null;
+    const recordingProfile = device?.recording;
+    const supportsFactoryMode = device?.capabilities.includes('advanced.factory') ?? false;
+    const canEditMetadata = device?.capabilities.includes('metadata.edit') ?? false;
 
     // Line in section
     const [inputDeviceId, setInputDeviceId] = useState<string>('');
@@ -336,7 +338,7 @@ export const SongRecognitionDialog = () => {
                             <ToggleButton
                                 className={classes.toggleButton}
                                 value="exploits"
-                                disabled={!deviceCapabilities.includes(Capability.factoryMode)}
+                                disabled={!supportsFactoryMode}
                             >
                                 Exploits
                             </ToggleButton>
@@ -422,7 +424,7 @@ export const SongRecognitionDialog = () => {
                 >
                     Recognize
                 </Button>
-                <Button onClick={handleApplyTitles} disabled={!canApplyTitles || !deviceCapabilities.includes(Capability.metadataEdit)}>
+                <Button onClick={handleApplyTitles} disabled={!canApplyTitles || !canEditMetadata}>
                     Apply New Titles
                 </Button>
             </DialogActions>

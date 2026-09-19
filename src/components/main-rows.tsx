@@ -16,7 +16,6 @@ import { Track, Group } from '../services/interfaces/netmd';
 import { formatTimeFromSeconds, secondsToHumanReadable } from '../utils';
 
 import { alpha, lighten } from '@mui/material';
-import { useDeviceCapabilities } from '../frontend-utils';
 import { useApplicationWorkspace } from './use-application-client';
 import { getDefaultRecordingFormat } from '../application/device-profile';
 import type { DeviceRecordingProfile } from '../application/contracts';
@@ -214,17 +213,18 @@ export function TrackRow({
     onTogglePlayPause,
     onOpenContextMenu,
 }: TrackRowProps) {
-    const recordingProfile = useApplicationWorkspace().device?.recording;
+    const device = useApplicationWorkspace().device;
+    const recordingProfile = device?.recording;
+    const canEditMetadata = device?.capabilities.includes('metadata.edit') ?? false;
+    const canControlPlayback = device?.capabilities.includes('playback.control') ?? false;
     const formatInfo = recordingProfile?.availableFormats.find(
         (e) => e.codec === track.encoding.codec && e.availableBitrates.includes(track.encoding.bitrate)
     );
     const { classes, cx } = useStyles();
 
-    const deviceCapabilities = useDeviceCapabilities();
-
     const handleRename = useCallback(
-        (event: React.MouseEvent) => deviceCapabilities.metadataEdit && onRename(event, track.index),
-        [deviceCapabilities.metadataEdit, onRename, track.index]
+        (event: React.MouseEvent) => canEditMetadata && onRename(event, track.index),
+        [canEditMetadata, onRename, track.index]
     );
     const handleSelect = useCallback((event: React.MouseEvent) => onSelect(event, track.index), [track.index, onSelect]);
 
@@ -250,7 +250,7 @@ export function TrackRow({
             color="inherit"
             className={cx({
                 [classes.rowClass]: true,
-                [classes.trackRow]: deviceCapabilities.playbackControl,
+                [classes.trackRow]: canControlPlayback,
                 [classes.inGroupTrackRow]: inGroup,
                 [classes.currentTrackRow]: isPlayingOrPaused,
             })}
@@ -321,23 +321,22 @@ interface GroupRowProps {
 
 export function GroupRow({ group, usesHimdTracks, onRename, onDelete, onSelect, isSelected }: GroupRowProps) {
     const { classes, cx } = useStyles();
-
-    const deviceCapabilities = useDeviceCapabilities();
+    const canEditMetadata = useApplicationWorkspace().device?.capabilities.includes('metadata.edit') ?? false;
 
     const handleDelete = useCallback(
-        (event: React.MouseEvent) => deviceCapabilities.metadataEdit && onDelete(event, group.index),
-        [deviceCapabilities.metadataEdit, onDelete, group.index]
+        (event: React.MouseEvent) => canEditMetadata && onDelete(event, group.index),
+        [canEditMetadata, onDelete, group.index]
     );
     const handleRename = useCallback(
-        (event: React.MouseEvent) => deviceCapabilities.metadataEdit && onRename(event, group.index),
-        [deviceCapabilities.metadataEdit, onRename, group.index]
+        (event: React.MouseEvent) => canEditMetadata && onRename(event, group.index),
+        [canEditMetadata, onRename, group.index]
     );
     const handleSelect = useCallback((event: React.MouseEvent) => onSelect(event, group.index), [onSelect, group]);
     return (
         <TableRow
             hover
             selected={isSelected}
-            className={cx({ [classes.groupHeadRow]: deviceCapabilities.metadataEdit, [classes.rowClass]: true })}
+            className={cx({ [classes.groupHeadRow]: canEditMetadata, [classes.rowClass]: true })}
             onDoubleClick={handleRename}
             onClick={handleSelect}
         >

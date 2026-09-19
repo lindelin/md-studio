@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { useDispatch, batchActions, useDeviceCapabilities } from '../frontend-utils';
+import { useDispatch, batchActions } from '../frontend-utils';
 
 import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
@@ -56,6 +56,7 @@ const W95TopMenu = React.lazy(() =>
     import('./win95/topmenu').then(({ W95TopMenu }) => ({ default: W95TopMenu }))
 );
 import { ExploitCapability } from '../services/interfaces/capabilities';
+import { useApplicationWorkspace } from './use-application-client';
 
 const loadFactoryActions = () => import('../redux/factory/factory-actions');
 
@@ -74,10 +75,11 @@ export const TopMenu = function (props: { tracksSelected?: number[]; onClick?: (
     const dispatch = useDispatch();
 
     const { mainView, vintageMode, factoryModeRippingInMainUi, factoryModeShortcuts } = useShallowEqualSelector((state) => state.appState);
-    const { disc } = useShallowEqualSelector((state) => state.main);
+    const device = useApplicationWorkspace().device;
+    const disc = device?.disc ?? null;
     const { spUploadSpeedupActive, deviceDiscSwapDetectionDisabled } = useShallowEqualSelector((state) => state.factory);
-    const discTitle = useShallowEqualSelector((state) => state.main.disc?.title ?? ``);
-    const fullWidthDiscTitle = useShallowEqualSelector((state) => state.main.disc?.fullWidthTitle ?? ``);
+    const discTitle = disc?.title ?? ``;
+    const fullWidthDiscTitle = disc?.fullWidthTitle ?? ``;
 
     const githubLinkRef = React.useRef<null | HTMLAnchorElement>(null);
     const helpLinkRef = React.useRef<null | HTMLAnchorElement>(null);
@@ -89,7 +91,15 @@ export const TopMenu = function (props: { tracksSelected?: number[]; onClick?: (
     const menuOpen = Boolean(menuAnchorEl);
     const shortcutsOpen = Boolean(shortcutsAnchorEl);
 
-    const deviceCapabilities = useDeviceCapabilities();
+    const capabilities = device?.capabilities ?? [];
+    const deviceCapabilities = {
+        contentList: capabilities.includes('content.read'),
+        playbackControl: capabilities.includes('playback.control'),
+        metadataEdit: capabilities.includes('metadata.edit'),
+        trackDownload: capabilities.includes('track.download'),
+        factoryMode: capabilities.includes('advanced.factory'),
+        himdFormat: capabilities.includes('disc.formatHimd'),
+    };
 
     const handleMenuOpen = useCallback(
         (event: React.MouseEvent<HTMLElement>) => {

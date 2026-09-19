@@ -17,7 +17,7 @@ const W95DumpDialog = React.lazy(() =>
     import('./win95/dump-dialog').then(({ W95DumpDialog }) => ({ default: W95DumpDialog }))
 );
 import { LineInDeviceSelect } from './line-in-helpers';
-import { useApplicationClient } from './use-application-client';
+import { useApplicationClient, useApplicationWorkspace } from './use-application-client';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
@@ -48,7 +48,7 @@ export const DumpDialog = ({
     const [inputDeviceId, setInputDeviceId] = useState<string>('');
 
     const { visible } = useShallowEqualSelector((state) => state.dumpDialog);
-    const { deviceCapabilities } = useShallowEqualSelector((state) => state.main);
+    const supportsFactoryMode = useApplicationWorkspace().device?.capabilities.includes('advanced.factory') ?? false;
 
     const handleClose = useCallback(() => {
         setInputDeviceId('');
@@ -92,7 +92,7 @@ export const DumpDialog = ({
             handleChange,
             handleStartTransfer,
             visible,
-            deviceCapabilities,
+            supportsFactoryMode,
             inputDeviceId,
             isCapableOfDownload,
         };

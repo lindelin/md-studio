@@ -3,7 +3,8 @@ import { useDispatch } from 'react-redux';
 
 import { actions } from '../redux/context-menu-feature';
 
-import { useDeviceCapabilities, useShallowEqualSelector } from '../frontend-utils';
+import { useShallowEqualSelector } from '../frontend-utils';
+import { useApplicationWorkspace } from './use-application-client';
 import { makeStyles } from 'tss-react/mui';
 import { Box, Button, ButtonProps } from '@mui/material';
 import { Delete, Edit, PlayArrow } from '@mui/icons-material';
@@ -91,7 +92,7 @@ export const ContextMenu = ({ onTogglePlayPause, onRename, onDelete }: ContextMe
     const isVisible = useShallowEqualSelector((state) => state.contextMenu.visible);
     const contextTrack = useShallowEqualSelector((state) => state.contextMenu.track);
 
-    const { metadataEdit: isEditCapable } = useDeviceCapabilities();
+    const isEditCapable = useApplicationWorkspace().device?.capabilities.includes('metadata.edit') ?? false;
 
     const handlePlayTrack = useCallback(
         (e: React.MouseEvent) => {

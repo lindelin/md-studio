@@ -28,6 +28,7 @@ import {
 import { FactoryModeProgressDialog } from './factory-progress-dialog';
 import { FactoryModeEditOtherValuesDialog } from './factory-edit-other-values-dialog';
 import { FactoryTopMenu } from './factory-topmenu';
+import { useApplicationWorkspace } from '../use-application-client';
 import { FactoryModeBadSectorDialog } from './factory-bad-sector-dialog';
 import { SettingsDialog } from '../settings-dialog';
 import { AppDispatch } from '../../redux/store';
@@ -103,7 +104,7 @@ const Toc = () => {
     const { classes } = useStyles();
     const dispatch = useDispatch() as AppDispatch;
     const { toc, modified, firmwareVersion, exploitCapabilities } = useShallowEqualSelector(state => state.factory);
-    const { deviceName } = useShallowEqualSelector(state => state.main);
+    const deviceName = useApplicationWorkspace().device?.deviceName ?? '';
     const { visible: factoryFragmentDialogVisible } = useShallowEqualSelector(state => state.factoryFragmentModeEditDialog);
     const { visible: factoryProgressDialogVisible } = useShallowEqualSelector(state => state.factoryProgressDialog);
     const [selectedTile, setSelectedTile] = useState(-1);

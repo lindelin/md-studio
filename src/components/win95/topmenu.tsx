@@ -1,7 +1,7 @@
 import React from 'react';
 import { List, ListItem, Checkbox, Divider } from 'react95';
 import { Views } from '../../redux/app-feature';
-import { useDeviceCapabilities } from '../../frontend-utils';
+import { useApplicationWorkspace } from '../use-application-client';
 
 export const W95TopMenu = (props: {
     mainView: Views;
@@ -14,7 +14,7 @@ export const W95TopMenu = (props: {
     handleShowChangelog: () => void;
     handleVintageMode: () => void;
 }) => {
-    const deviceCapabilities = useDeviceCapabilities();
+    const canEditMetadata = useApplicationWorkspace().device?.capabilities.includes('metadata.edit') ?? false;
 
     const items = [];
     items.push(
@@ -30,12 +30,12 @@ export const W95TopMenu = (props: {
             </ListItem>
         );
         items.push(
-            <ListItem key="title" onClick={props.handleRenameDisc} disabled={!deviceCapabilities.metadataEdit}>
+            <ListItem key="title" onClick={props.handleRenameDisc} disabled={!canEditMetadata}>
                 Rename Disc
             </ListItem>
         );
         items.push(
-            <ListItem key="wipe" onClick={props.handleWipeDisc} disabled={!deviceCapabilities.metadataEdit}>
+            <ListItem key="wipe" onClick={props.handleWipeDisc} disabled={!canEditMetadata}>
                 Wipe Disc
             </ListItem>
         );

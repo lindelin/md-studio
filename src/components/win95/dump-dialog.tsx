@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Button, WindowHeader, Fieldset, Select } from 'react95';
-import { Capability } from '../../services/interfaces/capabilities';
 import { Controls } from '../controls';
 import { DialogOverlay, DialogWindow, DialogFooter, DialogWindowContent, WindowCloseIcon, FooterButton } from './common';
 
@@ -13,7 +12,7 @@ export const W95DumpDialog = (props: {
     ) => void;
     handleStartTransfer: () => void;
     visible: boolean;
-    deviceCapabilities: Capability[];
+    supportsFactoryMode: boolean;
     inputDeviceId: string;
     isCapableOfDownload: boolean;
 }) => {
@@ -50,7 +49,7 @@ export const W95DumpDialog = (props: {
                             <p>As your device natively supports audio USB transfer, it is possible to download tracks via NetMD.</p>
                         ) : (
                             <React.Fragment>
-                                {props.deviceCapabilities.includes(Capability.factoryMode) && (
+                                {props.supportsFactoryMode && (
                                     <p style={{ marginBottom: '32px' }}>
                                         It looks like this player supports the homebrew mode - it might be capable of RH1-style digital
                                         transfer. Please check the homebrew mode for more information.

@@ -26,7 +26,6 @@ import factoryBadSectorDialog, {
     type FactoryModeEditDialogState,
 } from './factory/factory-bad-sector-dialog-feature';
 
-import main from './main-feature';
 import { batchActions, batchDispatchMiddleware } from 'redux-batched-actions';
 import { applicationSettings, type UserSettings } from '../application/settings-store';
 import { AudioServices, DEFAULT_AUDIO_SERVICE_ID } from '../services/audio-export-service-manager';
@@ -95,7 +94,6 @@ const reducer = combineReducers({
     factoryEditOtherValuesDialog,
     factoryBadSectorDialog,
     appState,
-    main,
 });
 
 const resetStateAction = appActions.setMainView.toString();

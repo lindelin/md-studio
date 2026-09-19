@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Capability } from '../services/interfaces/capabilities';
-import { useShallowEqualSelector } from '../frontend-utils';
+import { useApplicationWorkspace } from './use-application-client';
 
 import FormHelperText from '@mui/material/FormHelperText';
 import { Controls } from './controls';
@@ -35,7 +34,7 @@ const useStyles = makeStyles()((theme) => ({
 export function LineInDeviceSelect({ handleChange, inputDeviceId }: { handleChange: (ev: any) => void; inputDeviceId: string }) {
     const { classes } = useStyles();
 
-    const { deviceCapabilities } = useShallowEqualSelector((state) => state.main);
+    const supportsFactoryMode = useApplicationWorkspace().device?.capabilities.includes('advanced.factory') ?? false;
     const [devices, setInputDevices] = useState<{ deviceId: string; label: string }[]>([]);
 
     useEffect(() => {
@@ -51,7 +50,7 @@ export function LineInDeviceSelect({ handleChange, inputDeviceId }: { handleChan
     }, [setInputDevices]);
     return (
         <React.Fragment>
-            {deviceCapabilities.includes(Capability.factoryMode) && (
+            {supportsFactoryMode && (
                 <Typography component="h4" variant="body2" className={classes.factoryModeNotice}>
                     It looks like this player supports the homebrew mode - it might be capable of RH1-style digital transfer. Please check
                     the homebrew mode for more information.

@@ -53,7 +53,6 @@ import Backdrop from '@mui/material/Backdrop';
 const W95ConvertDialog = React.lazy(() =>
     import('./win95/convert-dialog').then(({ W95ConvertDialog }) => ({ default: W95ConvertDialog }))
 );
-import { Capability } from '../services/interfaces/capabilities';
 import type { Codec } from '../services/interfaces/netmd';
 import { INTERACTIVE_HOMEBREW_AUTHORIZATION } from '../application/interactive-authorization';
 import { useApplicationClient, useApplicationWorkspace } from './use-application-client';
@@ -272,8 +271,9 @@ const ConnectedConvertDialog = (props: {
 
     const { visible, format, titleFormat, titles } = useShallowEqualSelector((state) => state.convertDialog);
     const { fullWidthSupport } = useShallowEqualSelector((state) => state.appState);
-    const { disc, deviceCapabilities } = useShallowEqualSelector((state) => state.main);
     const workspace = useApplicationWorkspace();
+    const device = workspace.device;
+    const disc = device?.disc ?? null;
     const recordingProfile = props.recordingProfile;
     const queueSnapshot = workspace.imports;
     const files = queueSnapshot.items;
@@ -339,8 +339,8 @@ const ConnectedConvertDialog = (props: {
         );
     }, [files]);
 
-    const usesHimdTitles = useMemo(() => deviceCapabilities.includes(Capability.himdTitles), [deviceCapabilities]);
-    const deviceSupportsFullWidth = useMemo(() => deviceCapabilities.includes(Capability.fullWidthSupport), [deviceCapabilities]);
+    const usesHimdTitles = device?.capabilities.includes('metadata.himd') ?? false;
+    const deviceSupportsFullWidth = device?.capabilities.includes('metadata.fullWidth') ?? false;
 
     const currentlySelectedCodecIndex = useMemo(
         () => format[recordingProfile.specName] ?? recordingProfile.defaultFormat,

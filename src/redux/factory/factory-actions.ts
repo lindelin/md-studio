@@ -5,7 +5,7 @@ import { batchActions } from '../../frontend-utils';
 import { AppDispatch, RootState } from '../store';
 import { actions as appStateActions } from '../app-feature';
 import { downloadBlob, getTracks, Promised, sleep } from '../../utils';
-import { ExploitCapability, Capability } from '../../services/interfaces/capabilities';
+import { ExploitCapability } from '../../services/interfaces/capabilities';
 import { parseTOC, getTitleByTrackNumber, reconstructTOC, updateFlagAllFragmentsOfTrack, ModeFlag, ToC } from 'netmd-tocmanip';
 import { downloadTracks, exportCSV } from '../actions';
 import JSZip from 'jszip';
@@ -174,7 +174,8 @@ export function downloadRam() {
         );
         try {
             const task = await getApplicationClient().startLocalAdvancedMemoryExport('ram', (_region, data) => {
-                const fileName = `ram_${getState().main.deviceName}_${firmwareVersion}.bin`;
+                const deviceName = getApplicationClient().getWorkspaceSnapshot().device?.deviceName ?? 'device';
+                const fileName = `ram_${deviceName}_${firmwareVersion}.bin`;
                 downloadBlob(new Blob([new Uint8Array(data)]), fileName);
             });
             await monitorAdvancedMemoryExport(dispatch, task.id);
@@ -200,7 +201,8 @@ export function downloadRom() {
         try {
             const task = await getApplicationClient().startLocalAdvancedMemoryExport('firmware', (region, data) => {
                 const prefix = region === 'ROM' ? 'firmware' : region.toLowerCase();
-                const fileName = `${prefix}_${getState().main.deviceName}_${firmwareVersion}.bin`;
+                const deviceName = getApplicationClient().getWorkspaceSnapshot().device?.deviceName ?? 'device';
+                const fileName = `${prefix}_${deviceName}_${firmwareVersion}.bin`;
                 downloadBlob(new Blob([new Uint8Array(data)]), fileName);
             });
             await monitorAdvancedMemoryExport(dispatch, task.id);
@@ -279,7 +281,8 @@ export function exploitDownloadTracks(
     callback: (blob: Blob, name: string) => void = downloadBlob
 ) {
     return async function(dispatch: AppDispatch, getState: () => RootState) {
-        const disc = getState().main.disc!;
+        const disc = getApplicationClient().getWorkspaceSnapshot().device?.disc;
+        if (!disc) throw new Error('No MiniDisc is loaded.');
         const useSlowerExploit = getState().appState.factoryModeUseSlowerExploit;
         const nerawDownload = getState().appState.factoryModeNERAWDownload;
         const tracks = getTracks(disc);
@@ -422,7 +425,8 @@ export function stripTrProtect() {
 export function archiveDisc() {
     return async function(dispatch: AppDispatch, getState: () => RootState) {
         const { archiveDiscCreateZip } = getState().appState;
-        const { deviceCapabilities } = getState().main;
+        const canDownloadTracks =
+            getApplicationClient().getWorkspaceSnapshot().device?.capabilities.includes('track.download') ?? false;
         let callback = downloadBlob;
         let zip: JSZip | null = null;
         if (archiveDiscCreateZip) {
@@ -442,7 +446,7 @@ export function archiveDisc() {
         const indexes = Array(toc.nTracks)
             .fill(0)
             .map((_, i) => i);
-        if (deviceCapabilities.includes(Capability.trackDownload)) {
+        if (canDownloadTracks) {
             await downloadTracks(indexes, false, callback)(dispatch);
         } else {
             await exploitDownloadTracks(indexes, false, callback)(dispatch, getState);

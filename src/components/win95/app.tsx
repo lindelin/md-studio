@@ -12,8 +12,8 @@ import { useDispatch } from '../../frontend-utils';
 
 import CDPlayerIconUrl from '../../images/win95/cdplayer.png';
 import { WindowCloseIcon } from './common';
-import { Capability } from '../../services/interfaces/capabilities';
 import { disconnectDevice } from '../../redux/actions';
+import { useApplicationWorkspace } from '../use-application-client';
 
 const GlobalStyles = createGlobalStyle`
 ${styleReset}
@@ -64,8 +64,8 @@ const useStyles = (props: { showsList: boolean }) =>
 
 export const W95App = () => {
     const { mainView, loading } = useShallowEqualSelector((state) => state.appState);
-    const { deviceCapabilities } = useShallowEqualSelector((state) => state.main);
-    const { classes } = useStyles({ showsList: mainView === 'WELCOME' || deviceCapabilities.includes(Capability.contentList) })();
+    const canListContent = useApplicationWorkspace().device?.capabilities.includes('content.read') ?? false;
+    const { classes } = useStyles({ showsList: mainView === 'WELCOME' || canListContent })();
 
     const dispatch = useDispatch();
     const [isMenuOpen, setMenuOpen] = useState(false);

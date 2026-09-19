@@ -26,7 +26,6 @@ import Typography from '@mui/material/Typography';
 const W95RenameDialog = React.lazy(() =>
     import('./win95/rename-dialog').then(({ W95RenameDialog }) => ({ default: W95RenameDialog }))
 );
-import { Capability } from '../services/interfaces/capabilities';
 import { useApplicationWorkspace } from './use-application-client';
 import { sanitizeDeviceFullWidthTitle } from '../application/device-profile';
 
@@ -59,9 +58,9 @@ export const RenameDialog = () => {
     const { fullWidthTitle, himdAlbum, himdArtist, himdTitle, index, renameType, title, visible } = useShallowEqualSelector(
         (state) => state.renameDialog
     );
-    const { deviceCapabilities } = useShallowEqualSelector((state) => state.main);
-
     const allowFullWidth = useShallowEqualSelector((state) => state.appState.fullWidthSupport);
+    const device = useApplicationWorkspace().device;
+    const supportsFullWidth = device?.capabilities.includes('metadata.fullWidth') ?? false;
 
     const what = nameMap[renameType];
 
@@ -143,7 +142,7 @@ export const RenameDialog = () => {
         handleCancelRename(); // Close the dialog
     }, [dispatch, handleCancelRename, renameType, title, fullWidthTitle, index, himdTitle, himdArtist, himdAlbum]);
 
-    const recordingProfile = useApplicationWorkspace().device?.recording;
+    const recordingProfile = device?.recording;
 
     const handleChange = useCallback(
         (event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
@@ -234,7 +233,7 @@ export const RenameDialog = () => {
             <DialogTitle id="rename-dialog-title">Rename {what}</DialogTitle>
             <DialogContent>
                 {!allowFullWidth &&
-                deviceCapabilities.includes(Capability.fullWidthSupport) &&
+                supportsFullWidth &&
                 title
                     .split('')
                     .map((n) => n.charCodeAt(0))
@@ -301,7 +300,7 @@ export const RenameDialog = () => {
                             onKeyDown={handleEnterKeyEvent}
                             onChange={handleChange}
                         />
-                        {allowFullWidth && deviceCapabilities.includes(Capability.fullWidthSupport) && (
+                        {allowFullWidth && supportsFullWidth && (
                             <TextField
                                 id="fullWidthTitle"
                                 label={`Full-Width ${what} Name`}

@@ -16,7 +16,6 @@ import {
     getTracks,
 } from '../utils';
 import { assertNumber } from 'netmd-js/dist/utils';
-import { Capability } from '../services/interfaces/capabilities';
 import { getSimpleServices, ServiceConstructionInfo } from '../services/interface-service-manager';
 import { getApplicationClient, getTrackRecognizer } from '../application/runtime';
 import { MetadataImportError } from '../domain/metadata-import';
@@ -652,16 +651,17 @@ export function importCSV(file: File) {
 }
 
 export function openRecognizeTrackDialog(selectedTracks: number[]) {
-    return async function (dispatch: AppDispatch, getState: () => RootState) {
-        const { deviceCapabilities } = getState().main;
-        if (deviceCapabilities.length > 0 && !deviceCapabilities.includes(Capability.factoryMode)) {
+    return async function (dispatch: AppDispatch) {
+        const device = getApplicationClient().getWorkspaceSnapshot().device;
+        if (!device?.disc) return;
+        if (!device.capabilities.includes('advanced.factory')) {
             dispatch(songRecognitionDialogActions.setImportMethod('line-in'));
         }
 
         dispatch(
             batchActions([
                 songRecognitionDialogActions.setTitles(
-                    getTracks(getState().main.disc!)
+                    getTracks(device.disc)
                         .sort((a, b) => a.index - b.index)
                         .map((track) => ({
                             originalTitle: track.title ?? '',
@@ -702,7 +702,9 @@ export function recognizeTracks(_trackEntries: TitleEntry[], mode: 'exploits' | 
                 songRecognitionProgressDialogActions.setTotalTracks(toRecognize.length),
             ])
         );
-        const tracks = new Map(getTracks(getState().main.disc!).map((track) => [track.index, track]));
+        const disc = getApplicationClient().getWorkspaceSnapshot().device?.disc;
+        if (!disc) throw new Error('No MiniDisc is loaded.');
+        const tracks = new Map(getTracks(disc).map((track) => [track.index, track]));
         const publishProgress = (progress: TrackRecognitionProgress) => {
             switch (progress.type) {
                 case 'track':

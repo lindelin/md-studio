@@ -11,6 +11,7 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import Link from '@mui/material/Link';
 import Box from '@mui/material/Box';
+import { useApplicationWorkspace } from './use-application-client';
 
 const Toc = lazy(() => import('./factory/factory'));
 const Controls = lazy(() => import('./controls'));
@@ -226,7 +227,7 @@ const lightTheme = createTheme({
 
 const InternalApp = () => {
     const { mainView, loading, pageFullHeight, pageFullWidth } = useShallowEqualSelector((state) => state.appState);
-    const { deviceCapabilities } = useShallowEqualSelector((state) => state.main);
+    const canListContent = useApplicationWorkspace().device?.capabilities.includes('content.read') ?? false;
     const { classes, cx } = useStyles();
 
     return (
@@ -243,7 +244,7 @@ const InternalApp = () => {
                 <main className={cx(classes.layout, { [classes.layoutFullWidth]: pageFullWidth })}>
                     <Paper
                         className={cx(classes.paper, {
-                            [classes.paperShowsList]: deviceCapabilities.includes(0 /*Capability.listContent*/),
+                            [classes.paperShowsList]: canListContent,
                             [classes.paperFullHeight]: pageFullHeight,
                         })}
                     >

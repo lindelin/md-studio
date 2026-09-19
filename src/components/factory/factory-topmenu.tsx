@@ -49,7 +49,8 @@ import LockOpenIcon from '@mui/icons-material/LockOpen';
 import SettingsIcon from '@mui/icons-material/Settings';
 import HomeRepairServiceIcon from '@mui/icons-material/HomeRepairService';
 
-import { Capability, ExploitCapability } from '../../services/interfaces/capabilities';
+import { ExploitCapability } from '../../services/interfaces/capabilities';
+import { useApplicationWorkspace } from '../use-application-client';
 
 const useStyles = makeStyles()(theme => ({
     listItemIcon: {
@@ -66,7 +67,7 @@ export const FactoryTopMenu = function() {
     const dispatch = useDispatch();
 
     const { exploitCapabilities, spUploadSpeedupActive, deviceDiscSwapDetectionDisabled } = useShallowEqualSelector(state => state.factory);
-    const { deviceCapabilities } = useShallowEqualSelector(state => state.main);
+    const canDownloadTracks = useApplicationWorkspace().device?.capabilities.includes('track.download') ?? false;
 
     const githubLinkRef = React.useRef<null | HTMLAnchorElement>(null);
     const helpLinkRef = React.useRef<null | HTMLAnchorElement>(null);
@@ -390,7 +391,7 @@ export const FactoryTopMenu = function() {
             key="archive-disc"
             onClick={handleArchiveDisc}
             disabled={
-                !(exploitCapabilities.includes(ExploitCapability.readFirmware) || deviceCapabilities.includes(Capability.trackDownload))
+                !(exploitCapabilities.includes(ExploitCapability.readFirmware) || canDownloadTracks)
             }
         >
             <ListItemIcon className={classes.listItemIcon}>

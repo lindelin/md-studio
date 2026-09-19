@@ -20,7 +20,8 @@ import { DropzoneRootProps, DropzoneInputProps, FileRejection } from 'react-drop
 import { ThemeContext } from 'styled-components';
 import { Controls } from '../controls';
 import { AdaptiveFile, bytesToHumanReadable, formatTimeFromSeconds } from '../../utils';
-import { useDeviceCapabilities, useShallowEqualSelector } from '../../frontend-utils';
+import { useShallowEqualSelector } from '../../frontend-utils';
+import { useApplicationWorkspace } from '../use-application-client';
 
 import DeleteIconUrl from '../../images/win95/delete.png';
 import MicIconUrl from '../../images/win95/mic.png';
@@ -118,7 +119,11 @@ export const W95Main = (props: {
     const themeContext = useContext(ThemeContext) as { selectedTableRow: React.CSSProperties };
     const { mainView } = useShallowEqualSelector((state) => state.appState);
 
-    const deviceCapabilities = useDeviceCapabilities();
+    const capabilities = useApplicationWorkspace().device?.capabilities ?? [];
+    const canListContent = capabilities.includes('content.read');
+    const canEditMetadata = capabilities.includes('metadata.edit');
+    const canUpload = capabilities.includes('track.upload');
+    const canDownload = capabilities.includes('track.download');
 
     return (
         <>
@@ -159,7 +164,7 @@ export const W95Main = (props: {
                     <>
                         <Button
                             variant="menu"
-                            disabled={props.selectedCount !== 1 || !deviceCapabilities.metadataEdit}
+                            disabled={props.selectedCount !== 1 || !canEditMetadata}
                             onClick={props.handleShowMoveMenu}
                         >
                             <img alt="move" src={MoveIconUrl} className={classes.toolbarIcon} />
@@ -169,14 +174,14 @@ export const W95Main = (props: {
                             <img alt="record" src={MicIconUrl} className={classes.toolbarIcon} />
                             Record
                         </Button>
-                        <Button variant="menu" disabled={!deviceCapabilities.metadataEdit} onClick={props.handleDeleteSelected}>
+                        <Button variant="menu" disabled={!canEditMetadata} onClick={props.handleDeleteSelected}>
                             <img alt="delete" src={DeleteIconUrl} className={classes.toolbarIcon} />
                             Delete
                         </Button>
                         <Button
                             variant="menu"
                             onClick={props.handleRenameActionClick}
-                            disabled={props.selectedCount > 1 || !deviceCapabilities.metadataEdit}
+                            disabled={props.selectedCount > 1 || !canEditMetadata}
                         >
                             <img alt="rename" src={RenameIconUrl} className={classes.toolbarIcon} />
                             Rename
@@ -200,7 +205,7 @@ export const W95Main = (props: {
             </Toolbar>
             <Divider />
             <WindowContent className={classes.windowContent}>
-                {deviceCapabilities.contentList && (
+                {canListContent && (
                     <div className={classes.container} {...props.getRootProps()} style={{ outline: 'none' }}>
                         <input {...props.getInputProps()} />
                         <Table className={classes.table}>
@@ -217,7 +222,7 @@ export const W95Main = (props: {
                                         style={props.selected.includes(track.index) ? themeContext.selectedTableRow : {}}
                                         key={track.index}
                                         onDoubleClick={(event: React.MouseEvent) =>
-                                            deviceCapabilities.metadataEdit && props.handleRenameTrack(event, track.index)
+                                            canEditMetadata && props.handleRenameTrack(event, track.index)
                                         }
                                         onClick={(event: React.MouseEvent) => props.handleSelectTrackClick(event, track.index)}
                                     >
@@ -241,7 +246,7 @@ export const W95Main = (props: {
                 )}
                 <div className={classes.controlsContainer}>{mainView === 'MAIN' ? <Controls /> : null}</div>
             </WindowContent>
-            {deviceCapabilities.trackUpload && <FloatingButton onClick={props.open} />}
+            {canUpload && <FloatingButton onClick={props.open} />}
 
             <UploadDialog />
             <ErrorDialog />
@@ -250,7 +255,7 @@ export const W95Main = (props: {
             <RecordDialog />
             <DumpDialog
                 trackIndexes={props.selected}
-                isCapableOfDownload={deviceCapabilities.trackDownload || props.factoryModeRippingInMainUi}
+                isCapableOfDownload={canDownload || props.factoryModeRippingInMainUi}
                 isExploitDownload={props.factoryModeRippingInMainUi}
             />
             <AboutDialog />

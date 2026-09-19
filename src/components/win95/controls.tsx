@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button, Panel } from 'react95';
-import { belowDesktop, useDeviceCapabilities } from '../../frontend-utils';
+import { belowDesktop } from '../../frontend-utils';
+import { useApplicationWorkspace } from '../use-application-client';
 
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
@@ -44,10 +45,10 @@ export const W95Controls = (props: {
     lcdScrollDuration: number;
 }) => {
     const { classes } = useStyles();
-    const deviceCapabilities = useDeviceCapabilities();
+    const canControlPlayback = useApplicationWorkspace().device?.capabilities.includes('playback.control') ?? false;
     return (
         <div className={classes.container}>
-            {deviceCapabilities.playbackControl && (
+            {canControlPlayback && (
                 <React.Fragment>
                     <Button disabled={!props.discPresent} onClick={props.handlePrev}>
                         <SkipPreviousIcon />
