@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useState } from 'react';
-import { useDeviceCapabilities, useDispatch } from '../frontend-utils';
+import { useDispatch } from '../frontend-utils';
 import { useDropzone } from 'react-dropzone';
 import {
     DragDropContext,
@@ -16,9 +16,10 @@ import { actions as convertDialogActions } from '../redux/convert-dialog-feature
 import { actions as dumpDialogActions } from '../redux/dump-dialog-feature';
 import { actions as appStateActions } from '../redux/app-feature';
 import { actions as contextMenuActions } from '../redux/context-menu-feature';
+import { actions as errorDialogActions } from '../redux/error-dialog-feature';
 
 import { DeviceStatus } from 'netmd-js';
-import { control, openLocalLibrary } from '../redux/actions';
+import { openLocalLibrary } from '../redux/actions';
 
 import {
     formatTimeFromSeconds,
@@ -81,8 +82,9 @@ import { DiscProtectedDialog } from './disc-protected-dialog';
 import { ContextMenu } from './context-menu';
 import { LocalLibraryDialog } from './local-library';
 import { Menu, MenuItem } from '@mui/material';
-import { useApplicationWorkspace } from './use-application-client';
+import { useApplicationClient, useApplicationWorkspace } from './use-application-client';
 import { getDefaultRecordingFormat } from '../application/device-profile';
+import type { PlaybackCommand } from '../application/contracts';
 
 // TODO jss-to-tss-react codemod: Unable to handle style definition reliably. Unsupported arrow function syntax.
 //Unexpected value type of ConditionalExpression.
@@ -187,10 +189,13 @@ function getTrackStatus(track: Track, deviceStatus: DeviceStatus | null): 'playi
 
 export const Main = () => {
     const dispatch = useDispatch();
-    const disc = useShallowEqualSelector((state) => state.main.disc);
-    const flushable = useShallowEqualSelector((state) => state.main.flushable);
-    const deviceName = useShallowEqualSelector((state) => state.main.deviceName);
-    const deviceStatus = useShallowEqualSelector((state) => state.main.deviceStatus);
+    const applicationClient = useApplicationClient();
+    const workspace = useApplicationWorkspace();
+    const device = workspace.device;
+    const disc = device?.disc ?? null;
+    const flushable = device?.status.canBeFlushed ?? false;
+    const deviceName = device?.deviceName ?? '';
+    const deviceStatus = device?.status ?? null;
     const factoryModeRippingInMainUi = useShallowEqualSelector((state) => state.appState.factoryModeRippingInMainUi);
     const { vintageMode, libraryService } = useShallowEqualSelector((state) => state.appState);
 
@@ -201,8 +206,15 @@ export const Main = () => {
     const [moveMenuAnchorEl, setMoveMenuAnchorEl] = React.useState<null | HTMLElement>(null);
     const [showRemainingSpace, setShowRemainingSpace] = useState(true);
 
-    const deviceCapabilities = useDeviceCapabilities();
-    const recordingProfile = useApplicationWorkspace().device?.recording;
+    const capabilities = device?.capabilities ?? [];
+    const canListContent = capabilities.includes('content.read');
+    const canControlPlayback = capabilities.includes('playback.control');
+    const canEditMetadata = capabilities.includes('metadata.edit');
+    const canUpload = capabilities.includes('track.upload');
+    const canDownload = capabilities.includes('track.download');
+    const canEject = capabilities.includes('disc.eject');
+    const hasHimdTitles = capabilities.includes('metadata.himd');
+    const recordingProfile = device?.recording;
 
     const handleShowMoveMenu = useCallback(
         (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -451,7 +463,7 @@ export const Main = () => {
 
     const handleRenameDisc = useCallback(
         () => {
-            if (!deviceCapabilities.metadataEdit) return;
+            if (!canEditMetadata) return;
             dispatch(
                 batchActions([
                     renameDialogActions.setVisible(true),
@@ -462,24 +474,39 @@ export const Main = () => {
                 ])
             );
         },
-        [deviceCapabilities.metadataEdit, dispatch, disc]
+        [canEditMetadata, dispatch, disc]
+    );
+
+    const executePlaybackCommand = useCallback(
+        async (command: PlaybackCommand) => {
+            const result = await applicationClient.execute({ type: 'playback.control', command });
+            if (!result.ok) throw new Error(result.error.message);
+        },
+        [applicationClient]
     );
 
     const handleTogglePlayPauseTrack = useCallback(
-        (event: React.MouseEvent, track: number) => {
-            if (!deviceStatus) {
-                return;
-            }
-            if (deviceStatus.track !== track) {
-                dispatch(control('goto', track));
-                dispatch(control('play'));
-            } else if (deviceStatus.state === 'playing') {
-                dispatch(control('pause'));
-            } else {
-                dispatch(control('play'));
-            }
+        (_event: React.MouseEvent, track: number) => {
+            if (!deviceStatus || !canControlPlayback) return;
+            void (async () => {
+                if (deviceStatus.track !== track) {
+                    await executePlaybackCommand({ action: 'gotoTrack', index: track });
+                    await executePlaybackCommand({ action: 'play' });
+                } else if (deviceStatus.state === 'playing') {
+                    await executePlaybackCommand({ action: 'pause' });
+                } else {
+                    await executePlaybackCommand({ action: 'play' });
+                }
+            })().catch((error) => {
+                dispatch(
+                    batchActions([
+                        errorDialogActions.setErrorMessage(error instanceof Error ? error.message : String(error)),
+                        errorDialogActions.setVisible(true),
+                    ])
+                );
+            });
         },
-        [dispatch, deviceStatus]
+        [canControlPlayback, deviceStatus, dispatch, executePlaybackCommand]
     );
 
     const canGroup = useMemo(() => {
@@ -556,7 +583,7 @@ export const Main = () => {
                     {deviceName || `Loading...`}
                 </Typography>
                 <span>
-                    {deviceCapabilities.discEject && (
+                    {canEject && (
                         <IconButton
                             aria-label="Eject disc"
                             onClick={handleEject}
@@ -651,14 +678,14 @@ export const Main = () => {
                 )}
                 {selectedCount > 0 ? (
                     <React.Fragment>
-                        <Tooltip title={`${deviceCapabilities.trackDownload ? 'Download' : 'Record'} from MD`}>
+                        <Tooltip title={`${canDownload ? 'Download' : 'Record'} from MD`}>
                             <Button
                                 className={classes.topbarLargeButton}
                                 color="inherit"
-                                aria-label={deviceCapabilities.trackDownload || factoryModeRippingInMainUi ? 'Download' : 'Record'}
+                                aria-label={canDownload || factoryModeRippingInMainUi ? 'Download' : 'Record'}
                                 onClick={handleShowDumpDialog}
                             >
-                                {deviceCapabilities.trackDownload || factoryModeRippingInMainUi ? 'Download' : 'Record'}
+                                {canDownload || factoryModeRippingInMainUi ? 'Download' : 'Record'}
                             </Button>
                         </Tooltip>
                     </React.Fragment>
@@ -670,7 +697,7 @@ export const Main = () => {
                             <IconButton
                                 className={classes.topbarButton}
                                 aria-label="delete"
-                                disabled={!deviceCapabilities.metadataEdit}
+                                disabled={!canEditMetadata}
                                 onClick={handleDeleteSelected}
                             >
                                 <DeleteIcon />
@@ -685,7 +712,7 @@ export const Main = () => {
                             <IconButton
                                 className={classes.topbarButton}
                                 aria-label="group"
-                                disabled={!canGroup || !deviceCapabilities.metadataEdit}
+                                disabled={!canGroup || !canEditMetadata}
                                 onClick={handleGroupTracks}
                             >
                                 <CreateNewFolderIcon />
@@ -700,7 +727,7 @@ export const Main = () => {
                             <IconButton
                                 className={classes.topbarButton}
                                 aria-label="rename"
-                                disabled={selectedCount !== 1 || !deviceCapabilities.metadataEdit}
+                                disabled={selectedCount !== 1 || !canEditMetadata}
                                 onClick={handleRenameActionClick}
                             >
                                 <EditIcon />
@@ -715,7 +742,7 @@ export const Main = () => {
                             <IconButton
                                 className={classes.topbarButton}
                                 aria-label="ungroup"
-                                disabled={!deviceCapabilities.metadataEdit}
+                                disabled={!canEditMetadata}
                                 onClick={handleDeleteSelectedGroups}
                             >
                                 <DeleteIcon />
@@ -730,7 +757,7 @@ export const Main = () => {
                             <IconButton
                                 className={classes.topbarButton}
                                 aria-label="rename group"
-                                disabled={!deviceCapabilities.metadataEdit || selectedGroupsCount !== 1}
+                                disabled={!canEditMetadata || selectedGroupsCount !== 1}
                                 onClick={(e) => handleRenameGroup(e, selectedGroups[0])}
                             >
                                 <EditIcon />
@@ -739,7 +766,7 @@ export const Main = () => {
                     </Tooltip>
                 ) : null}
             </Toolbar>
-            {deviceCapabilities.contentList ? (
+            {canListContent ? (
                 <Box className={classes.main} {...getRootProps()} id="main">
                     <input {...getInputProps()} />
                     <Table size="small" className={classes.fixedTable}>
@@ -748,7 +775,7 @@ export const Main = () => {
                                 <TableCell className={classes.dragHandleEmpty}></TableCell>
                                 <TableCell className={classes.indexCell}>#</TableCell>
                                 <TableCell>Title</TableCell>
-                                {deviceCapabilities.himdTitles && (
+                                {hasHimdTitles && (
                                     <>
                                         <TableCell>Album</TableCell>
                                         <TableCell>Artist</TableCell>
@@ -761,7 +788,7 @@ export const Main = () => {
                             <TableBody>
                                 {groupedTracks.map((group, index) => (
                                     <TableRow key={`${index}`}>
-                                        <TableCell colSpan={4 + (deviceCapabilities.himdTitles ? 2 : 0)} style={{ padding: '0' }}>
+                                        <TableCell colSpan={4 + (hasHimdTitles ? 2 : 0)} style={{ padding: '0' }}>
                                             <Table size="small" className={classes.fixedTable}>
                                                 <Droppable droppableId={`${index}`} key={`${index}`}>
                                                     {(provided: DroppableProvided, snapshot: DroppableStateSnapshot) => (
@@ -770,10 +797,10 @@ export const Main = () => {
                                                             ref={provided.innerRef}
                                                             className={cx({ [classes.hoveringOverGroup]: snapshot.isDraggingOver })}
                                                         >
-                                                            <MockTrackRow isHimdTrack={deviceCapabilities.himdTitles} />
+                                                            <MockTrackRow isHimdTrack={hasHimdTitles} />
                                                             {group.title !== null && (
                                                                 <GroupRow
-                                                                    usesHimdTracks={deviceCapabilities.himdTitles}
+                                                                    usesHimdTracks={hasHimdTitles}
                                                                     group={group}
                                                                     onRename={handleRenameGroup}
                                                                     onDelete={handleDeleteGroup}
@@ -789,12 +816,12 @@ export const Main = () => {
                                                                     draggableId={`${group.index}-${t.index}`}
                                                                     key={`t-${t.index}`}
                                                                     index={tidx}
-                                                                    isDragDisabled={!deviceCapabilities.metadataEdit}
+                                                                    isDragDisabled={!canEditMetadata}
                                                                 >
                                                                     {(provided: DraggableProvided) => (
                                                                         <TrackRow
                                                                             track={t}
-                                                                            isHimdTrack={deviceCapabilities.himdTitles}
+                                                                            isHimdTrack={hasHimdTitles}
                                                                             draggableProvided={provided}
                                                                             inGroup={group.title !== null}
                                                                             isSelected={selected.includes(t.index)}
@@ -818,14 +845,14 @@ export const Main = () => {
                             </TableBody>
                         </DragDropContext>
                     </Table>
-                    {isDragActive && deviceCapabilities.trackUpload ? (
+                    {isDragActive && canUpload ? (
                         <Backdrop className={classes.backdrop} open={isDragActive}>
                             Drop your Music to Upload
                         </Backdrop>
                     ) : null}
                 </Box>
             ) : null}
-            {deviceCapabilities.trackUpload ? (
+            {canUpload ? (
                 <Fab color="primary" aria-label="Add audio tracks" className={classes.add} onClick={openUploadMenu}>
                     <AddIcon />
                 </Fab>
@@ -852,7 +879,7 @@ export const Main = () => {
             <FactoryModeBadSectorDialog />
             <DumpDialog
                 trackIndexes={selected}
-                isCapableOfDownload={deviceCapabilities.trackDownload || factoryModeRippingInMainUi}
+                isCapableOfDownload={canDownload || factoryModeRippingInMainUi}
                 isExploitDownload={factoryModeRippingInMainUi}
             />
             <SongRecognitionDialog />

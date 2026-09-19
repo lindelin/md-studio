@@ -9,7 +9,6 @@ export interface MainState {
     deviceName: string;
     deviceStatus: DeviceStatus | null;
     deviceCapabilities: Capability[];
-    flushable: boolean;
 }
 
 const initialState: MainState = {
@@ -17,7 +16,6 @@ const initialState: MainState = {
     deviceName: '',
     deviceStatus: null,
     deviceCapabilities: [Capability.contentList], // Prevent the UI from collapsing when loading.
-    flushable: false,
 };
 
 export const slice = createSlice({
@@ -35,9 +33,6 @@ export const slice = createSlice({
         },
         setDeviceCapabilities: (state, action: PayloadAction<Capability[]>) => {
             state.deviceCapabilities = action.payload;
-        },
-        setFlushable: (state, action: PayloadAction<boolean>) => {
-            state.flushable = action.payload;
         },
     },
 });

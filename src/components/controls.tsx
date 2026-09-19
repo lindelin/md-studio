@@ -11,10 +11,12 @@ import IconButton from '@mui/material/IconButton';
 import Box from '@mui/material/Box';
 
 import { makeStyles } from 'tss-react/mui';
-import { formatTimeFromSeconds, getSortedTracks } from '../utils';
-import { belowDesktop, useDeviceCapabilities, useShallowEqualSelector } from '../frontend-utils';
-import { control } from '../redux/actions';
+import { formatTimeFromSeconds, getSortedTracks, timeToSeekArgs } from '../utils';
+import { batchActions, belowDesktop, useShallowEqualSelector } from '../frontend-utils';
 import { useDispatch } from '../frontend-utils';
+import { actions as errorDialogActions } from '../redux/error-dialog-feature';
+import type { PlaybackCommand } from '../application/contracts';
+import { useApplicationClient, useApplicationWorkspace } from './use-application-client';
 
 import MDIcon0 from '../images/md0.svg?react';
 import MDIcon1 from '../images/md1.svg?react';
@@ -122,32 +124,40 @@ const useStyles = makeStyles()((theme) => ({
 
 export const Controls = () => {
     const dispatch = useDispatch();
-    // TODO: The shallow equality won't work for these 2 states
-    const deviceStatus = useShallowEqualSelector((state) => state.main.deviceStatus);
-    const disc = useShallowEqualSelector((state) => state.main.disc);
+    const applicationClient = useApplicationClient();
+    const workspace = useApplicationWorkspace();
+    const deviceStatus = workspace.device?.status;
+    const disc = workspace.device?.disc ?? null;
     const loading = useShallowEqualSelector((state) => state.appState.loading);
-
-    const deviceCapabilities = useDeviceCapabilities();
+    const playbackSupported = workspace.device?.capabilities.includes('playback.control') ?? false;
 
     const { classes, cx } = useStyles();
     const [lcdScreen, _setLCDScreen] = useState<number>(-1);
     const [trackPercentage, _setTrackPercentage] = useState<number>(0);
 
-    const handlePrev = useCallback(() => {
-        dispatch(control('prev'));
-    }, [dispatch]);
-    const handlePlay = useCallback(() => {
-        dispatch(control('play'));
-    }, [dispatch]);
-    const handleStop = useCallback(() => {
-        dispatch(control('stop'));
-    }, [dispatch]);
-    const handleNext = useCallback(() => {
-        dispatch(control('next'));
-    }, [dispatch]);
-    const handlePause = useCallback(() => {
-        dispatch(control('pause'));
-    }, [dispatch]);
+    const runPlaybackCommand = useCallback(
+        (command: PlaybackCommand) => {
+            void applicationClient
+                .execute({ type: 'playback.control', command })
+                .then((result) => {
+                    if (!result.ok) throw new Error(result.error.message);
+                })
+                .catch((error) => {
+                    dispatch(
+                        batchActions([
+                            errorDialogActions.setErrorMessage(error instanceof Error ? error.message : String(error)),
+                            errorDialogActions.setVisible(true),
+                        ])
+                    );
+                });
+        },
+        [applicationClient, dispatch]
+    );
+    const handlePrev = useCallback(() => runPlaybackCommand({ action: 'previous' }), [runPlaybackCommand]);
+    const handlePlay = useCallback(() => runPlaybackCommand({ action: 'play' }), [runPlaybackCommand]);
+    const handleStop = useCallback(() => runPlaybackCommand({ action: 'stop' }), [runPlaybackCommand]);
+    const handleNext = useCallback(() => runPlaybackCommand({ action: 'next' }), [runPlaybackCommand]);
+    const handlePause = useCallback(() => runPlaybackCommand({ action: 'pause' }), [runPlaybackCommand]);
 
     const [isSeeking, setIsSeeking] = useState(false);
     const [isSeekingProgressLocked, setIsSeekingProgressLocked] = useState(false);
@@ -257,11 +267,12 @@ export const Controls = () => {
             setTimeout(() => setIsSeekingProgressLocked(false), 1000);
             if (deviceStatus?.track == null || !activeTrack) return;
             const seekTo = Math.floor((trackPercentage * activeTrack.duration) / 100);
-            dispatch(control('seek', { trackNumber: deviceStatus.track, time: seekTo }));
+            const [hour, minute, second, frame] = timeToSeekArgs(seekTo);
+            runPlaybackCommand({ action: 'seek', index: deviceStatus.track, hour, minute, second, frame });
         };
         window.addEventListener('mouseup', func);
         return () => window.removeEventListener('mouseup', func);
-    }, [isSeeking, deviceStatus?.track, activeTrack, trackPercentage, dispatch]);
+    }, [isSeeking, deviceStatus?.track, activeTrack, trackPercentage, runPlaybackCommand]);
 
     // LCD Text scrolling
     const animationDelayInMS = 2000;
@@ -338,7 +349,7 @@ export const Controls = () => {
 
     return (
         <Box className={classes.container}>
-            {deviceCapabilities.playbackControl ? (
+            {playbackSupported ? (
                 <React.Fragment>
                     <IconButton disabled={!disc} aria-label="prev" onClick={handlePrev} className={classes.button}>
                         <SkipPreviousIcon />
