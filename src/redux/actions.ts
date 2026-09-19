@@ -39,6 +39,7 @@ import { applyDeviceSnapshot } from './application-adapter';
 import { MetadataImportError } from '../domain/metadata-import';
 import { waitForTrackReady } from '../domain/playback-position';
 import { resolveGroupedTrackMove } from '../domain/disc-layout';
+import { DeviceSessionConnector } from '../application/device-session';
 
 export function requestTaskCancellation(id: string) {
     return async function () {
@@ -198,30 +199,9 @@ export function pair(serviceInstance: NetMDService, spec: MinidiscSpec) {
                 serviceRegistry.libraryService = new LibraryServices[libraryServiceIndex].create(getState().appState.libraryServiceConfig);
             }
 
-            serviceRegistry.netmdService = serviceInstance;
-            serviceRegistry.netmdSpec = spec;
-            serviceRegistry.netmdFactoryService = undefined;
-
-            try {
-                if (await serviceRegistry.netmdService.connect()) {
-                    bindApplicationRuntime();
-                    dispatch(
-                        batchActions([
-                            appStateActions.setMainView('MAIN'),
-                            errorDialogAction.setErrorMessage(''),
-                            errorDialogAction.setVisible(false),
-                        ])
-                    );
-                    return;
-                }
-            } catch (err) {
-                console.error(err);
-                // A cached connection can fail; continue with an explicit browser pairing request.
-            }
-
-            const paired = await serviceRegistry.netmdService!.pair();
-            if (paired) {
-                bindApplicationRuntime();
+            const session = await new DeviceSessionConnector(serviceRegistry, bindApplicationRuntime).connect(serviceInstance, spec);
+            if (session.cachedConnectionError) console.error(session.cachedConnectionError);
+            if (session.application) {
                 dispatch(
                     batchActions([
                         appStateActions.setMainView('MAIN'),
