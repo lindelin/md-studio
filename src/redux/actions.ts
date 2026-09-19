@@ -19,7 +19,6 @@ import { assertNumber } from 'netmd-js/dist/utils';
 import { Capability } from '../services/interfaces/capabilities';
 import { getSimpleServices, ServiceConstructionInfo } from '../services/interface-service-manager';
 import { getApplicationClient, getTrackRecognizer } from '../application/runtime';
-import { applyDeviceSnapshot } from './application-adapter';
 import { MetadataImportError } from '../domain/metadata-import';
 import { resolveGroupedTrackMove } from '../domain/disc-layout';
 import type { TaskSnapshot } from '../application/task-manager';
@@ -27,11 +26,10 @@ import type { ApplicationCommand } from '../application/command-bus';
 import type { PlaybackCommand } from '../application/contracts';
 import type { TrackRecognitionProgress } from '../application/browser-track-recognizer';
 
-async function executeDeviceCommand(dispatch: AppDispatch, command: ApplicationCommand) {
+async function executeDeviceCommand(command: ApplicationCommand) {
     const result = await getApplicationClient().execute(command);
     if (!result.ok) throw new Error(result.error.message);
     if (!result.snapshot) throw new Error(`Command ${command.type} did not return the device state.`);
-    applyDeviceSnapshot(dispatch, result.snapshot);
     return result.snapshot;
 }
 
@@ -54,7 +52,7 @@ export function disconnectDevice(finalize = true) {
 }
 
 export function control(action: 'play' | 'stop' | 'next' | 'prev' | 'goto' | 'pause' | 'seek', params?: unknown) {
-    return async function (dispatch: AppDispatch) {
+    return async function () {
         let command: PlaybackCommand;
         switch (action) {
             case 'play':
@@ -96,12 +94,12 @@ export function control(action: 'play' | 'stop' | 'next' | 'prev' | 'goto' | 'pa
                 break;
             }
         }
-        await executeDeviceCommand(dispatch, { type: 'playback.control', command });
+        await executeDeviceCommand({ type: 'playback.control', command });
         // CAVEAT: change-track might take a up to a few seconds to complete.
         // We wait 500ms and let the monitor do further updates
         await sleep(500);
         try {
-            await executeDeviceCommand(dispatch, { type: 'disc.refresh' });
+            await executeDeviceCommand({ type: 'disc.refresh' });
         } catch (e) {
             console.log('control: Cannot get device status');
         }
@@ -112,7 +110,7 @@ export function renameGroup({ groupIndex, newName, newFullWidthName }: { groupIn
     return async function (dispatch: AppDispatch) {
         dispatch(appStateActions.setLoading(true));
         try {
-            await executeDeviceCommand(dispatch, {
+            await executeDeviceCommand({
                 type: 'group.rename',
                 update: { index: groupIndex, title: newName, fullWidthTitle: newFullWidthName },
                 expectedRevision: currentDeviceRevision(),
@@ -124,10 +122,10 @@ export function renameGroup({ groupIndex, newName, newFullWidthName }: { groupIn
 }
 
 export function groupTracks(indexes: number[]) {
-    return async function (dispatch: AppDispatch) {
+    return async function () {
         const begin = indexes[0];
         const length = indexes[indexes.length - 1] - begin + 1;
-        await executeDeviceCommand(dispatch, {
+        await executeDeviceCommand({
             type: 'group.create',
             firstTrack: begin,
             trackCount: length,
@@ -140,7 +138,7 @@ export function deleteGroups(indexes: number[]) {
     return async function (dispatch: AppDispatch) {
         dispatch(appStateActions.setLoading(true));
         try {
-            await executeDeviceCommand(dispatch, {
+            await executeDeviceCommand({
                 type: 'group.deleteMany',
                 indexes,
                 expectedRevision: currentDeviceRevision(),
@@ -158,11 +156,11 @@ export function dragDropTrack(sourceList: number, sourceIndex: number, targetLis
         try {
             const client = getApplicationClient();
             const snapshot =
-                client.getWorkspaceSnapshot().device ?? (await executeDeviceCommand(dispatch, { type: 'disc.refresh' }));
+                client.getWorkspaceSnapshot().device ?? (await executeDeviceCommand({ type: 'disc.refresh' }));
             if (!snapshot.disc) return;
             const move = resolveGroupedTrackMove(snapshot.disc, sourceList, sourceIndex, targetList, targetIndex);
             if (move.sourceIndex === move.destinationIndex) return;
-            await executeDeviceCommand(dispatch, {
+            await executeDeviceCommand({
                 type: 'track.move',
                 sourceIndex: move.sourceIndex,
                 destinationIndex: move.destinationIndex,
@@ -195,7 +193,7 @@ export function listContent(dropCache: boolean = false) {
     return async function (dispatch: AppDispatch) {
         dispatch(appStateActions.setLoading(true));
         try {
-            await executeDeviceCommand(dispatch, { type: 'disc.refresh', dropCache });
+            await executeDeviceCommand({ type: 'disc.refresh', dropCache });
         } finally {
             dispatch(appStateActions.setLoading(false));
         }
@@ -206,7 +204,7 @@ export function renameTrack(...entries: { index: number; newName: string; newFul
     return async function (dispatch: AppDispatch) {
         dispatch(batchActions([renameDialogActions.setVisible(false), appStateActions.setLoading(true)]));
         try {
-            await executeDeviceCommand(dispatch, {
+            await executeDeviceCommand({
                 type: 'track.renameMany',
                 updates: entries.map(({ index, newName, newFullWidthName }) => ({
                     index,
@@ -233,7 +231,7 @@ export function himdRenameTrack(...entries: { index: number; title?: string; alb
     return async function (dispatch: AppDispatch) {
         dispatch(batchActions([renameDialogActions.setVisible(false), appStateActions.setLoading(true)]));
         try {
-            await executeDeviceCommand(dispatch, {
+            await executeDeviceCommand({
                 type: 'track.renameHimdMany',
                 updates: entries,
                 expectedRevision: currentDeviceRevision(),
@@ -254,7 +252,7 @@ export function himdRenameTrack(...entries: { index: number; title?: string; alb
 
 export function renameDisc({ newName, newFullWidthName }: { newName: string; newFullWidthName?: string }) {
     return async function (dispatch: AppDispatch) {
-        await executeDeviceCommand(dispatch, {
+        await executeDeviceCommand({
             type: 'disc.rename',
             title: newName.replace(/\/\//g, ' /'),
             fullWidthTitle: newFullWidthName?.replace(/／／/g, '／'),
@@ -274,7 +272,7 @@ export function deleteTracks(indexes: number[]) {
         }
         dispatch(appStateActions.setLoading(true));
         try {
-            await executeDeviceCommand(dispatch, {
+            await executeDeviceCommand({
                 type: 'track.deleteMany',
                 indexes,
                 confirmation: {
@@ -297,7 +295,7 @@ export function wipeDisc() {
         }
         dispatch(appStateActions.setLoading(true));
         try {
-            await executeDeviceCommand(dispatch, {
+            await executeDeviceCommand({
                 type: 'disc.erase',
                 confirmation: {
                     confirmed: true,
@@ -319,7 +317,7 @@ export function formatToHiMD() {
         }
         dispatch(appStateActions.setLoading(true));
         try {
-            await executeDeviceCommand(dispatch, {
+            await executeDeviceCommand({
                 type: 'disc.formatHimd',
                 confirmation: {
                     confirmed: true,
@@ -334,14 +332,14 @@ export function formatToHiMD() {
 }
 
 export function ejectDisc() {
-    return async function (dispatch: AppDispatch) {
-        await executeDeviceCommand(dispatch, { type: 'disc.eject', expectedRevision: currentDeviceRevision() });
+    return async function () {
+        await executeDeviceCommand({ type: 'disc.eject', expectedRevision: currentDeviceRevision() });
     };
 }
 
 export function moveTrack(srcIndex: number, destIndex: number) {
-    return async function (dispatch: AppDispatch) {
-        await executeDeviceCommand(dispatch, {
+    return async function () {
+        await executeDeviceCommand({
             type: 'track.move',
             sourceIndex: srcIndex,
             destinationIndex: destIndex,
@@ -545,7 +543,7 @@ export function selfTest() {
             task = currentTask;
         }
         const refreshed = await client.execute({ type: 'disc.refresh', dropCache: true });
-        if (refreshed.ok && refreshed.snapshot) applyDeviceSnapshot(dispatch, refreshed.snapshot);
+        if (!refreshed.ok) throw new Error(refreshed.error.message);
         dispatch(recordDialogAction.setVisible(false));
         if (task.status === 'succeeded') {
             console.info('All device self-tests passed.', task.result);
@@ -641,7 +639,6 @@ export function importCSV(file: File) {
             });
             if (!applied.ok) throw new Error(applied.error.message);
             if (!applied.snapshot) throw new Error('Metadata import did not return the device state.');
-            applyDeviceSnapshot(dispatch, applied.snapshot);
         } catch (error) {
             if (error instanceof MetadataImportError) {
                 window.alert(error.message);
@@ -782,7 +779,7 @@ export function flushDevice() {
     return async function (dispatch: AppDispatch) {
         dispatch(appStateActions.setLoading(true));
         try {
-            await executeDeviceCommand(dispatch, { type: 'device.flush', expectedRevision: currentDeviceRevision() });
+            await executeDeviceCommand({ type: 'device.flush', expectedRevision: currentDeviceRevision() });
         } finally {
             dispatch(appStateActions.setLoading(false));
         }

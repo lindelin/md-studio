@@ -10,8 +10,6 @@ import {
     type BridgeResponse,
 } from './bridge-protocol';
 import { ensureApplicationCommandBus } from './runtime';
-import { store } from '../redux/store';
-import { applyDeviceSnapshot } from '../redux/application-adapter';
 import { isBoolean, loadPreference, readRawPreference } from '../preferences';
 import type { BrowserLocalFileGateway } from './browser-local-file-gateway';
 
@@ -97,7 +95,6 @@ export class BrowserApplicationBridge {
             }
             if (parsed.type !== 'request') return;
             const result = await ensureApplicationCommandBus().execute(parsed.command);
-            if (result.ok && result.snapshot) applyDeviceSnapshot(store.dispatch, result.snapshot);
             const response: BridgeResponse = {
                 type: 'response',
                 protocolVersion: BRIDGE_PROTOCOL_VERSION,

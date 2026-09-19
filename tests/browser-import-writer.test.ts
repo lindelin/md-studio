@@ -131,25 +131,23 @@ async function waitForFinished(tasks: TaskManager, id: string) {
 }
 
 describe('BrowserImportWriter', () => {
-    it('owns conversion, device upload, task progress, queue cleanup, and snapshot publication', async () => {
+    it('owns conversion, device upload, task progress, and queue cleanup', async () => {
         const uploads: string[] = [];
         const tasks = new TaskManager();
         const queue = new ImportQueue();
         const added = addTracks(queue, 2);
-        const published: DeviceSnapshot[] = [];
         let notified = 0;
+        const application = makeApplication(async (title, _fullWidthTitle, data, _format, onProgress) => {
+            uploads.push(typeof title === 'string' ? title : title.title);
+            onProgress({ written: data.byteLength, encrypted: data.byteLength, total: data.byteLength });
+        });
         const writer = new BrowserImportWriter({
-            getApplication: () =>
-                makeApplication(async (title, _fullWidthTitle, data, _format, onProgress) => {
-                    uploads.push(typeof title === 'string' ? title : title.title);
-                    onProgress({ written: data.byteLength, encrypted: data.byteLength, total: data.byteLength });
-                }),
+            getApplication: () => application,
             getAudioExportService: async () => makeAudioExporter(),
             getUseFullWidthTitles: () => true,
             localFiles: new BrowserLocalFileGateway(),
             showImportDialog: () => assert.fail('the import dialog should stay closed after success'),
             notifyCompleted: () => (notified += 1),
-            updateDeviceSnapshot: (next) => published.push(next),
         });
 
         const started = await writer.start(
@@ -167,7 +165,6 @@ describe('BrowserImportWriter', () => {
         assert.deepEqual(finished.result, { writtenTracks: 2 });
         assert.deepEqual(uploads, ['Track 1', 'Track 2']);
         assert.equal(queue.snapshot().items.length, 0);
-        assert.equal(published.at(-1)?.sessionId, snapshot.sessionId);
         assert.equal(notified, 1);
     });
 

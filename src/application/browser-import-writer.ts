@@ -44,7 +44,6 @@ export interface BrowserImportWriterDependencies {
     presentation?: ImportWritePresentation;
     showImportDialog(): void;
     notifyCompleted?(): void;
-    updateDeviceSnapshot?(snapshot: DeviceSnapshot): void;
 }
 
 export class BrowserImportWriter implements ImportWriter {
@@ -291,7 +290,6 @@ export class BrowserImportWriter implements ImportWriter {
 
             writtenTracks = result.value.writtenTracks;
             cancelled = result.value.cancelled;
-            this.dependencies.updateDeviceSnapshot?.(result.snapshot);
         } catch (caughtError) {
             error = caughtError;
             if (caughtError instanceof ImportUploadSessionError) {
@@ -300,8 +298,6 @@ export class BrowserImportWriter implements ImportWriter {
             } else {
                 errorMessage = 'The recording task stopped before all tracks were transferred.';
             }
-            const latest = application.readSnapshot();
-            if (latest) this.dependencies.updateDeviceSnapshot?.(latest);
         } finally {
             if (typeof document !== 'undefined') document.title = originalTitle;
             if (wakeLock) {

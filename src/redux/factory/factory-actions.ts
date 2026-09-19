@@ -11,7 +11,6 @@ import { downloadTracks, exportCSV } from '../actions';
 import JSZip from 'jszip';
 import { AtracRecoveryConfig } from 'netmd-exploits';
 import { getApplicationClient } from '../../application/runtime';
-import { applyDeviceSnapshot } from '../application-adapter';
 import { INTERACTIVE_ADVANCED_AUTHORIZATION } from '../../application/interactive-authorization';
 import { executeSessionEndingCommand } from '../../application/device-session-transition';
 
@@ -135,7 +134,6 @@ export function writeModifiedTOC() {
             });
             if (!result.ok) throw new Error(result.error.message);
             if (!result.snapshot) throw new Error('Writing the advanced TOC did not return the device state.');
-            applyDeviceSnapshot(dispatch, result.snapshot);
             dispatch(factoryActions.setModified(false));
         } finally {
             dispatch(appStateActions.setLoading(false));

@@ -36,6 +36,7 @@ import { BrowserTrackRecognizer } from './application/browser-track-recognizer';
 import NotificationCompleteIconUrl from './images/record-complete-notification-icon.png';
 import { ApplicationClientProvider } from './frontend/application-client-provider';
 import { hasPendingWorkspaceWork } from './frontend/pending-work';
+import { subscribeLegacyDeviceProjection } from './frontend/legacy-device-projection';
 const mediaRecorderService = new MediaRecorderService();
 const localFiles = new BrowserLocalFileGateway();
 serviceRegistry.localAudioInput = new BrowserAudioInput(mediaRecorderService);
@@ -57,7 +58,6 @@ serviceRegistry.importWriter = new BrowserImportWriter({
     showImportDialog: () => {
         store.dispatch(convertDialogActions.setVisible(true));
     },
-    updateDeviceSnapshot: (snapshot) => applyDeviceSnapshot(store.dispatch, snapshot),
     notifyCompleted: () => {
         const state = store.getState().appState;
         if (!state.hasNotificationSupport || !state.notifyWhenFinished) return;
@@ -103,6 +103,7 @@ serviceRegistry.importWriter = new BrowserImportWriter({
 serviceRegistry.trackExporter = new BrowserTrackExporter(localFiles);
 serviceRegistry.trackRecorder = new BrowserTrackRecorder(mediaRecorderService);
 const applicationClient = getApplicationClient();
+subscribeLegacyDeviceProjection(applicationClient, (snapshot) => applyDeviceSnapshot(store.dispatch, snapshot));
 serviceRegistry.trackRecognizer = new BrowserTrackRecognizer(applicationClient);
 startLocalApplicationBridge(localFiles);
 
@@ -193,10 +194,6 @@ if (readRawPreference('version') !== (window as any).wmdVersion) {
                     setTimeout(monitor, nextPollDelay);
                     return;
                 }
-                const currentState = store.getState();
-                const statusChanged = JSON.stringify(snapshot.status) !== JSON.stringify(currentState.main.deviceStatus);
-                const discPresenceChanged = Boolean(snapshot.disc) !== Boolean(currentState.main.disc);
-                if (statusChanged || discPresenceChanged) applyDeviceSnapshot(store.dispatch, snapshot);
                 if (document.title !== originalApplicationTitle) {
                     document.title = originalApplicationTitle;
                 }
