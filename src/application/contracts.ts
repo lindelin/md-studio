@@ -20,6 +20,7 @@ export interface DeviceRecordingFormat extends RecordingCodec {
 export interface DeviceRecordingProfile {
     specName: string;
     measurementUnits: 'bytes' | 'frames';
+    titleStorage: 'netmd-toc' | 'unicode';
     defaultFormat: [number, number];
     availableFormats: DeviceRecordingFormat[];
 }

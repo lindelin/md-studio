@@ -1,10 +1,15 @@
 import type { DeviceRecordingProfile } from './contracts';
 import type { Codec, MinidiscSpec } from '../services/interfaces/netmd';
+import {
+    sanitizeFullWidthTitle as sanitizeNetMDFullWidthTitle,
+    sanitizeHalfWidthTitle as sanitizeNetMDHalfWidthTitle,
+} from 'netmd-js/dist/utils';
 
 export function createDeviceRecordingProfile(spec: MinidiscSpec): DeviceRecordingProfile {
     return {
         specName: spec.specName,
         measurementUnits: spec.measurementUnits,
+        titleStorage: spec.titleStorage,
         defaultFormat: [...spec.defaultFormat],
         availableFormats: spec.availableFormats.map((format) => ({
             ...format,
@@ -29,4 +34,12 @@ export function getRecordingCodec(profile: DeviceRecordingProfile, index: [numbe
 
 export function getDefaultRecordingFormat(profile: DeviceRecordingProfile) {
     return profile.availableFormats[profile.defaultFormat[0]] ?? null;
+}
+
+export function sanitizeDeviceHalfWidthTitle(profile: DeviceRecordingProfile | undefined, title: string) {
+    return profile?.titleStorage === 'netmd-toc' ? sanitizeNetMDHalfWidthTitle(title) : title;
+}
+
+export function sanitizeDeviceFullWidthTitle(profile: DeviceRecordingProfile | undefined, title: string) {
+    return profile?.titleStorage === 'netmd-toc' ? sanitizeNetMDFullWidthTitle(title) : title;
 }

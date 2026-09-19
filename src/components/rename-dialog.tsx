@@ -12,7 +12,6 @@ import {
     renameInConvertDialogHiMD,
     renameInSongRecognitionDialog,
 } from '../redux/actions';
-import serviceRegistry from '../services/registry';
 
 import { makeStyles } from 'tss-react/mui';
 import Dialog from '@mui/material/Dialog';
@@ -26,6 +25,8 @@ import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
 import { W95RenameDialog } from './win95/rename-dialog';
 import { Capability } from '../services/interfaces/netmd';
+import { useApplicationWorkspace } from './use-application-client';
+import { sanitizeDeviceFullWidthTitle } from '../application/device-profile';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
@@ -49,7 +50,7 @@ const nameMap: { [key in RenameType]: string } = {
     [RenameType.SONG_RECOGNITION_TITLE]: 'Track',
 };
 
-export const RenameDialog = (props: {}) => {
+export const RenameDialog = () => {
     const dispatch = useDispatch();
     const { classes } = useStyles();
 
@@ -140,7 +141,7 @@ export const RenameDialog = (props: {}) => {
         handleCancelRename(); // Close the dialog
     }, [dispatch, handleCancelRename, renameType, title, fullWidthTitle, index, himdTitle, himdArtist, himdAlbum]);
 
-    const minidiscSpec = serviceRegistry.netmdSpec!;
+    const recordingProfile = useApplicationWorkspace().device?.recording;
 
     const handleChange = useCallback(
         (event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
@@ -152,10 +153,12 @@ export const RenameDialog = (props: {}) => {
     const handleFullWidthChange = useCallback(
         (event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
             dispatch(
-                renameDialogActions.setCurrentFullWidthName(minidiscSpec.sanitizeFullWidthTitle(event.target.value.substring(0, 105)))
+                renameDialogActions.setCurrentFullWidthName(
+                    sanitizeDeviceFullWidthTitle(recordingProfile, event.target.value.substring(0, 105))
+                )
             );
         },
-        [dispatch, minidiscSpec]
+        [dispatch, recordingProfile]
     );
 
     const handleEnterKeyEvent = useCallback(
@@ -170,16 +173,16 @@ export const RenameDialog = (props: {}) => {
     );
 
     const handleSwitchToFullWidth = useCallback(
-        (event: React.MouseEvent) => {
+        () => {
             dispatch(
                 batchActions([
                     appActions.setFullWidthSupport(true),
-                    renameDialogActions.setCurrentFullWidthName(minidiscSpec.sanitizeFullWidthTitle(title)),
+                    renameDialogActions.setCurrentFullWidthName(sanitizeDeviceFullWidthTitle(recordingProfile, title)),
                     renameDialogActions.setCurrentName(''),
                 ])
             );
         },
-        [title, dispatch, minidiscSpec]
+        [title, dispatch, recordingProfile]
     );
 
     // HIMD:

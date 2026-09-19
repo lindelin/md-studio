@@ -18,6 +18,7 @@ function makeApplication() {
                 recording: {
                     specName: 'MD',
                     measurementUnits: 'frames',
+                    titleStorage: 'netmd-toc',
                     defaultFormat: [0, 0],
                     availableFormats: [
                         { codec: 'SPS', defaultBitrate: 292, availableBitrates: [292], secondsPerDefaultUnit: 1 },

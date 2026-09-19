@@ -30,6 +30,8 @@ import TableRow from '@mui/material/TableRow';
 import { Capability } from '../services/interfaces/netmd';
 import serviceRegistry from '../services/registry';
 import { LineInDeviceSelect } from './line-in-helpers';
+import { useApplicationWorkspace } from './use-application-client';
+import { sanitizeDeviceFullWidthTitle, sanitizeDeviceHalfWidthTitle } from '../application/device-profile';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
@@ -122,13 +124,14 @@ const useStyles = makeStyles()((theme) => ({
     },
 }));
 
-export const SongRecognitionDialog = (props: {}) => {
+export const SongRecognitionDialog = () => {
     const dispatch = useDispatch();
     const { classes } = useStyles();
 
     const { visible, titles, titleFormat, importMethod } = useShallowEqualSelector((state) => state.songRecognitionDialog);
     const { fullWidthSupport } = useShallowEqualSelector((state) => state.appState);
     const { deviceCapabilities, disc } = useShallowEqualSelector((state) => state.main);
+    const recordingProfile = useApplicationWorkspace().device?.recording;
 
     // Line in section
     const [inputDeviceId, setInputDeviceId] = useState<string>('');
@@ -244,14 +247,12 @@ export const SongRecognitionDialog = (props: {}) => {
         const newArray = [...titles];
         for (let i = 0; i < newArray.length; i++) {
             const title = newArray[i];
-            const minidiscSpec = serviceRegistry.netmdSpec!;
-
             let halfWidth, fullWidth;
             let newRawTitle;
             if (title.manualOverrideNewTitle || title.manualOverrideNewFullWidthTitle) {
                 newRawTitle = title.manualOverrideNewTitle;
-                halfWidth = minidiscSpec.sanitizeHalfWidthTitle(title.manualOverrideNewTitle);
-                fullWidth = minidiscSpec.sanitizeFullWidthTitle(title.manualOverrideNewFullWidthTitle);
+                halfWidth = sanitizeDeviceHalfWidthTitle(recordingProfile, title.manualOverrideNewTitle);
+                fullWidth = sanitizeDeviceFullWidthTitle(recordingProfile, title.manualOverrideNewFullWidthTitle);
             } else {
                 switch (titleFormat) {
                     case 'title': {
@@ -276,11 +277,11 @@ export const SongRecognitionDialog = (props: {}) => {
                     }
                 }
 
-                halfWidth = minidiscSpec.sanitizeHalfWidthTitle(newRawTitle);
-                fullWidth = minidiscSpec.sanitizeFullWidthTitle(newRawTitle);
+                halfWidth = sanitizeDeviceHalfWidthTitle(recordingProfile, newRawTitle);
+                fullWidth = sanitizeDeviceFullWidthTitle(recordingProfile, newRawTitle);
             }
 
-            if (minidiscSpec.sanitizeHalfWidthTitle(fullWidth) === halfWidth) fullWidth = ''; // Save space - if the titles are the same, don't write full width
+            if (sanitizeDeviceHalfWidthTitle(recordingProfile, fullWidth) === halfWidth) fullWidth = ''; // Save space - if the titles are the same, don't write full width
 
             changed = changed || title.newFullWidthTitle !== fullWidth || title.newTitle !== halfWidth;
             newArray[i] = {
@@ -292,7 +293,7 @@ export const SongRecognitionDialog = (props: {}) => {
         }
 
         if (changed) dispatch(songRecognitionDialogActions.setTitles(newArray));
-    }, [dispatch, titleFormat, titles]);
+    }, [dispatch, recordingProfile, titleFormat, titles]);
 
     useEffect(() => {
         if (!disc) handleClose();
@@ -377,7 +378,7 @@ export const SongRecognitionDialog = (props: {}) => {
                     </TableHead>
                     <TableBody>
                         {titles.map((title) => (
-                            <TableRow hover key={`title-${title.index}`} onClick={(e) => handleToggleRecognize(title.index)}>
+                            <TableRow hover key={`title-${title.index}`} onClick={() => handleToggleRecognize(title.index)}>
                                 <TableCell>
                                     <Checkbox checked={title.selectedToRecognize} />
                                 </TableCell>

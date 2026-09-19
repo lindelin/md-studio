@@ -143,6 +143,7 @@ export interface MinidiscSpec {
     readonly defaultFormat: [number, number]; // [availableFormatsIndex, bitrateIndex]
     readonly specName: string;
     readonly measurementUnits: 'bytes' | 'frames';
+    readonly titleStorage: 'netmd-toc' | 'unicode';
     sanitizeHalfWidthTitle(title: string): string;
     sanitizeFullWidthTitle(title: string): string;
     getRemainingCharactersForTitles(disc: Disc): { halfWidth: number; fullWidth: number };
@@ -189,6 +190,7 @@ export class DefaultMinidiscSpec implements MinidiscSpec {
     public readonly defaultFormat = [0, 0] as [number, number];
     public readonly specName = 'MD';
     public readonly measurementUnits = 'frames';
+    public readonly titleStorage = 'netmd-toc';
 
     sanitizeHalfWidthTitle(title: string): string {
         return sanitizeHalfWidthTitle(title);

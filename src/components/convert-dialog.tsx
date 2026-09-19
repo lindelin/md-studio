@@ -71,7 +71,13 @@ import { formatImportTitle } from '../application/import-title';
 import { inspectImportFiles, type InspectedImportFile } from '../application/audio-import-inspector';
 import type { ApplicationCommand } from '../application/command-bus';
 import type { ImportQueueSnapshot } from '../application/import-queue';
-import { createDeviceRecordingProfile, getDefaultRecordingFormat, getRecordingCodec } from '../application/device-profile';
+import {
+    createDeviceRecordingProfile,
+    getDefaultRecordingFormat,
+    getRecordingCodec,
+    sanitizeDeviceFullWidthTitle,
+    sanitizeDeviceHalfWidthTitle,
+} from '../application/device-profile';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
@@ -343,6 +349,13 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
         return defaultFormat?.userFriendlyName ?? defaultFormat?.codec ?? '';
     }, [recordingProfile]);
     const isUsingFrames = recordingProfile.measurementUnits === 'frames';
+    const titleSanitizer = useMemo(
+        () => ({
+            sanitizeHalfWidthTitle: (title: string) => sanitizeDeviceHalfWidthTitle(recordingProfile, title),
+            sanitizeFullWidthTitle: (title: string) => sanitizeDeviceFullWidthTitle(recordingProfile, title),
+        }),
+        [recordingProfile]
+    );
 
     const loadMetadataFromFiles = useMemo(
         () =>
@@ -390,7 +403,7 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
                         changes: formatImportTitle(
                             file,
                             selectedFormat,
-                            minidiscSpec,
+                            titleSanitizer,
                             allowFullWidth && deviceSupportsFullWidth
                         ),
                     };
@@ -398,7 +411,7 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
                 expectedRevision,
             });
         },
-        [deviceSupportsFullWidth, fullWidthSupport, minidiscSpec]
+        [deviceSupportsFullWidth, fullWidthSupport, titleSanitizer]
     );
 
     const addInspectedFiles = useCallback(

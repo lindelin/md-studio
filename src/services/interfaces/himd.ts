@@ -60,6 +60,7 @@ export class HiMDSpec implements MinidiscSpec {
         { codec: 'PCM', availableBitrates: [1411], defaultBitrate: 1411 },
     ];
     public readonly measurementUnits = 'bytes';
+    public readonly titleStorage = 'unicode';
     public defaultFormat = [0, 1] as [number, number];
     public specName: string;
 
