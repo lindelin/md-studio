@@ -46,6 +46,14 @@ function makeGateway() {
                     'disc.formatHimd',
                     'advanced.factory',
                 ],
+                recording: {
+                    specName: 'MD',
+                    measurementUnits: 'frames',
+                    defaultFormat: [0, 0],
+                    availableFormats: [
+                        { codec: 'SPS', defaultBitrate: 292, availableBitrates: [292], secondsPerDefaultUnit: 1 },
+                    ],
+                },
                 disc: status.discPresent ? structuredClone(disc) : null,
             };
         },
@@ -202,6 +210,14 @@ describe('MiniDiscApplication', () => {
                 deviceName: 'MockMD',
                 status: { discPresent: false, canBeFlushed: false, state: 'stopped', track: 0 } as any,
                 capabilities: ['content.read'] as any,
+                recording: {
+                    specName: 'MD',
+                    measurementUnits: 'frames',
+                    defaultFormat: [0, 0],
+                    availableFormats: [
+                        { codec: 'SPS', defaultBitrate: 292, availableBitrates: [292], secondsPerDefaultUnit: 1 },
+                    ],
+                },
                 disc: null,
             };
         };

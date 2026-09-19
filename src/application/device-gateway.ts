@@ -17,6 +17,7 @@ import {
     type NetMDFactoryService,
     type NetMDService,
 } from '../services/interfaces/netmd';
+import { createDeviceRecordingProfile } from './device-profile';
 
 const capabilityNames: Record<Capability, ApplicationCapability> = {
     [Capability.contentList]: 'content.read',
@@ -43,7 +44,7 @@ export class NetMDDeviceGateway implements DeviceGateway {
         const deviceName = await this.service.getDeviceName();
         const capabilities = (await this.service.getServiceCapabilities()).map((capability) => capabilityNames[capability]);
         const disc = status.discPresent ? await this.service.listContent(dropCache) : null;
-        return { deviceName, status, capabilities, disc };
+        return { deviceName, status, capabilities, recording: createDeviceRecordingProfile(this.spec), disc };
     }
 
     readStatus() {

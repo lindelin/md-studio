@@ -15,6 +15,14 @@ function makeApplication() {
                 deviceName: 'MockMD',
                 status: { discPresent: true, canBeFlushed: false, state: 'stopped' } as any,
                 capabilities: ['content.read', 'metadata.edit'],
+                recording: {
+                    specName: 'MD',
+                    measurementUnits: 'frames',
+                    defaultFormat: [0, 0],
+                    availableFormats: [
+                        { codec: 'SPS', defaultBitrate: 292, availableBitrates: [292], secondsPerDefaultUnit: 1 },
+                    ],
+                },
                 disc: {
                     title,
                     fullWidthTitle: '',

@@ -12,12 +12,14 @@ import FolderIcon from '@mui/icons-material/Folder';
 import DeleteIcon from '@mui/icons-material/Delete';
 
 import { DraggableProvided } from 'react-beautiful-dnd';
-import { Track, Group, getDefaultCodec } from '../services/interfaces/netmd';
+import { Track, Group } from '../services/interfaces/netmd';
 import { formatTimeFromSeconds, secondsToHumanReadable } from '../utils';
 
-import serviceRegistry from '../services/registry';
 import { alpha, lighten } from '@mui/material';
 import { useDeviceCapabilities } from '../frontend-utils';
+import { useApplicationWorkspace } from './use-application-client';
+import { getDefaultRecordingFormat } from '../application/device-profile';
+import type { DeviceRecordingProfile } from '../application/contracts';
 
 const useStyles = makeStyles<
     void,
@@ -212,10 +214,10 @@ export function TrackRow({
     onTogglePlayPause,
     onOpenContextMenu,
 }: TrackRowProps) {
-    const minidiscSpec = serviceRegistry.netmdSpec;
-    const formatInfo = minidiscSpec!.availableFormats.find(
+    const recordingProfile = useApplicationWorkspace().device?.recording;
+    const formatInfo = recordingProfile?.availableFormats.find(
         (e) => e.codec === track.encoding.codec && e.availableBitrates.includes(track.encoding.bitrate)
-    )!;
+    );
     const { classes, cx } = useStyles();
 
     const deviceCapabilities = useDeviceCapabilities();
@@ -288,7 +290,7 @@ export function TrackRow({
             )}
             <TableCell align="right" className={classes.durationCell}>
                 {track.channel === 1 && <span className={classes.channelBadge}>MONO</span>}
-                {((!formatInfo) || formatInfo.availableBitrates.length > 1) ? (
+                {!formatInfo || formatInfo.availableBitrates.length > 1 ? (
                     <Tooltip title={`${track.encoding.bitrate!} kbps`}>
                         <span className={classes.formatBadge}>{track.encoding.codec}</span>
                     </Tooltip>
@@ -365,25 +367,19 @@ export function GroupRow({ group, usesHimdTracks, onRename, onDelete, onSelect, 
     );
 }
 
-export function LeftInNondefaultCodecs(timeLeft: number) {
-    const minidiscSpec = serviceRegistry.netmdSpec;
-    if (!minidiscSpec) {
+export function LeftInNondefaultCodecs(timeLeft: number, recordingProfile?: DeviceRecordingProfile) {
+    if (!recordingProfile) {
         return <></>;
     }
+    const defaultFormat = getDefaultRecordingFormat(recordingProfile);
     return (
         <React.Fragment>
-            {minidiscSpec.availableFormats.map((e, i) =>
-                e.codec === getDefaultCodec(minidiscSpec).codec ? null : (
-                    <React.Fragment key={`total-${e.codec}-${i}`}>
+            {recordingProfile.availableFormats.map((format, index) =>
+                format.codec === defaultFormat?.codec || format.secondsPerDefaultUnit === undefined ? null : (
+                    <React.Fragment key={`total-${format.codec}-${index}`}>
                         <span>{`${secondsToHumanReadable(
-                            minidiscSpec.translateDefaultMeasuringModeTo(
-                                {
-                                    codec: e.codec,
-                                    bitrate: e.defaultBitrate,
-                                },
-                                timeLeft
-                            )
-                        )} in ${e.userFriendlyName ?? e.codec} Mode`}</span>
+                            format.secondsPerDefaultUnit * timeLeft
+                        )} in ${format.userFriendlyName ?? format.codec} Mode`}</span>
                         <br />
                     </React.Fragment>
                 )

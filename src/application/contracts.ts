@@ -1,4 +1,4 @@
-import type { Disc, DeviceStatus, Group } from '../services/interfaces/netmd';
+import type { Disc, DeviceStatus, Group, RecordingCodec } from '../services/interfaces/netmd';
 
 export type ApplicationCapability =
     | 'content.read'
@@ -13,12 +13,24 @@ export type ApplicationCapability =
     | 'track.uploadMono'
     | 'disc.formatHimd';
 
+export interface DeviceRecordingFormat extends RecordingCodec {
+    secondsPerDefaultUnit?: number;
+}
+
+export interface DeviceRecordingProfile {
+    specName: string;
+    measurementUnits: 'bytes' | 'frames';
+    defaultFormat: [number, number];
+    availableFormats: DeviceRecordingFormat[];
+}
+
 export interface DeviceSnapshot {
     sessionId: string;
     revision: number;
     deviceName: string;
     status: DeviceStatus;
     capabilities: ApplicationCapability[];
+    recording: DeviceRecordingProfile;
     disc: Disc | null;
 }
 

@@ -31,6 +31,14 @@ describe('BrowserTrackExporter', () => {
                         deviceName: 'Test device',
                         status: { discPresent: true },
                         capabilities: ['track.download'],
+                        recording: {
+                            specName: 'MD',
+                            measurementUnits: 'frames',
+                            defaultFormat: [0, 0],
+                            availableFormats: [
+                                { codec: 'SPS', defaultBitrate: 292, availableBitrates: [292], secondsPerDefaultUnit: 1 },
+                            ],
+                        },
                         disc: {
                             title: 'Disc',
                             fullWidthTitle: null,

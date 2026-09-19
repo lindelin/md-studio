@@ -70,7 +70,7 @@ import Button from '@mui/material/Button';
 import { W95Main } from './win95/main';
 import { useMemo } from 'react';
 import { ChangelogDialog } from './changelog-dialog';
-import { getDefaultCodecName, Track } from '../services/interfaces/netmd';
+import { Track } from '../services/interfaces/netmd';
 import { FactoryModeNoticeDialog } from './factory/factory-notice-dialog';
 import { FactoryModeProgressDialog } from './factory/factory-progress-dialog';
 import { SongRecognitionDialog } from './song-recognition-dialog';
@@ -81,7 +81,8 @@ import { DiscProtectedDialog } from './disc-protected-dialog';
 import { ContextMenu } from './context-menu';
 import { LocalLibraryDialog } from './local-library';
 import { Menu, MenuItem } from '@mui/material';
-import serviceRegistry from '../services/registry';
+import { useApplicationWorkspace } from './use-application-client';
+import { getDefaultRecordingFormat } from '../application/device-profile';
 
 // TODO jss-to-tss-react codemod: Unable to handle style definition reliably. Unsupported arrow function syntax.
 //Unexpected value type of ConditionalExpression.
@@ -201,7 +202,7 @@ export const Main = () => {
     const [showRemainingSpace, setShowRemainingSpace] = useState(true);
 
     const deviceCapabilities = useDeviceCapabilities();
-    const minidiscSpec = serviceRegistry.netmdSpec;
+    const recordingProfile = useApplicationWorkspace().device?.recording;
 
     const handleShowMoveMenu = useCallback(
         (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -281,7 +282,8 @@ export const Main = () => {
     const { classes, cx } = useStyles();
     const tracks = useMemo(() => getSortedTracks(disc), [disc]);
     const groupedTracks = useMemo(() => getGroupedTracks(disc), [disc]);
-    const defaultCodecName = minidiscSpec ? getDefaultCodecName(minidiscSpec) : '';
+    const defaultRecordingFormat = recordingProfile ? getDefaultRecordingFormat(recordingProfile) : null;
+    const defaultCodecName = defaultRecordingFormat?.userFriendlyName ?? defaultRecordingFormat?.codec ?? '';
 
     // Action Handlers
     const handleSelectTrackClick = useCallback(
@@ -519,7 +521,7 @@ export const Main = () => {
             selected,
             setSelected,
             selectedCount,
-            isUsingBytes: minidiscSpec?.measurementUnits == 'bytes',
+            isUsingBytes: recordingProfile?.measurementUnits === 'bytes',
 
             tracks,
             uploadedFiles,
@@ -583,10 +585,10 @@ export const Main = () => {
                         <span className={classes.clickableRemainingTime} onClick={() => setShowRemainingSpace((x) => !x)}>
                             {showRemainingSpace ? (
                                 <>
-                                    {minidiscSpec?.measurementUnits === 'frames' ? (
+                                    {recordingProfile?.measurementUnits === 'frames' ? (
                                         <>
                                             <span>{`${formatTimeFromSeconds(disc.left)} left of ${formatTimeFromSeconds(disc.total)} `}</span>
-                                            <Tooltip title={LeftInNondefaultCodecs(disc.left)} arrow>
+                                            <Tooltip title={LeftInNondefaultCodecs(disc.left, recordingProfile)} arrow>
                                                 <span className={classes.remainingTimeTooltip}>{defaultCodecName} Mode</span>
                                             </Tooltip>
                                         </>
@@ -598,7 +600,7 @@ export const Main = () => {
                                 </>
                             ) : (
                                 <>
-                                    {minidiscSpec?.measurementUnits === 'frames' ? (
+                                    {recordingProfile?.measurementUnits === 'frames' ? (
                                         <>
                                             <span>
                                                 {`${formatTimeFromSeconds(disc.used)} of ${formatTimeFromSeconds(disc.total)} `}{' '}
