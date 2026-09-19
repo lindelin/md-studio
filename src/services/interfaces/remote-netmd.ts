@@ -95,29 +95,29 @@ export class NetMDRemoteService extends NetMDService {
             const url = new URL(`${this.server}/${path}`);
             let body = undefined;
             let headers = {};
-            if (parameters) {
-                for (const key in parameters) {
-                    if (parameters[key] === undefined) delete parameters[key];
-                }
-            }
+            const definedParameters = Object.fromEntries(
+                Object.entries(parameters ?? {}).filter(([, value]) => value !== undefined)
+            );
             if (method === 'GET') {
-                url.search = new URLSearchParams(parameters).toString();
+                url.search = new URLSearchParams(definedParameters).toString();
             } else {
-                body = JSON.stringify(parameters);
+                body = JSON.stringify(definedParameters);
                 headers = {
                     'Content-Type': 'application/json',
                 };
             }
-            const jsonData = await (await fetch(url.toString(), { method, body, headers })).json();
+            const response = await fetch(url.toString(), { method, body, headers, signal: AbortSignal.timeout(30_000) });
+            if (!response.ok) throw new Error(`Remote NetMD request ${path || '/'} failed with HTTP ${response.status}.`);
+            const jsonData = await response.json();
             if (jsonData.ok) {
                 return jsonData.value;
             } else {
                 this.logger?.error({ method: path, jsonData });
-                return null;
+                throw new Error(jsonData.error?.message ?? `Remote NetMD request ${path || '/'} was rejected.`);
             }
         } catch (ex) {
             this.logger?.error({ method: 'GENERIC', ex });
-            return null;
+            throw ex;
         }
     }
 
@@ -194,6 +194,7 @@ export class NetMDRemoteService extends NetMDService {
 
     @asyncMutex
     async moveTrack(src: number, dst: number, updateGroups?: boolean) {
+        void updateGroups;
         return await this.getFromServer('moveTrack', { src, dst });
     }
 
@@ -300,6 +301,8 @@ export class NetMDRemoteService extends NetMDService {
 
     @asyncMutex
     async download(index: number, progressCallback: (progress: { read: number; total: number }) => void) {
+        void index;
+        void progressCallback;
         return null;
     }
 

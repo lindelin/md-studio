@@ -269,6 +269,9 @@ export abstract class NetMDService {
     async formatToHiMD(): Promise<void> {}
     // Required in HiMD api:
     async fetchPartOfTrack(index: number, startSeconds: number, lengthSeconds: number): Promise<Uint8Array | null> {
+        void index;
+        void startSeconds;
+        void lengthSeconds;
         return null;
     }
 }
@@ -527,17 +530,14 @@ export class NetMDUSBService extends NetMDService {
     async rewriteGroups(groups: Group[]) {
         const disc = await this.listContentUsingCache();
         disc.groups = groups;
-        this.cachedContentList = disc;
+        this.dropCachedContentList();
         await rewriteDiscGroups(this.netmdInterface!, convertDiscToNJS(disc));
+        this.cachedContentList = disc;
     }
 
     @asyncMutex
     async renameTrack(index: number, title: string, fullWidthTitle?: string) {
         title = sanitizeHalfWidthTitle(title);
-        await this.netmdInterface!.setTrackTitle(index, title);
-        if (fullWidthTitle !== undefined) {
-            await this.netmdInterface!.setTrackTitle(index, sanitizeFullWidthTitle(fullWidthTitle), true);
-        }
         const disc = await this.listContentUsingCache();
         for (const group of disc.groups) {
             for (const track of group.tracks) {
@@ -548,6 +548,11 @@ export class NetMDUSBService extends NetMDService {
                     }
                 }
             }
+        }
+        this.dropCachedContentList();
+        await this.netmdInterface!.setTrackTitle(index, title);
+        if (fullWidthTitle !== undefined) {
+            await this.netmdInterface!.setTrackTitle(index, sanitizeFullWidthTitle(fullWidthTitle), true);
         }
         this.cachedContentList = disc;
     }
@@ -564,8 +569,9 @@ export class NetMDUSBService extends NetMDService {
         if (newFullWidthName !== undefined) {
             thisGroup.fullWidthTitle = newFullWidthName;
         }
-        this.cachedContentList = disc;
+        this.dropCachedContentList();
         await rewriteDiscGroups(this.netmdInterface!, convertDiscToNJS(disc));
+        this.cachedContentList = disc;
     }
 
     @asyncMutex
@@ -596,8 +602,9 @@ export class NetMDUSBService extends NetMDService {
             tracks: thisGroupTracks,
         });
         disc.groups = disc.groups.filter((g) => g.tracks.length !== 0).sort((a, b) => a.tracks[0].index - b.tracks[0].index);
-        this.cachedContentList = disc;
+        this.dropCachedContentList();
         await rewriteDiscGroups(this.netmdInterface!, convertDiscToNJS(disc));
+        this.cachedContentList = disc;
     }
 
     @asyncMutex
@@ -621,18 +628,20 @@ export class NetMDUSBService extends NetMDService {
             ungroupedGroup.tracks.sort((a, b) => a.index - b.index);
         }
 
-        this.cachedContentList = disc;
+        this.dropCachedContentList();
         await rewriteDiscGroups(this.netmdInterface!, convertDiscToNJS(disc));
+        this.cachedContentList = disc;
     }
 
     @asyncMutex
     async renameDisc(newName: string, newFullWidthName?: string) {
-        await renameDisc(this.netmdInterface!, newName, newFullWidthName);
         const disc = await this.listContentUsingCache();
         disc.title = newName;
         if (newFullWidthName !== undefined) {
             disc.fullWidthTitle = newFullWidthName;
         }
+        this.dropCachedContentList();
+        await renameDisc(this.netmdInterface!, newName, newFullWidthName);
         this.cachedContentList = disc;
     }
 
@@ -644,6 +653,7 @@ export class NetMDUSBService extends NetMDService {
         indexes = indexes.sort((a, b) => a - b);
         indexes.reverse();
         let content = await this.listContentUsingCache();
+        this.dropCachedContentList();
         for (const index of indexes) {
             // Attempt to get panasonics working correctly (MyNameIsX)
             await this.netmdInterface?.getTrackTitle(index, false);
@@ -653,7 +663,6 @@ export class NetMDUSBService extends NetMDService {
             await sleep(100);
         }
         await rewriteDiscGroups(this.netmdInterface!, convertDiscToNJS(content));
-        this.dropCachedContentList();
     }
 
     @asyncMutex
@@ -688,10 +697,10 @@ export class NetMDUSBService extends NetMDService {
 
     @asyncMutex
     async moveTrack(src: number, dst: number, updateGroups?: boolean) {
-        await this.netmdInterface!.moveTrack(src, dst);
-
         const content = await this.listContentUsingCache();
         const movedContent = recomputeGroupsAfterTrackMove(content, src, dst);
+        this.dropCachedContentList();
+        await this.netmdInterface!.moveTrack(src, dst);
         if (updateGroups === undefined || updateGroups) {
             await rewriteDiscGroups(this.netmdInterface!, convertDiscToNJS(movedContent));
         }
@@ -863,9 +872,9 @@ class NetMDFactoryUSBService implements NetMDFactoryService {
             Object.defineProperty(window, 'tocmanip', { value: netmdTocmanip, configurable: true });
             Object.defineProperty(window, 'getToC', {
                 value: async () => {
-                    let sector0 = await this.readUTOCSector(0);
-                    let sector1 = await this.readUTOCSector(1);
-                    let sector2 = await this.readUTOCSector(2);
+                    const sector0 = await this.readUTOCSector(0);
+                    const sector1 = await this.readUTOCSector(1);
+                    const sector2 = await this.readUTOCSector(2);
                     return netmdTocmanip.parseTOC(sector0, sector1, sector2);
                 },
                 configurable: true,
