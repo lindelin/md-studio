@@ -1,11 +1,16 @@
 import serviceRegistry from '../services/registry';
-import { Capability, getDefaultCodec, type Codec } from '../services/interfaces/netmd';
+import { Capability, type Codec } from '../services/interfaces/netmd';
 import type { TitledFile } from '../utils';
 import { ApplicationError } from './contracts';
 import { createDeferredFile, isAdaptiveFile, isDeferredFile } from './deferred-file';
 import type { ImportQueue, ImportWriteRequest, ImportWriter } from './import-queue';
 import type { TaskManager } from './task-manager';
-import { assertDiscWritableForImport, assertImportDeviceVersion, assertImportWritePolicy } from './import-write-policy';
+import {
+    assertDiscWritableForImport,
+    assertImportDeviceVersion,
+    assertImportPreviewWritable,
+    assertImportWritePolicy,
+} from './import-write-policy';
 import { INTERACTIVE_HOMEBREW_AUTHORIZATION } from './interactive-authorization';
 
 export interface BrowserImportWriterDependencies {
@@ -13,7 +18,8 @@ export interface BrowserImportWriterDependencies {
         files: TitledFile[],
         format: Codec,
         parameters: { enableReplayGain: boolean; enableGapless: boolean },
-        taskId: string
+        taskId: string,
+        deviceVersion: { sessionId: string; revision: number }
     ): Promise<void>;
     showImportDialog(): void;
 }
@@ -23,10 +29,9 @@ export class BrowserImportWriter implements ImportWriter {
 
     async start(request: ImportWriteRequest, queue: ImportQueue, tasks: TaskManager) {
         const selected = queue.resolveSelection(request.ids, request.expectedRevision);
-        const spec = serviceRegistry.netmdSpec;
         const service = serviceRegistry.netmdService;
         const application = serviceRegistry.application;
-        if (!spec || !service || !application) {
+        if (!service || !application) {
             throw new ApplicationError('NO_DISC', 'Connect a MiniDisc device before starting a write task.');
         }
         const device = application.readSnapshot() ?? (await application.refresh());
@@ -38,7 +43,14 @@ export class BrowserImportWriter implements ImportWriter {
         );
         assertDiscWritableForImport(device.disc);
 
-        const format = this.resolveFormat(request.format, spec);
+        const preview = await application.previewImports(
+            selected.map(({ item }) => item),
+            request.expectedRevision ?? queue.snapshot().revision,
+            request.format,
+            request.expectedDeviceRevision
+        );
+        assertImportPreviewWritable(preview);
+        const format = preview.selectedFormat;
         const capabilities = await service.getServiceCapabilities();
         assertImportWritePolicy({
             selected,
@@ -55,7 +67,15 @@ export class BrowserImportWriter implements ImportWriter {
             'tracks'
         );
         tasks.start(task.id, 'preparing');
-        void this.run(task.id, selected, request, format, queue, tasks);
+        void this.run(
+            task.id,
+            selected,
+            request,
+            format,
+            { sessionId: device.sessionId, revision: device.revision },
+            queue,
+            tasks
+        );
         return tasks.get(task.id);
     }
 
@@ -64,6 +84,7 @@ export class BrowserImportWriter implements ImportWriter {
         selected: ReturnType<ImportQueue['resolveSelection']>,
         request: ImportWriteRequest,
         format: Codec,
+        deviceVersion: { sessionId: string; revision: number },
         queue: ImportQueue,
         tasks: TaskManager
     ) {
@@ -99,7 +120,8 @@ export class BrowserImportWriter implements ImportWriter {
                     enableReplayGain: request.enableReplayGain ?? false,
                     enableGapless: request.enableGapless ?? false,
                 },
-                taskId
+                taskId,
+                deviceVersion
             );
 
             const finalTask = tasks.get(taskId);
@@ -114,16 +136,4 @@ export class BrowserImportWriter implements ImportWriter {
             this.dependencies.showImportDialog();
         }
     }
-
-    private resolveFormat(requested: ImportWriteRequest['format'], spec: NonNullable<typeof serviceRegistry.netmdSpec>) {
-        if (!requested) return getDefaultCodec(spec);
-        const supported = spec.availableFormats.some(
-            (format) => format.codec === requested.codec && format.availableBitrates.includes(requested.bitrate)
-        );
-        if (!supported) {
-            throw new ApplicationError('INVALID_INPUT', `Recording format ${requested.codec}/${requested.bitrate} is unavailable.`);
-        }
-        return requested as Codec;
-    }
-
 }

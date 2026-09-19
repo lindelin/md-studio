@@ -1,6 +1,7 @@
 import { ApplicationError } from './contracts';
 import type { ResolvedImportQueueItem } from './import-queue';
 import type { Disc } from '../services/interfaces/netmd';
+import type { ImportPreview } from './import-preview';
 
 export interface ImportWritePolicyInput {
     selected: ResolvedImportQueueItem[];
@@ -52,6 +53,29 @@ export function assertImportDeviceVersion(
         throw new ApplicationError('STALE_REVISION', 'The disc changed after this write was prepared.', {
             expectedRevision,
             actualRevision,
+        });
+    }
+}
+
+export function assertImportPreviewWritable(preview: ImportPreview) {
+    const unsupported = preview.issues.filter((issue) => issue.code === 'UNSUPPORTED_FORCED_FORMAT');
+    if (unsupported.length > 0) {
+        throw new ApplicationError('INVALID_INPUT', unsupported[0].message, {
+            issues: unsupported,
+        });
+    }
+    if (preview.capacity.remaining < 0) {
+        throw new ApplicationError('INVALID_INPUT', 'The queued tracks do not fit on the inserted MiniDisc.', {
+            required: preview.capacity.required,
+            available: preview.capacity.availableBefore,
+            remaining: preview.capacity.remaining,
+            measurementUnits: preview.measurementUnits,
+        });
+    }
+    if (!preview.titles.fits) {
+        throw new ApplicationError('INVALID_INPUT', 'The queued track titles exceed the MiniDisc title capacity.', {
+            halfWidthRemaining: preview.titles.halfWidthRemaining,
+            fullWidthRemaining: preview.titles.fullWidthRemaining,
         });
     }
 }

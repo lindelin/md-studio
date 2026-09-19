@@ -149,11 +149,12 @@ export function getApplicationClient() {
                     INTERACTIVE_ADVANCED_AUTHORIZATION,
                     operation
                 ),
-            (requiredExploitCapabilities, operation) =>
+            (requiredExploitCapabilities, operation, expectedDeviceVersion) =>
                 getApplicationRuntime().runDeviceUploadSession(
                     requiredExploitCapabilities,
                     requiredExploitCapabilities.length > 0 ? INTERACTIVE_ADVANCED_AUTHORIZATION : undefined,
-                    operation
+                    operation,
+                    expectedDeviceVersion
                 ),
             (filePath) => {
                 return serviceRegistry.libraryCatalog.createFileProcessor(filePath.split('/'));

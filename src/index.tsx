@@ -29,8 +29,8 @@ import { applyDeviceSnapshot } from './redux/application-adapter';
 serviceRegistry.mediaRecorderService = new MediaRecorderService();
 serviceRegistry.mediaSessionService = new BrowserMediaSessionService(store);
 serviceRegistry.importWriter = new BrowserImportWriter({
-    startUpload: async (files, format, parameters, taskId) => {
-        await store.dispatch(convertAndUpload(files, format, parameters, { taskId }));
+    startUpload: async (files, format, parameters, taskId, deviceVersion) => {
+        await store.dispatch(convertAndUpload(files, format, parameters, { taskId, deviceVersion }));
     },
     showImportDialog: () => {
         store.dispatch(convertDialogActions.setVisible(true));

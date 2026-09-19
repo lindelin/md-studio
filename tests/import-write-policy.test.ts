@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
     assertDiscWritableForImport,
     assertImportDeviceVersion,
+    assertImportPreviewWritable,
     assertImportWritePolicy,
 } from '../src/application/import-write-policy.ts';
 import type { ResolvedImportQueueItem } from '../src/application/import-queue.ts';
@@ -98,6 +99,61 @@ describe('import write policy', () => {
         assert.throws(
             () => assertImportDeviceVersion('session-a', 7, 'session-a', 8),
             (error: any) => error.code === 'STALE_REVISION' && error.details.actualRevision === 8
+        );
+    });
+
+    it('rejects definite preview failures while allowing unresolved durations to proceed', () => {
+        const base = {
+            deviceSessionId: 'session-a',
+            deviceRevision: 3,
+            importRevision: 4,
+            selectedIds: ['track-1'],
+            selectedFormat: { codec: 'AT3', bitrate: 132 },
+            measurementUnits: 'frames' as const,
+            items: [],
+            capacity: {
+                availableBefore: 100,
+                required: 20,
+                remaining: 80,
+                availableBeforeInSelectedFormat: 200,
+                remainingInSelectedFormat: 160,
+                fits: true,
+            },
+            titles: {
+                halfWidthBefore: 100,
+                fullWidthBefore: 100,
+                halfWidthRemaining: 90,
+                fullWidthRemaining: 90,
+                fits: true,
+            },
+        };
+        assert.doesNotThrow(() =>
+            assertImportPreviewWritable({
+                ...base,
+                complete: false,
+                issues: [{ id: 'track-1', code: 'MISSING_DURATION', message: 'Missing duration.' }],
+                capacity: { ...base.capacity, fits: false },
+            })
+        );
+        assert.throws(
+            () =>
+                assertImportPreviewWritable({
+                    ...base,
+                    complete: true,
+                    issues: [],
+                    capacity: { ...base.capacity, remaining: -1, remainingInSelectedFormat: -2, fits: false },
+                }),
+            /do not fit/
+        );
+        assert.throws(
+            () =>
+                assertImportPreviewWritable({
+                    ...base,
+                    complete: true,
+                    issues: [],
+                    titles: { ...base.titles, halfWidthRemaining: -1, fits: false },
+                }),
+            /title capacity/
         );
     });
 });

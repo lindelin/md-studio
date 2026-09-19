@@ -951,6 +951,7 @@ export function convertAndUpload(
         operationLockHeld?: boolean;
         preflightComplete?: boolean;
         advancedUploadService?: AdvancedUploadService;
+        deviceVersion?: { sessionId: string; revision: number };
     } = {}
 ) {
     return async function (dispatch: AppDispatch, getState: () => RootState): Promise<void> {
@@ -1051,13 +1052,16 @@ export function convertAndUpload(
             ].filter((value): value is string => Boolean(value));
             const client = getApplicationClient();
             try {
-                await client.runLocalDeviceUploadSession(requiredExploitCapabilities, (advancedUploadService) =>
-                    convertAndUpload(files, format, additionalParameters, {
-                        ...options,
-                        operationLockHeld: true,
-                        preflightComplete: true,
-                        advancedUploadService,
-                    })(dispatch, getState)
+                await client.runLocalDeviceUploadSession(
+                    requiredExploitCapabilities,
+                    (advancedUploadService) =>
+                        convertAndUpload(files, format, additionalParameters, {
+                            ...options,
+                            operationLockHeld: true,
+                            preflightComplete: true,
+                            advancedUploadService,
+                        })(dispatch, getState),
+                    options.deviceVersion
                 );
             } finally {
                 const snapshot = client.getWorkspaceSnapshot().device;

@@ -709,6 +709,19 @@ describe('MiniDiscApplication', () => {
         });
         await application.refresh();
 
+        await assert.rejects(
+            () => application.runDeviceUploadSession([], undefined, async () => 'unexpected', { sessionId: 'other', revision: 0 }),
+            (error: any) => error.code === 'STALE_REVISION'
+        );
+        await assert.rejects(
+            () =>
+                application.runDeviceUploadSession([], undefined, async () => 'unexpected', {
+                    sessionId: application.sessionId,
+                    revision: 1,
+                }),
+            (error: any) => error.code === 'STALE_REVISION'
+        );
+
         const result = await application.runDeviceUploadSession(
             ['uploadAtrac1', 'uploadMonoSP'],
             INTERACTIVE_ADVANCED_AUTHORIZATION,
@@ -717,7 +730,8 @@ describe('MiniDiscApplication', () => {
                 await service!.uploadSP('Track', '', true, new ArrayBuffer(1), () => {});
                 await service!.enableMonoUpload(false);
                 return 'written';
-            }
+            },
+            { sessionId: application.sessionId, revision: 0 }
         );
 
         assert.equal(result.value, 'written');

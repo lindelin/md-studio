@@ -333,9 +333,17 @@ export class MiniDiscApplication {
     runDeviceUploadSession<T>(
         requiredExploitCapabilities: string[],
         interactiveAuthorization: typeof INTERACTIVE_ADVANCED_AUTHORIZATION | undefined,
-        operation: (advancedUploadService?: AdvancedUploadService) => Promise<T>
+        operation: (advancedUploadService?: AdvancedUploadService) => Promise<T>,
+        expectedDeviceVersion?: { sessionId: string; revision: number }
     ): Promise<{ value: T; snapshot: DeviceSnapshot }> {
         return this.serial(async () => {
+            if (expectedDeviceVersion?.sessionId !== undefined && expectedDeviceVersion.sessionId !== this.sessionId) {
+                throw new ApplicationError('STALE_REVISION', 'The connected device changed before the upload started.', {
+                    expectedSessionId: expectedDeviceVersion.sessionId,
+                    actualSessionId: this.sessionId,
+                });
+            }
+            this.assertRevision(expectedDeviceVersion?.revision);
             this.requireCapability('track.upload');
             let advancedUploadService: AdvancedUploadService | undefined;
             if (requiredExploitCapabilities.length > 0) {

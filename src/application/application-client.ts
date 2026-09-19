@@ -38,7 +38,8 @@ export interface ApplicationClient {
     ): Promise<T>;
     runLocalDeviceUploadSession<T>(
         requiredExploitCapabilities: string[],
-        operation: (advancedUploadService?: AdvancedUploadService) => Promise<T>
+        operation: (advancedUploadService?: AdvancedUploadService) => Promise<T>,
+        expectedDeviceVersion?: { sessionId: string; revision: number }
     ): Promise<{ value: T; snapshot: DeviceSnapshot }>;
     createLocalLibraryFileProcessor(filePath: string): (params: ExportParams) => Promise<ArrayBuffer>;
     getWorkspaceSnapshot(): WorkspaceSnapshot;
@@ -66,7 +67,8 @@ export class InProcessApplicationClient implements ApplicationClient {
         ) => Promise<T>,
         private readonly localDeviceUploadSession: <T>(
             requiredExploitCapabilities: string[],
-            operation: (advancedUploadService?: AdvancedUploadService) => Promise<T>
+            operation: (advancedUploadService?: AdvancedUploadService) => Promise<T>,
+            expectedDeviceVersion?: { sessionId: string; revision: number }
         ) => Promise<{ value: T; snapshot: DeviceSnapshot }>,
         private readonly localLibraryFileProcessor?: (filePath: string) => (params: ExportParams) => Promise<ArrayBuffer>
     ) {}
@@ -88,8 +90,9 @@ export class InProcessApplicationClient implements ApplicationClient {
     ) => this.localAdvancedTrackDownloadSession(useSlowerExploit, operation);
     runLocalDeviceUploadSession = <T>(
         requiredExploitCapabilities: string[],
-        operation: (advancedUploadService?: AdvancedUploadService) => Promise<T>
-    ) => this.localDeviceUploadSession(requiredExploitCapabilities, operation);
+        operation: (advancedUploadService?: AdvancedUploadService) => Promise<T>,
+        expectedDeviceVersion?: { sessionId: string; revision: number }
+    ) => this.localDeviceUploadSession(requiredExploitCapabilities, operation, expectedDeviceVersion);
     createLocalLibraryFileProcessor = (filePath: string) => {
         if (!this.localLibraryFileProcessor) {
             throw new Error('The local library is unavailable in this application environment.');
