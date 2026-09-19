@@ -29,14 +29,14 @@ import {
 import { isDeferredFile } from '../application/deferred-file';
 import NotificationCompleteIconUrl from '../images/record-complete-notification-icon.png';
 import { assertNumber, getHalfWidthTitleLength } from 'netmd-js/dist/utils';
-import { Capability, NetMDService, Disc, Codec, MinidiscSpec, ExploitCapability } from '../services/interfaces/netmd';
+import { Capability, NetMDService, Codec, MinidiscSpec, ExploitCapability } from '../services/interfaces/netmd';
 import { getSimpleServices, ServiceConstructionInfo } from '../services/interface-service-manager';
 import { AudioServices, resolveAudioServiceIndex } from '../services/audio-export-service-manager';
 import { checkFactoryCapability, initializeFactoryMode } from './factory/factory-actions';
 import { ExportParams } from '../services/audio/audio-export';
 import { LibraryServices } from '../services/library-services';
 import { s16LEToSamplesArray, Shazam } from 'shazam-api';
-import { bindApplicationRuntime, getApplicationRuntime, releaseDeviceSession } from '../application/runtime';
+import { bindApplicationRuntime, ensureApplicationCommandBus, getApplicationRuntime, releaseDeviceSession } from '../application/runtime';
 import type { DeviceSnapshot } from '../application/contracts';
 import { applyDeviceSnapshot } from './application-adapter';
 import { MetadataImportError } from '../domain/metadata-import';
@@ -722,171 +722,35 @@ export function renameInSongRecognitionDialog({
 export function selfTest() {
     return async function (dispatch: AppDispatch) {
         if (!window.confirm('Warning - This is a destructive self test. THE DISC WILL BE ERASED! Continue?')) return;
-
-        const { netmdService } = serviceRegistry;
-
-        const allTracks = (disc: Disc) => disc.groups.sort((a, b) => a.tracks[0].index - b.tracks[0].index).flatMap((n) => n.tracks);
-
-        const compareOrThrow = (a: any, b: any) => {
-            if (a === b) return true;
-            throw new Error(`Compare: ${a} and ${b} is not the same.`);
-        };
-
-        const tests = [
-            {
-                name: 'Reload TOC',
-                func: async () => {
-                    await netmdService!.listContent();
-                    return true;
-                },
-            },
-            {
-                name: 'Rename Disc',
-                func: async () => {
-                    const titleToSet = 'Self-Test Half-Width';
-                    await netmdService!.renameDisc(titleToSet);
-                    return compareOrThrow((await netmdService!.listContent()).title, titleToSet);
-                },
-            },
-            {
-                name: 'Full-Width Rename Disc',
-                func: async () => {
-                    const titleToSet = 'Ｓｅｌｆ－Ｔｅｓｔ\u3000Ｆｕｌｌ－Ｗｉｄｔｈ';
-                    await netmdService!.renameDisc('1', titleToSet);
-                    return compareOrThrow((await netmdService!.listContent()).fullWidthTitle, titleToSet);
-                },
-            },
-            {
-                name: 'Rename Track 1, 2',
-                func: async () => {
-                    await netmdService!.renameTrack(0, '1');
-                    await netmdService!.renameTrack(1, '2');
-                    const content = allTracks(await netmdService!.listContent());
-                    return compareOrThrow(content[0].title, '1') && compareOrThrow(content[1].title, '2');
-                },
-            },
-            {
-                name: 'Full-Width Rename Track 1',
-                func: async () => {
-                    const titleToSet = 'Ｓｅｌｆ－Ｔｅｓｔ\u3000Ｔｒａｃｋ\u3000Ｆｕｌｌ－Ｗｉｄｔｈ';
-                    await netmdService!.renameTrack(1, '2', titleToSet);
-                    return compareOrThrow(allTracks(await netmdService!.listContent())[1].fullWidthTitle, titleToSet);
-                },
-            },
-            {
-                name: 'Move Track 1 to 2',
-                func: async () => {
-                    await netmdService!.moveTrack(0, 1, false);
-                    const content = allTracks(await netmdService!.listContent());
-                    return compareOrThrow(content[0].title, '2') && compareOrThrow(content[1].title, '1');
-                },
-            },
-            {
-                name: 'Play Track 1',
-                func: async () => {
-                    await netmdService!.gotoTrack(0);
-                    await netmdService!.play();
-                    await sleep(1000);
-                    return true;
-                },
-            },
-            {
-                name: 'Next Track',
-                func: async () => {
-                    await netmdService!.next();
-                    await sleep(1000);
-                    return true;
-                },
-            },
-            {
-                name: 'Previous Track',
-                func: async () => {
-                    await netmdService!.prev();
-                    await sleep(1000);
-                    return true;
-                },
-            },
-            {
-                name: 'Go To Track 2',
-                func: async () => {
-                    await netmdService!.gotoTrack(1);
-                    await sleep(1000);
-                    return true;
-                },
-            },
-            {
-                name: 'Pause',
-                func: async () => {
-                    await netmdService!.pause();
-                    await sleep(1000);
-                    return true;
-                },
-            },
-            {
-                name: 'Stop',
-                func: async () => {
-                    await netmdService!.stop();
-                    await sleep(1000);
-                    return true;
-                },
-            },
-            {
-                name: 'Delete Track 1',
-                func: async () => {
-                    const beforeDelete = allTracks(await netmdService!.listContent()).length;
-                    await netmdService!.deleteTracks([0]);
-                    const afterDelete = allTracks(await netmdService!.listContent()).length;
-                    return compareOrThrow(beforeDelete, afterDelete + 1);
-                },
-            },
-            {
-                name: 'Erase Disc',
-                func: async () => {
-                    await netmdService!.wipeDisc();
-                    return compareOrThrow(allTracks(await netmdService!.listContent()).length, 0);
-                },
-            },
-        ];
-
-        const progress = { trackTotal: tests.length, trackDone: 0, trackCurrent: 0, titleCurrent: '' };
-
-        // As this isn't a feature that's going to be used a lot, I decided to just use the recording dialog for it
-        // And not define a new one.
-        dispatch(batchActions([recordDialogAction.setVisible(true), recordDialogAction.setProgress(progress)]));
-
-        for (let i = 0; i < tests.length; i++) {
-            const test = tests[i];
-            progress.trackCurrent = (i / (tests.length - 1)) * 100;
-            progress.trackDone = i;
-            progress.titleCurrent = `Self-Test: ${test.name}`;
-            dispatch(recordDialogAction.setProgress(progress));
-            console.group(`Test: ${test.name}`);
-            let success = false;
-            try {
-                success = await test.func();
-            } catch (ex) {
-                console.log(ex);
-            }
-            if (!success) {
-                console.log('FAIL');
-                console.groupEnd();
-                progress.titleCurrent = `Self-Test: ${test.name} - FAILED`;
-                dispatch(recordDialogAction.setProgress(progress));
-                if (!window.confirm(`Test '${test.name}' has failed. There's more info in the console. Continue?`)) {
-                    return;
-                }
-            } else {
-                console.log('PASS');
-                console.groupEnd();
-                progress.titleCurrent = `Self-Test: ${test.name} - PASSED`;
-            }
-            dispatch(recordDialogAction.setProgress(progress));
-            await sleep(250); //Just to see what's happening
+        const bus = ensureApplicationCommandBus();
+        const started = await bus.execute({
+            type: 'diagnostics.selfTest',
+            confirmation: { confirmed: true, reason: 'Confirmed in the device diagnostics UI.' },
+        });
+        if (!started.ok || !started.task) {
+            window.alert(started.ok ? 'The self-test could not be started.' : started.error.message);
+            return;
         }
-        alert('All tests have passed. The page will now reload');
-        await sleep(1000);
-        window.reload();
+
+        dispatch(recordDialogAction.setVisible(true));
+        let task = started.task;
+        while (task.status === 'queued' || task.status === 'running') {
+            dispatch(
+                recordDialogAction.setProgress({
+                    trackTotal: task.progress.total,
+                    trackDone: task.progress.completed,
+                    trackCurrent: task.progress.total === 0 ? 0 : (task.progress.completed / task.progress.total) * 100,
+                    titleCurrent: `Self-Test: ${task.progress.currentLabel ?? task.phase}`,
+                })
+            );
+            await sleep(100);
+            task = serviceRegistry.taskManager.get(task.id);
+        }
+        const refreshed = await bus.execute({ type: 'disc.refresh', dropCache: true });
+        if (refreshed.ok && refreshed.snapshot) applyDeviceSnapshot(dispatch, refreshed.snapshot);
         dispatch(recordDialogAction.setVisible(false));
+        if (task.status === 'succeeded') window.alert('All device self-tests passed. The test disc is now empty.');
+        else window.alert(task.error?.message ?? `The device self-test ended with status ${task.status}.`);
     };
 }
 export function setNotifyWhenFinished(value: boolean) {

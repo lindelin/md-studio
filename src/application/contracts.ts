@@ -59,6 +59,18 @@ export interface AdvancedTocDump {
     dataBase64: string;
 }
 
+export interface DiagnosticProgress {
+    completed: number;
+    total: number;
+    currentLabel: string;
+}
+
+export interface SelfTestResult {
+    completedSteps: number;
+    totalSteps: number;
+    cancelled: boolean;
+}
+
 export interface AdvancedDeviceGateway {
     readInfo(): Promise<AdvancedDeviceInfo>;
     readTocSector(index: number): Promise<Uint8Array>;

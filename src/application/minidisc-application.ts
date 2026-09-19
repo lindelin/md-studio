@@ -4,11 +4,13 @@ import {
     type AdvancedTocDump,
     type ApplicationCapability,
     type DestructiveConfirmation,
+    type DiagnosticProgress,
     type DeviceGateway,
     type DeviceSnapshot,
     type GroupMetadataUpdate,
     type HiMDTrackMetadataUpdate,
     type PlaybackCommand,
+    type SelfTestResult,
     type TrackMetadataUpdate,
 } from './contracts';
 import { DeviceOperationCoordinator } from './operation-coordinator';
@@ -18,6 +20,9 @@ import {
     serializeMetadataCsv,
     type MetadataImportPlan,
 } from '../domain/metadata-import';
+import { sleep } from '../utils';
+
+export const MINIDISC_SELF_TEST_STEP_COUNT = 14;
 
 function createSessionId() {
     return globalThis.crypto?.randomUUID?.() ?? `session-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -330,6 +335,129 @@ export class MiniDiscApplication {
         });
     }
 
+    runSelfTest(
+        confirmation: DestructiveConfirmation | undefined,
+        onProgress: (progress: DiagnosticProgress) => void = () => {},
+        isCancelled: () => boolean = () => false,
+        playbackDelayMs = 1000
+    ): Promise<SelfTestResult> {
+        return this.serial(async () => {
+            this.requireConfirmation(confirmation, 'The device self-test renames content, deletes tracks, and erases the disc.');
+            const disc = this.requireWritableDisc('metadata.edit');
+            this.requireCapability('metadata.fullWidth');
+            this.requireCapability('playback.control');
+            if (disc.trackCount < 2) {
+                throw new ApplicationError('INVALID_INPUT', 'The device self-test requires a disposable disc with at least two tracks.');
+            }
+
+            let completedSteps = 0;
+            let latest = await this.gateway.readSnapshot(true);
+            const tracks = () =>
+                latest.disc?.groups
+                    .flatMap((group) => group.tracks)
+                    .sort((left, right) => left.index - right.index) ?? [];
+            const expect = (actual: unknown, expected: unknown, label: string) => {
+                if (actual !== expected) {
+                    throw new ApplicationError('INVALID_INPUT', `${label} verification failed.`, { actual, expected });
+                }
+            };
+            const read = async () => {
+                latest = await this.gateway.readSnapshot(true);
+            };
+            const steps: { label: string; run: () => Promise<void> }[] = [
+                { label: 'Reload TOC', run: read },
+                {
+                    label: 'Rename disc',
+                    run: async () => {
+                        await this.gateway.renameDisc('Self-Test Half-Width');
+                        await read();
+                        expect(latest.disc?.title, 'Self-Test Half-Width', 'Half-width disc title');
+                    },
+                },
+                {
+                    label: 'Rename disc with full-width title',
+                    run: async () => {
+                        const title = 'Ｓｅｌｆ－Ｔｅｓｔ　Ｆｕｌｌ－Ｗｉｄｔｈ';
+                        await this.gateway.renameDisc('1', title);
+                        await read();
+                        expect(latest.disc?.fullWidthTitle, title, 'Full-width disc title');
+                    },
+                },
+                {
+                    label: 'Rename tracks 1 and 2',
+                    run: async () => {
+                        await this.gateway.renameTrack({ index: 0, title: '1' });
+                        await this.gateway.renameTrack({ index: 1, title: '2' });
+                        await read();
+                        expect(tracks()[0]?.title, '1', 'Track 1 title');
+                        expect(tracks()[1]?.title, '2', 'Track 2 title');
+                    },
+                },
+                {
+                    label: 'Rename track 2 with full-width title',
+                    run: async () => {
+                        const title = 'Ｓｅｌｆ－Ｔｅｓｔ　Ｔｒａｃｋ　Ｆｕｌｌ－Ｗｉｄｔｈ';
+                        await this.gateway.renameTrack({ index: 1, title: '2', fullWidthTitle: title });
+                        await read();
+                        expect(tracks()[1]?.fullWidthTitle, title, 'Full-width track title');
+                    },
+                },
+                {
+                    label: 'Move track 1 to position 2',
+                    run: async () => {
+                        await this.gateway.moveTrack(0, 1);
+                        await read();
+                        expect(tracks()[0]?.title, '2', 'Moved track 1');
+                        expect(tracks()[1]?.title, '1', 'Moved track 2');
+                    },
+                },
+                { label: 'Play track 1', run: () => this.runPlaybackStep({ action: 'gotoTrack', index: 0 }, 'play', playbackDelayMs) },
+                { label: 'Next track', run: () => this.runPlaybackStep({ action: 'next' }, undefined, playbackDelayMs) },
+                { label: 'Previous track', run: () => this.runPlaybackStep({ action: 'previous' }, undefined, playbackDelayMs) },
+                { label: 'Go to track 2', run: () => this.runPlaybackStep({ action: 'gotoTrack', index: 1 }, undefined, playbackDelayMs) },
+                { label: 'Pause', run: () => this.runPlaybackStep({ action: 'pause' }, undefined, playbackDelayMs) },
+                { label: 'Stop', run: () => this.runPlaybackStep({ action: 'stop' }, undefined, playbackDelayMs) },
+                {
+                    label: 'Delete track 1',
+                    run: async () => {
+                        const before = tracks().length;
+                        await this.gateway.deleteTracks([0]);
+                        await read();
+                        expect(tracks().length, before - 1, 'Track deletion');
+                    },
+                },
+                {
+                    label: 'Erase disc',
+                    run: async () => {
+                        await this.gateway.wipeDisc();
+                        await read();
+                        expect(tracks().length, 0, 'Disc erase');
+                    },
+                },
+            ];
+
+            try {
+                for (const step of steps) {
+                    if (isCancelled()) break;
+                    onProgress({ completed: completedSteps, total: steps.length, currentLabel: step.label });
+                    await step.run();
+                    completedSteps += 1;
+                }
+            } catch (error) {
+                try {
+                    await this.commitDiagnosticSnapshot();
+                } catch {
+                    // Preserve the step failure. A disconnected device may also
+                    // make the best-effort recovery refresh fail.
+                }
+                throw error;
+            }
+
+            await this.commitDiagnosticSnapshot();
+            return { completedSteps, totalSteps: steps.length, cancelled: completedSteps < steps.length };
+        });
+    }
+
     private mutate(
         capability: ApplicationCapability,
         expectedRevision: number | undefined,
@@ -401,6 +529,18 @@ export class MiniDiscApplication {
         if (!confirmation?.confirmed || confirmation.reason.trim().length === 0) {
             throw new ApplicationError('CONFIRMATION_REQUIRED', message);
         }
+    }
+
+    private async runPlaybackStep(command: PlaybackCommand, followedBy?: 'play', delayMs = 1000) {
+        await this.gateway.controlPlayback(command);
+        if (followedBy) await this.gateway.controlPlayback({ action: followedBy });
+        await sleep(delayMs);
+    }
+
+    private async commitDiagnosticSnapshot() {
+        this.revision += 1;
+        const next = await this.gateway.readSnapshot(true);
+        return this.commitSnapshot({ ...next, sessionId: this.sessionId, revision: this.revision });
     }
 
     private assertRevision(expectedRevision?: number) {

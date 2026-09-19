@@ -9,6 +9,7 @@ import type {
     TrackMetadataUpdate,
 } from './contracts';
 import type { MiniDiscApplication } from './minidisc-application';
+import { MINIDISC_SELF_TEST_STEP_COUNT } from './minidisc-application';
 import type { TaskSnapshot } from './task-manager';
 import { TaskManager } from './task-manager';
 import type {
@@ -57,6 +58,7 @@ export type ApplicationCommand =
       }
     | { type: 'group.deleteMany'; indexes: number[]; expectedRevision?: number }
     | { type: 'playback.control'; command: PlaybackCommand }
+    | { type: 'diagnostics.selfTest'; confirmation?: DestructiveConfirmation }
     | { type: 'task.list' }
     | { type: 'task.get'; id: string }
     | { type: 'task.cancel'; id: string }
@@ -169,6 +171,39 @@ export class ApplicationCommandBus {
                 const application = this.requireApplication();
                 if (!this.trackExporter) throw new Error('Track export is unavailable in this application environment.');
                 return { ok: true, task: await this.trackExporter.start(command, application, this.tasks) };
+            }
+            if (command.type === 'diagnostics.selfTest') {
+                const application = this.requireApplication();
+                if (!command.confirmation?.confirmed || command.confirmation.reason.trim().length === 0) {
+                    throw new ApplicationError(
+                        'CONFIRMATION_REQUIRED',
+                        'The device self-test renames content, deletes tracks, and erases the disc.'
+                    );
+                }
+                const task = this.tasks.create(
+                    'diagnostics.selfTest',
+                    'Run destructive MiniDisc device self-test',
+                    MINIDISC_SELF_TEST_STEP_COUNT,
+                    'steps'
+                );
+                this.tasks.start(task.id, 'transferring');
+                void application
+                    .runSelfTest(
+                        command.confirmation,
+                        (progress) => {
+                            if (this.tasks.get(task.id).status === 'running') this.tasks.reportProgress(task.id, progress);
+                        },
+                        () => this.tasks.isCancellationRequested(task.id)
+                    )
+                    .then((result) => {
+                        if (this.tasks.get(task.id).status !== 'running') return;
+                        if (result.cancelled) this.tasks.cancel(task.id, result);
+                        else this.tasks.succeed(task.id, result);
+                    })
+                    .catch((error) => {
+                        if (this.tasks.get(task.id).status === 'running') this.tasks.fail(task.id, error);
+                    });
+                return { ok: true, task: this.tasks.get(task.id) };
             }
             const application = this.requireApplication();
             if (command.type === 'metadata.exportCsv') {

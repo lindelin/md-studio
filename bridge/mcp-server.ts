@@ -348,6 +348,15 @@ function createServer() {
         async (command) => execute({ type: 'playback.control', command })
     );
     server.registerTool(
+        'minidisc_run_device_self_test',
+        {
+            description:
+                'Run the destructive device diagnostic. It renames content, exercises playback and ordering, deletes a track, and finally erases the entire disc. Use only with a disposable test disc.',
+            inputSchema: z.object({ confirmed: z.literal(true), reason: z.string().min(1) }),
+        },
+        async ({ confirmed, reason }) => execute({ type: 'diagnostics.selfTest', confirmation: { confirmed, reason } })
+    );
+    server.registerTool(
         'minidisc_list_tasks',
         { description: 'List current and completed MiniDisc tasks with progress and results.', inputSchema: z.object({}) },
         async () => execute({ type: 'task.list' })

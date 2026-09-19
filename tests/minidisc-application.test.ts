@@ -38,6 +38,7 @@ function makeGateway() {
                     'content.read',
                     'metadata.edit',
                     'metadata.himd',
+                    'metadata.fullWidth',
                     'playback.control',
                     'disc.eject',
                     'disc.formatHimd',
@@ -46,13 +47,15 @@ function makeGateway() {
                 disc: structuredClone(disc),
             };
         },
-        async renameDisc(title) {
+        async renameDisc(title, fullWidthTitle) {
             calls.push(`renameDisc:${title}`);
             disc.title = title;
+            if (fullWidthTitle !== undefined) disc.fullWidthTitle = fullWidthTitle;
         },
         async renameTrack(update: TrackMetadataUpdate) {
             calls.push(`renameTrack:${update.index}:${update.title}`);
             disc.groups[0].tracks[update.index].title = update.title;
+            if (update.fullWidthTitle !== undefined) disc.groups[0].tracks[update.index].fullWidthTitle = update.fullWidthTitle;
         },
         async renameHiMDTrack(update) {
             calls.push(`renameHiMDTrack:${update.index}:${update.title ?? ''}:${update.album ?? ''}:${update.artist ?? ''}`);
@@ -342,5 +345,27 @@ describe('MiniDiscApplication', () => {
         assert.equal(toc.sha256, createHash('sha256').update(decoded).digest('hex'));
         assert.equal(application.readSnapshot()?.revision, 0);
         assert.deepEqual(calls, ['read']);
+    });
+
+    it('runs the destructive self-test as one revisioned transaction and leaves a verified empty disc', async () => {
+        const { gateway, calls } = makeGateway();
+        const application = new MiniDiscApplication(gateway);
+        await application.refresh();
+        const progress: string[] = [];
+
+        const result = await application.runSelfTest(
+            { confirmed: true, reason: 'Disposable test disc' },
+            (entry) => progress.push(entry.currentLabel),
+            () => false,
+            0
+        );
+
+        assert.equal(result.cancelled, false);
+        assert.equal(result.completedSteps, 14);
+        assert.equal(application.readSnapshot()?.revision, 1);
+        assert.equal(application.readSnapshot()?.disc?.trackCount, 0);
+        assert.equal(progress.length, 14);
+        assert.equal(calls.includes('deleteTracks:0'), true);
+        assert.equal(calls.includes('wipeDisc'), true);
     });
 });
