@@ -27,6 +27,7 @@ export interface ApplicationCommandExecutor {
 }
 
 export interface LocalDeviceConnectionRequest {
+    id?: string;
     name: string;
     parameters?: CustomParameters;
 }

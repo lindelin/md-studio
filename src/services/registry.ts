@@ -16,6 +16,7 @@ import { createLibraryService, LibraryServices } from './library-services';
 import { AudioEncoderManager } from '../application/audio-encoder-manager';
 import { AudioServices, createAudioEncoder } from './audio-export-service-manager';
 import { createServiceCatalog, type ServiceCatalogSnapshot } from '../application/service-catalog';
+import { Services as DeviceServices } from './interface-service-manager';
 import type { LocalAudioInput } from '../application/browser-audio-input';
 import type { TrackRecognizer } from '../application/browser-track-recognizer';
 
@@ -62,7 +63,7 @@ const ServiceRegistry: ServiceRegistry = {
     settingsStore: applicationSettings,
     libraryCatalog,
     audioEncoderManager,
-    serviceCatalog: createServiceCatalog(AudioServices, LibraryServices),
+    serviceCatalog: createServiceCatalog(AudioServices, LibraryServices, DeviceServices),
     workspaceStore: new WorkspaceStore(taskManager, importQueue, applicationSettings, libraryCatalog, audioEncoderManager),
 };
 

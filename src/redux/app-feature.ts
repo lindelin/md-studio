@@ -64,9 +64,10 @@ export const buildInitialState = (): AppState => {
         hasNotificationSupport: true,
         fullWidthSupport: sharedSettings.fullWidthSupport,
         localBridgeEnabled: loadPreference('minidiscLocalBridgeEnabled', false, isBoolean),
-        availableServices: getSimpleServices().concat(
-            filterOutCorrupted(loadPreference<ServiceConstructionInfo[]>('customServices', [], isServiceList))
-        ),
+        availableServices: [
+            ...getSimpleServices(),
+            ...filterOutCorrupted(loadPreference<ServiceConstructionInfo[]>('customServices', [], isServiceList)),
+        ],
         lastSelectedService: loadPreference('lastSelectedService', 0, isFiniteNumber),
         factoryModeRippingInMainUi: false, // As this value is heavily device-dependent and not really that stable yet
         // it should not be stored in the preferences, and should default to false.

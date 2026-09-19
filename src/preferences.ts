@@ -150,13 +150,14 @@ export function isUploadFormat(value: unknown): value is Record<string, [number,
     );
 }
 
-export function isServiceList(value: unknown): value is { name: string; parameters?: Record<string, string | number | boolean> }[] {
+export function isServiceList(value: unknown): value is { id?: string; name: string; parameters?: Record<string, string | number | boolean> }[] {
     return (
         Array.isArray(value) &&
         value.every(
             (entry) =>
                 typeof entry === 'object' &&
                 entry !== null &&
+                ((entry as { id?: unknown }).id === undefined || typeof (entry as { id?: unknown }).id === 'string') &&
                 typeof (entry as { name?: unknown }).name === 'string' &&
                 ((entry as { parameters?: unknown }).parameters === undefined ||
                     isPrimitiveRecord((entry as { parameters?: unknown }).parameters))

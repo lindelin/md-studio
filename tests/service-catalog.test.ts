@@ -32,6 +32,14 @@ describe('service catalog', () => {
                         { userFriendlyName: 'Address', varName: 'address', type: 'string', defaultValue: 'https://example.test/' },
                     ],
                 },
+            ],
+            [
+                {
+                    id: 'usb-device',
+                    name: 'USB Device',
+                    catalogDescription: 'Connect to a device through browser USB.',
+                    requiresChrome: true,
+                },
             ]
         );
 
@@ -53,6 +61,15 @@ describe('service catalog', () => {
                     ],
                 },
             ],
+        });
+        assert.deepEqual(catalog.devices[0], {
+            index: 0,
+            id: 'usb-device',
+            name: 'USB Device',
+            description: 'Connect to a device through browser USB.',
+            available: true,
+            requiresBrowserUsb: true,
+            parameters: [],
         });
         assert.equal(catalog.libraries[0].id, 'library');
         assert.doesNotThrow(() => JSON.stringify(catalog));

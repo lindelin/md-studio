@@ -361,11 +361,11 @@ describe('InProcessApplicationClient', () => {
             }
         );
 
-        const result = await client.connectLocalDevice({ name: 'USB NetMD' });
+        const result = await client.connectLocalDevice({ id: 'usb-netmd', name: 'USB NetMD' });
         await client.disconnectLocalDevice(false);
 
         assert.deepEqual(result, { connected: true, method: 'paired' });
-        assert.deepEqual(events, [{ name: 'USB NetMD' }, { finalize: false }]);
+        assert.deepEqual(events, [{ id: 'usb-netmd', name: 'USB NetMD' }, { finalize: false }]);
     });
 
     it('reports when browser device sessions are unavailable', () => {

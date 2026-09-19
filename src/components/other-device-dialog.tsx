@@ -54,6 +54,7 @@ export const OtherDeviceDialog = () => {
         dispatch(otherDeviceActions.setVisible(false));
         dispatch(
             addService({
+                id: currentService.id,
                 name: currentService.name,
                 parameters: otherDeviceDialogCustomParameters,
             })

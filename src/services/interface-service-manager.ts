@@ -9,22 +9,27 @@ export interface LoadedService {
 }
 
 interface ServicePrototype {
+    id: string;
     load: (parameters?: CustomParameters) => Promise<LoadedService | null>;
     getConnectName: (parameters?: CustomParameters) => string;
     name: string;
     customParameters?: CustomParameterInfo[];
     description?: ReactHTMLElement<any>;
+    catalogDescription?: string;
     requiresChrome: boolean;
 }
 
 export interface ServiceConstructionInfo {
+    id?: string;
     name: string;
     parameters?: CustomParameters;
 }
 
 export const Services: ServicePrototype[] = [
     {
+        id: 'usb-netmd',
         name: 'USB NetMD',
+        catalogDescription: 'Connect directly to a NetMD recorder through the browser USB API.',
         getConnectName: () => 'Connect',
         load: async () => {
             const { DefaultMinidiscSpec, NetMDUSBService } = await import('./interfaces/netmd');
@@ -36,7 +41,9 @@ export const Services: ServicePrototype[] = [
         requiresChrome: true,
     },
     {
+        id: 'himd-restricted',
         name: 'HiMD (metadata and export)',
+        catalogDescription: 'Read Hi-MD metadata and export tracks through the browser USB API.',
         getConnectName: () => 'Connect to HiMD (metadata and export)',
         load: async () => {
             const { HiMDRestrictedService, HiMDSpec } = await import('./interfaces/himd');
@@ -45,7 +52,9 @@ export const Services: ServicePrototype[] = [
         requiresChrome: true,
     },
     {
+        id: 'himd-full',
         name: 'HiMD (secure full access)',
+        catalogDescription: 'Use secure full-access Hi-MD operations when the environment supports them.',
         getConnectName: () => 'Connect to HiMD (secure full access)',
         load: async () => {
             if (window.native?.himdFullInterface) {
@@ -61,7 +70,9 @@ export const Services: ServicePrototype[] = [
         requiresChrome: true,
     },
     {
+        id: 'network-walkman-drm-free',
         name: 'DRM-Free Network Walkman',
+        catalogDescription: 'Manage supported DRM-free Network Walkman devices.',
         getConnectName: (params) => {
             const intPid = parseInt(params!.pid as string);
             return `Connect to ${DeviceIds.find((e) => e.productId == intPid)!.name}`;
@@ -88,7 +99,9 @@ export const Services: ServicePrototype[] = [
         ],
     },
     {
+        id: 'remote-netmd',
         name: 'Remote NetMD',
+        catalogDescription: 'Connect to a NetMD recorder exposed by a Remote NetMD server.',
         getConnectName: (parameters) => `Connect to ${parameters!.friendlyName || parameters!.serverAddress}`,
         description: React.createElement(
             'p',
@@ -129,7 +142,9 @@ export const Services: ServicePrototype[] = [
         ],
     },
     {
+        id: 'mock-netmd',
         name: 'MockMD',
+        catalogDescription: 'Use a configurable in-memory NetMD device for development and testing.',
         getConnectName: () => 'Connect to MockMD',
         description: React.createElement('p', null, 'Test NetMD interface. It does nothing'),
         load: async (parameters) => {
@@ -211,7 +226,9 @@ export const Services: ServicePrototype[] = [
         ],
     },
     {
+        id: 'mock-netmd-bytes',
         name: 'MockMD - Byte-Based',
+        catalogDescription: 'Use a byte-capacity mock device for development and testing.',
         getConnectName: () => 'Connect to MockMD (bytes)',
         description: React.createElement('p', null, 'Test NetMD interface. It does nothing'),
         load: async (parameters) => {
@@ -276,7 +293,9 @@ export const Services: ServicePrototype[] = [
 
 if (window.native?.nwInterface) {
     Services.push({
+        id: 'network-walkman-native',
         name: 'NetworkWM',
+        catalogDescription: 'Manage a Network Walkman through the native application integration.',
         requiresChrome: true,
         getConnectName: () => 'Connect to Network Walkman',
         load: async () => {
@@ -304,12 +323,13 @@ if (window.native?.nwInterface) {
 
 export function getSimpleServices() {
     return Services.filter((n) => !n.customParameters).map((n) => ({
+        id: n.id,
         name: n.name,
     }));
 }
 
-function getPrototypeByName(name: string) {
-    return Services.find((n) => n.name === name) || null;
+function getPrototype(info: ServiceConstructionInfo) {
+    return Services.find((service) => (info.id ? service.id === info.id : service.name === info.name)) || null;
 }
 
 export function filterOutCorrupted(savedCustomServices: unknown) {
@@ -320,7 +340,7 @@ export function filterOutCorrupted(savedCustomServices: unknown) {
         if (!candidate || typeof candidate !== 'object') continue;
         const info = candidate as Partial<ServiceConstructionInfo>;
         if (typeof info.name !== 'string') continue;
-        const prototype = getPrototypeByName(info.name);
+        const prototype = getPrototype(info as ServiceConstructionInfo);
         if (!prototype) continue; // No such service - remove.
         const requiredParameters = prototype.customParameters;
         if (!requiredParameters) continue; // The service cannot be a custom service - no props to set.
@@ -334,19 +354,19 @@ export function filterOutCorrupted(savedCustomServices: unknown) {
             requiredParameters.length
         )
             continue; // The service's parameters differ from the prototype's declaration.
-        legalCustomServices.push(info as ServiceConstructionInfo);
+        legalCustomServices.push({ id: prototype.id, name: prototype.name, parameters: info.parameters });
     }
     return legalCustomServices;
 }
 
 export function loadService(info: ServiceConstructionInfo) {
-    return getPrototypeByName(info.name)?.load(info.parameters) ?? Promise.resolve(null);
+    return getPrototype(info)?.load(info.parameters) ?? Promise.resolve(null);
 }
 
 export function getConnectButtonName(service: ServiceConstructionInfo) {
-    return getPrototypeByName(service.name)!.getConnectName(service.parameters);
+    return getPrototype(service)!.getConnectName(service.parameters);
 }
 
 export function doesServiceRequireChrome(info: ServiceConstructionInfo) {
-    return getPrototypeByName(info.name)?.requiresChrome ?? false;
+    return getPrototype(info)?.requiresChrome ?? false;
 }
