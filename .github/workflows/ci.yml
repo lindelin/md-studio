@@ -25,4 +25,5 @@ jobs:
       - run: npm test
       - run: npm run lint
       - run: npm run typecheck
+      - run: npm run licenses:check
       - run: npm run build

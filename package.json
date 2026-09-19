@@ -18,6 +18,8 @@
         "preview": "vite preview --configLoader runner",
         "analyze": "source-map-explorer 'dist/assets/*.js'",
         "prepare-runtime": "node scripts/prepare-runtime.mjs",
+        "licenses:update": "node scripts/generate-third-party-notices.mjs",
+        "licenses:check": "node scripts/generate-third-party-notices.mjs --check",
         "update-version": "node scripts/prepare-runtime.mjs",
         "pretty": "prettier src/**/*.{ts,tsx} --write",
         "mcp": "tsx bridge/mcp-server.ts",

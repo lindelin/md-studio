@@ -22,6 +22,8 @@ The application depends on the following projects, among others:
 
 Each dependency remains under its own license. Exact resolved versions are recorded in `package-lock.json`; installed package metadata and license files are the authoritative notices for a particular build.
 
+`THIRD_PARTY_LICENSES.md` is a generated inventory of every resolved npm package entry, including transitive and development dependencies. Regenerate it with `npm run licenses:update`; `npm run licenses:check` verifies that it matches the lockfile and installed package metadata.
+
 ## Audio and browser runtimes
 
 The browser build uses or can use FFmpeg, Atracdenc, v86, Recorder.js, and related runtime assets. Some assets are copied from installed npm packages during `npm run prepare-runtime`; others are retained from the upstream Web MiniDisc Pro distribution. Their licenses and source projects must be reviewed when publishing binary or hosted distributions:
