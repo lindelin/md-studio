@@ -23,6 +23,7 @@ import { ImportQueue } from './import-queue';
 import type { TrackExporter, TrackExportRequest } from './track-export';
 import type { MetadataCsvExport, MetadataImportPlan } from '../domain/metadata-import';
 import { SettingsStore, type SettingsSnapshot, type UserSettingsUpdate } from './settings-store';
+import { ApplicationError } from './contracts';
 
 export type ApplicationCommand =
     | { type: 'disc.refresh'; dropCache?: boolean }
@@ -88,13 +89,22 @@ export type CommandResult = CommandSuccess | CommandFailure;
 
 export class ApplicationCommandBus {
     constructor(
-        private readonly application: MiniDiscApplication,
+        private application: MiniDiscApplication | undefined,
         private readonly tasks: TaskManager,
         private readonly imports: ImportQueue,
-        private readonly importWriter?: ImportWriter,
-        private readonly trackExporter?: TrackExporter,
+        private importWriter?: ImportWriter,
+        private trackExporter?: TrackExporter,
         private readonly settings = new SettingsStore(null)
     ) {}
+
+    attachApplication(application: MiniDiscApplication | undefined) {
+        this.application = application;
+    }
+
+    configureAdapters(importWriter?: ImportWriter, trackExporter?: TrackExporter) {
+        this.importWriter = importWriter;
+        this.trackExporter = trackExporter;
+    }
 
     async execute(command: ApplicationCommand): Promise<CommandResult> {
         try {
@@ -134,70 +144,73 @@ export class ApplicationCommandBus {
                 return { ok: true, importQueue: this.imports.clear(command.expectedRevision) };
             }
             if (command.type === 'import.write') {
+                this.requireApplication();
                 if (!this.importWriter) throw new Error('Audio writing is unavailable in this application environment.');
                 return { ok: true, task: await this.importWriter.start(command, this.imports, this.tasks) };
             }
             if (command.type === 'track.export') {
+                const application = this.requireApplication();
                 if (!this.trackExporter) throw new Error('Track export is unavailable in this application environment.');
-                return { ok: true, task: await this.trackExporter.start(command, this.application, this.tasks) };
+                return { ok: true, task: await this.trackExporter.start(command, application, this.tasks) };
             }
+            const application = this.requireApplication();
             if (command.type === 'metadata.exportCsv') {
-                return { ok: true, metadataCsv: await this.application.exportMetadataCsv() };
+                return { ok: true, metadataCsv: await application.exportMetadataCsv() };
             }
             if (command.type === 'metadata.planCsv') {
-                return { ok: true, metadataPlan: await this.application.planMetadataImport(command.text) };
+                return { ok: true, metadataPlan: await application.planMetadataImport(command.text) };
             }
             if (command.type === 'advanced.inspect') {
-                return { ok: true, advancedInfo: await this.application.inspectAdvancedDevice() };
+                return { ok: true, advancedInfo: await application.inspectAdvancedDevice() };
             }
             if (command.type === 'advanced.readToc') {
-                return { ok: true, advancedToc: await this.application.readRawToc() };
+                return { ok: true, advancedToc: await application.readRawToc() };
             }
 
             let snapshot: DeviceSnapshot;
             switch (command.type) {
                 case 'disc.refresh':
-                    snapshot = await this.application.refresh(command.dropCache);
+                    snapshot = await application.refresh(command.dropCache);
                     break;
                 case 'disc.rename':
-                    snapshot = await this.application.renameDisc(command.title, command.fullWidthTitle, command.expectedRevision);
+                    snapshot = await application.renameDisc(command.title, command.fullWidthTitle, command.expectedRevision);
                     break;
                 case 'disc.erase':
-                    snapshot = await this.application.eraseDisc(command.confirmation, command.expectedRevision);
+                    snapshot = await application.eraseDisc(command.confirmation, command.expectedRevision);
                     break;
                 case 'disc.formatHimd':
-                    snapshot = await this.application.formatToHiMD(command.confirmation, command.expectedRevision);
+                    snapshot = await application.formatToHiMD(command.confirmation, command.expectedRevision);
                     break;
                 case 'device.flush':
-                    snapshot = await this.application.flush(command.expectedRevision);
+                    snapshot = await application.flush(command.expectedRevision);
                     break;
                 case 'disc.eject':
-                    snapshot = await this.application.ejectDisc(command.expectedRevision);
+                    snapshot = await application.ejectDisc(command.expectedRevision);
                     break;
                 case 'metadata.applyCsv':
-                    snapshot = await this.application.applyMetadataImport(
+                    snapshot = await application.applyMetadataImport(
                         command.text,
                         command.includedTrackIndexes,
                         command.expectedRevision
                     );
                     break;
                 case 'track.renameMany':
-                    snapshot = await this.application.renameTracks(command.updates, command.expectedRevision);
+                    snapshot = await application.renameTracks(command.updates, command.expectedRevision);
                     break;
                 case 'track.renameHimdMany':
-                    snapshot = await this.application.renameHiMDTracks(command.updates, command.expectedRevision);
+                    snapshot = await application.renameHiMDTracks(command.updates, command.expectedRevision);
                     break;
                 case 'track.move':
-                    snapshot = await this.application.moveTrack(command.sourceIndex, command.destinationIndex, command.expectedRevision);
+                    snapshot = await application.moveTrack(command.sourceIndex, command.destinationIndex, command.expectedRevision);
                     break;
                 case 'track.deleteMany':
-                    snapshot = await this.application.deleteTracks(command.indexes, command.confirmation, command.expectedRevision);
+                    snapshot = await application.deleteTracks(command.indexes, command.confirmation, command.expectedRevision);
                     break;
                 case 'group.rename':
-                    snapshot = await this.application.renameGroup(command.update, command.expectedRevision);
+                    snapshot = await application.renameGroup(command.update, command.expectedRevision);
                     break;
                 case 'group.create':
-                    snapshot = await this.application.createGroup(
+                    snapshot = await application.createGroup(
                         command.firstTrack,
                         command.trackCount,
                         command.title,
@@ -206,10 +219,10 @@ export class ApplicationCommandBus {
                     );
                     break;
                 case 'group.deleteMany':
-                    snapshot = await this.application.deleteGroups(command.indexes, command.expectedRevision);
+                    snapshot = await application.deleteGroups(command.indexes, command.expectedRevision);
                     break;
                 case 'playback.control':
-                    snapshot = await this.application.controlPlayback(command.command);
+                    snapshot = await application.controlPlayback(command.command);
                     break;
                 default: {
                     const invalid = command as { type?: unknown };
@@ -230,5 +243,15 @@ export class ApplicationCommandBus {
                 },
             };
         }
+    }
+
+    private requireApplication() {
+        if (!this.application) {
+            throw new ApplicationError(
+                'DEVICE_NOT_CONNECTED',
+                'Connect a MiniDisc device in the application before using device commands.'
+            );
+        }
+        return this.application;
     }
 }

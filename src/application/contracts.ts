@@ -94,11 +94,19 @@ export class ApplicationError extends Error {
         | 'STALE_REVISION'
         | 'INVALID_INPUT'
         | 'CONFIRMATION_REQUIRED'
-        | 'DISC_READ_ONLY';
+        | 'DISC_READ_ONLY'
+        | 'DEVICE_NOT_CONNECTED';
     public readonly details?: Record<string, unknown>;
 
     constructor(
-        code: 'NO_DISC' | 'CAPABILITY_REQUIRED' | 'STALE_REVISION' | 'INVALID_INPUT' | 'CONFIRMATION_REQUIRED' | 'DISC_READ_ONLY',
+        code:
+            | 'NO_DISC'
+            | 'CAPABILITY_REQUIRED'
+            | 'STALE_REVISION'
+            | 'INVALID_INPUT'
+            | 'CONFIRMATION_REQUIRED'
+            | 'DISC_READ_ONLY'
+            | 'DEVICE_NOT_CONNECTED',
         message: string,
         details?: Record<string, unknown>
     ) {

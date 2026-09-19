@@ -20,15 +20,23 @@ export function bindApplicationRuntime() {
     );
     serviceRegistry.application = application;
     serviceRegistry.workspaceStore.attachApplication(application);
-    serviceRegistry.commandBus = new ApplicationCommandBus(
-        application,
-        serviceRegistry.taskManager,
-        serviceRegistry.importQueue,
-        serviceRegistry.importWriter,
-        serviceRegistry.trackExporter,
-        serviceRegistry.settingsStore
-    );
+    ensureApplicationCommandBus().attachApplication(application);
     return application;
+}
+
+export function ensureApplicationCommandBus() {
+    if (!serviceRegistry.commandBus) {
+        serviceRegistry.commandBus = new ApplicationCommandBus(
+            serviceRegistry.application,
+            serviceRegistry.taskManager,
+            serviceRegistry.importQueue,
+            serviceRegistry.importWriter,
+            serviceRegistry.trackExporter,
+            serviceRegistry.settingsStore
+        );
+    }
+    serviceRegistry.commandBus.configureAdapters(serviceRegistry.importWriter, serviceRegistry.trackExporter);
+    return serviceRegistry.commandBus;
 }
 
 export function getApplicationRuntime() {
@@ -43,7 +51,7 @@ export function clearApplicationRuntime() {
     }
     serviceRegistry.workspaceStore.detachApplication();
     serviceRegistry.application = undefined;
-    serviceRegistry.commandBus = undefined;
+    ensureApplicationCommandBus().attachApplication(undefined);
 }
 
 export async function releaseDeviceSession(finalize = true) {

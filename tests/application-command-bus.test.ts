@@ -7,6 +7,51 @@ import { TaskManager } from '../src/application/task-manager.ts';
 import { SettingsStore } from '../src/application/settings-store.ts';
 
 describe('ApplicationCommandBus import writing', () => {
+    it('keeps settings and import planning available without a connected device', async () => {
+        const settings = new SettingsStore(null);
+        const imports = new ImportQueue();
+        const bus = new ApplicationCommandBus(undefined, new TaskManager(), imports, undefined, undefined, settings);
+
+        const updatedSettings = await bus.execute({ type: 'settings.update', changes: { colorTheme: 'dark' } });
+        const addedImport = await bus.execute({
+            type: 'import.add',
+            inputs: [
+                {
+                    source: { kind: 'local-path', name: 'track.wav', reference: 'bridge-file:opaque' },
+                    metadata: { title: 'Track' },
+                },
+            ],
+        });
+
+        assert.equal(updatedSettings.ok && updatedSettings.settings?.values.colorTheme, 'dark');
+        assert.equal(addedImport.ok && addedImport.importQueue?.items[0]?.name, 'track.wav');
+    });
+
+    it('returns a structured disconnected error only for commands that need a device', async () => {
+        const bus = new ApplicationCommandBus(undefined, new TaskManager(), new ImportQueue());
+
+        const result = await bus.execute({ type: 'disc.refresh' });
+
+        assert.deepEqual(result, {
+            ok: false,
+            error: {
+                code: 'DEVICE_NOT_CONNECTED',
+                message: 'Connect a MiniDisc device in the application before using device commands.',
+                details: undefined,
+            },
+        });
+    });
+
+    it('restores device commands when an application session is attached', async () => {
+        const application = { refresh: async () => ({ revision: 7 }) } as unknown as MiniDiscApplication;
+        const bus = new ApplicationCommandBus(undefined, new TaskManager(), new ImportQueue());
+        bus.attachApplication(application);
+
+        const result = await bus.execute({ type: 'disc.refresh' });
+
+        assert.equal(result.ok && result.snapshot?.revision, 7);
+    });
+
     it('rejects unknown runtime commands instead of reporting a false success', async () => {
         const bus = new ApplicationCommandBus({} as MiniDiscApplication, new TaskManager(), new ImportQueue());
         const result = await bus.execute({ type: 'unknown.command' } as any);

@@ -23,10 +23,12 @@ import { startLocalApplicationBridge } from './application/browser-bridge';
 import { readRawPreference } from './preferences';
 import { BrowserImportWriter } from './application/browser-import-writer';
 import { BrowserTrackExporter } from './application/browser-track-exporter';
+import { ensureApplicationCommandBus } from './application/runtime';
 serviceRegistry.mediaRecorderService = new MediaRecorderService();
 serviceRegistry.mediaSessionService = new BrowserMediaSessionService(store);
 serviceRegistry.importWriter = new BrowserImportWriter(store.dispatch);
 serviceRegistry.trackExporter = new BrowserTrackExporter(store);
+ensureApplicationCommandBus();
 startLocalApplicationBridge();
 
 Object.defineProperty(window, 'wmdVersion', {

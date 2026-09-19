@@ -10,7 +10,7 @@ import {
     type BridgeHello,
     type BridgeResponse,
 } from './bridge-protocol';
-import { bindApplicationRuntime } from './runtime';
+import { ensureApplicationCommandBus } from './runtime';
 import { store } from '../redux/store';
 import { applyDeviceSnapshot } from '../redux/application-adapter';
 import { isBoolean, loadPreference, readRawPreference } from '../preferences';
@@ -96,20 +96,7 @@ export class BrowserApplicationBridge {
                 return;
             }
             if (parsed.type !== 'request') return;
-            const commandBus =
-                serviceRegistry.commandBus ??
-                (serviceRegistry.netmdService && serviceRegistry.netmdSpec
-                    ? (bindApplicationRuntime(), serviceRegistry.commandBus)
-                    : undefined);
-            const result = commandBus
-                ? await commandBus.execute(parsed.command)
-                : {
-                      ok: false as const,
-                      error: {
-                          code: 'DEVICE_NOT_CONNECTED',
-                          message: 'Connect a MiniDisc device in the application before using device commands.',
-                      },
-                  };
+            const result = await ensureApplicationCommandBus().execute(parsed.command);
             if (result.ok && result.snapshot) applyDeviceSnapshot(store.dispatch, result.snapshot);
             const response: BridgeResponse = {
                 type: 'response',
