@@ -39,6 +39,7 @@ import { describeDeviceSessionFailure, DeviceSessionConnector } from '../applica
 import type { TaskSnapshot } from '../application/task-manager';
 import { convertImportAudio } from '../application/audio-conversion-pipeline';
 import { ImportUploadSessionError, runImportUploadSession } from '../application/import-upload-session';
+import { finishRejectedImportWrite } from '../application/import-write-task';
 
 export function requestTaskCancellation(id: string) {
     return async function () {
@@ -885,24 +886,49 @@ export function convertAndUpload(
         }
         const deviceCapabilities = getState().main.deviceCapabilities;
         if (files.some((e) => e.forcedEncoding?.codec === 'SPS' || e.forcedEncoding?.codec === 'SPM')) {
-            const removeSPFiles = () =>
-                (files = files.filter((e) => e.forcedEncoding?.codec !== 'SPS' && e.forcedEncoding?.codec !== 'SPM'));
             if (!deviceCapabilities.includes(Capability.factoryMode)) {
-                window.alert('Sorry! Your device cannot enter the factory mode. SP upload is not possible');
-                removeSPFiles();
+                const message = 'This device cannot enter Homebrew mode, so ATRAC1 upload is unavailable.';
+                window.alert(message);
+                finishRejectedImportWrite(serviceRegistry.taskManager, options.taskId, {
+                    kind: 'unavailable',
+                    reason: message,
+                    pendingItems: files.length,
+                    recoveryAction: 'Choose an LP recording mode or connect a device that supports ATRAC1 upload.',
+                });
+                return;
             } else if (
                 !window.confirm(
                     "To upload ATRAC1 files back onto the MD, you're required to enter the homebrew mode.\nDo you want to continue?"
                 )
             ) {
-                window.alert("SP Files won't be transferred");
-                removeSPFiles();
+                const message = 'ATRAC1 upload was cancelled before any tracks were transferred.';
+                window.alert(message);
+                finishRejectedImportWrite(serviceRegistry.taskManager, options.taskId, {
+                    kind: 'cancelled',
+                    reason: message,
+                    pendingItems: files.length,
+                });
+                return;
             } else if (!(await checkFactoryCapability(dispatch, ExploitCapability.uploadAtrac1))) {
-                window.alert("Sorry! Your device doesn't support the SP upload exploit.");
-                removeSPFiles();
+                const message = 'This device does not support the ATRAC1 upload exploit.';
+                window.alert(message);
+                finishRejectedImportWrite(serviceRegistry.taskManager, options.taskId, {
+                    kind: 'unavailable',
+                    reason: message,
+                    pendingItems: files.length,
+                    recoveryAction: 'Choose an LP recording mode or connect a compatible device.',
+                });
+                return;
             }
         }
-        if (files.length === 0) return;
+        if (files.length === 0) {
+            finishRejectedImportWrite(serviceRegistry.taskManager, options.taskId, {
+                kind: 'cancelled',
+                reason: 'The write request did not contain any tracks.',
+                pendingItems: 0,
+            });
+            return;
+        }
 
         const { audioExportService, netmdService, netmdSpec } = serviceRegistry;
         let { netmdFactoryService } = serviceRegistry;
@@ -910,7 +936,14 @@ export function convertAndUpload(
         if (usesMonoUploadExploit) {
             // SP MONO is a homebrew feature
             if (!deviceCapabilities.includes(Capability.factoryMode)) {
-                window.alert('Sorry! Your device cannot enter the factory mode. SP MONO upload is not possible');
+                const message = 'This device cannot enter Homebrew mode, so SP MONO upload is unavailable.';
+                window.alert(message);
+                finishRejectedImportWrite(serviceRegistry.taskManager, options.taskId, {
+                    kind: 'unavailable',
+                    reason: message,
+                    pendingItems: files.length,
+                    recoveryAction: 'Choose a stereo recording mode or connect a device with native Mono upload support.',
+                });
                 dispatch(convertDialogActions.setVisible(true));
                 return;
             } else if (
@@ -918,11 +951,24 @@ export function convertAndUpload(
                     "To upload MONO ATRAC files onto the MD, you're required to enter the homebrew mode.\nDo you want to continue?"
                 )
             ) {
-                window.alert('Transfer cancelled');
+                const message = 'SP MONO upload was cancelled before any tracks were transferred.';
+                window.alert(message);
+                finishRejectedImportWrite(serviceRegistry.taskManager, options.taskId, {
+                    kind: 'cancelled',
+                    reason: message,
+                    pendingItems: files.length,
+                });
                 dispatch(convertDialogActions.setVisible(true));
                 return;
             } else if (!(await checkFactoryCapability(dispatch, ExploitCapability.uploadMonoSP))) {
-                window.alert("Sorry! Your device doesn't support the SP MONO upload exploit.");
+                const message = 'This device does not support the SP MONO upload exploit.';
+                window.alert(message);
+                finishRejectedImportWrite(serviceRegistry.taskManager, options.taskId, {
+                    kind: 'unavailable',
+                    reason: message,
+                    pendingItems: files.length,
+                    recoveryAction: 'Choose a stereo recording mode or connect a compatible device.',
+                });
                 dispatch(convertDialogActions.setVisible(true));
                 return;
             }
