@@ -282,7 +282,7 @@ export function isActiveUsbDevice(device: USBDevice) {
     return serviceRegistry.netmdService?.isDeviceConnected(device) ?? false;
 }
 
-export function clearApplicationRuntime() {
+function clearApplicationRuntime() {
     for (const task of serviceRegistry.taskManager.list()) {
         if (task.status === 'queued' || task.status === 'running') {
             serviceRegistry.taskManager.interrupt(task.id, 'The device session ended before the task completed.');
@@ -293,7 +293,7 @@ export function clearApplicationRuntime() {
     ensureApplicationCommandBus().attachApplication(undefined);
 }
 
-export async function releaseDeviceSession(finalize = true) {
+async function releaseDeviceSession(finalize = true) {
     const service = serviceRegistry.netmdService;
     clearApplicationRuntime();
     serviceRegistry.netmdService = undefined;

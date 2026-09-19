@@ -173,7 +173,6 @@ export const FactoryTopMenu = function() {
 
     const handlePlayTetris = useCallback(() => {
         dispatch(runTetris());
-        dispatch(appActions.setMainView('WELCOME'));
         handleMenuClose();
     }, [dispatch, handleMenuClose]);
 

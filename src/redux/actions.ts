@@ -48,9 +48,8 @@ export function requestTaskCancellation(id: string) {
 
 export function disconnectDevice(finalize = true) {
     return async function (dispatch: AppDispatch) {
-        const cleanup = getApplicationClient().disconnectLocalDevice(finalize);
+        await getApplicationClient().disconnectLocalDevice(finalize);
         dispatch(appStateActions.setMainView('WELCOME'));
-        await cleanup;
     };
 }
 

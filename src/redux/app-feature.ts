@@ -12,11 +12,8 @@ export type Views = 'WELCOME' | 'MAIN' | 'FACTORY';
 export interface AppState {
     mainView: Views;
     loading: boolean;
-    pairingFailed: boolean;
-    pairingMessage: string;
     browserSupported: boolean;
     runningChrome: boolean;
-    connectingInProgress: boolean;
     colorTheme: 'dark' | 'light' | 'system';
     vintageMode: boolean;
     aboutDialogVisible: boolean;
@@ -48,11 +45,8 @@ export const buildInitialState = (): AppState => {
     return {
         mainView: 'WELCOME',
         loading: false,
-        pairingFailed: false,
-        pairingMessage: ``,
         browserSupported: true,
         runningChrome: true,
-        connectingInProgress: false,
         colorTheme: sharedSettings.colorTheme,
         vintageMode: sharedSettings.vintageMode,
         changelogDialogVisible: false,
@@ -97,20 +91,11 @@ export const slice = createSlice({
         setLoading: (state, action: PayloadAction<boolean>) => {
             state.loading = action.payload;
         },
-        setPairingFailed: (state, action: PayloadAction<boolean>) => {
-            state.pairingFailed = action.payload;
-        },
-        setPairingMessage: (state, action: PayloadAction<string>) => {
-            state.pairingMessage = action.payload;
-        },
         setBrowserSupported: (state, action: PayloadAction<boolean>) => {
             state.browserSupported = action.payload;
         },
         setRunningChrome: (state, action: PayloadAction<boolean>) => {
             state.runningChrome = action.payload;
-        },
-        setConnectingInProgress: (state, action: PayloadAction<boolean>) => {
-            state.connectingInProgress = action.payload;
         },
         setDarkMode: (state, action: PayloadAction<'dark' | 'light' | 'system'>) => {
             state.colorTheme = action.payload;

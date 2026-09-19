@@ -39,7 +39,7 @@ import { actions as otherDialogActions } from '../redux/other-device-feature';
 import { actions as appActions } from '../redux/app-feature';
 import { actions as errorDialogActions } from '../redux/error-dialog-feature';
 import { initializeParameters } from '../custom-parameters';
-import { useApplicationClient } from './use-application-client';
+import { useApplicationClient, useApplicationWorkspace } from './use-application-client';
 
 const useStyles = makeStyles()((theme) => ({
     main: {
@@ -104,16 +104,17 @@ export const Welcome = () => {
     const { classes } = useStyles();
     const dispatch = useDispatch();
     const applicationClient = useApplicationClient();
+    const { connection } = useApplicationWorkspace();
     const {
         browserSupported,
         runningChrome,
         availableServices,
-        pairingFailed,
-        pairingMessage,
         vintageMode,
         lastSelectedService,
-        connectingInProgress,
     } = useShallowEqualSelector((state) => state.appState);
+    const pairingFailed = connection.phase === 'error';
+    const pairingMessage = connection.message ?? '';
+    const connectingInProgress = connection.phase === 'connecting';
     const simpleServicesLength = getSimpleServices().length;
     if (pairingMessage.toLowerCase().match(/denied/)) {
         // show linux instructions
@@ -154,8 +155,6 @@ export const Welcome = () => {
         dispatch(
             batchActions([
                 appActions.setLastSelectedService(index),
-                appActions.setPairingFailed(false),
-                appActions.setConnectingInProgress(true),
                 appActions.setFactoryModeRippingInMainUi(false),
             ])
         );
@@ -169,25 +168,9 @@ export const Welcome = () => {
                         errorDialogActions.setVisible(false),
                     ])
                 );
-            } else if (result.message) {
-                dispatch(
-                    batchActions([
-                        appActions.setPairingMessage(result.message),
-                        appActions.setPairingFailed(true),
-                    ])
-                );
             }
         } catch (error) {
             console.error(error);
-            dispatch(
-                batchActions([
-                    appActions.setPairingMessage(error instanceof Error ? error.message : String(error)),
-                    appActions.setPairingFailed(true),
-                    appActions.setConnectingInProgress(false),
-                ])
-            );
-        } finally {
-            dispatch(appActions.setConnectingInProgress(false));
         }
     }
 

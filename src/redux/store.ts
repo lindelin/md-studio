@@ -28,7 +28,6 @@ import factoryBadSectorDialog, {
 
 import main from './main-feature';
 import { batchActions, batchDispatchMiddleware } from 'redux-batched-actions';
-import { clearApplicationRuntime } from '../application/runtime';
 import { applicationSettings, type UserSettings } from '../application/settings-store';
 
 function sharedSettingsFromState(state: {
@@ -99,15 +98,6 @@ const reducer = combineReducers({
 
 const resetStateAction = appActions.setMainView.toString();
 const resetStatePayload = 'WELCOME';
-const applicationLifecycle: Middleware = () => (next) => (action) => {
-    if (
-        (action as { type?: string; payload?: unknown }).type === resetStateAction &&
-        (action as { payload?: unknown }).payload === resetStatePayload
-    ) {
-        clearApplicationRuntime();
-    }
-    return next(action);
-};
 const sharedSettingsPersistence: Middleware = (storeApi) => (next) => (action) => {
     const result = next(action);
     if (
@@ -170,7 +160,7 @@ const resetStateReducer: typeof reducer = function (...args) {
 export const store = configureStore({
     reducer: resetStateReducer,
     middleware: (getDefaultMiddleware) =>
-        getDefaultMiddleware().prepend(errorCatcher, applicationLifecycle, sharedSettingsPersistence).concat(batchDispatchMiddleware),
+        getDefaultMiddleware().prepend(errorCatcher, sharedSettingsPersistence).concat(batchDispatchMiddleware),
 });
 
 const initialState = Object.freeze(store.getState());
