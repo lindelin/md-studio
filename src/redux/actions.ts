@@ -37,8 +37,8 @@ import { MetadataImportError } from '../domain/metadata-import';
 import { resolveGroupedTrackMove } from '../domain/disc-layout';
 import { DeviceSessionConnector } from '../application/device-session';
 import type { TaskSnapshot } from '../application/task-manager';
-import { allocateRecordingTitle } from '../domain/recording-title-budget';
-import { convertImportAudio, ImportAudioConversionError } from '../application/audio-conversion-pipeline';
+import { convertImportAudio } from '../application/audio-conversion-pipeline';
+import { ImportUploadSessionError, runImportUploadSession } from '../application/import-upload-session';
 
 export function requestTaskCancellation(id: string) {
     return async function () {
@@ -1089,124 +1089,62 @@ export function convertAndUpload(
         const disc = getState().main.disc;
         const usesHiMDTitles = getState().main.deviceCapabilities.includes(Capability.himdTitles);
         const useFullWidth = getState().appState.fullWidthSupport;
-        let titleBudget = netmdSpec!.getRemainingCharactersForTitles(disc!);
 
         let error: any;
         let errorMessage = ``;
-        let i = 1;
         let writtenTracks = 0;
-        let uploadPrepared = false;
+        let cancelled = false;
         try {
-            await netmdService?.prepareUpload();
-            uploadPrepared = true;
-            if (isWriteTaskRunning()) serviceRegistry.taskManager.setPhase(writeTask.id, 'converting');
-
-            for await (const item of conversionIterator) {
-                if (hasUploadBeenCancelled()) {
-                    break;
-                }
-
-                const { file, data } = item;
-
-                if (isWriteTaskRunning() && serviceRegistry.taskManager.get(writeTask.id).phase !== 'transferring') {
-                    serviceRegistry.taskManager.setPhase(writeTask.id, 'transferring');
-                }
-
-                const title = file.title;
-                const formatOverride: Codec = (file.forcedEncoding as Codec | null) ?? format;
-                let halfWidthTitle = title;
-                let fullWidthTitle = '';
-                if (!usesHiMDTitles) {
-                    const allocatedTitle = allocateRecordingTitle(
-                        netmdSpec!.sanitizeHalfWidthTitle(title),
-                        netmdSpec!.sanitizeFullWidthTitle(file.fullWidthTitle),
-                        titleBudget,
-                        useFullWidth,
-                        formatOverride.codec === 'SPS' || formatOverride.codec === 'SPM' ? 0 : 7
-                    );
-                    halfWidthTitle = allocatedTitle.halfWidthTitle;
-                    fullWidthTitle = allocatedTitle.fullWidthTitle;
-                    titleBudget = allocatedTitle.remaining;
-                }
-
-                trackUpdate.current = i++;
-                trackUpdate.titleCurrent = halfWidthTitle;
-                if (fullWidthTitle) {
-                    if (trackUpdate.titleCurrent) {
-                        trackUpdate.titleCurrent += ' / ';
-                    }
-                    trackUpdate.titleCurrent += fullWidthTitle;
-                }
-                bytesSentFromPrevTracks += bytesSentFromThisTrack;
-                bytesSentFromThisTrack = 0;
-                updateTrack();
-                if (isWriteTaskRunning()) {
-                    serviceRegistry.taskManager.reportProgress(writeTask.id, {
-                        completed: writtenTracks,
-                        currentLabel: trackUpdate.titleCurrent,
-                    });
-                }
-                updateUploadProgressCallback({ written: 0, encrypted: 0, total: 100 });
-                if (file.forcedEncoding?.codec === 'SPS' || file.forcedEncoding?.codec === 'SPM') {
-                    // Uploading an AEA file.
-                    await netmdFactoryService!.uploadSP(
-                        halfWidthTitle,
-                        fullWidthTitle,
-                        file.forcedEncoding.codec === 'SPM',
-                        data,
-                        updateUploadProgressCallback
-                    );
-                } else {
-                    // SPS / SPM was filtered out before
-                    await netmdService?.upload(
-                        usesHiMDTitles ? { title, artist: file.artist, album: file.album } : halfWidthTitle,
-                        fullWidthTitle,
-                        data,
-                        formatOverride,
-                        updateUploadProgressCallback
-                    );
-                }
-                writtenTracks += 1;
-                if (isWriteTaskRunning()) {
-                    serviceRegistry.taskManager.reportProgress(writeTask.id, { completed: writtenTracks });
-                }
-            }
+            const result = await runImportUploadSession({
+                tracks: conversionIterator,
+                totalTracks: files.length,
+                format,
+                disc: disc!,
+                spec: netmdSpec!,
+                service: netmdService!,
+                factoryService: netmdFactoryService ?? undefined,
+                usesHiMDTitles,
+                useFullWidthTitles: useFullWidth,
+                disableMonoUploadOnFinish: usesMonoUploadExploit,
+                isCancelled: hasUploadBeenCancelled,
+                hooks: {
+                    onPhase: (phase) => {
+                        if (isWriteTaskRunning() && serviceRegistry.taskManager.get(writeTask.id).phase !== phase) {
+                            serviceRegistry.taskManager.setPhase(writeTask.id, phase);
+                        }
+                    },
+                    onTrackStarted: (track) => {
+                        trackUpdate.current = track.index + 1;
+                        trackUpdate.titleCurrent = track.displayTitle;
+                        bytesSentFromPrevTracks += bytesSentFromThisTrack;
+                        bytesSentFromThisTrack = 0;
+                        updateTrack();
+                        if (isWriteTaskRunning()) {
+                            serviceRegistry.taskManager.reportProgress(writeTask.id, {
+                                completed: track.index,
+                                currentLabel: track.displayTitle,
+                            });
+                        }
+                    },
+                    onTrackProgress: (_track, progress) => updateUploadProgressCallback(progress),
+                    onTrackCompleted: (track) => {
+                        if (isWriteTaskRunning()) {
+                            serviceRegistry.taskManager.reportProgress(writeTask.id, { completed: track.index + 1 });
+                        }
+                    },
+                },
+            });
+            writtenTracks = result.writtenTracks;
+            cancelled = result.cancelled;
         } catch (caughtError) {
-            if (!error) {
-                error = caughtError;
-                errorMessage =
-                    caughtError instanceof ImportAudioConversionError
-                        ? caughtError.message
-                        : 'The recording task stopped before all tracks were transferred.';
+            error = caughtError;
+            if (caughtError instanceof ImportUploadSessionError) {
+                writtenTracks = caughtError.writtenTracks;
+                errorMessage = caughtError.displayMessage;
+            } else {
+                errorMessage = 'The recording task stopped before all tracks were transferred.';
             }
         } finally {
-            if (isWriteTaskRunning()) {
-                serviceRegistry.taskManager.setPhase(writeTask.id, 'finalizing');
-            }
-            if (uploadPrepared) {
-                try {
-                    await netmdService?.finalizeUpload();
-                } catch (finalizeError) {
-                    console.error('Could not finalize the upload session.', finalizeError);
-                    if (!error) {
-                        error = finalizeError;
-                        errorMessage = 'Tracks were transferred, but the device upload session could not be finalized.';
-                    }
-                }
-            }
-
-            if (usesMonoUploadExploit) {
-                try {
-                    await netmdFactoryService?.enableMonoUpload(false);
-                } catch (monoCleanupError) {
-                    console.error('Could not disable the mono upload mode.', monoCleanupError);
-                    if (!error) {
-                        error = monoCleanupError;
-                        errorMessage = 'The device did not leave mono upload mode cleanly.';
-                    }
-                }
-            }
-
             document.title = originalTitle;
             let actionToDispatch: UnknownAction[] = [uploadDialogActions.setVisible(false)];
             if (error) {
@@ -1229,7 +1167,7 @@ export function convertAndUpload(
                                 : 'Check the source audio, encoder, and device connection before retrying the write.',
                         details: { displayMessage: errorMessage },
                     });
-                } else if (hasUploadBeenCancelled()) {
+                } else if (cancelled || hasUploadBeenCancelled()) {
                     serviceRegistry.taskManager.cancel(writeTask.id, { writtenTracks });
                 } else {
                     serviceRegistry.taskManager.succeed(writeTask.id, { writtenTracks });
