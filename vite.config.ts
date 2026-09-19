@@ -28,7 +28,10 @@ export default () => {
       svgr(),
       react(),
       VitePWA({
-        registerType: 'autoUpdate',
+        // Keep an already-open recording workspace on the version it loaded.
+        // A waiting worker activates after the last old client closes, so an
+        // update cannot remove lazy chunks while a device task is still live.
+        registerType: 'prompt',
         injectRegister: 'inline',
         manifestFilename: 'manifest.json',
         manifest: {
@@ -60,8 +63,8 @@ export default () => {
         },
         workbox: {
           cleanupOutdatedCaches: true,
-          clientsClaim: true,
-          skipWaiting: true,
+          clientsClaim: false,
+          skipWaiting: false,
           maximumFileSizeToCacheInBytes: 1024 * 1024 * 10, // 10 MiB
           runtimeCaching: [
             {
