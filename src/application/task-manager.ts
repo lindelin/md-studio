@@ -14,6 +14,21 @@ export interface TaskProgress {
 export interface TaskError {
     code: string;
     message: string;
+    phase: Exclude<TaskPhase, 'complete'>;
+    retryable?: boolean;
+    completedItems?: number;
+    pendingItems?: number;
+    recoveryAction?: string;
+    details?: Record<string, unknown>;
+}
+
+export interface TaskFailureOptions {
+    code?: string;
+    retryable?: boolean;
+    completedItems?: number;
+    pendingItems?: number;
+    recoveryAction?: string;
+    details?: Record<string, unknown>;
 }
 
 export interface TaskSnapshot<TResult = unknown> {
@@ -104,20 +119,41 @@ export class TaskManager {
         });
     }
 
-    fail(id: string, error: unknown, code = 'TASK_FAILED') {
-        const typed = error as Error;
+    fail(id: string, error: unknown, options: string | TaskFailureOptions = {}) {
+        const typed = error as Error & { code?: unknown; details?: unknown };
+        const normalized = typeof options === 'string' ? { code: options } : options;
+        this.validateItemCount(normalized.completedItems, 'Completed item count');
+        this.validateItemCount(normalized.pendingItems, 'Pending item count');
         return this.finish(id, 'failed', (task) => {
-            task.error = { code, message: typed?.message || String(error) };
+            task.error = {
+                code: normalized.code ?? (typeof typed?.code === 'string' ? typed.code : 'TASK_FAILED'),
+                message: typed?.message || String(error),
+                phase: task.phase === 'complete' ? 'finalizing' : task.phase,
+                retryable: normalized.retryable,
+                completedItems: normalized.completedItems,
+                pendingItems: normalized.pendingItems,
+                recoveryAction: normalized.recoveryAction,
+                details:
+                    normalized.details ??
+                    (typed?.details && typeof typed.details === 'object' ? (typed.details as Record<string, unknown>) : undefined),
+            };
         });
     }
 
-    cancel(id: string) {
-        return this.finish(id, 'cancelled');
+    cancel<TResult>(id: string, result?: TResult) {
+        return this.finish(id, 'cancelled', (task) => {
+            task.result = result;
+        });
     }
 
     interrupt(id: string, message = 'Task interrupted before completion.') {
         return this.finish(id, 'interrupted', (task) => {
-            task.error = { code: 'TASK_INTERRUPTED', message };
+            task.error = {
+                code: 'TASK_INTERRUPTED',
+                message,
+                phase: task.phase === 'complete' ? 'finalizing' : task.phase,
+                recoveryAction: 'Reconnect the device, refresh its state, and verify what completed before retrying.',
+            };
         });
     }
 
@@ -173,6 +209,12 @@ export class TaskManager {
 
     private isFinished(task: TaskSnapshot) {
         return ['succeeded', 'failed', 'cancelled', 'interrupted'].includes(task.status);
+    }
+
+    private validateItemCount(value: number | undefined, label: string) {
+        if (value !== undefined && (!Number.isInteger(value) || value < 0)) {
+            throw new Error(`${label} must be a non-negative whole number.`);
+        }
     }
 
     private emit(task: TaskSnapshot) {

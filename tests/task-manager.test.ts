@@ -39,7 +39,35 @@ describe('TaskManager', () => {
         const task = manager.create('disc.write', 'Write a track');
         manager.start(task.id);
         assert.throws(() => manager.reportProgress(task.id, { completed: 2 }), /between zero/);
-        manager.fail(task.id, new Error('USB disconnected'));
+        const failed = manager.fail(task.id, new Error('USB disconnected'), {
+            code: 'DEVICE_DISCONNECTED',
+            retryable: true,
+            completedItems: 0,
+            pendingItems: 1,
+            recoveryAction: 'Reconnect the device and retry.',
+        });
+        assert.deepEqual(failed.error, {
+            code: 'DEVICE_DISCONNECTED',
+            message: 'USB disconnected',
+            phase: 'preparing',
+            retryable: true,
+            completedItems: 0,
+            pendingItems: 1,
+            recoveryAction: 'Reconnect the device and retry.',
+            details: undefined,
+        });
         assert.throws(() => manager.setPhase(task.id, 'finalizing'), /not running/);
+    });
+
+    it('preserves partial results when a running task is cancelled', () => {
+        const manager = new TaskManager();
+        const task = manager.create('track.export', 'Export tracks', 3, 'tracks');
+        manager.start(task.id, 'transferring');
+        manager.reportProgress(task.id, { completed: 1 });
+
+        const cancelled = manager.cancel(task.id, { exportedTracks: 1, files: ['Track 1.oma'] });
+        assert.equal(cancelled.status, 'cancelled');
+        assert.deepEqual(cancelled.result, { exportedTracks: 1, files: ['Track 1.oma'] });
+        assert.equal(cancelled.progress.completed, 1);
     });
 });

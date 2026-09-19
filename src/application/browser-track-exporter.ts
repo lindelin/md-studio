@@ -97,10 +97,21 @@ export class BrowserTrackExporter implements TrackExporter {
             });
 
             if (tasks.get(taskId).status !== 'running') return;
-            if (tasks.isCancellationRequested(taskId)) tasks.cancel(taskId);
+            if (tasks.isCancellationRequested(taskId)) {
+                tasks.cancel(taskId, { exportedTracks: exportedFiles.length, files: exportedFiles });
+            }
             else tasks.succeed(taskId, { exportedTracks: exportedFiles.length, files: exportedFiles });
         } catch (error) {
-            if (tasks.get(taskId).status === 'running') tasks.fail(taskId, error);
+            if (tasks.get(taskId).status === 'running') {
+                tasks.fail(taskId, error, {
+                    completedItems: exportedFiles.length,
+                    pendingItems: selected.length - exportedFiles.length,
+                    recoveryAction:
+                        exportedFiles.length > 0
+                            ? 'Keep the completed files and retry only the remaining tracks.'
+                            : 'Check the device connection and output directory, then retry the export.',
+                });
+            }
         }
     }
 }

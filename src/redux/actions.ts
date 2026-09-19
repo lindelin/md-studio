@@ -540,10 +540,19 @@ export function recordTracks(indexes: number[], deviceId: string, options: { ope
                 recordTracks(indexes, deviceId, { operationLockHeld: true })(dispatch, getState)
             );
         }
+        const disc = getState().main.disc;
+        if (!disc) throw new Error('Insert a disc before recording tracks through the audio input.');
+        const requestedIndexes = new Set(indexes);
+        if (indexes.length === 0 || requestedIndexes.size !== indexes.length) {
+            throw new Error('Select one or more unique tracks before starting an audio-input recording.');
+        }
+        const tracks = getTracks(disc).filter((track) => requestedIndexes.has(track.index));
+        if (tracks.length !== requestedIndexes.size) throw new Error('One or more selected tracks do not exist on the current disc.');
+
         const task = serviceRegistry.taskManager.create(
             'track.record',
-            `Record ${indexes.length} track${indexes.length === 1 ? '' : 's'} through the audio input`,
-            indexes.length,
+            `Record ${tracks.length} track${tracks.length === 1 ? '' : 's'} through the audio input`,
+            tracks.length,
             'tracks'
         );
         serviceRegistry.taskManager.start(task.id, 'preparing');
@@ -551,15 +560,13 @@ export function recordTracks(indexes: number[], deviceId: string, options: { ope
             batchActions([
                 recordDialogAction.setVisible(true),
                 recordDialogAction.setTaskId(task.id),
-                recordDialogAction.setProgress({ trackTotal: indexes.length, trackDone: 0, trackCurrent: 0, titleCurrent: '' }),
+                recordDialogAction.setProgress({ trackTotal: tracks.length, trackDone: 0, trackCurrent: 0, titleCurrent: '' }),
             ])
         );
 
-        const disc = getState().main.disc;
-        const tracks = getTracks(disc!).filter((t) => indexes.indexOf(t.index) >= 0);
-
         const { netmdService, mediaRecorderService } = serviceRegistry;
         let recordingStarted = false;
+        let recordedTracks = 0;
         try {
             await netmdService!.stop();
             for (const [i, track] of tracks.entries()) {
@@ -617,7 +624,8 @@ export function recordTracks(indexes: number[], deviceId: string, options: { ope
                         title = `Track ${track.index + 1}`;
                     }
                     mediaRecorderService!.downloadRecorded(title);
-                    serviceRegistry.taskManager.reportProgress(task.id, { completed: i + 1, currentLabel: title });
+                    recordedTracks += 1;
+                    serviceRegistry.taskManager.reportProgress(task.id, { completed: recordedTracks, currentLabel: title });
                 } finally {
                     if (recordingStarted) {
                         await mediaRecorderService!.stopRecording().catch((error) => console.error('Could not stop recording.', error));
@@ -627,10 +635,20 @@ export function recordTracks(indexes: number[], deviceId: string, options: { ope
                 }
             }
 
-            if (serviceRegistry.taskManager.isCancellationRequested(task.id)) serviceRegistry.taskManager.cancel(task.id);
-            else serviceRegistry.taskManager.succeed(task.id, { recordedTracks: tracks.length });
+            if (serviceRegistry.taskManager.isCancellationRequested(task.id)) {
+                serviceRegistry.taskManager.cancel(task.id, { recordedTracks });
+            } else {
+                serviceRegistry.taskManager.succeed(task.id, { recordedTracks });
+            }
         } catch (error) {
-            serviceRegistry.taskManager.fail(task.id, error);
+            serviceRegistry.taskManager.fail(task.id, error, {
+                completedItems: recordedTracks,
+                pendingItems: tracks.length - recordedTracks,
+                recoveryAction:
+                    recordedTracks > 0
+                        ? 'Keep the downloaded recordings and retry only the remaining tracks.'
+                        : 'Check the audio input and device playback connection before retrying.',
+            });
             dispatch(
                 batchActions([
                     errorDialogAction.setVisible(true),
@@ -1553,6 +1571,7 @@ export function convertAndUpload(
         let error: any;
         let errorMessage = ``;
         let i = 1;
+        let writtenTracks = 0;
         let uploadPrepared = false;
         try {
             await netmdService?.prepareUpload();
@@ -1598,7 +1617,7 @@ export function convertAndUpload(
                 updateTrack();
                 if (isWriteTaskRunning()) {
                     serviceRegistry.taskManager.reportProgress(writeTask.id, {
-                        completed: trackUpdate.current - 1,
+                        completed: writtenTracks,
                         currentLabel: trackUpdate.titleCurrent,
                     });
                 }
@@ -1622,6 +1641,10 @@ export function convertAndUpload(
                         formatOverride,
                         updateUploadProgressCallback
                     );
+                }
+                writtenTracks += 1;
+                if (isWriteTaskRunning()) {
+                    serviceRegistry.taskManager.reportProgress(writeTask.id, { completed: writtenTracks });
                 }
             }
         } catch (caughtError) {
@@ -1670,11 +1693,19 @@ export function convertAndUpload(
 
             if (isWriteTaskRunning()) {
                 if (error) {
-                    serviceRegistry.taskManager.fail(writeTask.id, error);
+                    serviceRegistry.taskManager.fail(writeTask.id, error, {
+                        completedItems: writtenTracks,
+                        pendingItems: files.length - writtenTracks,
+                        recoveryAction:
+                            writtenTracks > 0
+                                ? 'Refresh the disc, keep the completed tracks, and retry only the remaining imports.'
+                                : 'Check the source audio, encoder, and device connection before retrying the write.',
+                        details: { displayMessage: errorMessage },
+                    });
                 } else if (hasUploadBeenCancelled()) {
-                    serviceRegistry.taskManager.cancel(writeTask.id);
+                    serviceRegistry.taskManager.cancel(writeTask.id, { writtenTracks });
                 } else {
-                    serviceRegistry.taskManager.succeed(writeTask.id, { writtenTracks: trackUpdate.current });
+                    serviceRegistry.taskManager.succeed(writeTask.id, { writtenTracks });
                     showFinishedNotificationIfNeeded();
                 }
             }
