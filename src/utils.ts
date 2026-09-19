@@ -1,6 +1,5 @@
 import { AppDispatch, RootState } from './redux/store';
 import { Mutex } from 'async-mutex';
-import * as mm from 'music-metadata';
 import { Disc, Track } from './services/interfaces/netmd';
 import { ForcedEncodingFormat } from './redux/convert-dialog-feature';
 import { HiMDKBPSToFrameSize } from 'himd-js';
@@ -108,9 +107,10 @@ export async function getMetadataFromFile(
     }
 
     try {
+        const { parseBlob } = await import('music-metadata');
         const fileData = await file.arrayBuffer();
         const blob = new Blob([new Uint8Array(fileData)]);
-        const metadata = await mm.parseBlob(blob, { duration: true });
+        const metadata = await parseBlob(blob, { duration: true });
         const bitrate = (metadata.format.bitrate ?? 0) / 1000;
         const duration = metadata.format.duration ?? 0;
         const title = metadata.common.title ?? removeExtension(file.name); //Fallback to file name if there's no title in the metadata.
