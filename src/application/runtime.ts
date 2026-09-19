@@ -6,6 +6,12 @@ import { InProcessApplicationClient } from './application-client';
 import { INTERACTIVE_ADVANCED_AUTHORIZATION } from './interactive-authorization';
 import { BrowserAdvancedTrackExporter } from './advanced-track-export';
 import type { AdaptiveFile } from '../utils';
+import { DeviceSessionConnector } from './device-session';
+import type { MinidiscSpec, NetMDService } from '../services/interfaces/netmd';
+
+export function connectDeviceSession(service: NetMDService, spec: MinidiscSpec) {
+    return new DeviceSessionConnector(serviceRegistry, bindApplicationRuntime).connect(service, spec);
+}
 
 export function bindApplicationRuntime() {
     if (!serviceRegistry.netmdService || !serviceRegistry.netmdSpec) {

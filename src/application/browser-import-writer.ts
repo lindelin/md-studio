@@ -1,4 +1,3 @@
-import serviceRegistry from '../services/registry';
 import type { Codec } from '../services/interfaces/netmd';
 import type { TitledFile } from '../utils';
 import { ApplicationError } from './contracts';
@@ -12,8 +11,12 @@ import {
     assertImportWritePolicy,
 } from './import-write-policy';
 import { INTERACTIVE_HOMEBREW_AUTHORIZATION } from './interactive-authorization';
+import type { MiniDiscApplication } from './minidisc-application';
+import type { BrowserLocalFileGateway } from './browser-local-file-gateway';
 
 export interface BrowserImportWriterDependencies {
+    getApplication(): MiniDiscApplication | undefined;
+    localFiles: BrowserLocalFileGateway;
     startUpload(
         files: TitledFile[],
         format: Codec,
@@ -30,7 +33,7 @@ export class BrowserImportWriter implements ImportWriter {
 
     async start(request: ImportWriteRequest, queue: ImportQueue, tasks: TaskManager) {
         const selected = queue.resolveSelection(request.ids, request.expectedRevision);
-        const application = serviceRegistry.application;
+        const application = this.dependencies.getApplication();
         if (!application) {
             throw new ApplicationError('NO_DISC', 'Connect a MiniDisc device before starting a write task.');
         }
@@ -91,9 +94,9 @@ export class BrowserImportWriter implements ImportWriter {
             const files: TitledFile[] = [];
             for (const { item, payload } of selected) {
                 let resolvedPayload = payload;
-                if (resolvedPayload === undefined && item.kind === 'local-path' && serviceRegistry.importPayloadResolver) {
+                if (resolvedPayload === undefined && item.kind === 'local-path' && this.dependencies.localFiles.canResolve()) {
                     resolvedPayload = createDeferredFile(item.name, item.reference, (reference) =>
-                        serviceRegistry.importPayloadResolver!.resolve(reference)
+                        this.dependencies.localFiles.resolve(reference)
                     );
                 }
                 if (!(resolvedPayload instanceof File) && !isAdaptiveFile(resolvedPayload) && !isDeferredFile(resolvedPayload)) {

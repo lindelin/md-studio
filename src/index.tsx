@@ -27,10 +27,14 @@ import { BrowserTrackRecorder } from './application/browser-track-recorder';
 import { getApplicationClient, isActiveUsbDevice } from './application/runtime';
 import { applyDeviceSnapshot } from './redux/application-adapter';
 import { BrowserAudioInput } from './application/browser-audio-input';
+import { BrowserLocalFileGateway } from './application/browser-local-file-gateway';
 const mediaRecorderService = new MediaRecorderService();
+const localFiles = new BrowserLocalFileGateway();
 serviceRegistry.localAudioInput = new BrowserAudioInput(mediaRecorderService);
 serviceRegistry.mediaSessionService = new BrowserMediaSessionService(store);
 serviceRegistry.importWriter = new BrowserImportWriter({
+    getApplication: () => serviceRegistry.application,
+    localFiles,
     startUpload: async (files, format, parameters, taskId, deviceVersion, tasks) => {
         const audioExportService = await serviceRegistry.audioEncoderManager.getService();
         await store.dispatch(
@@ -46,10 +50,10 @@ serviceRegistry.importWriter = new BrowserImportWriter({
         store.dispatch(convertDialogActions.setVisible(true));
     },
 });
-serviceRegistry.trackExporter = new BrowserTrackExporter();
+serviceRegistry.trackExporter = new BrowserTrackExporter(localFiles);
 serviceRegistry.trackRecorder = new BrowserTrackRecorder(mediaRecorderService);
 getApplicationClient();
-startLocalApplicationBridge();
+startLocalApplicationBridge(localFiles);
 
 Object.defineProperty(window, 'wmdVersion', {
     value: '0.1.0',

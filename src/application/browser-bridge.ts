@@ -1,4 +1,3 @@
-import serviceRegistry from '../services/registry';
 import {
     BRIDGE_PROTOCOL_VERSION,
     BRIDGE_FILE_CHUNK_SIZE,
@@ -14,6 +13,7 @@ import { ensureApplicationCommandBus } from './runtime';
 import { store } from '../redux/store';
 import { applyDeviceSnapshot } from '../redux/application-adapter';
 import { isBoolean, loadPreference, readRawPreference } from '../preferences';
+import type { BrowserLocalFileGateway } from './browser-local-file-gateway';
 
 const DEFAULT_BRIDGE_URL = 'ws://127.0.0.1:47123';
 
@@ -252,7 +252,7 @@ export class BrowserApplicationBridge {
     }
 }
 
-export function startLocalApplicationBridge() {
+export function startLocalApplicationBridge(localFiles: BrowserLocalFileGateway) {
     const explicitlyEnabled = loadPreference('minidiscLocalBridgeEnabled', false, isBoolean);
     if (!explicitlyEnabled) return undefined;
 
@@ -269,8 +269,7 @@ export function startLocalApplicationBridge() {
     }
     if (token) url.searchParams.set('token', token);
     const bridge = new BrowserApplicationBridge(url.toString());
-    serviceRegistry.importPayloadResolver = bridge;
-    serviceRegistry.exportPayloadSink = bridge;
+    localFiles.attach(bridge);
     bridge.start();
     return bridge;
 }

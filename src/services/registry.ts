@@ -18,14 +18,6 @@ import { AudioServices, createAudioEncoder } from './audio-export-service-manage
 import { createServiceCatalog, type ServiceCatalogSnapshot } from '../application/service-catalog';
 import type { LocalAudioInput } from '../application/browser-audio-input';
 
-export interface ImportPayloadResolver {
-    resolve(reference: string): Promise<File>;
-}
-
-export interface ExportPayloadSink {
-    write(outputHandle: string, name: string, data: Uint8Array): Promise<string | undefined>;
-}
-
 interface ServiceRegistry {
     netmdService?: NetMDService;
     netmdSpec?: MinidiscSpec;
@@ -40,9 +32,7 @@ interface ServiceRegistry {
     applicationClient?: ApplicationClient;
     taskManager: TaskManager;
     importQueue: ImportQueue;
-    importPayloadResolver?: ImportPayloadResolver;
     importWriter?: ImportWriter;
-    exportPayloadSink?: ExportPayloadSink;
     trackExporter?: TrackExporter;
     trackRecorder?: TrackRecorder;
     operationCoordinator: DeviceOperationCoordinator;

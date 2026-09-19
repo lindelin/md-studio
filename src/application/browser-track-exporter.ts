@@ -1,11 +1,13 @@
-import serviceRegistry from '../services/registry';
 import { convertToWAV, createDownloadTrackName, downloadBlob, getTracks } from '../utils';
 import { ApplicationError } from './contracts';
 import type { MiniDiscApplication } from './minidisc-application';
 import type { TaskManager } from './task-manager';
 import type { TrackExporter, TrackExportRequest, TrackExportSink } from './track-export';
+import type { BrowserLocalFileGateway } from './browser-local-file-gateway';
 
 export class BrowserTrackExporter implements TrackExporter {
+    constructor(private readonly localFiles?: BrowserLocalFileGateway) {}
+
     async start(
         request: TrackExportRequest,
         application: MiniDiscApplication,
@@ -17,7 +19,7 @@ export class BrowserTrackExporter implements TrackExporter {
         if (uniqueIndexes.size !== request.indexes.length) {
             throw new ApplicationError('INVALID_INPUT', 'A track was supplied more than once.');
         }
-        if (request.outputHandle && !serviceRegistry.exportPayloadSink) {
+        if (request.outputHandle && !this.localFiles?.canWrite()) {
             throw new ApplicationError('CAPABILITY_REQUIRED', 'The local export bridge is not connected.');
         }
 
@@ -96,7 +98,7 @@ export class BrowserTrackExporter implements TrackExporter {
                         await sink(data, fileName);
                         exportedFiles.push(fileName);
                     } else if (request.outputHandle) {
-                        const completedPath = await serviceRegistry.exportPayloadSink!.write(request.outputHandle, fileName, data);
+                        const completedPath = await this.localFiles!.write(request.outputHandle, fileName, data);
                         exportedFiles.push(completedPath ?? fileName);
                     } else {
                         downloadBlob(new Blob([data], { type: 'application/octet-stream' }), fileName);

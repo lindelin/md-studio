@@ -9,7 +9,6 @@ import { actions as appStateActions } from './app-feature';
 import { actions as convertDialogActions } from './convert-dialog-feature';
 import { actions as songRecognitionDialogActions, TitleEntry } from './song-recognition-dialog-feature';
 import { actions as songRecognitionProgressDialogActions } from './song-recognition-progress-dialog-feature';
-import serviceRegistry from '../services/registry';
 import { UnknownAction } from '@reduxjs/toolkit';
 import {
     sleep,
@@ -27,11 +26,11 @@ import { Capability, NetMDService, Codec, MinidiscSpec, ExploitCapability } from
 import { getSimpleServices, ServiceConstructionInfo } from '../services/interface-service-manager';
 import { checkFactoryCapability } from './factory/factory-actions';
 import { s16LEToSamplesArray, Shazam } from 'shazam-api';
-import { bindApplicationRuntime, getApplicationClient, releaseDeviceSession } from '../application/runtime';
+import { connectDeviceSession, getApplicationClient, releaseDeviceSession } from '../application/runtime';
 import { applyDeviceSnapshot } from './application-adapter';
 import { MetadataImportError } from '../domain/metadata-import';
 import { resolveGroupedTrackMove } from '../domain/disc-layout';
-import { describeDeviceSessionFailure, DeviceSessionConnector } from '../application/device-session';
+import { describeDeviceSessionFailure } from '../application/device-session';
 import type { TaskManager, TaskSnapshot } from '../application/task-manager';
 import type { AudioExportService } from '../services/audio/audio-export';
 import { convertImportAudio } from '../application/audio-conversion-pipeline';
@@ -223,7 +222,7 @@ export function pair(serviceInstance: NetMDService, spec: MinidiscSpec) {
         try {
             await getApplicationClient().initializeLocalMediaServices();
 
-            const session = await new DeviceSessionConnector(serviceRegistry, bindApplicationRuntime).connect(serviceInstance, spec);
+            const session = await connectDeviceSession(serviceInstance, spec);
             if (session.cachedConnectionError) console.error(session.cachedConnectionError);
             if (session.application) {
                 dispatch(
