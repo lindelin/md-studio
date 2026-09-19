@@ -20,7 +20,8 @@ describe('InProcessApplicationClient', () => {
                 },
             },
             workspace,
-            imports
+            imports,
+            async () => tasks.create('export', 'Local export')
         );
         const initial = client.getWorkspaceSnapshot();
         let notifications = 0;
@@ -49,9 +50,14 @@ describe('InProcessApplicationClient', () => {
         const imports = new ImportQueue();
         const workspace = new WorkspaceStore(tasks, imports, new SettingsStore(null));
         const client = new InProcessApplicationClient(
-            { async execute() { return { ok: true }; } },
+            {
+                async execute() {
+                    return { ok: true };
+                },
+            },
             workspace,
-            imports
+            imports,
+            async () => tasks.create('export', 'Local export')
         );
         const payload = { browserFile: true };
 
@@ -65,5 +71,30 @@ describe('InProcessApplicationClient', () => {
 
         assert.equal(result.items[0].title, 'Local');
         assert.equal(imports.resolvePayload(result.items[0].id), payload);
+    });
+
+    it('routes UI-only export sinks without exposing them to serializable commands', async () => {
+        const tasks = new TaskManager();
+        const imports = new ImportQueue();
+        const workspace = new WorkspaceStore(tasks, imports, new SettingsStore(null));
+        const requests: number[][] = [];
+        const client = new InProcessApplicationClient(
+            {
+                async execute() {
+                    return { ok: true };
+                },
+            },
+            workspace,
+            imports,
+            async (request) => {
+                requests.push(request.indexes);
+                return tasks.create('track-export', 'Local export');
+            }
+        );
+
+        const task = await client.startLocalTrackExport({ indexes: [0, 2], convertToWav: true }, async () => {});
+
+        assert.deepEqual(requests, [[0, 2]]);
+        assert.equal(task.kind, 'track-export');
     });
 });

@@ -30,7 +30,7 @@ import { AudioServices, resolveAudioServiceIndex } from '../services/audio-expor
 import { checkFactoryCapability, initializeFactoryMode } from './factory/factory-actions';
 import { LibraryServices } from '../services/library-services';
 import { s16LEToSamplesArray, Shazam } from 'shazam-api';
-import { bindApplicationRuntime, getApplicationClient, getApplicationRuntime, releaseDeviceSession } from '../application/runtime';
+import { bindApplicationRuntime, getApplicationClient, releaseDeviceSession } from '../application/runtime';
 import { applyDeviceSnapshot } from './application-adapter';
 import { MetadataImportError } from '../domain/metadata-import';
 import { resolveGroupedTrackMove } from '../domain/disc-layout';
@@ -467,12 +467,8 @@ export function downloadTracks(
         let task;
         try {
             if (callback) {
-                if (!serviceRegistry.trackExporter) throw new Error('Track export is unavailable in this application environment.');
-                const application = getApplicationRuntime();
-                task = await serviceRegistry.trackExporter.start(
+                task = await getApplicationClient().startLocalTrackExport(
                     request,
-                    application,
-                    serviceRegistry.taskManager,
                     (data, fileName) => {
                         const copy = new Uint8Array(data.byteLength);
                         copy.set(data);

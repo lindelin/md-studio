@@ -51,7 +51,18 @@ export function getApplicationClient() {
         serviceRegistry.applicationClient = new InProcessApplicationClient(
             ensureApplicationCommandBus(),
             serviceRegistry.workspaceStore,
-            serviceRegistry.importQueue
+            serviceRegistry.importQueue,
+            async (request, sink) => {
+                if (!serviceRegistry.trackExporter) {
+                    throw new Error('Track export is unavailable in this application environment.');
+                }
+                return serviceRegistry.trackExporter.start(
+                    request,
+                    getApplicationRuntime(),
+                    serviceRegistry.taskManager,
+                    sink
+                );
+            }
         );
     }
     return serviceRegistry.applicationClient;
