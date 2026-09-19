@@ -1,5 +1,5 @@
-import { DeviceStatus, TrackFlag } from "netmd-js";
-import { Capability, Codec, Disc, Group, NetMDService, TitleParameter, Track } from "./netmd";
+import { TrackFlag } from "netmd-js";
+import { Capability, Codec, DeviceStatus, Disc, Group, NetMDService, TitleParameter, Track } from "./netmd";
 import { resolvePathFromGlobalIndex, TrackMetadata, DeviceDefinition, decryptMP3, initializeIfNeeded } from 'networkwm-js';
 import { FSAHiMDFilesystem, HiMDKBPSToFrameSize, generateCodecInfo } from "himd-js";
 import { AbstractedTrack, DatabaseAbstraction } from "networkwm-js";
@@ -19,8 +19,12 @@ export class NetworkWMService extends NetMDService {
     } | null = null;
     public constructor(private device: DeviceDefinition){ super(); }
 
-    isDeviceConnected(): boolean {
-        return true;
+    isDeviceConnected(_device: USBDevice): boolean {
+        // Network Walkman access is backed by a user-selected filesystem, not
+        // by the WebUSB device surfaced in navigator.usb disconnect events.
+        // Claiming every USB device here caused an unrelated USB disconnect to
+        // tear down an active Network Walkman session.
+        return false;
     }
 
     async getServiceCapabilities(): Promise<Capability[]> {
@@ -38,6 +42,7 @@ export class NetworkWMService extends NetMDService {
             state: "ready",
             time: { frame: 0, minute: 0, second: 0 },
             track: 0,
+            canBeFlushed: this.dirty,
         }
     }
     async pair(): Promise<boolean> {
