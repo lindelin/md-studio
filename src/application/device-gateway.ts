@@ -172,6 +172,31 @@ export class NetMDAdvancedDeviceGateway implements AdvancedDeviceGateway {
         await factory.flushUTOCCacheToDisc();
     }
 
+    async runTetris() {
+        const factory = await this.getFactoryService();
+        await factory.runTetris();
+    }
+
+    async setSpUploadSpeedup(enabled: boolean) {
+        const factory = await this.getFactoryService();
+        await factory.setSPSpeedupActive(enabled);
+    }
+
+    async setDiscSwapDetectionDisabled(disabled: boolean) {
+        const factory = await this.getFactoryService();
+        await factory.setDiscSwapDetection(disabled);
+    }
+
+    async enableHimdFullMode() {
+        const factory = await this.getFactoryService();
+        await factory.enableHiMDFullMode();
+    }
+
+    async enterServiceMode() {
+        const factory = await this.getFactoryService();
+        await factory.enterServiceMode();
+    }
+
     private async getFactoryService() {
         if (this.factoryService) return this.factoryService;
         const factory = await this.service.factory();

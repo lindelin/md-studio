@@ -27,6 +27,7 @@ import type { MetadataCsvExport, MetadataImportPlan } from '../domain/metadata-i
 import { SettingsStore, type SettingsSnapshot, type UserSettingsUpdate } from './settings-store';
 import { ApplicationError } from './contracts';
 import type { WorkspaceSnapshot, WorkspaceStore } from './workspace-store';
+import { INTERACTIVE_ADVANCED_AUTHORIZATION } from './interactive-authorization';
 
 export type ApplicationCommand =
     | { type: 'workspace.get' }
@@ -46,6 +47,32 @@ export type ApplicationCommand =
           dataBase64: string;
           confirmation?: DestructiveConfirmation;
           expectedRevision?: number;
+          interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION;
+      }
+    | {
+          type: 'advanced.runTetris';
+          confirmation?: DestructiveConfirmation;
+          interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION;
+      }
+    | {
+          type: 'advanced.setSpUploadSpeedup';
+          enabled: boolean;
+          interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION;
+      }
+    | {
+          type: 'advanced.setDiscSwapDetectionDisabled';
+          disabled: boolean;
+          interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION;
+      }
+    | {
+          type: 'advanced.enableHimdFullMode';
+          confirmation?: DestructiveConfirmation;
+          interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION;
+      }
+    | {
+          type: 'advanced.enterServiceMode';
+          confirmation?: DestructiveConfirmation;
+          interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION;
       }
     | { type: 'settings.get' }
     | { type: 'settings.update'; changes: UserSettingsUpdate; expectedRevision?: number }
@@ -233,6 +260,26 @@ export class ApplicationCommandBus {
             if (command.type === 'advanced.readToc') {
                 return { ok: true, advancedToc: await application.readRawToc() };
             }
+            if (command.type === 'advanced.runTetris') {
+                await application.runTetris(command.confirmation, command.interactiveAuthorization);
+                return { ok: true };
+            }
+            if (command.type === 'advanced.setSpUploadSpeedup') {
+                await application.setSpUploadSpeedup(command.enabled, command.interactiveAuthorization);
+                return { ok: true };
+            }
+            if (command.type === 'advanced.setDiscSwapDetectionDisabled') {
+                await application.setDiscSwapDetectionDisabled(command.disabled, command.interactiveAuthorization);
+                return { ok: true };
+            }
+            if (command.type === 'advanced.enableHimdFullMode') {
+                await application.enableHimdFullMode(command.confirmation, command.interactiveAuthorization);
+                return { ok: true };
+            }
+            if (command.type === 'advanced.enterServiceMode') {
+                await application.enterServiceMode(command.confirmation, command.interactiveAuthorization);
+                return { ok: true };
+            }
 
             let snapshot: DeviceSnapshot;
             switch (command.type) {
@@ -265,7 +312,8 @@ export class ApplicationCommandBus {
                     snapshot = await application.writeRawToc(
                         command.dataBase64,
                         command.confirmation,
-                        command.expectedRevision
+                        command.expectedRevision,
+                        command.interactiveAuthorization
                     );
                     break;
                 case 'track.renameMany':

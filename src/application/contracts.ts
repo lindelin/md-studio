@@ -76,6 +76,11 @@ export interface AdvancedDeviceGateway {
     readTocSector(index: number): Promise<Uint8Array>;
     writeTocSector(index: number, data: Uint8Array): Promise<void>;
     flushToc(): Promise<void>;
+    runTetris(): Promise<void>;
+    setSpUploadSpeedup(enabled: boolean): Promise<void>;
+    setDiscSwapDetectionDisabled(disabled: boolean): Promise<void>;
+    enableHimdFullMode(): Promise<void>;
+    enterServiceMode(): Promise<void>;
 }
 
 export type PlaybackCommand =
@@ -108,6 +113,7 @@ export class ApplicationError extends Error {
         | 'STALE_REVISION'
         | 'INVALID_INPUT'
         | 'CONFIRMATION_REQUIRED'
+        | 'INTERACTIVE_AUTHORIZATION_REQUIRED'
         | 'DISC_READ_ONLY'
         | 'DEVICE_NOT_CONNECTED';
     public readonly details?: Record<string, unknown>;
@@ -119,6 +125,7 @@ export class ApplicationError extends Error {
             | 'STALE_REVISION'
             | 'INVALID_INPUT'
             | 'CONFIRMATION_REQUIRED'
+            | 'INTERACTIVE_AUTHORIZATION_REQUIRED'
             | 'DISC_READ_ONLY'
             | 'DEVICE_NOT_CONNECTED',
         message: string,

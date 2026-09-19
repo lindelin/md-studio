@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { describe, it } from 'node:test';
 import { ApplicationError, type DeviceGateway, type TrackMetadataUpdate } from '../src/application/contracts.ts';
 import { MiniDiscApplication } from '../src/application/minidisc-application.ts';
+import { INTERACTIVE_ADVANCED_AUTHORIZATION } from '../src/application/interactive-authorization.ts';
 
 function makeGateway() {
     const calls: string[] = [];
@@ -331,6 +332,11 @@ describe('MiniDiscApplication', () => {
             },
             async writeTocSector() {},
             async flushToc() {},
+            async runTetris() {},
+            async setSpUploadSpeedup() {},
+            async setDiscSwapDetectionDisabled() {},
+            async enableHimdFullMode() {},
+            async enterServiceMode() {},
         });
         await application.refresh();
 
@@ -355,7 +361,7 @@ describe('MiniDiscApplication', () => {
         let flushed = 0;
         const application = new MiniDiscApplication(gateway, undefined, {
             async readInfo() {
-                return { firmwareVersion: 'S1.600', capabilities: [] };
+                return { firmwareVersion: 'S1.600', capabilities: ['flushUTOC'] };
             },
             async readTocSector() {
                 return new Uint8Array(2352);
@@ -366,18 +372,36 @@ describe('MiniDiscApplication', () => {
             async flushToc() {
                 flushed += 1;
             },
+            async runTetris() {},
+            async setSpUploadSpeedup() {},
+            async setDiscSwapDetectionDisabled() {},
+            async enableHimdFullMode() {},
+            async enterServiceMode() {},
         });
         await application.refresh();
         const data = new Uint8Array(2352 * 6);
         for (let index = 0; index < 6; index += 1) data.fill(index + 1, index * 2352, (index + 1) * 2352);
 
         await assert.rejects(() => application.writeRawToc(Buffer.from(data).toString('base64')), {
-            code: 'CONFIRMATION_REQUIRED',
+            code: 'INTERACTIVE_AUTHORIZATION_REQUIRED',
         });
+        await assert.rejects(
+            () =>
+                application.writeRawToc(
+                    Buffer.from(data).toString('base64'),
+                    undefined,
+                    undefined,
+                    INTERACTIVE_ADVANCED_AUTHORIZATION
+                ),
+            {
+            code: 'CONFIRMATION_REQUIRED',
+            }
+        );
         const snapshot = await application.writeRawToc(
             Buffer.from(data).toString('base64'),
             { confirmed: true, reason: 'Confirmed in the advanced maintenance UI.' },
-            0
+            0,
+            INTERACTIVE_ADVANCED_AUTHORIZATION
         );
 
         assert.deepEqual(written, [
@@ -389,6 +413,64 @@ describe('MiniDiscApplication', () => {
         assert.equal(flushed, 1);
         assert.equal(snapshot.revision, 1);
         assert.deepEqual(calls, ['read', 'read']);
+    });
+
+    it('checks exploit capabilities and confirmation before advanced device actions', async () => {
+        const { gateway } = makeGateway();
+        const actions: string[] = [];
+        const application = new MiniDiscApplication(gateway, undefined, {
+            async readInfo() {
+                return {
+                    firmwareVersion: 'S1.600',
+                    capabilities: [
+                        'runTetris',
+                        'spUploadSpeedup',
+                        'disableDiscSwapDetection',
+                        'himdFullMode',
+                        'enterServiceMode',
+                    ],
+                };
+            },
+            async readTocSector() {
+                return new Uint8Array(2352);
+            },
+            async writeTocSector() {},
+            async flushToc() {},
+            async runTetris() {
+                actions.push('tetris');
+            },
+            async setSpUploadSpeedup(enabled) {
+                actions.push(`speedup:${enabled}`);
+            },
+            async setDiscSwapDetectionDisabled(disabled) {
+                actions.push(`disc-swap-disabled:${disabled}`);
+            },
+            async enableHimdFullMode() {
+                actions.push('himd-full');
+            },
+            async enterServiceMode() {
+                actions.push('service-mode');
+            },
+        });
+        await application.refresh();
+
+        await assert.rejects(() => application.runTetris(), { code: 'INTERACTIVE_AUTHORIZATION_REQUIRED' });
+        await assert.rejects(() => application.runTetris(undefined, INTERACTIVE_ADVANCED_AUTHORIZATION), {
+            code: 'CONFIRMATION_REQUIRED',
+        });
+        await application.runTetris({ confirmed: true, reason: 'Confirmed in test.' }, INTERACTIVE_ADVANCED_AUTHORIZATION);
+        await application.setSpUploadSpeedup(true, INTERACTIVE_ADVANCED_AUTHORIZATION);
+        await application.setDiscSwapDetectionDisabled(true, INTERACTIVE_ADVANCED_AUTHORIZATION);
+        await application.enableHimdFullMode(
+            { confirmed: true, reason: 'Confirmed in test.' },
+            INTERACTIVE_ADVANCED_AUTHORIZATION
+        );
+        await application.enterServiceMode(
+            { confirmed: true, reason: 'Confirmed in test.' },
+            INTERACTIVE_ADVANCED_AUTHORIZATION
+        );
+
+        assert.deepEqual(actions, ['tetris', 'speedup:true', 'disc-swap-disabled:true', 'himd-full', 'service-mode']);
     });
 
     it('runs the destructive self-test as one revisioned transaction and leaves a verified empty disc', async () => {

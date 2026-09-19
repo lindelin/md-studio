@@ -3,3 +3,6 @@
  * display a local confirmation. JSON bridge clients cannot manufacture it.
  */
 export const INTERACTIVE_HOMEBREW_AUTHORIZATION = Symbol('interactive-homebrew-authorization');
+
+/** Browser-only capability for advanced maintenance that must never cross JSON automation. */
+export const INTERACTIVE_ADVANCED_AUTHORIZATION = Symbol('interactive-advanced-authorization');

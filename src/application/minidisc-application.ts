@@ -21,6 +21,7 @@ import {
     type MetadataImportPlan,
 } from '../domain/metadata-import';
 import { sleep } from '../utils';
+import { INTERACTIVE_ADVANCED_AUTHORIZATION } from './interactive-authorization';
 
 export const MINIDISC_SELF_TEST_STEP_COUNT = 14;
 
@@ -120,8 +121,14 @@ export class MiniDiscApplication {
         });
     }
 
-    writeRawToc(dataBase64: string, confirmation?: DestructiveConfirmation, expectedRevision?: number) {
+    writeRawToc(
+        dataBase64: string,
+        confirmation?: DestructiveConfirmation,
+        expectedRevision?: number,
+        interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION
+    ) {
         return this.mutate('advanced.factory', expectedRevision, async () => {
+            this.requireInteractiveAdvancedAuthorization(interactiveAuthorization);
             this.requireConfirmation(
                 confirmation,
                 'Writing a raw TOC can make every track on the disc unreadable and requires explicit confirmation.'
@@ -137,11 +144,70 @@ export class MiniDiscApplication {
                 });
             }
             const gateway = this.requireAdvancedGateway();
+            await this.requireExploitCapability(gateway, 'flushUTOC');
             for (let index = 0; index < writableSectorCount; index += 1) {
                 await gateway.writeTocSector(index, data.slice(index * sectorSize, (index + 1) * sectorSize));
             }
             await gateway.flushToc();
         });
+    }
+
+    runTetris(
+        confirmation?: DestructiveConfirmation,
+        interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION
+    ) {
+        return this.advancedAction(
+            'runTetris',
+            (gateway) => gateway.runTetris(),
+            interactiveAuthorization,
+            confirmation,
+            'Running device-side homebrew code requires explicit confirmation.'
+        );
+    }
+
+    setSpUploadSpeedup(enabled: boolean, interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION) {
+        return this.advancedAction(
+            'spUploadSpeedup',
+            (gateway) => gateway.setSpUploadSpeedup(enabled),
+            interactiveAuthorization
+        );
+    }
+
+    setDiscSwapDetectionDisabled(
+        disabled: boolean,
+        interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION
+    ) {
+        return this.advancedAction(
+            'disableDiscSwapDetection',
+            (gateway) => gateway.setDiscSwapDetectionDisabled(disabled),
+            interactiveAuthorization
+        );
+    }
+
+    enableHimdFullMode(
+        confirmation?: DestructiveConfirmation,
+        interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION
+    ) {
+        return this.advancedAction(
+            'himdFullMode',
+            (gateway) => gateway.enableHimdFullMode(),
+            interactiveAuthorization,
+            confirmation,
+            'Loading unrestricted HiMD mode runs device-side homebrew code and requires explicit confirmation.'
+        );
+    }
+
+    enterServiceMode(
+        confirmation?: DestructiveConfirmation,
+        interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION
+    ) {
+        return this.advancedAction(
+            'enterServiceMode',
+            (gateway) => gateway.enterServiceMode(),
+            interactiveAuthorization,
+            confirmation,
+            'Entering service mode changes the device operating state and requires explicit confirmation.'
+        );
     }
 
     applyMetadataImport(text: string, includedTrackIndexes: number[], expectedRevision?: number) {
@@ -532,6 +598,43 @@ export class MiniDiscApplication {
             });
         }
         return this.advancedGateway;
+    }
+
+    private advancedAction(
+        capability: string,
+        operation: (gateway: AdvancedDeviceGateway) => Promise<void>,
+        interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION,
+        confirmation?: DestructiveConfirmation,
+        confirmationMessage?: string
+    ) {
+        return this.serial(async () => {
+            this.requireInteractiveAdvancedAuthorization(interactiveAuthorization);
+            if (confirmationMessage) this.requireConfirmation(confirmation, confirmationMessage);
+            this.requireCapability('advanced.factory');
+            const gateway = this.requireAdvancedGateway();
+            await this.requireExploitCapability(gateway, capability);
+            await operation(gateway);
+        });
+    }
+
+    private async requireExploitCapability(gateway: AdvancedDeviceGateway, capability: string) {
+        const info = await gateway.readInfo();
+        if (!info.capabilities.includes(capability)) {
+            throw new ApplicationError('CAPABILITY_REQUIRED', `The connected device does not support ${capability}.`, {
+                capability,
+            });
+        }
+    }
+
+    private requireInteractiveAdvancedAuthorization(
+        interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION
+    ) {
+        if (interactiveAuthorization !== INTERACTIVE_ADVANCED_AUTHORIZATION) {
+            throw new ApplicationError(
+                'INTERACTIVE_AUTHORIZATION_REQUIRED',
+                'Advanced device maintenance is available only after confirmation in the local browser UI.'
+            );
+        }
     }
 
     private validateUniqueIndexes(indexes: number[], knownIndexes: Set<number>, kind: 'track' | 'group') {

@@ -13,6 +13,7 @@ import JSZip from 'jszip';
 import { AtracRecoveryConfig } from 'netmd-exploits';
 import { getApplicationClient } from '../../application/runtime';
 import { applyDeviceSnapshot } from '../application-adapter';
+import { INTERACTIVE_ADVANCED_AUTHORIZATION } from '../../application/interactive-authorization';
 
 function decodeBase64(data: string) {
     const binary = atob(data);
@@ -112,6 +113,7 @@ export function writeModifiedTOC() {
                 dataBase64: encodeBase64(data),
                 confirmation: { confirmed: true, reason: 'Confirmed in the advanced TOC editor.' },
                 expectedRevision: client.getWorkspaceSnapshot().device?.revision,
+                interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
             });
             if (!result.ok) throw new Error(result.error.message);
             if (!result.snapshot) throw new Error('Writing the advanced TOC did not return the device state.');
@@ -125,7 +127,13 @@ export function writeModifiedTOC() {
 
 export function runTetris() {
     return async function() {
-        await serviceRegistry.netmdFactoryService!.runTetris();
+        if (!window.confirm('Run device-side Tetris homebrew code? This temporarily changes the device operating state.')) return;
+        const result = await getApplicationClient().execute({
+            type: 'advanced.runTetris',
+            confirmation: { confirmed: true, reason: 'Confirmed in the advanced maintenance UI.' },
+            interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
+        });
+        if (!result.ok) throw new Error(result.error.message);
     };
 }
 
@@ -474,7 +482,12 @@ export function archiveDisc() {
 export function toggleSPUploadSpeedup() {
     return async function(dispatch: AppDispatch, getState: () => RootState) {
         const spUploadSpeedupActive = getState().factory.spUploadSpeedupActive;
-        await serviceRegistry.netmdFactoryService!.setSPSpeedupActive(!spUploadSpeedupActive);
+        const result = await getApplicationClient().execute({
+            type: 'advanced.setSpUploadSpeedup',
+            enabled: !spUploadSpeedupActive,
+            interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
+        });
+        if (!result.ok) throw new Error(result.error.message);
         dispatch(factoryActions.setSPUploadSpedUp(!spUploadSpeedupActive));
     };
 }
@@ -489,9 +502,18 @@ export function enterHiMDUnrestrictedMode() {
             return;
         }
         dispatch(appStateActions.setLoading(true));
-        await serviceRegistry.netmdFactoryService!.enableHiMDFullMode();
-        window.alert('Loaded. Please insert a HiMD disc.');
-        dispatch(appStateActions.setMainView('WELCOME'));
+        try {
+            const result = await getApplicationClient().execute({
+                type: 'advanced.enableHimdFullMode',
+                confirmation: { confirmed: true, reason: 'Confirmed in the advanced maintenance UI.' },
+                interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
+            });
+            if (!result.ok) throw new Error(result.error.message);
+            window.alert('Loaded. Please insert a HiMD disc.');
+            dispatch(appStateActions.setMainView('WELCOME'));
+        } finally {
+            dispatch(appStateActions.setLoading(false));
+        }
     };
 }
 
@@ -499,9 +521,17 @@ export function toggleDiscSwapDetection() {
     return async function(dispatch: AppDispatch, getState: () => RootState) {
         const deviceDiscSwapDetectionDisabled = getState().factory.deviceDiscSwapDetectionDisabled;
         dispatch(appStateActions.setLoading(true));
-        await serviceRegistry.netmdFactoryService!.setDiscSwapDetection(!deviceDiscSwapDetectionDisabled);
-        dispatch(appStateActions.setLoading(false));
-        dispatch(factoryActions.setDiscSwapDetectionDisabled(!deviceDiscSwapDetectionDisabled));
+        try {
+            const result = await getApplicationClient().execute({
+                type: 'advanced.setDiscSwapDetectionDisabled',
+                disabled: !deviceDiscSwapDetectionDisabled,
+                interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
+            });
+            if (!result.ok) throw new Error(result.error.message);
+            dispatch(factoryActions.setDiscSwapDetectionDisabled(!deviceDiscSwapDetectionDisabled));
+        } finally {
+            dispatch(appStateActions.setLoading(false));
+        }
     };
 }
 
@@ -517,7 +547,13 @@ export function writeRecoveryTOC() {
 
 export function enterServiceMode() {
     return async function(dispatch: AppDispatch) {
+        if (!window.confirm('Enter device service mode? The current MiniDisc session will end and the device state will change.')) return;
         dispatch(appStateActions.setMainView('WELCOME'));
-        await serviceRegistry.netmdFactoryService!.enterServiceMode();
+        const result = await getApplicationClient().execute({
+            type: 'advanced.enterServiceMode',
+            confirmation: { confirmed: true, reason: 'Confirmed in the advanced maintenance UI.' },
+            interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
+        });
+        if (!result.ok) throw new Error(result.error.message);
     }
 }
