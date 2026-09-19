@@ -168,6 +168,11 @@ export type PlaybackCommand =
     | { action: 'gotoTrack'; index: number }
     | { action: 'seek'; index: number; hour: number; minute: number; second: number; frame: number };
 
+export interface PlaybackSession {
+    control(command: PlaybackCommand): Promise<void>;
+    readPosition(): Promise<number[] | null>;
+}
+
 export interface DeviceGateway {
     readSnapshot(dropCache?: boolean): Promise<Omit<DeviceSnapshot, 'sessionId' | 'revision'>>;
     readStatus(): Promise<DeviceStatus>;
@@ -185,6 +190,7 @@ export interface DeviceGateway {
     flush(): Promise<void>;
     ejectDisc(): Promise<void>;
     controlPlayback(command: PlaybackCommand): Promise<void>;
+    readPlaybackPosition(): Promise<number[] | null>;
     downloadTrack(
         index: number,
         onProgress: (progress: { read: number; total: number }) => void

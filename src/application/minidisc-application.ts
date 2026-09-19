@@ -18,6 +18,7 @@ import {
     type GroupMetadataUpdate,
     type HiMDTrackMetadataUpdate,
     type PlaybackCommand,
+    type PlaybackSession,
     type SelfTestResult,
     type TrackMetadataUpdate,
 } from './contracts';
@@ -386,6 +387,26 @@ export class MiniDiscApplication {
             this.assertDeviceVersion(expectedDeviceVersion, 'export');
             this.requireCapability('track.download');
             return operation((index, onProgress) => this.gateway.downloadTrack(index, onProgress));
+        });
+    }
+
+    runPlaybackCaptureSession<T>(
+        expectedDeviceVersion: { sessionId: string; revision: number } | undefined,
+        operation: (playback: PlaybackSession) => Promise<T>
+    ): Promise<T> {
+        return this.serial(async () => {
+            this.assertDeviceVersion(expectedDeviceVersion, 'recording');
+            this.requireCapability('playback.control');
+            this.requireDisc();
+            const playback: PlaybackSession = {
+                control: (command) => this.gateway.controlPlayback(command),
+                readPosition: () => this.gateway.readPlaybackPosition(),
+            };
+            try {
+                return await operation(playback);
+            } finally {
+                await playback.control({ action: 'stop' }).catch(() => undefined);
+            }
         });
     }
 
@@ -860,7 +881,7 @@ export class MiniDiscApplication {
 
     private assertDeviceVersion(
         expected: { sessionId: string; revision: number } | undefined,
-        operation: 'upload' | 'export'
+        operation: 'upload' | 'export' | 'recording'
     ) {
         if (expected?.sessionId !== undefined && expected.sessionId !== this.sessionId) {
             throw new ApplicationError('STALE_REVISION', `The connected device changed before the ${operation} started.`, {

@@ -1,34 +1,16 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { BrowserTrackRecorder } from '../src/application/browser-track-recorder.ts';
+import type { PlaybackSession } from '../src/application/contracts.ts';
 import type { MiniDiscApplication } from '../src/application/minidisc-application.ts';
 import { TaskManager } from '../src/application/task-manager.ts';
 import serviceRegistry from '../src/services/registry.ts';
 import type { MediaRecorderService } from '../src/services/browserintegration/mediarecorder.ts';
-import type { NetMDService } from '../src/services/interfaces/netmd.ts';
 
 describe('BrowserTrackRecorder', () => {
     it('records selected playback through one observable background task', async () => {
-        const originalService = serviceRegistry.netmdService;
         const originalRecorder = serviceRegistry.mediaRecorderService;
         const events: string[] = [];
-        serviceRegistry.netmdService = {
-            async stop() {
-                events.push('stop');
-            },
-            async gotoTrack(index: number) {
-                events.push(`goto:${index}`);
-            },
-            async play() {
-                events.push('play');
-            },
-            async pause() {
-                events.push('pause');
-            },
-            async getPosition() {
-                return { track: 0, position: 2 };
-            },
-        } as unknown as NetMDService;
         serviceRegistry.mediaRecorderService = {
             async initStream(deviceId: string) {
                 events.push(`input:${deviceId}`);
@@ -95,6 +77,21 @@ describe('BrowserTrackRecorder', () => {
                         },
                     };
                 },
+                async runPlaybackCaptureSession(
+                    version: { sessionId: string; revision: number },
+                    operation: (playback: PlaybackSession) => Promise<unknown>
+                ) {
+                    assert.deepEqual(version, { sessionId: 'session', revision: 7 });
+                    return operation({
+                        async control(command) {
+                            if (command.action === 'gotoTrack') events.push(`goto:${command.index}`);
+                            else events.push(command.action);
+                        },
+                        async readPosition() {
+                            return [0, 0, 0, 2];
+                        },
+                    });
+                },
             } as unknown as MiniDiscApplication;
             const tasks = new TaskManager();
 
@@ -125,7 +122,6 @@ describe('BrowserTrackRecorder', () => {
             ]);
             assert.equal(completed.progress.completed, 1);
         } finally {
-            serviceRegistry.netmdService = originalService;
             serviceRegistry.mediaRecorderService = originalRecorder;
         }
     });

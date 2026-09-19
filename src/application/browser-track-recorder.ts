@@ -22,8 +22,8 @@ export class BrowserTrackRecorder implements TrackRecorder {
         if (uniqueIndexes.size !== request.indexes.length) {
             throw new ApplicationError('INVALID_INPUT', 'A track was supplied more than once.');
         }
-        if (!serviceRegistry.netmdService || !serviceRegistry.mediaRecorderService) {
-            throw new ApplicationError('DEVICE_NOT_CONNECTED', 'The MiniDisc playback or browser audio service is unavailable.');
+        if (!serviceRegistry.mediaRecorderService) {
+            throw new ApplicationError('DEVICE_NOT_CONNECTED', 'The browser audio recording service is unavailable.');
         }
 
         const snapshot = await application.refresh(false);
@@ -51,7 +51,14 @@ export class BrowserTrackRecorder implements TrackRecorder {
             'tracks'
         );
         tasks.start(task.id, 'preparing');
-        void this.run(task.id, selected, request.deviceId, tasks);
+        void this.run(
+            task.id,
+            selected,
+            request.deviceId,
+            application,
+            { sessionId: snapshot.sessionId, revision: snapshot.revision },
+            tasks
+        );
         return tasks.get(task.id);
     }
 
@@ -59,12 +66,13 @@ export class BrowserTrackRecorder implements TrackRecorder {
         taskId: string,
         selected: ReturnType<typeof getTracks>,
         deviceId: string,
+        application: MiniDiscApplication,
+        deviceVersion: { sessionId: string; revision: number },
         tasks: TaskManager
     ) {
-        const service = serviceRegistry.netmdService;
         const recorder = serviceRegistry.mediaRecorderService;
-        if (!service || !recorder) {
-            tasks.fail(taskId, new Error('The device session ended before recording started.'));
+        if (!recorder) {
+            tasks.fail(taskId, new Error('The browser audio recording service ended before recording started.'));
             return;
         }
 
@@ -72,8 +80,8 @@ export class BrowserTrackRecorder implements TrackRecorder {
         let recordedTracks = 0;
         const files: string[] = [];
         try {
-            await serviceRegistry.operationCoordinator.run(async () => {
-                await service.stop();
+            await application.runPlaybackCaptureSession(deviceVersion, async (playback) => {
+                await playback.control({ action: 'stop' });
                 for (const track of selected) {
                     if (tasks.isCancellationRequested(taskId)) break;
                     const title = this.createRecordingTitle(track);
@@ -84,21 +92,21 @@ export class BrowserTrackRecorder implements TrackRecorder {
                         currentPercent: 0,
                     });
 
-                    await service.gotoTrack(track.index);
-                    await service.play();
-                    const readiness = await this.waitUntilReady(track.index, () => service.getPosition(), {
+                    await playback.control({ action: 'gotoTrack', index: track.index });
+                    await playback.control({ action: 'play' });
+                    const readiness = await this.waitUntilReady(track.index, () => playback.readPosition(), {
                         isCancelled: () => tasks.isCancellationRequested(taskId),
                     });
                     if (readiness === 'cancelled') break;
-                    await service.pause();
-                    await service.gotoTrack(track.index);
+                    await playback.control({ action: 'pause' });
+                    await playback.control({ action: 'gotoTrack', index: track.index });
 
                     await recorder.initStream(deviceId);
                     try {
                         await recorder.startRecording();
                         recordingStarted = true;
                         tasks.setPhase(taskId, 'transferring');
-                        await service.play();
+                        await playback.control({ action: 'play' });
                         const completed = await this.waitForDuration(
                             track.duration * 1000,
                             (percentage) => {
@@ -152,8 +160,7 @@ export class BrowserTrackRecorder implements TrackRecorder {
                 });
             }
         } finally {
-            await service.stop().catch((error) => console.error('Could not stop the MiniDisc device.', error));
-            await recorder.closeStream();
+            await recorder.closeStream().catch((error) => console.error('Could not close the audio-input stream.', error));
         }
     }
 

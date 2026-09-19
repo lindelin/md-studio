@@ -126,6 +126,10 @@ function makeGateway() {
             if (command.action === 'stop') status.state = 'stopped';
             if (command.action === 'gotoTrack' || command.action === 'seek') status.track = command.index;
         },
+        async readPlaybackPosition() {
+            calls.push('playback:position');
+            return [status.track, 0, 0, 2];
+        },
         async downloadTrack(index, onProgress) {
             calls.push(`download:${index}`);
             onProgress({ read: 3, total: 3 });
@@ -793,6 +797,30 @@ describe('MiniDiscApplication', () => {
                 ),
             (error: any) => error.code === 'STALE_REVISION'
         );
+    });
+
+    it('runs audio-input playback inside a versioned application transaction', async () => {
+        const { gateway, calls, status } = makeGateway();
+        const application = new MiniDiscApplication(gateway);
+        const initial = await application.refresh();
+
+        const position = await application.runPlaybackCaptureSession(
+            { sessionId: initial.sessionId, revision: initial.revision },
+            async (playback) => {
+                await playback.control({ action: 'gotoTrack', index: 1 });
+                await playback.control({ action: 'play' });
+                return playback.readPosition();
+            }
+        );
+
+        assert.deepEqual(position, [1, 0, 0, 2]);
+        assert.equal(status.state, 'stopped');
+        assert.deepEqual(calls.slice(-4), [
+            'playback:gotoTrack',
+            'playback:play',
+            'playback:position',
+            'playback:stop',
+        ]);
     });
 
     it('runs the destructive self-test as one revisioned transaction and leaves a verified empty disc', async () => {

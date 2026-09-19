@@ -128,6 +128,10 @@ export class NetMDDeviceGateway implements DeviceGateway {
         return this.service.download(index, onProgress);
     }
 
+    readPlaybackPosition() {
+        return this.service.getPosition();
+    }
+
     async controlPlayback(command: PlaybackCommand) {
         switch (command.action) {
             case 'play':
