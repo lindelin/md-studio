@@ -138,7 +138,7 @@ export function deleteGroups(indexes: number[]) {
 
 export function dragDropTrack(sourceList: number, sourceIndex: number, targetList: number, targetIndex: number) {
     // This code is here, because it would need to be duplicated in both netmd and netmd-mock.
-    return async function (dispatch: AppDispatch, getState: () => RootState) {
+    return async function (dispatch: AppDispatch, getState: () => RootState): Promise<void> {
         if (sourceList === targetList && sourceIndex === targetIndex) return;
         dispatch(appStateActions.setLoading(true));
         const groupedTracks = getGroupedTracks(await serviceRegistry.netmdService!.listContent());
@@ -462,9 +462,15 @@ export function moveTrack(srcIndex: number, destIndex: number) {
 export function downloadTracks(
     indexes: number[],
     convertOutputToWav: boolean,
-    callback: (blob: Blob, name: string) => void = downloadBlob
+    callback: (blob: Blob, name: string) => void = downloadBlob,
+    options: { operationLockHeld?: boolean } = {}
 ) {
-    return async function (dispatch: AppDispatch, getState: () => RootState) {
+    return async function (dispatch: AppDispatch, getState: () => RootState): Promise<void> {
+        if (!options.operationLockHeld) {
+            return serviceRegistry.operationCoordinator.run(() =>
+                downloadTracks(indexes, convertOutputToWav, callback, { operationLockHeld: true })(dispatch, getState)
+            );
+        }
         dispatch(
             batchActions([
                 recordDialogAction.setVisible(true),
@@ -519,8 +525,13 @@ export function downloadTracks(
     };
 }
 
-export function recordTracks(indexes: number[], deviceId: string) {
-    return async function (dispatch: AppDispatch, getState: () => RootState) {
+export function recordTracks(indexes: number[], deviceId: string, options: { operationLockHeld?: boolean } = {}) {
+    return async function (dispatch: AppDispatch, getState: () => RootState): Promise<void> {
+        if (!options.operationLockHeld) {
+            return serviceRegistry.operationCoordinator.run(() =>
+                recordTracks(indexes, deviceId, { operationLockHeld: true })(dispatch, getState)
+            );
+        }
         const task = serviceRegistry.taskManager.create(
             'track.record',
             `Record ${indexes.length} track${indexes.length === 1 ? '' : 's'} through the audio input`,
@@ -1223,9 +1234,14 @@ export function convertAndUpload(
     files: TitledFile[],
     format: Codec,
     additionalParameters: { enableReplayGain: boolean; enableGapless: boolean },
-    options: { taskId?: string } = {}
+    options: { taskId?: string; operationLockHeld?: boolean } = {}
 ) {
-    return async function (dispatch: AppDispatch, getState: () => RootState) {
+    return async function (dispatch: AppDispatch, getState: () => RootState): Promise<void> {
+        if (!options.operationLockHeld) {
+            return serviceRegistry.operationCoordinator.run(() =>
+                convertAndUpload(files, format, additionalParameters, { ...options, operationLockHeld: true })(dispatch, getState)
+            );
+        }
         const deviceCapabilities = getState().main.deviceCapabilities;
         if (files.some((e) => e.forcedEncoding?.codec === 'SPS' || e.forcedEncoding?.codec === 'SPM')) {
             const removeSPFiles = () =>
@@ -1323,10 +1339,12 @@ export function convertAndUpload(
                 queueMicrotask(() => dispatch(uploadDialogActions.setWriteProgress({ written, encrypted, total })));
                 lastUploadProgress = now;
                 bytesSentFromThisTrack = written;
-                serviceRegistry.taskManager.reportProgress(writeTask.id, {
-                    bytesWritten: bytesSentFromPrevTracks + written,
-                    bytesTotal: totalBytesAllTracks || bytesSentFromPrevTracks + total,
-                });
+                if (isWriteTaskRunning()) {
+                    serviceRegistry.taskManager.reportProgress(writeTask.id, {
+                        bytesWritten: bytesSentFromPrevTracks + written,
+                        bytesTotal: totalBytesAllTracks || bytesSentFromPrevTracks + total,
+                    });
+                }
                 updateTitle();
             }
         };
@@ -1359,8 +1377,16 @@ export function convertAndUpload(
         };
 
         const hasUploadBeenCancelled = () => {
-            return getState().uploadDialog.cancelled || serviceRegistry.taskManager.isCancellationRequested(writeTask.id);
+            const currentTask = serviceRegistry.taskManager.get(writeTask.id);
+            return (
+                getState().uploadDialog.cancelled ||
+                currentTask.cancellationRequested ||
+                currentTask.status === 'cancelled' ||
+                currentTask.status === 'interrupted'
+            );
         };
+
+        const isWriteTaskRunning = () => serviceRegistry.taskManager.get(writeTask.id).status === 'running';
 
         const releaseScreenLockIfPresent = async () => {
             if (!screenWakeLock) return;
@@ -1520,7 +1546,7 @@ export function convertAndUpload(
         try {
             await netmdService?.prepareUpload();
             uploadPrepared = true;
-            serviceRegistry.taskManager.setPhase(writeTask.id, 'converting');
+            if (isWriteTaskRunning()) serviceRegistry.taskManager.setPhase(writeTask.id, 'converting');
 
             for await (const item of conversionIterator(files)) {
                 if (hasUploadBeenCancelled()) {
@@ -1529,7 +1555,7 @@ export function convertAndUpload(
 
                 const { file, data } = item;
 
-                if (serviceRegistry.taskManager.get(writeTask.id).phase !== 'transferring') {
+                if (isWriteTaskRunning() && serviceRegistry.taskManager.get(writeTask.id).phase !== 'transferring') {
                     serviceRegistry.taskManager.setPhase(writeTask.id, 'transferring');
                 }
 
@@ -1559,10 +1585,12 @@ export function convertAndUpload(
                 bytesSentFromPrevTracks += bytesSentFromThisTrack;
                 bytesSentFromThisTrack = 0;
                 updateTrack();
-                serviceRegistry.taskManager.reportProgress(writeTask.id, {
-                    completed: trackUpdate.current - 1,
-                    currentLabel: trackUpdate.titleCurrent,
-                });
+                if (isWriteTaskRunning()) {
+                    serviceRegistry.taskManager.reportProgress(writeTask.id, {
+                        completed: trackUpdate.current - 1,
+                        currentLabel: trackUpdate.titleCurrent,
+                    });
+                }
                 updateUploadProgressCallback({ written: 0, encrypted: 0, total: 100 });
                 if (file.forcedEncoding?.codec === 'SPS' || file.forcedEncoding?.codec === 'SPM') {
                     // Uploading an AEA file.
@@ -1591,7 +1619,7 @@ export function convertAndUpload(
                 errorMessage = 'The recording task stopped before all tracks were transferred.';
             }
         } finally {
-            if (serviceRegistry.taskManager.get(writeTask.id).status === 'running') {
+            if (isWriteTaskRunning()) {
                 serviceRegistry.taskManager.setPhase(writeTask.id, 'finalizing');
             }
             if (uploadPrepared) {
@@ -1629,13 +1657,15 @@ export function convertAndUpload(
             }
             dispatch(batchActions(actionToDispatch));
 
-            if (error) {
-                serviceRegistry.taskManager.fail(writeTask.id, error);
-            } else if (hasUploadBeenCancelled()) {
-                serviceRegistry.taskManager.cancel(writeTask.id);
-            } else {
-                serviceRegistry.taskManager.succeed(writeTask.id, { writtenTracks: trackUpdate.current });
-                showFinishedNotificationIfNeeded();
+            if (isWriteTaskRunning()) {
+                if (error) {
+                    serviceRegistry.taskManager.fail(writeTask.id, error);
+                } else if (hasUploadBeenCancelled()) {
+                    serviceRegistry.taskManager.cancel(writeTask.id);
+                } else {
+                    serviceRegistry.taskManager.succeed(writeTask.id, { writtenTracks: trackUpdate.current });
+                    showFinishedNotificationIfNeeded();
+                }
             }
             await releaseScreenLockIfPresent();
             await listContent()(dispatch);

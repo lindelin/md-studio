@@ -8,6 +8,7 @@ import type { ApplicationCommandBus } from '../application/command-bus';
 import { TaskManager } from '../application/task-manager';
 import { ImportQueue } from '../application/import-queue';
 import type { ImportWriter } from '../application/import-queue';
+import { DeviceOperationCoordinator } from '../application/operation-coordinator';
 
 export interface ImportPayloadResolver {
     resolve(reference: string): Promise<File>;
@@ -27,8 +28,13 @@ interface ServiceRegistry {
     importQueue: ImportQueue;
     importPayloadResolver?: ImportPayloadResolver;
     importWriter?: ImportWriter;
+    operationCoordinator: DeviceOperationCoordinator;
 }
 
-const ServiceRegistry: ServiceRegistry = { taskManager: new TaskManager(), importQueue: new ImportQueue() };
+const ServiceRegistry: ServiceRegistry = {
+    taskManager: new TaskManager(),
+    importQueue: new ImportQueue(),
+    operationCoordinator: new DeviceOperationCoordinator(),
+};
 
 export default ServiceRegistry;

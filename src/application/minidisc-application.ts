@@ -9,6 +9,7 @@ import {
     type PlaybackCommand,
     type TrackMetadataUpdate,
 } from './contracts';
+import { DeviceOperationCoordinator } from './operation-coordinator';
 
 function createSessionId() {
     return globalThis.crypto?.randomUUID?.() ?? `session-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -18,11 +19,12 @@ export class MiniDiscApplication {
     readonly sessionId = createSessionId();
     private revision = 0;
     private snapshot?: DeviceSnapshot;
-    private taskQueue: Promise<void> = Promise.resolve();
     private readonly gateway: DeviceGateway;
+    private readonly operations: DeviceOperationCoordinator;
 
-    constructor(gateway: DeviceGateway) {
+    constructor(gateway: DeviceGateway, operations = new DeviceOperationCoordinator()) {
         this.gateway = gateway;
+        this.operations = operations;
     }
 
     refresh(dropCache = false) {
@@ -294,11 +296,6 @@ export class MiniDiscApplication {
     }
 
     private serial<T>(operation: () => Promise<T>): Promise<T> {
-        const result = this.taskQueue.then(operation, operation);
-        this.taskQueue = result.then(
-            () => undefined,
-            () => undefined
-        );
-        return result;
+        return this.operations.run(operation);
     }
 }

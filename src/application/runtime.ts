@@ -7,7 +7,10 @@ export function bindApplicationRuntime() {
     if (!serviceRegistry.netmdService || !serviceRegistry.netmdSpec) {
         throw new Error('Cannot bind the application runtime before a device and MiniDisc specification are selected.');
     }
-    const application = new MiniDiscApplication(new NetMDDeviceGateway(serviceRegistry.netmdService, serviceRegistry.netmdSpec));
+    const application = new MiniDiscApplication(
+        new NetMDDeviceGateway(serviceRegistry.netmdService, serviceRegistry.netmdSpec),
+        serviceRegistry.operationCoordinator
+    );
     serviceRegistry.application = application;
     serviceRegistry.commandBus = new ApplicationCommandBus(
         application,
