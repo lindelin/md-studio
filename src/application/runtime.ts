@@ -4,6 +4,7 @@ import { NetMDAdvancedDeviceGateway, NetMDDeviceGateway } from './device-gateway
 import { MiniDiscApplication } from './minidisc-application';
 import { InProcessApplicationClient } from './application-client';
 import { INTERACTIVE_ADVANCED_AUTHORIZATION } from './interactive-authorization';
+import { BrowserAdvancedTrackExporter } from './advanced-track-export';
 
 export function bindApplicationRuntime() {
     if (!serviceRegistry.netmdService || !serviceRegistry.netmdSpec) {
@@ -99,7 +100,15 @@ export function getApplicationClient() {
                         }
                     });
                 return serviceRegistry.taskManager.get(task.id);
-            }
+            },
+            (request, sink, handleBadSector) =>
+                new BrowserAdvancedTrackExporter().start(
+                    request,
+                    getApplicationRuntime(),
+                    serviceRegistry.taskManager,
+                    sink,
+                    handleBadSector
+                )
         );
     }
     return serviceRegistry.applicationClient;

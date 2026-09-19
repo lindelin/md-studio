@@ -542,6 +542,56 @@ describe('MiniDiscApplication', () => {
         assert.deepEqual(progress, ['RAM:2/2', 'ROM:1/1']);
     });
 
+    it('validates and finalizes browser-authorized recovery track exports', async () => {
+        const { gateway, calls } = makeGateway();
+        const actions: string[] = [];
+        const application = new MiniDiscApplication(gateway, undefined, {
+            async readInfo() {
+                return { firmwareVersion: 'S1.600', capabilities: ['downloadAtrac'] };
+            },
+            async readTocSector() { return new Uint8Array(2352); },
+            async writeTocSector() {},
+            async flushToc() {},
+            async runTetris() {},
+            async setSpUploadSpeedup() {},
+            async setDiscSwapDetectionDisabled() {},
+            async enableHimdFullMode() {},
+            async enterServiceMode() {},
+            async readRam() { return new Uint8Array(); },
+            async readFirmware() { return { ram: new Uint8Array(), rom: new Uint8Array() }; },
+            async prepareTrackDownload(slower) { actions.push(`prepare:${slower}`); },
+            async readTrack(index, options, onProgress) {
+                actions.push(`read:${index}:${options.nerawDownload}`);
+                onProgress({ read: 2, total: 2, action: 'READ', sector: '10' });
+                return { data: new Uint8Array([index]), extension: 'aea' };
+            },
+            async finalizeTrackDownload() { actions.push('finalize'); },
+        });
+        await application.refresh();
+        const files: number[] = [];
+
+        const completed = await application.exportAdvancedTracks(
+            [1, 0],
+            true,
+            { nerawDownload: false, shouldCancel: () => false, handleBadSector: async () => 'skip' },
+            INTERACTIVE_ADVANCED_AUTHORIZATION,
+            (_index, progress) => actions.push(`progress:${progress.read}`),
+            (_index, data) => files.push(data.data[0])
+        );
+
+        assert.equal(completed, 2);
+        assert.deepEqual(files, [1, 0]);
+        assert.equal(calls.includes('playback:stop'), true);
+        assert.deepEqual(actions, [
+            'prepare:true',
+            'read:1:false',
+            'progress:2',
+            'read:0:false',
+            'progress:2',
+            'finalize',
+        ]);
+    });
+
     it('runs the destructive self-test as one revisioned transaction and leaves a verified empty disc', async () => {
         const { gateway, calls } = makeGateway();
         const application = new MiniDiscApplication(gateway);

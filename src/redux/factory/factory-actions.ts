@@ -5,7 +5,7 @@ import { batchActions } from '../../frontend-utils';
 import { AppDispatch, RootState } from '../store';
 import { actions as appStateActions } from '../app-feature';
 import serviceRegistry from '../../services/registry';
-import { convertToWAV, createDownloadTrackName, downloadBlob, getTracks, Promised, sleep } from '../../utils';
+import { downloadBlob, getTracks, Promised, sleep } from '../../utils';
 import { ExploitCapability, Capability } from '../../services/interfaces/netmd';
 import { parseTOC, getTitleByTrackNumber, reconstructTOC, updateFlagAllFragmentsOfTrack, ModeFlag, ToC } from 'netmd-tocmanip';
 import { downloadTracks, exportCSV } from '../actions';
@@ -281,19 +281,17 @@ export function exploitDownloadTracks(
     callback: (blob: Blob, name: string) => void = downloadBlob
 ) {
     return async function(dispatch: AppDispatch, getState: () => RootState) {
-        // Verify if there even exists a track of that number
         const disc = getState().main.disc!;
         const useSlowerExploit = getState().appState.factoryModeUseSlowerExploit;
         const nerawDownload = getState().appState.factoryModeNERAWDownload;
         const tracks = getTracks(disc);
-        try {
-            await serviceRegistry.netmdService!.stop();
-        } catch (ex) {
-            /* Ignore */
-        }
-
         if (nerawDownload && convertOutputToWav) {
             alert('Cannot convert to WAV and use NERAW files at the same time!');
+            return;
+        }
+        const missing = trackIndexes.find((index) => !tracks.some((track) => track.index === index));
+        if (missing !== undefined) {
+            window.alert("This track does not exist. Make sure you've read the instructions on how to use the homebrew mode.");
             return;
         }
 
@@ -312,96 +310,78 @@ export function exploitDownloadTracks(
                 }),
             ])
         );
-        await serviceRegistry.netmdFactoryService!.prepareDownload(useSlowerExploit);
-        for (const trackIndex of trackIndexes) {
-            if (trackIndex >= disc.trackCount) {
-                window.alert("This track does not exist. Make sure you've read the instructions on how to use the homebrew mode.");
-                return;
-            }
-            const track = tracks.find(n => n.index === trackIndex)!;
-            dispatch(
-                batchActions([
-                    factoryProgressDialogActions.setDetails({
-                        name: `Transferring track ${trackIndex + 1}`,
-                        units: 'sectors',
-                    }),
-                    factoryProgressDialogActions.setProgress({
-                        current: -1,
-                        total: 0,
-                        additionalInfo: 'Uploading code...',
-                    }),
-                ])
-            );
-
-            let timeout: ReturnType<typeof setTimeout> | null = null;
-
-            let storedBadSectorHandling: null | BadSectorResponse = null;
-
-            const trackData = await serviceRegistry.netmdFactoryService!.exploitDownloadTrack(
-                trackIndex,
-                nerawDownload,
-                ({ total, read, action, sector }: { read: number; total: number; action: 'READ' | 'SEEK' | 'CHUNK'; sector?: string }) => {
-                    if (timeout !== null) clearTimeout(timeout);
-                    timeout = setTimeout(() => {
-                        dispatch(
-                            factoryProgressDialogActions.setProgress({
-                                current: Math.min(read, total),
-                                total: total,
-                                additionalInfo: {
-                                    SEEK: 'Seeking...',
-                                    CHUNK: 'Receiving...',
-                                    READ: `Reading sector ${sector!}...`,
-                                }[action],
-                            })
-                        );
-                    }, 20);
-                },
+        let storedBadSectorHandling: null | BadSectorResponse = null;
+        try {
+            const task = await getApplicationClient().startLocalAdvancedTrackExport(
                 {
-                    shouldCancelImmediately: () => getState().factoryProgressDialog.cancelled,
-                    handleBadSector: async (address: string, count: number, seconds: number) => {
-                        if (sessionStoredBadSectorHandling !== null) return sessionStoredBadSectorHandling;
-                        if (storedBadSectorHandling !== null) return storedBadSectorHandling;
-                        dispatch(
-                            batchActions([
-                                factoryBadSectorDialogActions.setAddress(address),
-                                factoryBadSectorDialogActions.setSeconds(seconds),
-                                factoryBadSectorDialogActions.setCount(count),
-                                factoryBadSectorDialogActions.setVisible(true),
-                            ])
-                        );
-                        const result = await new Promise<{
-                            response: BadSectorResponse;
-                            rememberForTheRestOfDownload: boolean;
-                            rememberForTheRestOfSession: boolean;
-                        }>(res => (badSectorPromise = res));
-                        if (result.rememberForTheRestOfDownload) {
-                            storedBadSectorHandling = result.response;
-                        }
-                        if (result.rememberForTheRestOfSession) {
-                            sessionStoredBadSectorHandling = result.response;
-                        }
-                        return result.response;
-                    },
+                    indexes: trackIndexes,
+                    convertToWav: convertOutputToWav,
+                    nerawDownload,
+                    useSlowerExploit,
+                },
+                (data, fileName) => callback(new Blob([new Uint8Array(data)]), fileName),
+                async (address, count, seconds) => {
+                    if (sessionStoredBadSectorHandling !== null) return sessionStoredBadSectorHandling;
+                    if (storedBadSectorHandling !== null) return storedBadSectorHandling;
+                    dispatch(
+                        batchActions([
+                            factoryBadSectorDialogActions.setAddress(address),
+                            factoryBadSectorDialogActions.setSeconds(seconds),
+                            factoryBadSectorDialogActions.setCount(count),
+                            factoryBadSectorDialogActions.setVisible(true),
+                        ])
+                    );
+                    const result = await new Promise<{
+                        response: BadSectorResponse;
+                        rememberForTheRestOfDownload: boolean;
+                        rememberForTheRestOfSession: boolean;
+                    }>((resolve) => (badSectorPromise = resolve));
+                    if (result.rememberForTheRestOfDownload) storedBadSectorHandling = result.response;
+                    if (result.rememberForTheRestOfSession) sessionStoredBadSectorHandling = result.response;
+                    return result.response;
                 }
             );
-            let filename = createDownloadTrackName(track, trackData.extension);
-            if (convertOutputToWav) {
-                trackData.data = await convertToWAV(trackData, track);
-                filename = filename.slice(0, -3) + 'wav';
+            let cancellationSent = false;
+            for (;;) {
+                const current = getApplicationClient()
+                    .getWorkspaceSnapshot()
+                    .tasks.find((candidate) => candidate.id === task.id);
+                if (!current) throw new Error(`Task ${task.id} is no longer available.`);
+                if (getState().factoryProgressDialog.cancelled && !cancellationSent) {
+                    cancellationSent = true;
+                    await getApplicationClient().execute({ type: 'task.cancel', id: task.id });
+                }
+                dispatch(
+                    factoryProgressDialogActions.setProgress({
+                        current: current.progress.bytesWritten ?? current.progress.completed,
+                        total: current.progress.bytesTotal ?? current.progress.total,
+                        additionalInfo: current.progress.currentLabel ?? '',
+                    })
+                );
+                if (current.status === 'failed') throw new Error(current.error?.message ?? 'Advanced track export failed.');
+                if (current.status !== 'queued' && current.status !== 'running') break;
+                await sleep(50);
             }
-            callback(new Blob([trackData.data]), filename);
-            if (getState().factoryProgressDialog.cancelled) break;
+        } finally {
+            dispatch(factoryProgressDialogActions.setVisible(false));
         }
-        await serviceRegistry.netmdFactoryService!.finalizeDownload();
-        dispatch(factoryProgressDialogActions.setVisible(false));
     };
 }
 
 export async function checkFactoryCapability(dispatch: AppDispatch, capability: ExploitCapability){
-    await serviceRegistry.netmdService!.stop();
-    await initializeFactoryMode()(dispatch);
-
-    const capabilities = await serviceRegistry.netmdFactoryService!.getExploitCapabilities();
+    const client = getApplicationClient();
+    const stopped = await client.execute({ type: 'playback.control', command: { action: 'stop' } });
+    if (!stopped.ok) throw new Error(stopped.error.message);
+    const result = await client.execute({ type: 'advanced.inspect' });
+    if (!result.ok) throw new Error(result.error.message);
+    if (!result.advancedInfo) throw new Error('Advanced device inspection did not return device information.');
+    const capabilities = resolveExploitCapabilities(result.advancedInfo.capabilities);
+    dispatch(
+        batchActions([
+            factoryActions.setExploitCapabilities(capabilities),
+            factoryActions.setFirmwareVersion(result.advancedInfo.firmwareVersion),
+        ])
+    );
     return capabilities.includes(capability);
 }
 

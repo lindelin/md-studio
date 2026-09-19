@@ -74,6 +74,26 @@ export interface AdvancedMemoryDump {
     dram?: Uint8Array;
 }
 
+export type AdvancedBadSectorDecision = 'reload' | 'abort' | 'skip' | 'yieldanyway';
+
+export interface AdvancedTrackReadProgress {
+    read: number;
+    total: number;
+    action: 'READ' | 'SEEK' | 'CHUNK';
+    sector?: string;
+}
+
+export interface AdvancedTrackReadOptions {
+    nerawDownload: boolean;
+    shouldCancel: () => boolean;
+    handleBadSector: (address: string, count: number, seconds: number) => Promise<AdvancedBadSectorDecision>;
+}
+
+export interface AdvancedTrackData {
+    data: Uint8Array;
+    extension: string;
+}
+
 export interface DiagnosticProgress {
     completed: number;
     total: number;
@@ -98,6 +118,13 @@ export interface AdvancedDeviceGateway {
     enterServiceMode(): Promise<void>;
     readRam(onProgress: (progress: AdvancedMemoryProgress) => void): Promise<Uint8Array>;
     readFirmware(onProgress: (progress: AdvancedMemoryProgress) => void): Promise<AdvancedMemoryDump>;
+    prepareTrackDownload(useSlowerExploit: boolean): Promise<void>;
+    readTrack(
+        index: number,
+        options: AdvancedTrackReadOptions,
+        onProgress: (progress: AdvancedTrackReadProgress) => void
+    ): Promise<AdvancedTrackData>;
+    finalizeTrackDownload(): Promise<void>;
 }
 
 export type PlaybackCommand =

@@ -6,6 +6,8 @@ import type {
     HiMDTrackMetadataUpdate,
     PlaybackCommand,
     AdvancedMemoryProgress,
+    AdvancedTrackReadOptions,
+    AdvancedTrackReadProgress,
 } from './contracts';
 import {
     Capability,
@@ -208,6 +210,28 @@ export class NetMDAdvancedDeviceGateway implements AdvancedDeviceGateway {
         return factory.readFirmware(({ type, readBytes, totalBytes }) =>
             onProgress({ region: type, readBytes, totalBytes })
         );
+    }
+
+    async prepareTrackDownload(useSlowerExploit: boolean) {
+        const factory = await this.getFactoryService();
+        await factory.prepareDownload(useSlowerExploit);
+    }
+
+    async readTrack(
+        index: number,
+        options: AdvancedTrackReadOptions,
+        onProgress: (progress: AdvancedTrackReadProgress) => void
+    ) {
+        const factory = await this.getFactoryService();
+        return factory.exploitDownloadTrack(index, options.nerawDownload, onProgress, {
+            shouldCancelImmediately: options.shouldCancel,
+            handleBadSector: options.handleBadSector,
+        });
+    }
+
+    async finalizeTrackDownload() {
+        const factory = await this.getFactoryService();
+        await factory.finalizeDownload();
     }
 
     private async getFactoryService() {

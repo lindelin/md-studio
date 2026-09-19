@@ -5,6 +5,9 @@ import {
     type AdvancedMemoryDump,
     type AdvancedMemoryKind,
     type AdvancedMemoryProgress,
+    type AdvancedTrackData,
+    type AdvancedTrackReadOptions,
+    type AdvancedTrackReadProgress,
     type ApplicationCapability,
     type DestructiveConfirmation,
     type DiagnosticProgress,
@@ -225,6 +228,40 @@ export class MiniDiscApplication {
             await this.requireExploitCapability(gateway, kind === 'ram' ? 'readRam' : 'readFirmware');
             if (kind === 'ram') return { ram: await gateway.readRam(onProgress) };
             return gateway.readFirmware(onProgress);
+        });
+    }
+
+    exportAdvancedTracks(
+        indexes: number[],
+        useSlowerExploit: boolean,
+        options: AdvancedTrackReadOptions,
+        interactiveAuthorization: typeof INTERACTIVE_ADVANCED_AUTHORIZATION,
+        onProgress: (index: number, progress: AdvancedTrackReadProgress) => void,
+        onTrack: (index: number, data: AdvancedTrackData) => void | Promise<void>
+    ): Promise<number> {
+        return this.serial(async () => {
+            this.requireInteractiveAdvancedAuthorization(interactiveAuthorization);
+            this.requireCapability('advanced.factory');
+            const disc = this.requireDisc();
+            const knownIndexes = new Set(disc.groups.flatMap((group) => group.tracks.map((track) => track.index)));
+            const selectedIndexes = this.validateUniqueIndexes(indexes, knownIndexes, 'track');
+            const gateway = this.requireAdvancedGateway();
+            await this.requireExploitCapability(gateway, 'downloadAtrac');
+            let completed = 0;
+            await this.gateway.controlPlayback({ action: 'stop' }).catch(() => undefined);
+            await gateway.prepareTrackDownload(useSlowerExploit);
+            try {
+                for (const index of selectedIndexes) {
+                    if (options.shouldCancel()) break;
+                    const data = await gateway.readTrack(index, options, (progress) => onProgress(index, progress));
+                    await onTrack(index, data);
+                    completed += 1;
+                    if (options.shouldCancel()) break;
+                }
+            } finally {
+                await gateway.finalizeTrackDownload();
+            }
+            return completed;
         });
     }
 

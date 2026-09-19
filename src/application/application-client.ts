@@ -4,6 +4,7 @@ import type { TaskSnapshot } from './task-manager';
 import type { TrackExportRequest, TrackExportSink } from './track-export';
 import type { WorkspaceSnapshot, WorkspaceStore } from './workspace-store';
 import type { AdvancedMemoryKind, AdvancedMemoryRegion } from './contracts';
+import type { AdvancedBadSectorHandler, AdvancedTrackExportRequest } from './advanced-track-export';
 
 export type LocalAdvancedMemorySink = (
     region: AdvancedMemoryRegion,
@@ -19,6 +20,11 @@ export interface ApplicationClient {
     addLocalImports(inputs: ImportQueueInput[], expectedRevision?: number): ImportQueueSnapshot;
     startLocalTrackExport(request: TrackExportRequest, sink: TrackExportSink): Promise<TaskSnapshot>;
     startLocalAdvancedMemoryExport(kind: AdvancedMemoryKind, sink: LocalAdvancedMemorySink): Promise<TaskSnapshot>;
+    startLocalAdvancedTrackExport(
+        request: AdvancedTrackExportRequest,
+        sink: TrackExportSink,
+        handleBadSector: AdvancedBadSectorHandler
+    ): Promise<TaskSnapshot>;
     getWorkspaceSnapshot(): WorkspaceSnapshot;
     subscribe(listener: () => void): () => void;
 }
@@ -32,6 +38,11 @@ export class InProcessApplicationClient implements ApplicationClient {
         private readonly localAdvancedMemoryExport: (
             kind: AdvancedMemoryKind,
             sink: LocalAdvancedMemorySink
+        ) => Promise<TaskSnapshot>,
+        private readonly localAdvancedTrackExport: (
+            request: AdvancedTrackExportRequest,
+            sink: TrackExportSink,
+            handleBadSector: AdvancedBadSectorHandler
         ) => Promise<TaskSnapshot>
     ) {}
 
@@ -41,6 +52,11 @@ export class InProcessApplicationClient implements ApplicationClient {
     startLocalTrackExport = (request: TrackExportRequest, sink: TrackExportSink) => this.localTrackExport(request, sink);
     startLocalAdvancedMemoryExport = (kind: AdvancedMemoryKind, sink: LocalAdvancedMemorySink) =>
         this.localAdvancedMemoryExport(kind, sink);
+    startLocalAdvancedTrackExport = (
+        request: AdvancedTrackExportRequest,
+        sink: TrackExportSink,
+        handleBadSector: AdvancedBadSectorHandler
+    ) => this.localAdvancedTrackExport(request, sink, handleBadSector);
     getWorkspaceSnapshot = this.workspace.getSnapshot;
     subscribe = this.workspace.subscribe;
 }
