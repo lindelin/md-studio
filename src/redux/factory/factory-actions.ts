@@ -190,14 +190,17 @@ export function uploadToc(file: File) {
             return;
         }
         dispatch(appStateActions.setLoading(true));
-
-        const data = new Uint8Array(await file.arrayBuffer());
-        const sectors = [];
-        for (let i = 0; i < 6; i++) {
-            sectors.push(data.slice(i * 2352, (i + 1) * 2352));
+        try {
+            const data = new Uint8Array(await file.arrayBuffer());
+            const sectors = [];
+            for (let i = 0; i < 6; i++) {
+                sectors.push(data.slice(i * 2352, (i + 1) * 2352));
+            }
+            const toc = parseTOC(...sectors);
+            dispatch(batchActions([factoryActions.setModified(true), factoryActions.setToc(toc)]));
+        } finally {
+            dispatch(appStateActions.setLoading(false));
         }
-        const toc = parseTOC(...sectors);
-        dispatch(batchActions([factoryActions.setModified(true), factoryActions.setToc(toc), appStateActions.setLoading(false)]));
     };
 }
 export type BadSectorResponse = Promised<ReturnType<AtracRecoveryConfig['handleBadSector'] extends infer R | undefined ? R : never>>;
@@ -305,7 +308,7 @@ export function enableFactoryRippingModeInMainUi() {
         // At this point we're in the homebrew mode, and CSAR is allowed.
         // It's safe to enable this functionality.
 
-        dispatch(batchActions([appStateActions.setFactoryModeRippingInMainUi(true), appStateActions.setLoading(false)]));
+        dispatch(appStateActions.setFactoryModeRippingInMainUi(true));
     };
 }
 
@@ -361,10 +364,13 @@ export function archiveDisc() {
 
         if (archiveDiscCreateZip) {
             dispatch(appStateActions.setLoading(true));
-            const zipBlob = await zip!.generateAsync({ type: 'blob' });
-            dispatch(appStateActions.setLoading(false));
-            const zipName = (Object.keys(zip!.files).filter(n => n.endsWith('.csv'))[0] ?? 'Disc.csv').slice(0, -3) + 'zip';
-            downloadBlob(zipBlob, zipName);
+            try {
+                const zipBlob = await zip!.generateAsync({ type: 'blob' });
+                const zipName = (Object.keys(zip!.files).filter(n => n.endsWith('.csv'))[0] ?? 'Disc.csv').slice(0, -3) + 'zip';
+                downloadBlob(zipBlob, zipName);
+            } finally {
+                dispatch(appStateActions.setLoading(false));
+            }
         }
     };
 }

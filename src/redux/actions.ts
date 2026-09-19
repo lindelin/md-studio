@@ -202,11 +202,11 @@ export function renameTrack(...entries: { index: number; newName: string; newFul
                 batchActions([
                     errorDialogAction.setVisible(true),
                     errorDialogAction.setErrorMessage(`Rename failed.`),
-                    appStateActions.setLoading(false),
                 ])
             );
+        } finally {
+            dispatch(appStateActions.setLoading(false));
         }
-        dispatch(appStateActions.setLoading(false));
     };
 }
 
@@ -225,11 +225,11 @@ export function himdRenameTrack(...entries: { index: number; title?: string; alb
                 batchActions([
                     errorDialogAction.setVisible(true),
                     errorDialogAction.setErrorMessage(`Rename failed.`),
-                    appStateActions.setLoading(false),
                 ])
             );
+        } finally {
+            dispatch(appStateActions.setLoading(false));
         }
-        dispatch(appStateActions.setLoading(false));
     };
 }
 

@@ -4,12 +4,14 @@ import { filterOutCorrupted, getSimpleServices, ServiceConstructionInfo } from '
 import { savePreference, loadPreference } from '../utils';
 import { isBoolean, isFiniteNumber, isServiceList } from '../preferences';
 import { normalizeServiceSelection } from '../frontend/service-selection';
+import { updateLoadingOperations } from '../frontend/loading-state';
 
 export type Views = 'WELCOME' | 'MAIN' | 'FACTORY';
 
 export interface AppState {
     mainView: Views;
     loading: boolean;
+    loadingOperations: number;
     browserSupported: boolean;
     runningChrome: boolean;
     aboutDialogVisible: boolean;
@@ -31,6 +33,7 @@ export const buildInitialState = (): AppState => {
     return {
         mainView: 'WELCOME',
         loading: false,
+        loadingOperations: 0,
         browserSupported: true,
         runningChrome: true,
         changelogDialogVisible: false,
@@ -60,7 +63,8 @@ export const slice = createSlice({
             state.mainView = action.payload;
         },
         setLoading: (state, action: PayloadAction<boolean>) => {
-            state.loading = action.payload;
+            state.loadingOperations = updateLoadingOperations(state.loadingOperations, action.payload);
+            state.loading = state.loadingOperations > 0;
         },
         setBrowserSupported: (state, action: PayloadAction<boolean>) => {
             state.browserSupported = action.payload;
