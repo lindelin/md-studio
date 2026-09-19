@@ -660,10 +660,17 @@ export function importCSV(file: File) {
 
 export function openRecognizeTrackDialog(selectedTracks: number[]) {
     return async function (dispatch: AppDispatch) {
-        const device = getApplicationClient().getWorkspaceSnapshot().device;
+        const client = getApplicationClient();
+        const workspace = client.getWorkspaceSnapshot();
+        const device = workspace.device;
         if (!device?.disc) return;
         if (!device.capabilities.includes('advanced.factory')) {
-            dispatch(songRecognitionDialogActions.setImportMethod('line-in'));
+            const updated = await client.execute({
+                type: 'settings.update',
+                changes: { recognitionImportMethod: 'line-in' },
+                expectedRevision: workspace.settings.revision,
+            });
+            if (!updated.ok) throw new Error(updated.error.message);
         }
 
         dispatch(

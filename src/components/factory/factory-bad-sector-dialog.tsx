@@ -17,6 +17,7 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import { useDispatch } from '../../frontend-utils';
 import { BadSectorResponse, reportBadSectorReponse } from '../../redux/factory/factory-actions';
 import { formatTimeFromSeconds } from '../../utils';
+import { useApplicationSettings, useUpdateApplicationSettings } from '../use-application-client';
 
 const Transition = React.forwardRef(function Transition(
     props: SlideProps,
@@ -27,8 +28,12 @@ const Transition = React.forwardRef(function Transition(
 
 export const FactoryModeBadSectorDialog = () => {
     const dispatch = useDispatch();
+    const { factoryBadSectorRememberChoice: remember } = useApplicationSettings();
+    const updateSettings = useUpdateApplicationSettings();
 
-    const { visible, address, count, remember, rememberForRestOfSession, seconds } = useShallowEqualSelector(state => state.factoryBadSectorDialog);
+    const { visible, address, count, rememberForRestOfSession, seconds } = useShallowEqualSelector(
+        (state) => state.factoryBadSectorDialog
+    );
 
     const handleReturnValue = useCallback(
         (data: BadSectorResponse) => {
@@ -39,12 +44,14 @@ export const FactoryModeBadSectorDialog = () => {
 
     const handleRememberChoiceChange = useCallback(
         (e: any) => {
-            dispatch(factoryBadSectorDialogActions.setRememberChoice(e.target.checked));
+            void updateSettings({ factoryBadSectorRememberChoice: e.target.checked }).catch((error) =>
+                window.alert(error instanceof Error ? error.message : String(error))
+            );
             if(!e.target.checked){
                 dispatch(factoryBadSectorDialogActions.setRememberChoiceForRestOfSession(false));
             }
         },
-        [dispatch]
+        [dispatch, updateSettings]
     );
 
     const handleRememberChoiceRestOfSessionChange = useCallback(

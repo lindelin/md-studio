@@ -268,10 +268,11 @@ const ConnectedConvertDialog = (props: {
     const applicationClient = useApplicationClient();
     const { classes, cx } = useStyles();
 
-    const { visible, format, titleFormat, titles } = useShallowEqualSelector((state) => state.convertDialog);
+    const { visible, titles } = useShallowEqualSelector((state) => state.convertDialog);
     const workspace = useApplicationWorkspace();
     const updateSettings = useUpdateApplicationSettings();
-    const { fullWidthSupport, vintageMode, libraryService } = workspace.settings.values;
+    const { fullWidthSupport, vintageMode, libraryService, uploadFormat: format, trackTitleFormat: titleFormat } =
+        workspace.settings.values;
     const device = workspace.device;
     const disc = device?.disc ?? null;
     const recordingProfile = props.recordingProfile;
@@ -386,14 +387,15 @@ const ConnectedConvertDialog = (props: {
         setTracksOrderVisible(false);
         setAvailableCharacters({ halfWidth: 1785, fullWidth: 1785 });
         setAvailableDurationUnits(1);
-        dispatch(
-            convertDialogActions.updateFormatForSpec({
-                spec: recordingProfile.specName,
-                codec: [...recordingProfile.defaultFormat],
-                unlessUnset: true,
-            })
-        );
-    }, [dispatch, recordingProfile]);
+        if (format[recordingProfile.specName] === undefined) {
+            void updateSettings({
+                uploadFormat: {
+                    ...format,
+                    [recordingProfile.specName]: [...recordingProfile.defaultFormat],
+                },
+            }).catch(reportApplicationError);
+        }
+    }, [format, recordingProfile, reportApplicationError, updateSettings]);
 
     const refreshTitledFiles = useCallback(
         async (
@@ -547,35 +549,47 @@ const ConnectedConvertDialog = (props: {
             const defaultBitrateIndex = recordingProfile.availableFormats[newFormatIndex].availableBitrates.indexOf(
                 recordingProfile.availableFormats[newFormatIndex].defaultBitrate
             );
-            dispatch(
-                convertDialogActions.updateFormatForSpec({
-                    spec: recordingProfile.specName,
-                    codec: [newFormatIndex, defaultBitrateIndex] as [number, number],
-                })
-            );
+            void updateSettings({
+                uploadFormat: {
+                    ...format,
+                    [recordingProfile.specName]: [newFormatIndex, defaultBitrateIndex],
+                },
+            }).catch(reportApplicationError);
         },
-        [dispatch, recordingProfile]
+        [format, recordingProfile, reportApplicationError, updateSettings]
     );
 
     const handleChangeBitrate = useCallback(
         (ev: any) => {
-            dispatch(
-                convertDialogActions.updateFormatForSpec({
-                    spec: recordingProfile.specName,
-                    codec: [currentlySelectedCodecIndex[0], currentlySelectedCodecFamily.availableBitrates.indexOf(ev.target.value)],
-                })
-            );
+            void updateSettings({
+                uploadFormat: {
+                    ...format,
+                    [recordingProfile.specName]: [
+                        currentlySelectedCodecIndex[0],
+                        currentlySelectedCodecFamily.availableBitrates.indexOf(ev.target.value),
+                    ],
+                },
+            }).catch(reportApplicationError);
         },
-        [dispatch, currentlySelectedCodecIndex, recordingProfile.specName, currentlySelectedCodecFamily]
+        [
+            currentlySelectedCodecFamily,
+            currentlySelectedCodecIndex,
+            format,
+            recordingProfile.specName,
+            reportApplicationError,
+            updateSettings,
+        ]
     );
 
     const handleChangeTitleFormat = useCallback(
         (event: any) => {
             const selectedFormat = event.target.value as TitleFormatType;
-            dispatch(convertDialogActions.setTitleFormat(selectedFormat));
-            void refreshTitledFiles(files, usesHimdTitles ? 'title' : selectedFormat).catch(reportApplicationError);
+            void Promise.all([
+                updateSettings({ trackTitleFormat: selectedFormat }),
+                refreshTitledFiles(files, usesHimdTitles ? 'title' : selectedFormat),
+            ]).catch(reportApplicationError);
         },
-        [dispatch, files, refreshTitledFiles, reportApplicationError, usesHimdTitles]
+        [files, refreshTitledFiles, reportApplicationError, updateSettings, usesHimdTitles]
     );
 
     const [tracksOrderVisible, setTracksOrderVisible] = useState(false);

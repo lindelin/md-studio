@@ -28,7 +28,7 @@ import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import { LineInDeviceSelect } from './line-in-helpers';
-import { useApplicationClient, useApplicationWorkspace } from './use-application-client';
+import { useApplicationClient, useApplicationWorkspace, useUpdateApplicationSettings } from './use-application-client';
 import { sanitizeDeviceFullWidthTitle, sanitizeDeviceHalfWidthTitle } from '../application/device-profile';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
@@ -127,9 +127,14 @@ export const SongRecognitionDialog = () => {
     const applicationClient = useApplicationClient();
     const { classes } = useStyles();
 
-    const { visible, titles, titleFormat, importMethod } = useShallowEqualSelector((state) => state.songRecognitionDialog);
+    const { visible, titles } = useShallowEqualSelector((state) => state.songRecognitionDialog);
     const workspace = useApplicationWorkspace();
-    const { fullWidthSupport } = workspace.settings.values;
+    const updateSettings = useUpdateApplicationSettings();
+    const {
+        fullWidthSupport,
+        recognitionTrackTitleFormat: titleFormat,
+        recognitionImportMethod: importMethod,
+    } = workspace.settings.values;
     const device = workspace.device;
     const disc = device?.disc ?? null;
     const recordingProfile = device?.recording;
@@ -159,19 +164,25 @@ export const SongRecognitionDialog = () => {
 
     const handleChangeImportMethod = useCallback(
         (e: React.SyntheticEvent, newFormat: ImportMethod) => {
-            newFormat && dispatch(songRecognitionDialogActions.setImportMethod(newFormat));
+            if (newFormat) {
+                void updateSettings({ recognitionImportMethod: newFormat }).catch((error) =>
+                    window.alert(error instanceof Error ? error.message : String(error))
+                );
+            }
             if (newFormat !== 'line-in') {
                 stopAudioInput();
             }
         },
-        [dispatch, stopAudioInput]
+        [stopAudioInput, updateSettings]
     );
 
     const handleChangeTitleFormat = useCallback(
         (e: any) => {
-            dispatch(songRecognitionDialogActions.setTitleFormat(e.target.value));
+            void updateSettings({ recognitionTrackTitleFormat: e.target.value }).catch((error) =>
+                window.alert(error instanceof Error ? error.message : String(error))
+            );
         },
-        [dispatch]
+        [updateSettings]
     );
 
     const handleClose = useCallback(() => {

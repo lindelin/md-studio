@@ -1,6 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { enableBatching } from 'redux-batched-actions';
-import { applicationSettings, type UserSettings } from '../application/settings-store';
 
 export type RecognitionTitleFormatType = 'title' | 'album-title' | 'artist-title' | 'artist-album-title' | 'title-artist';
 export type ImportMethod = 'exploits' | 'line-in';
@@ -30,17 +29,12 @@ export interface TitleEntry {
 
 export interface SongRecognitionDialogFeature {
     visible: boolean;
-    titleFormat: RecognitionTitleFormatType;
     titles: TitleEntry[];
-    importMethod: ImportMethod;
 }
 
-const sharedSettings = applicationSettings.getSnapshot().values;
 const initialState: SongRecognitionDialogFeature = {
     visible: false,
-    titleFormat: sharedSettings.recognitionTrackTitleFormat,
     titles: [],
-    importMethod: sharedSettings.recognitionImportMethod,
 };
 
 const slice = createSlice({
@@ -52,16 +46,6 @@ const slice = createSlice({
         },
         setTitles: (state, action: PayloadAction<TitleEntry[]>) => {
             state.titles = action.payload;
-        },
-        setTitleFormat: (state, action: PayloadAction<RecognitionTitleFormatType>) => {
-            state.titleFormat = action.payload;
-        },
-        setImportMethod: (state, action: PayloadAction<ImportMethod>) => {
-            state.importMethod = action.payload;
-        },
-        applySharedSettings: (state, action: PayloadAction<UserSettings>) => {
-            state.titleFormat = action.payload.recognitionTrackTitleFormat;
-            state.importMethod = action.payload.recognitionImportMethod;
         },
     },
 });
