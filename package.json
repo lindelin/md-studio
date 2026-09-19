@@ -18,6 +18,8 @@
         "preview": "vite preview --configLoader runner",
         "analyze": "source-map-explorer 'dist/assets/*.js'",
         "prepare-runtime": "node scripts/prepare-runtime.mjs",
+        "runtime-assets:update": "npm run prepare-runtime && node scripts/generate-runtime-assets.mjs",
+        "runtime-assets:check": "npm run prepare-runtime && node scripts/generate-runtime-assets.mjs --check",
         "licenses:update": "node scripts/generate-third-party-notices.mjs",
         "licenses:check": "node scripts/generate-third-party-notices.mjs --check",
         "update-version": "node scripts/prepare-runtime.mjs",

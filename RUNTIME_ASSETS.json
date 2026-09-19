@@ -1,0 +1,199 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Checksums and provenance for executable browser runtime assets shipped by MiniDisc Workspace.",
+  "assets": [
+    {
+      "path": "public/assembler.wasm",
+      "role": "NetMD exploit assembler",
+      "present": true,
+      "bytes": 4111601,
+      "sha256": "dc9551576b9c77fa6b85bf0d0e9e4178e98c94ec3b2a022e1b8c9bdb227a35fc",
+      "optional": false,
+      "reviewRequired": false,
+      "source": {
+        "kind": "installed-package",
+        "package": "netmd-exploits",
+        "path": "node_modules/netmd-exploits/assembler.wasm",
+        "repository": "https://github.com/asivery/netmd-exploits",
+        "license": "GPL-2.0",
+        "version": "0.5.12"
+      }
+    },
+    {
+      "path": "public/runtime/ffmpeg-worker.min.js",
+      "role": "FFmpeg browser worker controller",
+      "present": true,
+      "bytes": 10363,
+      "sha256": "b14e9358e45bb726e07e079d44bc07ca7998f3b326f0078d30804819bfd58350",
+      "optional": false,
+      "reviewRequired": false,
+      "source": {
+        "kind": "installed-package",
+        "package": "@ffmpeg/ffmpeg",
+        "path": "node_modules/@ffmpeg/ffmpeg/dist/worker.min.js",
+        "repository": "https://github.com/ffmpegjs/ffmpeg.js",
+        "license": "MIT",
+        "version": "0.6.1"
+      }
+    },
+    {
+      "path": "public/runtime/recorder-worker.js",
+      "role": "Recorder.js audio capture worker",
+      "present": true,
+      "bytes": 3178,
+      "sha256": "d6d01d1dbc3c4bbba4c6193b8dba8c715938fc351aa7660aa437e11aa603cf02",
+      "optional": false,
+      "reviewRequired": false,
+      "source": {
+        "kind": "installed-package",
+        "package": "recorderjs",
+        "path": "node_modules/recorderjs/recorderWorker.js",
+        "repository": "https://github.com/mattdiamond/Recorderjs",
+        "license": "MIT",
+        "version": "1.0.1"
+      }
+    },
+    {
+      "path": "public/ffmpeg-core.js",
+      "role": "Custom FFmpeg JavaScript runtime with MiniDisc audio format patches",
+      "present": true,
+      "bytes": 4129708,
+      "sha256": "58d5c18fe72b172ff674c0941dba6b59526592f3965ee304a0ee0a5ff768b0ef",
+      "optional": false,
+      "reviewRequired": true,
+      "source": {
+        "kind": "repository-binary",
+        "repository": "https://github.com/ffmpegjs/FFmpeg",
+        "revision": "0deba716e237a538",
+        "buildInstructions": "extra/BUILD_FFMPEGJS.md",
+        "license": "Review required: FFmpeg license depends on the exact build configuration"
+      }
+    },
+    {
+      "path": "public/worker.dev.js",
+      "role": "Legacy FFmpeg browser worker retained from the upstream distribution",
+      "present": true,
+      "bytes": 39571,
+      "sha256": "e597a0eccf6f2862a8228b3caaf7aafd5d8345e5503ccf1ff3779f16b509811f",
+      "optional": false,
+      "reviewRequired": true,
+      "source": {
+        "kind": "repository-binary",
+        "repository": "https://github.com/ffmpegjs/FFmpeg",
+        "buildInstructions": "extra/BUILD_FFMPEGJS.md",
+        "license": "Review required: exact binary provenance is not recorded"
+      }
+    },
+    {
+      "path": "public/atracdenc.js",
+      "role": "Open-source ATRAC encoder compiled as a single-file Emscripten module",
+      "present": true,
+      "bytes": 1010420,
+      "sha256": "d3133571b5bd2194f53d7377d728e0c8eb5a50efb0b0ad76dfc57b3a7b432abe",
+      "optional": false,
+      "reviewRequired": true,
+      "source": {
+        "kind": "repository-binary",
+        "repository": "https://github.com/dcherednik/atracdenc",
+        "revision": "e16e9c6 (recorded by upstream build notes; exact object still requires verification)",
+        "buildInstructions": "extra/BUILD_ATRACDENC.md",
+        "license": "LGPL-2.1-or-later (upstream project)"
+      }
+    },
+    {
+      "path": "public/atrac3vm/libv86.js",
+      "role": "Patched v86 JavaScript runtime for the optional Atrac3OS encoder",
+      "present": true,
+      "bytes": 335199,
+      "sha256": "90ed9b7d5a6b3edd740599fc9c51609dae941d35b32ce6dcac4676b491a08ae6",
+      "optional": false,
+      "reviewRequired": false,
+      "source": {
+        "kind": "repository-binary",
+        "repository": "https://github.com/copy/v86",
+        "revision": "b6c940d0d481a43d",
+        "buildInstructions": "extra/atrac3vm/README.md",
+        "license": "BSD-2-Clause"
+      }
+    },
+    {
+      "path": "public/atrac3vm/v86-patched.wasm",
+      "role": "Patched v86 WebAssembly runtime for the optional Atrac3OS encoder",
+      "present": true,
+      "bytes": 2024680,
+      "sha256": "eed1990b2cfeec3cdae679d7fc64e085d70eccecf4dbfcb9fc14048ee0251f54",
+      "optional": false,
+      "reviewRequired": false,
+      "source": {
+        "kind": "repository-binary",
+        "repository": "https://github.com/copy/v86",
+        "revision": "b6c940d0d481a43d",
+        "buildInstructions": "extra/atrac3vm/README.md",
+        "license": "BSD-2-Clause"
+      }
+    },
+    {
+      "path": "public/atrac3vm/seabios.bin",
+      "role": "SeaBIOS image used by the optional Atrac3OS virtual machine",
+      "present": true,
+      "bytes": 131072,
+      "sha256": "73e3f359102e3a9982c35fce98eb7cd08f18303ac7f1ba6ebfbe6cdc1c244d98",
+      "optional": false,
+      "reviewRequired": true,
+      "source": {
+        "kind": "repository-binary",
+        "repository": "https://www.seabios.org/",
+        "buildInstructions": "extra/atrac3vm/README.md",
+        "license": "Review required: exact SeaBIOS revision is not recorded"
+      }
+    },
+    {
+      "path": "public/atrac3vm/system.cmi",
+      "role": "Optional Atrac3OS system image containing a separately supplied encoder",
+      "present": false,
+      "optional": true,
+      "reviewRequired": true,
+      "source": {
+        "kind": "local-build-output",
+        "buildInstructions": "extra/atrac3os/README.md",
+        "license": "Not distributed; redistribution review required before inclusion"
+      }
+    },
+    {
+      "path": "public/atrac3vm/kernel.bin",
+      "role": "Optional Atrac3OS kernel image",
+      "present": false,
+      "optional": true,
+      "reviewRequired": true,
+      "source": {
+        "kind": "local-build-output",
+        "buildInstructions": "extra/atrac3os/README.md",
+        "license": "Review required before redistribution"
+      }
+    },
+    {
+      "path": "public/at3re-harness.js",
+      "role": "Optional proprietary At3RE compatibility harness",
+      "present": false,
+      "optional": true,
+      "reviewRequired": true,
+      "source": {
+        "kind": "local-build-output",
+        "buildInstructions": "extra/at3re-harness/CMakeLists.txt",
+        "license": "Not distributed; redistribution review required before inclusion"
+      }
+    },
+    {
+      "path": "public/at3re-harness.wasm",
+      "role": "Optional proprietary At3RE compatibility WebAssembly module",
+      "present": false,
+      "optional": true,
+      "reviewRequired": true,
+      "source": {
+        "kind": "local-build-output",
+        "buildInstructions": "extra/at3re-harness/CMakeLists.txt",
+        "license": "Not distributed; redistribution review required before inclusion"
+      }
+    }
+  ]
+}

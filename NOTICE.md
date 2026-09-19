@@ -24,6 +24,8 @@ Each dependency remains under its own license. Exact resolved versions are recor
 
 `THIRD_PARTY_LICENSES.md` is a generated inventory of every resolved npm package entry, including transitive and development dependencies. Regenerate it with `npm run licenses:update`; `npm run licenses:check` verifies that it matches the lockfile and installed package metadata.
 
+`RUNTIME_ASSETS.json` records the SHA-256 digest, size, source, build notes, and review status of executable JavaScript, WebAssembly, firmware, and worker assets served outside the normal module graph. Regenerate it with `npm run runtime-assets:update`; `npm run runtime-assets:check` verifies both the manifest and assets copied from locked npm packages.
+
 ## Audio and browser runtimes
 
 The browser build uses or can use FFmpeg, Atracdenc, v86, Recorder.js, and related runtime assets. Some assets are copied from installed npm packages during `npm run prepare-runtime`; others are retained from the upstream Web MiniDisc Pro distribution. Their licenses and source projects must be reviewed when publishing binary or hosted distributions:

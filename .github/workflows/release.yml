@@ -21,13 +21,14 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run licenses:check
+      - run: npm run runtime-assets:check
       - run: npm run build
       - name: Assemble archive
         shell: bash
         run: |
           mkdir minidisc-workspace
           cp -R dist/. minidisc-workspace/
-          cp README.md LICENSE NOTICE.md SECURITY.md THIRD_PARTY_LICENSES.md minidisc-workspace/
+          cp README.md LICENSE NOTICE.md SECURITY.md THIRD_PARTY_LICENSES.md RUNTIME_ASSETS.json minidisc-workspace/
           zip -r "minidisc-workspace-${GITHUB_REF_NAME}.zip" minidisc-workspace
       - uses: softprops/action-gh-release@v3
         with:
