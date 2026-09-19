@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { runImportUploadSession, ImportUploadSessionError } from '../src/application/import-upload-session.ts';
 import type { ConvertedImportAudio } from '../src/application/audio-conversion-pipeline.ts';
-import type { Disc, MinidiscSpec } from '../src/services/interfaces/netmd.ts';
+import type { Disc } from '../src/services/interfaces/netmd.ts';
 import type { TitledFile } from '../src/utils.ts';
 
 const disc = {
@@ -17,11 +17,11 @@ const disc = {
     groups: [],
 } satisfies Disc;
 
-const spec = {
+const titlePolicy = {
     getRemainingCharactersForTitles: () => ({ halfWidth: 100, fullWidth: 100 }),
     sanitizeHalfWidthTitle: (value: string) => value,
     sanitizeFullWidthTitle: (value: string) => value,
-} as MinidiscSpec;
+};
 
 function track(name: string, title = name): ConvertedImportAudio {
     const file = new File([Uint8Array.of(1)], name);
@@ -45,6 +45,7 @@ describe('import upload session', () => {
     it('prepares, uploads Hi-MD metadata, reports progress, and finalizes', async () => {
         const calls: string[] = [];
         const service = {
+            ...titlePolicy,
             async prepareUpload() {
                 calls.push('prepare');
             },
@@ -63,7 +64,6 @@ describe('import upload session', () => {
             totalTracks: 1,
             format: { codec: 'AT3', bitrate: 132 },
             disc,
-            spec,
             service,
             usesHiMDTitles: true,
             useFullWidthTitles: false,
@@ -82,6 +82,7 @@ describe('import upload session', () => {
     it('finalizes a prepared session and preserves completed count after a transfer failure', async () => {
         let finalized = false;
         const service = {
+            ...titlePolicy,
             async prepareUpload() {},
             async upload(title: unknown) {
                 if (title === 'Two') throw new Error('USB transfer failed');
@@ -97,7 +98,6 @@ describe('import upload session', () => {
                 totalTracks: 2,
                 format: { codec: 'AT3', bitrate: 132 },
                 disc,
-                spec,
                 service,
                 usesHiMDTitles: false,
                 useFullWidthTitles: false,
@@ -118,6 +118,7 @@ describe('import upload session', () => {
         let uploads = 0;
         let monoDisabled = false;
         const service = {
+            ...titlePolicy,
             async prepareUpload() {},
             async upload() {
                 uploads += 1;
@@ -139,7 +140,6 @@ describe('import upload session', () => {
             totalTracks: 2,
             format: { codec: 'AT3', bitrate: 132 },
             disc,
-            spec,
             service,
             factoryService,
             usesHiMDTitles: false,

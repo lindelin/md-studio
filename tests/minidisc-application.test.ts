@@ -119,6 +119,24 @@ function makeGateway() {
         async ejectDisc() {
             calls.push('ejectDisc');
         },
+        async prepareUpload() {
+            calls.push('upload:prepare');
+        },
+        async finalizeUpload() {
+            calls.push('upload:finalize');
+        },
+        async upload(title) {
+            calls.push(`upload:track:${typeof title === 'string' ? title : title.title}`);
+        },
+        getRemainingCharactersForTitles() {
+            return { halfWidth: 100, fullWidth: 100 };
+        },
+        sanitizeHalfWidthTitle(title) {
+            return title;
+        },
+        sanitizeFullWidthTitle(title) {
+            return title;
+        },
         async controlPlayback(command) {
             calls.push(`playback:${command.action}`);
             if (command.action === 'play') status.state = 'playing';
@@ -711,7 +729,7 @@ describe('MiniDiscApplication', () => {
     });
 
     it('runs browser uploads inside one revisioned application transaction', async () => {
-        const { gateway } = makeGateway();
+        const { gateway, calls } = makeGateway();
         const actions: string[] = [];
         const application = new MiniDiscApplication(gateway, undefined, {
             async readInfo() { return { firmwareVersion: 'S1.600', capabilities: ['uploadAtrac1', 'uploadMonoSP'] }; },
@@ -753,10 +771,13 @@ describe('MiniDiscApplication', () => {
         const result = await application.runDeviceUploadSession(
             ['uploadAtrac1', 'uploadMonoSP'],
             INTERACTIVE_ADVANCED_AUTHORIZATION,
-            async (service) => {
-                await service!.enableMonoUpload(true);
-                await service!.uploadSP('Track', '', true, new ArrayBuffer(1), () => {});
-                await service!.enableMonoUpload(false);
+            async (upload, advanced) => {
+                await upload.prepareUpload();
+                await upload.upload('Standard', '', new ArrayBuffer(1), { codec: 'SPS', bitrate: 292 }, () => {});
+                await upload.finalizeUpload();
+                await advanced!.enableMonoUpload(true);
+                await advanced!.uploadSP('Track', '', true, new ArrayBuffer(1), () => {});
+                await advanced!.enableMonoUpload(false);
                 return 'written';
             },
             { sessionId: application.sessionId, revision: 0 }
@@ -764,6 +785,12 @@ describe('MiniDiscApplication', () => {
 
         assert.equal(result.value, 'written');
         assert.equal(result.snapshot.revision, 1);
+        assert.equal(calls.includes('playback:stop'), true);
+        assert.deepEqual(calls.filter((call) => call.startsWith('upload:')), [
+            'upload:prepare',
+            'upload:track:Standard',
+            'upload:finalize',
+        ]);
         assert.deepEqual(actions, ['mono:true', 'upload:Track:true', 'mono:false']);
         await assert.rejects(
             () =>

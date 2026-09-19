@@ -1,4 +1,4 @@
-import type { Disc, DeviceStatus, Group, RecordingCodec } from '../services/interfaces/netmd';
+import type { Codec, Disc, DeviceStatus, Group, RecordingCodec, TitleParameter } from '../services/interfaces/netmd';
 import type { ImportPreviewCalculation, ImportPreviewTrack } from './import-preview';
 
 export type ApplicationCapability =
@@ -128,6 +128,21 @@ export interface AdvancedUploadService {
     enableMonoUpload(enabled: boolean): Promise<void>;
 }
 
+export interface DeviceUploadService {
+    prepareUpload(): Promise<void>;
+    finalizeUpload(): Promise<void>;
+    upload(
+        title: TitleParameter,
+        fullWidthTitle: string,
+        data: ArrayBuffer,
+        format: Codec,
+        onProgress: (progress: { written: number; encrypted: number; total: number }) => void
+    ): Promise<void>;
+    getRemainingCharactersForTitles(disc: Disc): { halfWidth: number; fullWidth: number };
+    sanitizeHalfWidthTitle(title: string): string;
+    sanitizeFullWidthTitle(title: string): string;
+}
+
 export interface DiagnosticProgress {
     completed: number;
     total: number;
@@ -173,7 +188,7 @@ export interface PlaybackSession {
     readPosition(): Promise<number[] | null>;
 }
 
-export interface DeviceGateway {
+export interface DeviceGateway extends DeviceUploadService {
     readSnapshot(dropCache?: boolean): Promise<Omit<DeviceSnapshot, 'sessionId' | 'revision'>>;
     readStatus(): Promise<DeviceStatus>;
     renameDisc(title: string, fullWidthTitle?: string): Promise<void>;

@@ -9,6 +9,7 @@ import type {
     AdvancedTrackReader,
     AdvancedUploadService,
     DeviceSnapshot,
+    DeviceUploadService,
 } from './contracts';
 import type { AdvancedBadSectorHandler, AdvancedTrackExportRequest } from './advanced-track-export';
 import type { ExportParams } from '../services/audio/audio-export';
@@ -38,7 +39,7 @@ export interface ApplicationClient {
     ): Promise<T>;
     runLocalDeviceUploadSession<T>(
         requiredExploitCapabilities: string[],
-        operation: (advancedUploadService?: AdvancedUploadService) => Promise<T>,
+        operation: (uploadService: DeviceUploadService, advancedUploadService?: AdvancedUploadService) => Promise<T>,
         expectedDeviceVersion?: { sessionId: string; revision: number }
     ): Promise<{ value: T; snapshot: DeviceSnapshot }>;
     createLocalLibraryFileProcessor(filePath: string): (params: ExportParams) => Promise<ArrayBuffer>;
@@ -67,7 +68,7 @@ export class InProcessApplicationClient implements ApplicationClient {
         ) => Promise<T>,
         private readonly localDeviceUploadSession: <T>(
             requiredExploitCapabilities: string[],
-            operation: (advancedUploadService?: AdvancedUploadService) => Promise<T>,
+            operation: (uploadService: DeviceUploadService, advancedUploadService?: AdvancedUploadService) => Promise<T>,
             expectedDeviceVersion?: { sessionId: string; revision: number }
         ) => Promise<{ value: T; snapshot: DeviceSnapshot }>,
         private readonly localLibraryFileProcessor?: (filePath: string) => (params: ExportParams) => Promise<ArrayBuffer>
@@ -90,7 +91,7 @@ export class InProcessApplicationClient implements ApplicationClient {
     ) => this.localAdvancedTrackDownloadSession(useSlowerExploit, operation);
     runLocalDeviceUploadSession = <T>(
         requiredExploitCapabilities: string[],
-        operation: (advancedUploadService?: AdvancedUploadService) => Promise<T>,
+        operation: (uploadService: DeviceUploadService, advancedUploadService?: AdvancedUploadService) => Promise<T>,
         expectedDeviceVersion?: { sessionId: string; revision: number }
     ) => this.localDeviceUploadSession(requiredExploitCapabilities, operation, expectedDeviceVersion);
     createLocalLibraryFileProcessor = (filePath: string) => {

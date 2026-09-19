@@ -38,7 +38,12 @@ import { convertImportAudio } from '../application/audio-conversion-pipeline';
 import { ImportUploadSessionError, runImportUploadSession } from '../application/import-upload-session';
 import { finishRejectedImportWrite } from '../application/import-write-task';
 import type { ApplicationCommand } from '../application/command-bus';
-import type { AdvancedTrackReader, AdvancedUploadService, PlaybackCommand } from '../application/contracts';
+import type {
+    AdvancedTrackReader,
+    AdvancedUploadService,
+    DeviceUploadService,
+    PlaybackCommand,
+} from '../application/contracts';
 
 async function executeDeviceCommand(dispatch: AppDispatch, command: ApplicationCommand) {
     const result = await getApplicationClient().execute(command);
@@ -950,6 +955,7 @@ export function convertAndUpload(
         taskId?: string;
         operationLockHeld?: boolean;
         preflightComplete?: boolean;
+        uploadService?: DeviceUploadService;
         advancedUploadService?: AdvancedUploadService;
         deviceVersion?: { sessionId: string; revision: number };
     } = {}
@@ -1054,11 +1060,12 @@ export function convertAndUpload(
             try {
                 await client.runLocalDeviceUploadSession(
                     requiredExploitCapabilities,
-                    (advancedUploadService) =>
+                    (uploadService, advancedUploadService) =>
                         convertAndUpload(files, format, additionalParameters, {
                             ...options,
                             operationLockHeld: true,
                             preflightComplete: true,
+                            uploadService,
                             advancedUploadService,
                         })(dispatch, getState),
                     options.deviceVersion
@@ -1071,17 +1078,16 @@ export function convertAndUpload(
         }
         if (!options.operationLockHeld) throw new Error('The upload transaction was not acquired.');
 
-        const { netmdService, netmdSpec } = serviceRegistry;
         const audioExportService = await serviceRegistry.audioEncoderManager.getService();
+        const uploadService = options.uploadService;
         const netmdFactoryService = options.advancedUploadService;
+        if (!uploadService) throw new Error('The standard upload service was not initialized during preflight.');
         if ((usesAtrac1Upload || usesMonoUploadExploit) && !netmdFactoryService) {
             throw new Error('The advanced upload service was not initialized during preflight.');
         }
         if (usesMonoUploadExploit) {
             await netmdFactoryService!.enableMonoUpload(true);
         }
-
-        console.log(await netmdService?.getDeviceStatus());
 
         let screenWakeLock: any = null;
         if ('wakeLock' in navigator) {
@@ -1092,7 +1098,6 @@ export function convertAndUpload(
             }
         }
 
-        await netmdService?.stop();
         dispatch(
             batchActions([
                 uploadDialogActions.setVisible(true),
@@ -1248,11 +1253,10 @@ export function convertAndUpload(
         try {
             const result = await runImportUploadSession({
                 tracks: conversionIterator,
-                totalTracks: files.length,
-                format,
-                disc: disc!,
-                spec: netmdSpec!,
-                service: netmdService!,
+            totalTracks: files.length,
+            format,
+            disc: disc!,
+            service: uploadService,
                 factoryService: netmdFactoryService ?? undefined,
                 usesHiMDTitles,
                 useFullWidthTitles: useFullWidth,

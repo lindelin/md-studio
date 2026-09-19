@@ -53,11 +53,11 @@ export class NetMDDeviceGateway implements DeviceGateway {
     }
 
     async renameDisc(title: string, fullWidthTitle?: string) {
-        await this.service.renameDisc(this.spec.sanitizeHalfWidthTitle(title), this.sanitizeFullWidthTitle(fullWidthTitle));
+        await this.service.renameDisc(this.spec.sanitizeHalfWidthTitle(title), this.sanitizeOptionalFullWidthTitle(fullWidthTitle));
     }
 
     async renameTrack({ index, title, fullWidthTitle }: Parameters<DeviceGateway['renameTrack']>[0]) {
-        await this.service.renameTrack(index, this.spec.sanitizeHalfWidthTitle(title), this.sanitizeFullWidthTitle(fullWidthTitle));
+        await this.service.renameTrack(index, this.spec.sanitizeHalfWidthTitle(title), this.sanitizeOptionalFullWidthTitle(fullWidthTitle));
     }
 
     async renameHiMDTrack({ index, title, album, artist }: HiMDTrackMetadataUpdate) {
@@ -65,7 +65,7 @@ export class NetMDDeviceGateway implements DeviceGateway {
     }
 
     async renameGroup({ index, title, fullWidthTitle }: GroupMetadataUpdate) {
-        await this.service.renameGroup(index, this.spec.sanitizeHalfWidthTitle(title), this.sanitizeFullWidthTitle(fullWidthTitle));
+        await this.service.renameGroup(index, this.spec.sanitizeHalfWidthTitle(title), this.sanitizeOptionalFullWidthTitle(fullWidthTitle));
     }
 
     async addGroup(firstTrack: number, trackCount: number, title: string, fullWidthTitle?: string) {
@@ -73,7 +73,7 @@ export class NetMDDeviceGateway implements DeviceGateway {
             firstTrack,
             trackCount,
             this.spec.sanitizeHalfWidthTitle(title),
-            this.sanitizeFullWidthTitle(fullWidthTitle)
+            this.sanitizeOptionalFullWidthTitle(fullWidthTitle)
         );
     }
 
@@ -124,6 +124,30 @@ export class NetMDDeviceGateway implements DeviceGateway {
         await this.service.ejectDisc();
     }
 
+    prepareUpload() {
+        return this.service.prepareUpload();
+    }
+
+    finalizeUpload() {
+        return this.service.finalizeUpload();
+    }
+
+    upload(...args: Parameters<DeviceGateway['upload']>) {
+        return this.service.upload(...args);
+    }
+
+    getRemainingCharactersForTitles(disc: Parameters<DeviceGateway['getRemainingCharactersForTitles']>[0]) {
+        return this.spec.getRemainingCharactersForTitles(disc);
+    }
+
+    sanitizeHalfWidthTitle(title: string) {
+        return this.spec.sanitizeHalfWidthTitle(title);
+    }
+
+    sanitizeFullWidthTitle(title: string) {
+        return this.spec.sanitizeFullWidthTitle(title);
+    }
+
     downloadTrack(index: number, onProgress: (progress: { read: number; total: number }) => void) {
         return this.service.download(index, onProgress);
     }
@@ -159,7 +183,7 @@ export class NetMDDeviceGateway implements DeviceGateway {
         return calculateImportPreview(this.spec, disc, tracks, format);
     }
 
-    private sanitizeFullWidthTitle(title?: string) {
+    private sanitizeOptionalFullWidthTitle(title?: string) {
         return title === undefined ? undefined : this.spec.sanitizeFullWidthTitle(title);
     }
 }

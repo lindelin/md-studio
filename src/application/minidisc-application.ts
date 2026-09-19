@@ -15,6 +15,7 @@ import {
     type DiagnosticProgress,
     type DeviceGateway,
     type DeviceSnapshot,
+    type DeviceUploadService,
     type GroupMetadataUpdate,
     type HiMDTrackMetadataUpdate,
     type PlaybackCommand,
@@ -336,7 +337,7 @@ export class MiniDiscApplication {
     runDeviceUploadSession<T>(
         requiredExploitCapabilities: string[],
         interactiveAuthorization: typeof INTERACTIVE_ADVANCED_AUTHORIZATION | undefined,
-        operation: (advancedUploadService?: AdvancedUploadService) => Promise<T>,
+        operation: (uploadService: DeviceUploadService, advancedUploadService?: AdvancedUploadService) => Promise<T>,
         expectedDeviceVersion?: { sessionId: string; revision: number }
     ): Promise<{ value: T; snapshot: DeviceSnapshot }> {
         return this.serial(async () => {
@@ -357,10 +358,19 @@ export class MiniDiscApplication {
                 };
             }
 
+            const uploadService: DeviceUploadService = {
+                prepareUpload: () => this.gateway.prepareUpload(),
+                finalizeUpload: () => this.gateway.finalizeUpload(),
+                upload: (...args) => this.gateway.upload(...args),
+                getRemainingCharactersForTitles: (disc) => this.gateway.getRemainingCharactersForTitles(disc),
+                sanitizeHalfWidthTitle: (title) => this.gateway.sanitizeHalfWidthTitle(title),
+                sanitizeFullWidthTitle: (title) => this.gateway.sanitizeFullWidthTitle(title),
+            };
             let value: T | undefined;
             let primaryError: unknown;
             try {
-                value = await operation(advancedUploadService);
+                await this.gateway.controlPlayback({ action: 'stop' });
+                value = await operation(uploadService, advancedUploadService);
             } catch (error) {
                 primaryError = error;
             }

@@ -5,7 +5,12 @@ import { ImportQueue } from '../src/application/import-queue.ts';
 import { SettingsStore } from '../src/application/settings-store.ts';
 import { TaskManager } from '../src/application/task-manager.ts';
 import { WorkspaceStore } from '../src/application/workspace-store.ts';
-import type { AdvancedTrackReader, AdvancedUploadService, DeviceSnapshot } from '../src/application/contracts.ts';
+import type {
+    AdvancedTrackReader,
+    AdvancedUploadService,
+    DeviceSnapshot,
+    DeviceUploadService,
+} from '../src/application/contracts.ts';
 
 async function runAdvancedSession<T>(
     _useSlowerExploit: boolean,
@@ -16,9 +21,20 @@ async function runAdvancedSession<T>(
 
 async function runUploadSession<T>(
     _requiredCapabilities: string[],
-    operation: (service?: AdvancedUploadService) => Promise<T>
+    operation: (uploadService: DeviceUploadService, advancedUploadService?: AdvancedUploadService) => Promise<T>
 ) {
-    return { value: await operation(), snapshot: {} as DeviceSnapshot };
+    return { value: await operation(createUploadService()), snapshot: {} as DeviceSnapshot };
+}
+
+function createUploadService(): DeviceUploadService {
+    return {
+        async prepareUpload() {},
+        async finalizeUpload() {},
+        async upload() {},
+        getRemainingCharactersForTitles: () => ({ halfWidth: 100, fullWidth: 100 }),
+        sanitizeHalfWidthTitle: (title) => title,
+        sanitizeFullWidthTitle: (title) => title,
+    };
 }
 
 describe('InProcessApplicationClient', () => {
@@ -229,16 +245,18 @@ describe('InProcessApplicationClient', () => {
             runAdvancedSession,
             async (required, operation) => {
                 capabilities.push(required);
-                const value = await operation({
-                    async uploadSP() { return 0; },
+                const value = await operation(createUploadService(), {
+                    async uploadSP() {
+                        return 0;
+                    },
                     async enableMonoUpload() {},
                 });
                 return { value, snapshot: {} as DeviceSnapshot };
             }
         );
 
-        const value = await client.runLocalDeviceUploadSession(['uploadAtrac1'], async (service) => {
-            await service!.uploadSP('Title', '', false, new ArrayBuffer(0), () => {});
+        const value = await client.runLocalDeviceUploadSession(['uploadAtrac1'], async (_upload, advanced) => {
+            await advanced!.uploadSP('Title', '', false, new ArrayBuffer(0), () => {});
             return 'done';
         });
 

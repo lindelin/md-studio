@@ -1,11 +1,10 @@
-import type { Disc, Codec, MinidiscSpec, NetMDService } from '../services/interfaces/netmd';
+import type { Disc, Codec } from '../services/interfaces/netmd';
 import type { TitledFile } from '../utils';
 import { allocateRecordingTitle } from '../domain/recording-title-budget';
 import type { ConvertedImportAudio } from './audio-conversion-pipeline';
 import { ImportAudioConversionError } from './audio-conversion-pipeline';
-import type { AdvancedUploadService } from './contracts';
+import type { AdvancedUploadService, DeviceUploadService } from './contracts';
 
-type UploadService = Pick<NetMDService, 'prepareUpload' | 'finalizeUpload' | 'upload'>;
 type FactoryUploadService = AdvancedUploadService;
 
 export type ImportUploadPhase = 'converting' | 'transferring' | 'finalizing';
@@ -32,8 +31,7 @@ export interface ImportUploadSessionOptions {
     totalTracks: number;
     format: Codec;
     disc: Disc;
-    spec: MinidiscSpec;
-    service: UploadService;
+    service: DeviceUploadService;
     factoryService?: FactoryUploadService;
     usesHiMDTitles: boolean;
     useFullWidthTitles: boolean;
@@ -72,7 +70,7 @@ export async function runImportUploadSession(options: ImportUploadSessionOptions
     let prepared = false;
     let writtenTracks = 0;
     let primaryError: ImportUploadSessionError | undefined;
-    let titleBudget = options.spec.getRemainingCharactersForTitles(options.disc);
+    let titleBudget = options.service.getRemainingCharactersForTitles(options.disc);
 
     try {
         try {
@@ -100,8 +98,8 @@ export async function runImportUploadSession(options: ImportUploadSessionOptions
                 let fullWidthTitle = '';
                 if (!options.usesHiMDTitles) {
                     const allocated = allocateRecordingTitle(
-                        options.spec.sanitizeHalfWidthTitle(file.title),
-                        options.spec.sanitizeFullWidthTitle(file.fullWidthTitle),
+                        options.service.sanitizeHalfWidthTitle(file.title),
+                        options.service.sanitizeFullWidthTitle(file.fullWidthTitle),
                         titleBudget,
                         options.useFullWidthTitles,
                         format.codec === 'SPS' || format.codec === 'SPM' ? 0 : 7
