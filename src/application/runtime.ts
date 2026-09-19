@@ -50,7 +50,8 @@ export function getApplicationClient() {
     if (!serviceRegistry.applicationClient) {
         serviceRegistry.applicationClient = new InProcessApplicationClient(
             ensureApplicationCommandBus(),
-            serviceRegistry.workspaceStore
+            serviceRegistry.workspaceStore,
+            serviceRegistry.importQueue
         );
     }
     return serviceRegistry.applicationClient;

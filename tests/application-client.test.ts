@@ -19,7 +19,8 @@ describe('InProcessApplicationClient', () => {
                     return { ok: true, workspace: workspace.getSnapshot() };
                 },
             },
-            workspace
+            workspace,
+            imports
         );
         const initial = client.getWorkspaceSnapshot();
         let notifications = 0;
@@ -41,5 +42,28 @@ describe('InProcessApplicationClient', () => {
         assert.notEqual(client.getWorkspaceSnapshot(), initial);
         assert.equal(client.getWorkspaceSnapshot().imports.items[0].title, 'One');
         unsubscribe();
+    });
+
+    it('keeps browser-local payloads behind the in-process client boundary', () => {
+        const tasks = new TaskManager();
+        const imports = new ImportQueue();
+        const workspace = new WorkspaceStore(tasks, imports, new SettingsStore(null));
+        const client = new InProcessApplicationClient(
+            { async execute() { return { ok: true }; } },
+            workspace,
+            imports
+        );
+        const payload = { browserFile: true };
+
+        const result = client.addLocalImports([
+            {
+                source: { kind: 'browser-file', name: 'local.wav', reference: 'browser:local' },
+                metadata: { title: 'Local' },
+                payload,
+            },
+        ]);
+
+        assert.equal(result.items[0].title, 'Local');
+        assert.equal(imports.resolvePayload(result.items[0].id), payload);
     });
 });

@@ -72,6 +72,8 @@ import TableRow from '@mui/material/TableRow';
 import { LeftInNondefaultCodecs } from './main-rows';
 import { formatImportTitle } from '../application/import-title';
 import { inspectImportFiles, type InspectedImportFile } from '../application/audio-import-inspector';
+import type { ApplicationCommand } from '../application/command-bus';
+import type { ImportQueueSnapshot } from '../application/import-queue';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
@@ -222,6 +224,13 @@ function createBrowserFileReference() {
     return `browser-file:${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
 }
 
+async function executeImportQueueCommand(command: ApplicationCommand): Promise<ImportQueueSnapshot> {
+    const result = await getApplicationClient().execute(command);
+    if (!result.ok) throw new Error(result.error.message);
+    if (!result.importQueue) throw new Error(`Command ${command.type} did not return the import queue.`);
+    return result.importQueue;
+}
+
 function createForcedEncodingText(selectedCodec: Codec, file: { forcedEncoding: ForcedEncodingFormat }) {
     const remapTable: { [name: string]: string } = {
         SPS: 'Stereo SP - Homebrew!',
@@ -265,6 +274,17 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
     const [availableDurationUnits, setAvailableDurationUnits] = useState(0);
     const [availableSPSeconds, setAvailableSPSeconds] = useState(0);
     const [loadingMetadata, setLoadingMetadata] = useState(false);
+    const reportApplicationError = useCallback(
+        (error: unknown) => {
+            dispatch(
+                batchActions([
+                    errorDialogActions.setVisible(true),
+                    errorDialogActions.setErrorMessage(error instanceof Error ? error.message : String(error)),
+                ])
+            );
+        },
+        [dispatch]
+    );
 
     useEffect(() => {
         dispatch(
@@ -347,11 +367,16 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
     }, [dispatch, minidiscSpec]);
 
     const refreshTitledFiles = useCallback(
-        (queuedFiles: typeof files, selectedFormat: TitleFormatType, allowFullWidth = fullWidthSupport) => {
+        async (
+            queuedFiles: typeof files,
+            selectedFormat: TitleFormatType,
+            allowFullWidth = fullWidthSupport,
+            expectedRevision = getApplicationClient().getWorkspaceSnapshot().imports.revision
+        ) => {
             if (queuedFiles.length === 0) return;
-            const snapshot = serviceRegistry.importQueue.snapshot();
-            serviceRegistry.importQueue.updateMany(
-                queuedFiles.map((file) => {
+            await executeImportQueueCommand({
+                type: 'import.updateMany',
+                updates: queuedFiles.map((file) => {
                     return {
                         id: file.id,
                         changes: formatImportTitle(
@@ -362,17 +387,18 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
                         ),
                     };
                 }),
-                snapshot.revision
-            );
+                expectedRevision,
+            });
         },
         [deviceSupportsFullWidth, fullWidthSupport, minidiscSpec]
     );
 
     const addInspectedFiles = useCallback(
-        (inspectedFiles: InspectedImportFile[]) => {
+        async (inspectedFiles: InspectedImportFile[]) => {
             if (inspectedFiles.length === 0) return;
             const selectedTitleFormat = usesHimdTitles ? 'title' : titleFormat;
-            const added = serviceRegistry.importQueue.add(
+            const client = getApplicationClient();
+            const added = client.addLocalImports(
                 inspectedFiles.map((inspected) => ({
                     source: {
                         kind: 'browser-file' as const,
@@ -397,20 +423,25 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
                 }))
             );
             const addedIds = new Set(added.items.slice(-inspectedFiles.length).map((item) => item.id));
-            refreshTitledFiles(
+            await refreshTitledFiles(
                 added.items.filter((item) => addedIds.has(item.id)),
-                selectedTitleFormat
+                selectedTitleFormat,
+                fullWidthSupport,
+                added.revision
             );
         },
-        [refreshTitledFiles, titleFormat, usesHimdTitles]
+        [fullWidthSupport, refreshTitledFiles, titleFormat, usesHimdTitles]
     );
 
     useEffect(() => {
         const newFiles = Array.from(props.files);
         if (newFiles.length === 0) return;
         resetDialog();
-        loadMetadataFromFiles(newFiles).then(addInspectedFiles).catch(console.error).finally(() => setLoadingMetadata(false));
-    }, [props.files, loadMetadataFromFiles, resetDialog, addInspectedFiles]);
+        loadMetadataFromFiles(newFiles)
+            .then(addInspectedFiles)
+            .catch(reportApplicationError)
+            .finally(() => setLoadingMetadata(false));
+    }, [props.files, loadMetadataFromFiles, resetDialog, addInspectedFiles, reportApplicationError]);
 
     const renameTrackManually = useCallback(
         (index: number) => {
@@ -442,10 +473,16 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
                 return; // This should not be allowed by the UI
             }
 
-            serviceRegistry.importQueue.move(files[selectedTrackIndex].id, targetIndex, queueSnapshot.revision);
-            setSelectedTrack(targetIndex);
+            void executeImportQueueCommand({
+                type: 'import.move',
+                id: files[selectedTrackIndex].id,
+                destinationIndex: targetIndex,
+                expectedRevision: queueSnapshot.revision,
+            })
+                .then(() => setSelectedTrack(targetIndex))
+                .catch(reportApplicationError);
         },
-        [files, queueSnapshot.revision, selectedTrackIndex]
+        [files, queueSnapshot.revision, reportApplicationError, selectedTrackIndex]
     );
 
     const moveFileUp = useCallback(() => {
@@ -457,11 +494,15 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
     }, [moveFile]);
 
     const handleClose = useCallback(() => {
-        const snapshot = serviceRegistry.importQueue.snapshot();
-        if (snapshot.items.length > 0) serviceRegistry.importQueue.clear(snapshot.revision);
+        const snapshot = getApplicationClient().getWorkspaceSnapshot().imports;
+        if (snapshot.items.length > 0) {
+            void executeImportQueueCommand({ type: 'import.clear', expectedRevision: snapshot.revision }).catch(
+                reportApplicationError
+            );
+        }
         resetDialog();
         dispatch(convertDialogActions.setVisible(false));
-    }, [dispatch, resetDialog]);
+    }, [dispatch, reportApplicationError, resetDialog]);
 
     const hideDialog = useCallback(() => {
         setSelectedTrack(-1);
@@ -501,9 +542,9 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
         (event: any) => {
             const selectedFormat = event.target.value as TitleFormatType;
             dispatch(convertDialogActions.setTitleFormat(selectedFormat));
-            refreshTitledFiles(files, usesHimdTitles ? 'title' : selectedFormat);
+            void refreshTitledFiles(files, usesHimdTitles ? 'title' : selectedFormat).catch(reportApplicationError);
         },
-        [dispatch, files, refreshTitledFiles, usesHimdTitles]
+        [dispatch, files, refreshTitledFiles, reportApplicationError, usesHimdTitles]
     );
 
     const [tracksOrderVisible, setTracksOrderVisible] = useState(false);
@@ -525,8 +566,8 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
     const handleToggleFullWidthSupport = useCallback(() => {
         const enabled = !fullWidthSupport;
         dispatch(appActions.setFullWidthSupport(enabled));
-        refreshTitledFiles(files, usesHimdTitles ? 'title' : titleFormat, enabled);
-    }, [dispatch, files, fullWidthSupport, refreshTitledFiles, titleFormat, usesHimdTitles]);
+        void refreshTitledFiles(files, usesHimdTitles ? 'title' : titleFormat, enabled).catch(reportApplicationError);
+    }, [dispatch, files, fullWidthSupport, refreshTitledFiles, reportApplicationError, titleFormat, usesHimdTitles]);
 
     const calculateFreeSpaceBytes = useCallback(() => {
         if (!disc) return;
@@ -750,11 +791,11 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
             if (accepted.length > 0) {
                 loadMetadataFromFiles(accepted)
                     .then(addInspectedFiles)
-                    .catch(console.error)
+                    .catch(reportApplicationError)
                     .finally(() => setLoadingMetadata(false));
             }
         },
-        [addInspectedFiles, loadMetadataFromFiles]
+        [addInspectedFiles, loadMetadataFromFiles, reportApplicationError]
     );
     const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
         onDrop,
@@ -766,23 +807,41 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
     const handleRemoveSelectedTrack = useCallback(() => {
         const selected = files[selectedTrackIndex];
         if (!selected) return;
-        serviceRegistry.importQueue.remove([selected.id], queueSnapshot.revision);
-        const remainingCount = files.length - 1;
-        if (selectedTrackIndex >= remainingCount) {
-            setSelectedTrack(remainingCount - 1);
-        }
-        if (remainingCount === 0) handleClose();
-    }, [selectedTrackIndex, files, queueSnapshot.revision, handleClose]);
+        void executeImportQueueCommand({
+            type: 'import.remove',
+            ids: [selected.id],
+            expectedRevision: queueSnapshot.revision,
+        })
+            .then(() => {
+                const remainingCount = files.length - 1;
+                if (selectedTrackIndex >= remainingCount) {
+                    setSelectedTrack(remainingCount - 1);
+                }
+                if (remainingCount === 0) handleClose();
+            })
+            .catch(reportApplicationError);
+    }, [selectedTrackIndex, files, queueSnapshot.revision, handleClose, reportApplicationError]);
 
     const dialogVisible = useShallowEqualSelector((state) => state.convertDialog.visible);
 
     const handleConvert = useCallback(async () => {
-        const initial = serviceRegistry.importQueue.snapshot();
+        const initial = getApplicationClient().getWorkspaceSnapshot().imports;
         const mp3Updates = initial.items
             .filter((item) => item.forcedEncoding?.codec === 'MP3' && currentlySelectedCodec.codec !== 'MP3')
             .map((item) => ({ id: item.id, changes: { forcedEncoding: null } }));
-        const prepared =
-            mp3Updates.length > 0 ? serviceRegistry.importQueue.updateMany(mp3Updates, initial.revision) : initial;
+        let prepared = initial;
+        try {
+            if (mp3Updates.length > 0) {
+                prepared = await executeImportQueueCommand({
+                    type: 'import.updateMany',
+                    updates: mp3Updates,
+                    expectedRevision: initial.revision,
+                });
+            }
+        } catch (error) {
+            reportApplicationError(error);
+            return;
+        }
         hideDialog();
         setEnableReplayGain(false);
         const result = await getApplicationClient().execute({
@@ -803,7 +862,7 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
                 ])
             );
         }
-    }, [currentlySelectedCodec, dispatch, enableGapless, enableReplayGain, hideDialog]);
+    }, [currentlySelectedCodec, dispatch, enableGapless, enableReplayGain, hideDialog, reportApplicationError]);
 
     const encoderSupportState = useMemo(
         () => serviceRegistry.audioExportService!.getSupport(currentlySelectedCodec.codec),
