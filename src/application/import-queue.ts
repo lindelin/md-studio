@@ -47,6 +47,8 @@ export interface ImportWriteRequest {
     enableGapless?: boolean;
     removeOnSuccess?: boolean;
     expectedRevision?: number;
+    expectedDeviceSessionId?: string;
+    expectedDeviceRevision?: number;
     /** Browser UI only: an in-memory capability that cannot cross the JSON bridge. */
     interactiveHomebrewAuthorization?: typeof INTERACTIVE_HOMEBREW_AUTHORIZATION;
 }

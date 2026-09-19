@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { assertDiscWritableForImport, assertImportWritePolicy } from '../src/application/import-write-policy.ts';
+import {
+    assertDiscWritableForImport,
+    assertImportDeviceVersion,
+    assertImportWritePolicy,
+} from '../src/application/import-write-policy.ts';
 import type { ResolvedImportQueueItem } from '../src/application/import-queue.ts';
 import type { Disc } from '../src/services/interfaces/netmd.ts';
 
@@ -82,6 +86,18 @@ describe('import write policy', () => {
                     groups: [],
                 } satisfies Disc),
             (error: any) => error.code === 'DISC_READ_ONLY'
+        );
+    });
+
+    it('rejects a write prepared for another device session or disc revision', () => {
+        assert.doesNotThrow(() => assertImportDeviceVersion('session-a', 7, 'session-a', 7));
+        assert.throws(
+            () => assertImportDeviceVersion('session-a', 7, 'session-b', 7),
+            (error: any) => error.code === 'STALE_REVISION' && error.details.actualSessionId === 'session-b'
+        );
+        assert.throws(
+            () => assertImportDeviceVersion('session-a', 7, 'session-a', 8),
+            (error: any) => error.code === 'STALE_REVISION' && error.details.actualRevision === 8
         );
     });
 });

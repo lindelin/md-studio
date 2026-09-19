@@ -278,6 +278,10 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
     const [availableSPSeconds, setAvailableSPSeconds] = useState(0);
     const [previewIssues, setPreviewIssues] = useState<ImportPreview['issues']>([]);
     const [previewItems, setPreviewItems] = useState<ImportPreview['items']>([]);
+    const [previewDeviceVersion, setPreviewDeviceVersion] = useState<{
+        sessionId: string;
+        revision: number;
+    } | null>(null);
     const [previewPending, setPreviewPending] = useState(false);
     const [loadingMetadata, setLoadingMetadata] = useState(false);
     const reportApplicationError = useCallback(
@@ -591,6 +595,7 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
         if (!disc || !device || files.length === 0) {
             setPreviewIssues([]);
             setPreviewItems([]);
+            setPreviewDeviceVersion(null);
             setPreviewPending(false);
             return;
         }
@@ -598,6 +603,7 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
         setPreviewPending(true);
         setPreviewIssues([]);
         setPreviewItems([]);
+        setPreviewDeviceVersion(null);
         void getApplicationClient()
             .execute({
                 type: 'import.preview',
@@ -623,6 +629,7 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
                 setAvailableSPSeconds(preview.capacity.remaining);
                 setPreviewIssues(preview.issues);
                 setPreviewItems(preview.items);
+                setPreviewDeviceVersion({ sessionId: preview.deviceSessionId, revision: preview.deviceRevision });
             });
         return () => {
             active = false;
@@ -793,6 +800,10 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
     const dialogVisible = useShallowEqualSelector((state) => state.convertDialog.visible);
 
     const handleConvert = useCallback(async () => {
+        if (!previewDeviceVersion) {
+            reportApplicationError(new Error('Wait for the current import plan to finish validating before writing.'));
+            return;
+        }
         const initial = getApplicationClient().getWorkspaceSnapshot().imports;
         const mp3Updates = initial.items
             .filter((item) => item.forcedEncoding?.codec === 'MP3' && currentlySelectedCodec.codec !== 'MP3')
@@ -819,6 +830,8 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
             enableGapless,
             removeOnSuccess: true,
             expectedRevision: prepared.revision,
+            expectedDeviceSessionId: previewDeviceVersion.sessionId,
+            expectedDeviceRevision: previewDeviceVersion.revision,
             interactiveHomebrewAuthorization: INTERACTIVE_HOMEBREW_AUTHORIZATION,
         });
         if (!result.ok) {
@@ -830,7 +843,15 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
                 ])
             );
         }
-    }, [currentlySelectedCodec, dispatch, enableGapless, enableReplayGain, hideDialog, reportApplicationError]);
+    }, [
+        currentlySelectedCodec,
+        dispatch,
+        enableGapless,
+        enableReplayGain,
+        hideDialog,
+        previewDeviceVersion,
+        reportApplicationError,
+    ]);
 
     const encoderSupportState = useMemo(
         () => serviceRegistry.audioEncoderManager.getActiveService().getSupport(currentlySelectedCodec.codec),
@@ -1195,6 +1216,7 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
                     disabled={
                         loadingMetadata ||
                         previewPending ||
+                        previewDeviceVersion === null ||
                         availableDurationUnits < 0 ||
                         previewIssues.length > 0 ||
                         isSelectedUnsupported

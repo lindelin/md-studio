@@ -621,7 +621,7 @@ function createServer() {
         'minidisc_write_imports',
         {
             description:
-                'Start a background write task for queued imports. Read the returned task with minidisc_get_task until it completes.',
+                'Start a background write task for queued imports. Preview first and pass its import revision, device session, and device revision to reject a stale plan. Read the returned task with minidisc_get_task until it completes.',
             inputSchema: z.object({
                 ids: z.array(z.string().min(1)).min(1).optional(),
                 format: z
@@ -631,6 +631,8 @@ function createServer() {
                 enableGapless: z.boolean().optional(),
                 removeOnSuccess: z.boolean().optional(),
                 expectedRevision: z.number().int().nonnegative().optional(),
+                expectedDeviceSessionId: z.string().min(1).optional(),
+                expectedDeviceRevision: z.number().int().nonnegative().optional(),
             }),
         },
         async (input) => execute({ type: 'import.write', ...input })

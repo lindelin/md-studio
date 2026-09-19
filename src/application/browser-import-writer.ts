@@ -5,7 +5,7 @@ import { ApplicationError } from './contracts';
 import { createDeferredFile, isAdaptiveFile, isDeferredFile } from './deferred-file';
 import type { ImportQueue, ImportWriteRequest, ImportWriter } from './import-queue';
 import type { TaskManager } from './task-manager';
-import { assertDiscWritableForImport, assertImportWritePolicy } from './import-write-policy';
+import { assertDiscWritableForImport, assertImportDeviceVersion, assertImportWritePolicy } from './import-write-policy';
 import { INTERACTIVE_HOMEBREW_AUTHORIZATION } from './interactive-authorization';
 
 export interface BrowserImportWriterDependencies {
@@ -30,6 +30,12 @@ export class BrowserImportWriter implements ImportWriter {
             throw new ApplicationError('NO_DISC', 'Connect a MiniDisc device before starting a write task.');
         }
         const device = application.readSnapshot() ?? (await application.refresh());
+        assertImportDeviceVersion(
+            request.expectedDeviceSessionId,
+            request.expectedDeviceRevision,
+            device.sessionId,
+            device.revision
+        );
         assertDiscWritableForImport(device.disc);
 
         const format = this.resolveFormat(request.format, spec);

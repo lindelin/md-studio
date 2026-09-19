@@ -171,14 +171,27 @@ async function executeOperation(
 
     const ids = added.importQueue.items.slice(-staged.length).map((item) => item.id);
     registerTemporaryImports(ids);
+    const format = operation.codec && operation.bitrate ? { codec: operation.codec, bitrate: operation.bitrate } : undefined;
+    const preview = await broker.execute(
+        {
+            type: 'import.preview',
+            ids,
+            format,
+            expectedImportRevision: added.importQueue.revision,
+        },
+        timeoutMs
+    );
+    if (!preview.ok || !preview.importPreview) return { result: preview, temporaryImportIds: ids };
     return {
         result: await broker.execute(
             {
                 type: 'import.write',
                 ids,
-                format: operation.codec && operation.bitrate ? { codec: operation.codec, bitrate: operation.bitrate } : undefined,
+                format,
                 removeOnSuccess: true,
                 expectedRevision: added.importQueue.revision,
+                expectedDeviceSessionId: preview.importPreview.deviceSessionId,
+                expectedDeviceRevision: preview.importPreview.deviceRevision,
             },
             timeoutMs
         ),

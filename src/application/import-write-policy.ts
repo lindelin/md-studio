@@ -35,3 +35,23 @@ export function assertDiscWritableForImport(disc: Disc | null) {
         });
     }
 }
+
+export function assertImportDeviceVersion(
+    expectedSessionId: string | undefined,
+    expectedRevision: number | undefined,
+    actualSessionId: string,
+    actualRevision: number
+) {
+    if (expectedSessionId !== undefined && expectedSessionId !== actualSessionId) {
+        throw new ApplicationError('STALE_REVISION', 'The connected device changed after this write was prepared.', {
+            expectedSessionId,
+            actualSessionId,
+        });
+    }
+    if (expectedRevision !== undefined && expectedRevision !== actualRevision) {
+        throw new ApplicationError('STALE_REVISION', 'The disc changed after this write was prepared.', {
+            expectedRevision,
+            actualRevision,
+        });
+    }
+}
