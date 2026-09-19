@@ -5,12 +5,17 @@ import { convertToWAV, createDownloadTrackName, downloadBlob, getTracks } from '
 import { ApplicationError } from './contracts';
 import type { MiniDiscApplication } from './minidisc-application';
 import type { TaskManager } from './task-manager';
-import type { TrackExporter, TrackExportRequest } from './track-export';
+import type { TrackExporter, TrackExportRequest, TrackExportSink } from './track-export';
 
 export class BrowserTrackExporter implements TrackExporter {
     constructor(private readonly store: AppStore) {}
 
-    async start(request: TrackExportRequest, application: MiniDiscApplication, tasks: TaskManager) {
+    async start(
+        request: TrackExportRequest,
+        application: MiniDiscApplication,
+        tasks: TaskManager,
+        sink?: TrackExportSink
+    ) {
         if (request.indexes.length === 0) throw new ApplicationError('INVALID_INPUT', 'At least one track is required.');
         const uniqueIndexes = new Set(request.indexes);
         if (uniqueIndexes.size !== request.indexes.length) {
@@ -46,7 +51,7 @@ export class BrowserTrackExporter implements TrackExporter {
             'tracks'
         );
         tasks.start(task.id, 'preparing');
-        void this.run(task.id, selected, request, tasks);
+        void this.run(task.id, selected, request, tasks, sink);
         return tasks.get(task.id);
     }
 
@@ -54,7 +59,8 @@ export class BrowserTrackExporter implements TrackExporter {
         taskId: string,
         selected: ReturnType<typeof getTracks>,
         request: TrackExportRequest,
-        tasks: TaskManager
+        tasks: TaskManager,
+        sink?: TrackExportSink
     ) {
         const service = serviceRegistry.netmdService;
         if (!service) {
@@ -85,7 +91,10 @@ export class BrowserTrackExporter implements TrackExporter {
                         data = await convertToWAV(received, track);
                         fileName = fileName.replace(/\.[^.]+$/, '.wav');
                     }
-                    if (request.outputHandle) {
+                    if (sink) {
+                        await sink(data, fileName);
+                        exportedFiles.push(fileName);
+                    } else if (request.outputHandle) {
                         const completedPath = await serviceRegistry.exportPayloadSink!.write(request.outputHandle, fileName, data);
                         exportedFiles.push(completedPath ?? fileName);
                     } else {

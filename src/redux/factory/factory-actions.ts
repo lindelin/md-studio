@@ -419,20 +419,17 @@ export function archiveDisc() {
             toc = getState().factory.toc!;
         }
 
-        const trackDownloader: typeof downloadTracks = deviceCapabilities.includes(Capability.trackDownload)
-            ? downloadTracks
-            : exploitDownloadTracks;
-
         await downloadToc(callback)(dispatch, getState);
         await exportCSV(callback)(dispatch, getState);
 
-        await trackDownloader(
-            Array(toc.nTracks)
-                .fill(0)
-                .map((_, i) => i),
-            false,
-            callback
-        )(dispatch, getState);
+        const indexes = Array(toc.nTracks)
+            .fill(0)
+            .map((_, i) => i);
+        if (deviceCapabilities.includes(Capability.trackDownload)) {
+            await downloadTracks(indexes, false, callback)(dispatch);
+        } else {
+            await exploitDownloadTracks(indexes, false, callback)(dispatch, getState);
+        }
 
         if (archiveDiscCreateZip) {
             dispatch(appStateActions.setLoading(true));

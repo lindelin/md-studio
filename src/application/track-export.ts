@@ -8,6 +8,13 @@ export interface TrackExportRequest {
     expectedRevision?: number;
 }
 
+export type TrackExportSink = (data: Uint8Array, fileName: string) => void | Promise<void>;
+
 export interface TrackExporter {
-    start(request: TrackExportRequest, application: MiniDiscApplication, tasks: TaskManager): Promise<TaskSnapshot>;
+    start(
+        request: TrackExportRequest,
+        application: MiniDiscApplication,
+        tasks: TaskManager,
+        sink?: TrackExportSink
+    ): Promise<TaskSnapshot>;
 }

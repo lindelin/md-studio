@@ -18,10 +18,8 @@ import {
     timeToSeekArgs,
     TitledFile,
     downloadBlob,
-    createDownloadTrackName,
     secondsToHumanReadable,
     getTracks,
-    convertToWAV,
     ffmpegTranscode,
     AdaptiveFile,
 } from '../utils';
@@ -391,66 +389,71 @@ export function moveTrack(srcIndex: number, destIndex: number) {
 export function downloadTracks(
     indexes: number[],
     convertOutputToWav: boolean,
-    callback: (blob: Blob, name: string) => void = downloadBlob,
-    options: { operationLockHeld?: boolean } = {}
+    callback?: (blob: Blob, name: string) => void
 ) {
-    return async function (dispatch: AppDispatch, getState: () => RootState): Promise<void> {
-        if (!options.operationLockHeld) {
-            return serviceRegistry.operationCoordinator.run(() =>
-                downloadTracks(indexes, convertOutputToWav, callback, { operationLockHeld: true })(dispatch, getState)
-            );
-        }
-        dispatch(
-            batchActions([
-                recordDialogAction.setVisible(true),
-                recordDialogAction.setProgress({ trackTotal: indexes.length, trackDone: 0, trackCurrent: 0, titleCurrent: '' }),
-            ])
-        );
-
-        const disc = getState().main.disc;
-        const tracks = getTracks(disc!).filter((t) => indexes.indexOf(t.index) >= 0);
-
-        const { netmdService } = serviceRegistry;
-
-        for (const [i, track] of tracks.entries()) {
+    return async function (dispatch: AppDispatch): Promise<void> {
+        const application = getApplicationRuntime();
+        const request = {
+            indexes,
+            convertToWav: convertOutputToWav,
+            expectedRevision: application.readSnapshot()?.revision,
+        };
+        let task;
+        try {
+            if (callback) {
+                if (!serviceRegistry.trackExporter) throw new Error('Track export is unavailable in this application environment.');
+                task = await serviceRegistry.trackExporter.start(
+                    request,
+                    application,
+                    serviceRegistry.taskManager,
+                    (data, fileName) => {
+                        const copy = new Uint8Array(data.byteLength);
+                        copy.set(data);
+                        callback(new Blob([copy.buffer], { type: 'application/octet-stream' }), fileName);
+                    }
+                );
+            } else {
+                const result = await ensureApplicationCommandBus().execute({ type: 'track.export', ...request });
+                if (!result.ok) throw new Error(result.error.message);
+                task = result.task;
+            }
+        } catch (error) {
             dispatch(
-                recordDialogAction.setProgress({
-                    trackTotal: tracks.length,
-                    trackDone: i,
-                    trackCurrent: -1,
-                    titleCurrent: track.title ?? '',
-                })
+                batchActions([
+                    errorDialogAction.setVisible(true),
+                    errorDialogAction.setErrorMessage(error instanceof Error ? error.message : 'Track export could not be started.'),
+                ])
             );
-            try {
-                const received = (await netmdService!.download(track.index, ({ read, total }) => {
-                    dispatch(
-                        recordDialogAction.setProgress({
-                            trackTotal: tracks.length,
-                            trackDone: i,
-                            trackCurrent: (100 * read) / total,
-                            titleCurrent: track.title ?? '',
-                        })
-                    );
-                }))!;
-                let fileName = createDownloadTrackName(track, received.extension);
-                if (convertOutputToWav) {
-                    received.data = await convertToWAV(received, track);
-                    fileName = fileName.slice(0, -3) + 'wav';
-                }
-                callback(new Blob([received.data], { type: 'application/octet-stream' }), fileName);
-            } catch (err) {
-                console.error(err);
+            return;
+        }
+        if (!task) return;
+
+        dispatch(batchActions([recordDialogAction.setVisible(true), recordDialogAction.setTaskId(task.id)]));
+        try {
+            while (task.status === 'queued' || task.status === 'running') {
+                const bytesTotal = task.progress.bytesTotal ?? 0;
+                dispatch(
+                    recordDialogAction.setProgress({
+                        trackTotal: task.progress.total,
+                        trackDone: task.progress.completed,
+                        trackCurrent: bytesTotal > 0 ? (100 * (task.progress.bytesWritten ?? 0)) / bytesTotal : -1,
+                        titleCurrent: task.progress.currentLabel ?? '',
+                    })
+                );
+                await sleep(100);
+                task = serviceRegistry.taskManager.get(task.id);
+            }
+            if (task.status === 'failed') {
                 dispatch(
                     batchActions([
-                        recordDialogAction.setVisible(false),
                         errorDialogAction.setVisible(true),
-                        errorDialogAction.setErrorMessage(`Download failed. Are you using a disc recorded by SonicStage?`),
+                        errorDialogAction.setErrorMessage(task.error?.message ?? 'Track export failed.'),
                     ])
                 );
             }
+        } finally {
+            dispatch(batchActions([recordDialogAction.setVisible(false), recordDialogAction.setTaskId(null)]));
         }
-
-        dispatch(recordDialogAction.setVisible(false));
     };
 }
 
