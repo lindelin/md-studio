@@ -8,6 +8,7 @@ import { ApplicationError } from './contracts';
 import { createDeferredFile, isAdaptiveFile, isDeferredFile } from './deferred-file';
 import type { ImportQueue, ImportWriteRequest, ImportWriter } from './import-queue';
 import type { TaskManager } from './task-manager';
+import { assertImportWritePolicy } from './import-write-policy';
 
 export class BrowserImportWriter implements ImportWriter {
     constructor(private readonly dispatch: AppDispatch) {}
@@ -19,15 +20,13 @@ export class BrowserImportWriter implements ImportWriter {
         if (!spec || !service) throw new ApplicationError('NO_DISC', 'Connect a MiniDisc device before starting a write task.');
 
         const format = this.resolveFormat(request.format, spec);
-        if (format.codec === 'SPM') {
-            const capabilities = await service.getServiceCapabilities();
-            if (!capabilities.includes(Capability.nativeMonoUpload)) {
-                throw new ApplicationError(
-                    'CAPABILITY_REQUIRED',
-                    'Automated mono recording requires a device with native mono upload support.'
-                );
-            }
-        }
+        const capabilities = await service.getServiceCapabilities();
+        assertImportWritePolicy({
+            selected,
+            format,
+            nativeMonoUpload: capabilities.includes(Capability.nativeMonoUpload),
+            allowInteractiveHomebrew: request.allowInteractiveHomebrew ?? false,
+        });
 
         const task = tasks.create(
             'disc.write',

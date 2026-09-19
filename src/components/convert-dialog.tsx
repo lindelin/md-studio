@@ -791,6 +791,7 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
             enableGapless,
             removeOnSuccess: true,
             expectedRevision: prepared.revision,
+            allowInteractiveHomebrew: true,
         });
         if (!result.ok) {
             dispatch(

@@ -46,6 +46,8 @@ export interface ImportWriteRequest {
     enableGapless?: boolean;
     removeOnSuccess?: boolean;
     expectedRevision?: number;
+    /** Browser UI only: permit the existing explicit Homebrew confirmation dialogs. */
+    allowInteractiveHomebrew?: boolean;
 }
 
 export interface ImportQueueMetadataUpdate {
