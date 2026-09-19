@@ -14,7 +14,9 @@ export const W95TopMenu = (props: {
     handleShowChangelog: () => void;
     handleVintageMode: () => void;
 }) => {
-    const canEditMetadata = useApplicationWorkspace().device?.capabilities.includes('metadata.edit') ?? false;
+    const capabilities = useApplicationWorkspace().device?.capabilities ?? [];
+    const canRenameDisc = capabilities.includes('disc.rename');
+    const canEraseDisc = capabilities.includes('disc.erase');
 
     const items = [];
     items.push(
@@ -30,12 +32,12 @@ export const W95TopMenu = (props: {
             </ListItem>
         );
         items.push(
-            <ListItem key="title" onClick={props.handleRenameDisc} disabled={!canEditMetadata}>
+            <ListItem key="title" onClick={props.handleRenameDisc} disabled={!canRenameDisc}>
                 Rename Disc
             </ListItem>
         );
         items.push(
-            <ListItem key="wipe" onClick={props.handleWipeDisc} disabled={!canEditMetadata}>
+            <ListItem key="wipe" onClick={props.handleWipeDisc} disabled={!canEraseDisc}>
                 Wipe Disc
             </ListItem>
         );

@@ -92,7 +92,9 @@ export const ContextMenu = ({ onTogglePlayPause, onRename, onDelete }: ContextMe
     const isVisible = useShallowEqualSelector((state) => state.contextMenu.visible);
     const contextTrack = useShallowEqualSelector((state) => state.contextMenu.track);
 
-    const isEditCapable = useApplicationWorkspace().device?.capabilities.includes('metadata.edit') ?? false;
+    const capabilities = useApplicationWorkspace().device?.capabilities ?? [];
+    const canRenameTrack = capabilities.includes('track.rename') || capabilities.includes('metadata.himd');
+    const canDeleteTrack = capabilities.includes('track.delete');
 
     const handlePlayTrack = useCallback(
         (e: React.MouseEvent) => {
@@ -149,10 +151,10 @@ export const ContextMenu = ({ onTogglePlayPause, onRename, onDelete }: ContextMe
                     <ContextButton icon={<PlayArrow sx={{ height: '16px' }} />} onClick={handlePlayTrack}>
                         Play / Pause
                     </ContextButton>
-                    <ContextButton icon={<Edit sx={{ height: '16px' }} />} disabled={!isEditCapable} onClick={handleRenameTrack}>
+                    <ContextButton icon={<Edit sx={{ height: '16px' }} />} disabled={!canRenameTrack} onClick={handleRenameTrack}>
                         Rename
                     </ContextButton>
-                    <ContextButton icon={<Delete sx={{ height: '16px' }} />} disabled={!isEditCapable} onClick={handleDeleteTrack}>
+                    <ContextButton icon={<Delete sx={{ height: '16px' }} />} disabled={!canDeleteTrack} onClick={handleDeleteTrack}>
                         Delete
                     </ContextButton>
                 </Box>

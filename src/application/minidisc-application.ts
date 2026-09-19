@@ -430,15 +430,21 @@ export class MiniDiscApplication {
     }
 
     applyMetadataImport(text: string, includedTrackIndexes: number[], expectedRevision?: number) {
-        return this.mutate('metadata.edit', expectedRevision, async (disc) => {
+        return this.mutate('disc.rename', expectedRevision, async (disc) => {
             const plan = createMetadataImportPlan(text, disc);
             const allowedIndexes = new Set(plan.tracks.filter((track) => track.actual).map((track) => track.trackIndex));
             const selectedIndexes =
                 includedTrackIndexes.length === 0
                     ? []
                     : this.validateUniqueIndexes(includedTrackIndexes, allowedIndexes, 'track');
-            await this.gateway.renameDisc(plan.discTitle.title, plan.discTitle.fullWidthTitle);
             const usesHiMDMetadata = this.snapshot!.capabilities.includes('metadata.himd');
+            if (selectedIndexes.length > 0) {
+                this.requireCapability(usesHiMDMetadata ? 'metadata.himd' : 'track.rename');
+                this.requireCapability('group.rename');
+                this.requireCapability('group.create');
+                this.requireCapability('group.delete');
+            }
+            await this.gateway.renameDisc(plan.discTitle.title, plan.discTitle.fullWidthTitle);
             for (const track of plan.tracks.filter((entry) => selectedIndexes.includes(entry.trackIndex))) {
                 if (usesHiMDMetadata) {
                     await this.gateway.renameHiMDTrack({
@@ -462,13 +468,13 @@ export class MiniDiscApplication {
     }
 
     renameDisc(title: string, fullWidthTitle?: string, expectedRevision?: number) {
-        return this.mutate('metadata.edit', expectedRevision, async () => {
+        return this.mutate('disc.rename', expectedRevision, async () => {
             await this.gateway.renameDisc(title, fullWidthTitle);
         });
     }
 
     renameTracks(updates: TrackMetadataUpdate[], expectedRevision?: number) {
-        return this.mutate('metadata.edit', expectedRevision, async (disc) => {
+        return this.mutate('track.rename', expectedRevision, async (disc) => {
             const knownIndexes = new Set(disc.groups.flatMap((group) => group.tracks.map((track) => track.index)));
             const requestedIndexes = new Set<number>();
             for (const update of updates) {
@@ -511,7 +517,7 @@ export class MiniDiscApplication {
     }
 
     renameGroup(update: GroupMetadataUpdate, expectedRevision?: number) {
-        return this.mutate('metadata.edit', expectedRevision, async (disc) => {
+        return this.mutate('group.rename', expectedRevision, async (disc) => {
             if (!disc.groups.some((group) => group.index === update.index && group.index >= 0)) {
                 throw new ApplicationError('INVALID_INPUT', `Group ${update.index} does not exist.`, { index: update.index });
             }
@@ -520,7 +526,7 @@ export class MiniDiscApplication {
     }
 
     createGroup(firstTrack: number, trackCount: number, title = '', fullWidthTitle?: string, expectedRevision?: number) {
-        return this.mutate('metadata.edit', expectedRevision, async (disc) => {
+        return this.mutate('group.create', expectedRevision, async (disc) => {
             const knownIndexes = new Set(disc.groups.flatMap((group) => group.tracks.map((track) => track.index)));
             if (!Number.isInteger(firstTrack) || !Number.isInteger(trackCount) || trackCount < 1) {
                 throw new ApplicationError('INVALID_INPUT', 'A group needs a valid first track and at least one track.', {
@@ -540,7 +546,7 @@ export class MiniDiscApplication {
     }
 
     deleteGroups(indexes: number[], expectedRevision?: number) {
-        return this.mutate('metadata.edit', expectedRevision, async (disc) => {
+        return this.mutate('group.delete', expectedRevision, async (disc) => {
             const knownIndexes = new Set(disc.groups.filter((group) => group.index >= 0).map((group) => group.index));
             const uniqueIndexes = this.validateUniqueIndexes(indexes, knownIndexes, 'group');
             for (const index of uniqueIndexes.sort((a, b) => b - a)) await this.gateway.deleteGroup(index);
@@ -548,7 +554,7 @@ export class MiniDiscApplication {
     }
 
     deleteTracks(indexes: number[], confirmation?: DestructiveConfirmation, expectedRevision?: number) {
-        return this.mutate('metadata.edit', expectedRevision, async (disc) => {
+        return this.mutate('track.delete', expectedRevision, async (disc) => {
             this.requireConfirmation(confirmation, 'Deleting tracks permanently removes audio from the disc.');
             const knownIndexes = new Set(disc.groups.flatMap((group) => group.tracks.map((track) => track.index)));
             const uniqueIndexes = this.validateUniqueIndexes(indexes, knownIndexes, 'track');
@@ -557,7 +563,7 @@ export class MiniDiscApplication {
     }
 
     moveTrack(sourceIndex: number, destinationIndex: number, expectedRevision?: number) {
-        return this.mutate('metadata.edit', expectedRevision, async (disc) => {
+        return this.mutate('track.move', expectedRevision, async (disc) => {
             const lastIndex = disc.trackCount - 1;
             if (sourceIndex < 0 || sourceIndex > lastIndex || destinationIndex < 0 || destinationIndex > lastIndex) {
                 throw new ApplicationError('INVALID_INPUT', 'Track move indexes are outside the current disc.', {
@@ -571,7 +577,7 @@ export class MiniDiscApplication {
     }
 
     eraseDisc(confirmation?: DestructiveConfirmation, expectedRevision?: number) {
-        return this.mutate('metadata.edit', expectedRevision, async () => {
+        return this.mutate('disc.erase', expectedRevision, async () => {
             this.requireConfirmation(confirmation, 'Erasing a disc permanently removes every track and group.');
             await this.gateway.wipeDisc();
         });
@@ -652,7 +658,11 @@ export class MiniDiscApplication {
     ): Promise<SelfTestResult> {
         return this.serial(async () => {
             this.requireConfirmation(confirmation, 'The device self-test renames content, deletes tracks, and erases the disc.');
-            const disc = this.requireWritableDisc('metadata.edit');
+            const disc = this.requireWritableDisc('disc.rename');
+            this.requireCapability('track.rename');
+            this.requireCapability('track.move');
+            this.requireCapability('track.delete');
+            this.requireCapability('disc.erase');
             this.requireCapability('metadata.fullWidth');
             this.requireCapability('playback.control');
             if (disc.trackCount < 2) {

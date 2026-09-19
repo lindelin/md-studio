@@ -215,7 +215,8 @@ export function TrackRow({
 }: TrackRowProps) {
     const device = useApplicationWorkspace().device;
     const recordingProfile = device?.recording;
-    const canEditMetadata = device?.capabilities.includes('metadata.edit') ?? false;
+    const canRenameTrack =
+        device?.capabilities.includes('track.rename') === true || device?.capabilities.includes('metadata.himd') === true;
     const canControlPlayback = device?.capabilities.includes('playback.control') ?? false;
     const formatInfo = recordingProfile?.availableFormats.find(
         (e) => e.codec === track.encoding.codec && e.availableBitrates.includes(track.encoding.bitrate)
@@ -223,8 +224,8 @@ export function TrackRow({
     const { classes, cx } = useStyles();
 
     const handleRename = useCallback(
-        (event: React.MouseEvent) => canEditMetadata && onRename(event, track.index),
-        [canEditMetadata, onRename, track.index]
+        (event: React.MouseEvent) => canRenameTrack && onRename(event, track.index),
+        [canRenameTrack, onRename, track.index]
     );
     const handleSelect = useCallback((event: React.MouseEvent) => onSelect(event, track.index), [track.index, onSelect]);
 
@@ -321,22 +322,24 @@ interface GroupRowProps {
 
 export function GroupRow({ group, usesHimdTracks, onRename, onDelete, onSelect, isSelected }: GroupRowProps) {
     const { classes, cx } = useStyles();
-    const canEditMetadata = useApplicationWorkspace().device?.capabilities.includes('metadata.edit') ?? false;
+    const capabilities = useApplicationWorkspace().device?.capabilities ?? [];
+    const canRenameGroup = capabilities.includes('group.rename');
+    const canDeleteGroup = capabilities.includes('group.delete');
 
     const handleDelete = useCallback(
-        (event: React.MouseEvent) => canEditMetadata && onDelete(event, group.index),
-        [canEditMetadata, onDelete, group.index]
+        (event: React.MouseEvent) => canDeleteGroup && onDelete(event, group.index),
+        [canDeleteGroup, onDelete, group.index]
     );
     const handleRename = useCallback(
-        (event: React.MouseEvent) => canEditMetadata && onRename(event, group.index),
-        [canEditMetadata, onRename, group.index]
+        (event: React.MouseEvent) => canRenameGroup && onRename(event, group.index),
+        [canRenameGroup, onRename, group.index]
     );
     const handleSelect = useCallback((event: React.MouseEvent) => onSelect(event, group.index), [onSelect, group]);
     return (
         <TableRow
             hover
             selected={isSelected}
-            className={cx({ [classes.groupHeadRow]: canEditMetadata, [classes.rowClass]: true })}
+            className={cx({ [classes.groupHeadRow]: canRenameGroup, [classes.rowClass]: true })}
             onDoubleClick={handleRename}
             onClick={handleSelect}
         >

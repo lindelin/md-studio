@@ -209,7 +209,13 @@ export const Main = () => {
     const capabilities = device?.capabilities ?? [];
     const canListContent = capabilities.includes('content.read');
     const canControlPlayback = capabilities.includes('playback.control');
-    const canEditMetadata = capabilities.includes('metadata.edit');
+    const canRenameDisc = capabilities.includes('disc.rename');
+    const canRenameTrack = capabilities.includes('track.rename') || capabilities.includes('metadata.himd');
+    const canRenameGroup = capabilities.includes('group.rename');
+    const canCreateGroup = capabilities.includes('group.create');
+    const canDeleteGroup = capabilities.includes('group.delete');
+    const canDeleteTrack = capabilities.includes('track.delete');
+    const canMoveTrack = capabilities.includes('track.move');
     const canUpload = capabilities.includes('track.upload');
     const canDownload = capabilities.includes('track.download');
     const canEject = capabilities.includes('disc.eject');
@@ -462,7 +468,7 @@ export const Main = () => {
 
     const handleRenameDisc = useCallback(
         () => {
-            if (!canEditMetadata) return;
+            if (!canRenameDisc) return;
             dispatch(
                 batchActions([
                     renameDialogActions.setVisible(true),
@@ -473,7 +479,7 @@ export const Main = () => {
                 ])
             );
         },
-        [canEditMetadata, dispatch, disc]
+        [canRenameDisc, dispatch, disc]
     );
 
     const executePlaybackCommand = useCallback(
@@ -696,7 +702,7 @@ export const Main = () => {
                             <IconButton
                                 className={classes.topbarButton}
                                 aria-label="delete"
-                                disabled={!canEditMetadata}
+                                disabled={!canDeleteTrack}
                                 onClick={handleDeleteSelected}
                             >
                                 <DeleteIcon />
@@ -711,7 +717,7 @@ export const Main = () => {
                             <IconButton
                                 className={classes.topbarButton}
                                 aria-label="group"
-                                disabled={!canGroup || !canEditMetadata}
+                                disabled={!canGroup || !canCreateGroup}
                                 onClick={handleGroupTracks}
                             >
                                 <CreateNewFolderIcon />
@@ -726,7 +732,7 @@ export const Main = () => {
                             <IconButton
                                 className={classes.topbarButton}
                                 aria-label="rename"
-                                disabled={selectedCount !== 1 || !canEditMetadata}
+                                disabled={selectedCount !== 1 || !canRenameTrack}
                                 onClick={handleRenameActionClick}
                             >
                                 <EditIcon />
@@ -741,7 +747,7 @@ export const Main = () => {
                             <IconButton
                                 className={classes.topbarButton}
                                 aria-label="ungroup"
-                                disabled={!canEditMetadata}
+                                disabled={!canDeleteGroup}
                                 onClick={handleDeleteSelectedGroups}
                             >
                                 <DeleteIcon />
@@ -756,7 +762,7 @@ export const Main = () => {
                             <IconButton
                                 className={classes.topbarButton}
                                 aria-label="rename group"
-                                disabled={!canEditMetadata || selectedGroupsCount !== 1}
+                                disabled={!canRenameGroup || selectedGroupsCount !== 1}
                                 onClick={(e) => handleRenameGroup(e, selectedGroups[0])}
                             >
                                 <EditIcon />
@@ -815,7 +821,7 @@ export const Main = () => {
                                                                     draggableId={`${group.index}-${t.index}`}
                                                                     key={`t-${t.index}`}
                                                                     index={tidx}
-                                                                    isDragDisabled={!canEditMetadata}
+                                                                    isDragDisabled={!canMoveTrack}
                                                                 >
                                                                     {(provided: DraggableProvided) => (
                                                                         <TrackRow

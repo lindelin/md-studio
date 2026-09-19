@@ -32,8 +32,12 @@ export class NetworkWMService extends NetMDService {
             Capability.himdTitles,
             Capability.contentList,
             Capability.trackUpload,
-            Capability.metadataEdit,
             Capability.trackDownload,
+            Capability.trackRename,
+            Capability.groupRename,
+            Capability.trackDelete,
+            Capability.trackMove,
+            Capability.discErase,
         ];
     }
     async getDeviceStatus(): Promise<DeviceStatus> {
@@ -213,8 +217,9 @@ export class NetworkWMService extends NetMDService {
         let bottomIndex = src, topIndex = src;
         while(isInThisAlbum(bottomIndex - 1)) bottomIndex--;
         while(isInThisAlbum(topIndex + 1)) topIndex++;
-        // Clamp dst
-        dst = Math.max(bottomIndex, Math.min(topIndex, dst));
+        if (dst < bottomIndex || dst > topIndex) {
+            throw new Error('Network Walkman tracks can only be reordered within the same artist and album.');
+        }
         this.cache!.nwjsTracks.splice(dst, 0, ...this.cache!.nwjsTracks.splice(src, 1));
         // Rebuild track indices
         for(let i = bottomIndex; i<=topIndex; i++) {
@@ -272,17 +277,13 @@ export class NetworkWMService extends NetMDService {
         return { extension, data: buffer };
     }
 
-    virtualGroupError = () => {
-        window.alert("In Network Walkmans groups are virtual! (?)");
-        return Promise.resolve();
-    }
+    virtualGroupError = () => Promise.reject(new Error('Network Walkman groups are derived from artist and album metadata.'));
 
     async renameGroup(groupIndex: number, newTitle: string, _newFullWidthTitle?: string): Promise<void> {
         // Check if the new title isn't ambiguous.
         if(!this.cache) await this.listContent();
         if((newTitle.length - newTitle.replace('-', '').length) !== 1) {
-            window.alert("Ambiguous format!");
-            return;
+            throw new Error('A Network Walkman group title must use the format "Artist - Album".');
         }
         const [artist, album] = newTitle.split("-").map(e => e.trim());
         // groupIndex is the index of the first track in group.
@@ -318,5 +319,7 @@ export class NetworkWMService extends NetMDService {
     async getPosition(): Promise<number[]> { throw new Error("Not implemented!"); }
     ejectDisc(): Promise<void> { throw new Error("Not implemented!"); }
     wipeDiscTitleInfo(): Promise<void> { throw new Error("Not implemented!"); }
-    renameDisc(_newName: string, _newFullWidthName?: string): Promise<void> { window.alert("No disc to be renamed in Network Walkmans!"); return Promise.resolve(); } // TODO: Volume label support...
+    renameDisc(_newName: string, _newFullWidthName?: string): Promise<void> {
+        return Promise.reject(new Error('Renaming the Network Walkman volume is not supported.'));
+    } // TODO: Volume label support...
 }

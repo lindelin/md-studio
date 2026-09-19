@@ -16,6 +16,17 @@ export enum Capability {
     fullWidthSupport,
     nativeMonoUpload,
     himdFormat,
+    // Operation-level mutation capabilities. Keep metadataEdit above for
+    // compatibility with older Remote NetMD servers and saved mocks; the
+    // application gateway expands that legacy value to this complete set.
+    discRename,
+    trackRename,
+    groupRename,
+    groupCreate,
+    groupDelete,
+    trackDelete,
+    trackMove,
+    discErase,
 }
 
 export enum ExploitCapability {

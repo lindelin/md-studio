@@ -31,7 +31,26 @@ const capabilityNames: Record<Capability, ApplicationCapability> = {
     [Capability.fullWidthSupport]: 'metadata.fullWidth',
     [Capability.nativeMonoUpload]: 'track.uploadMono',
     [Capability.himdFormat]: 'disc.formatHimd',
+    [Capability.discRename]: 'disc.rename',
+    [Capability.trackRename]: 'track.rename',
+    [Capability.groupRename]: 'group.rename',
+    [Capability.groupCreate]: 'group.create',
+    [Capability.groupDelete]: 'group.delete',
+    [Capability.trackDelete]: 'track.delete',
+    [Capability.trackMove]: 'track.move',
+    [Capability.discErase]: 'disc.erase',
 };
+
+const legacyMetadataCapabilities: ApplicationCapability[] = [
+    'disc.rename',
+    'track.rename',
+    'group.rename',
+    'group.create',
+    'group.delete',
+    'track.delete',
+    'track.move',
+    'disc.erase',
+];
 
 export class NetMDDeviceGateway implements DeviceGateway {
     constructor(
@@ -42,9 +61,18 @@ export class NetMDDeviceGateway implements DeviceGateway {
     async readSnapshot(dropCache = false) {
         const status = await this.service.getDeviceStatus();
         const deviceName = await this.service.getDeviceName();
-        const capabilities = (await this.service.getServiceCapabilities()).map((capability) => capabilityNames[capability]);
+        const serviceCapabilities = await this.service.getServiceCapabilities();
+        const capabilities = new Set(
+            serviceCapabilities.map((capability) => capabilityNames[capability]).filter(Boolean)
+        );
+        if (serviceCapabilities.includes(Capability.metadataEdit)) {
+            legacyMetadataCapabilities.forEach((capability) => capabilities.add(capability));
+        }
+        if (legacyMetadataCapabilities.some((capability) => capabilities.has(capability))) {
+            capabilities.add('metadata.edit');
+        }
         const disc = status.discPresent ? await this.service.listContent(dropCache) : null;
-        return { deviceName, status, capabilities, recording: createDeviceRecordingProfile(this.spec), disc };
+        return { deviceName, status, capabilities: [...capabilities], recording: createDeviceRecordingProfile(this.spec), disc };
     }
 
     readStatus() {

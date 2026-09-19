@@ -14,7 +14,7 @@ function makeApplication() {
             return {
                 deviceName: 'MockMD',
                 status: { discPresent: true, canBeFlushed: false, state: 'stopped' } as any,
-                capabilities: ['content.read', 'metadata.edit'],
+                capabilities: ['content.read', 'metadata.edit', 'disc.rename'],
                 recording: {
                     specName: 'MD',
                     measurementUnits: 'frames',

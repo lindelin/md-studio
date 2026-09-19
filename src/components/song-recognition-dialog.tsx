@@ -139,7 +139,8 @@ export const SongRecognitionDialog = () => {
     const disc = device?.disc ?? null;
     const recordingProfile = device?.recording;
     const supportsFactoryMode = device?.capabilities.includes('advanced.factory') ?? false;
-    const canEditMetadata = device?.capabilities.includes('metadata.edit') ?? false;
+    const canRenameTracks =
+        device?.capabilities.includes('track.rename') === true || device?.capabilities.includes('metadata.himd') === true;
 
     // Line in section
     const [inputDeviceId, setInputDeviceId] = useState<string>('');
@@ -436,7 +437,7 @@ export const SongRecognitionDialog = () => {
                 >
                     Recognize
                 </Button>
-                <Button onClick={handleApplyTitles} disabled={!canApplyTitles || !canEditMetadata}>
+                <Button onClick={handleApplyTitles} disabled={!canApplyTitles || !canRenameTracks}>
                     Apply New Titles
                 </Button>
             </DialogActions>

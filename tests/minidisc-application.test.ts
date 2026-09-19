@@ -51,6 +51,14 @@ function makeGateway(
                 capabilities: options.capabilities ?? [
                     'content.read',
                     'metadata.edit',
+                    'disc.rename',
+                    'track.rename',
+                    'group.rename',
+                    'group.create',
+                    'group.delete',
+                    'track.delete',
+                    'track.move',
+                    'disc.erase',
                     'metadata.himd',
                     'metadata.fullWidth',
                     'playback.control',
@@ -243,6 +251,21 @@ describe('MiniDiscApplication', () => {
         assert.equal(calls.includes('rewriteGroups'), false);
     });
 
+    it('checks every CSV mutation capability before changing the disc title', async () => {
+        const { gateway, calls } = makeGateway({ capabilities: ['content.read', 'disc.rename', 'track.rename'] });
+        const application = new MiniDiscApplication(gateway);
+        await application.refresh();
+        const text = [
+            'INDEX,GROUP RANGE,GROUP NAME,GROUP FULL WIDTH NAME,NAME,FULL WIDTH NAME,HIMD ALBUM,HIMD ARTIST,DURATION,ENCODING,BITRATE',
+            '0,0-0,,,Imported,,,,10,,',
+            '1,0-1,Side A,,First,,,,1,SPS,292',
+            '2,0-1,Side A,,Second,,,,1,SPS,292',
+        ].join('\n');
+
+        await assert.rejects(() => application.applyMetadataImport(text, [0, 1]), { code: 'CAPABILITY_REQUIRED' });
+        assert.deepEqual(calls, ['read']);
+    });
+
     it('publishes device snapshots only after successful reads and mutations', async () => {
         const { gateway } = makeGateway();
         const application = new MiniDiscApplication(gateway);
@@ -353,6 +376,23 @@ describe('MiniDiscApplication', () => {
         });
         await assert.rejects(() => limitedApplication.ejectDisc(), { code: 'CAPABILITY_REQUIRED' });
         assert.deepEqual(limited.calls, ['read']);
+
+        const partial = makeGateway({ capabilities: ['content.read', 'track.rename', 'track.move'] });
+        const partialApplication = new MiniDiscApplication(partial.gateway);
+        await partialApplication.refresh();
+        await partialApplication.renameTracks([{ index: 0, title: 'Supported' }]);
+        await assert.rejects(() => partialApplication.renameDisc('Blocked'), { code: 'CAPABILITY_REQUIRED' });
+        await assert.rejects(
+            () => partialApplication.deleteTracks([0], { confirmed: true, reason: 'Capability boundary test' }),
+            { code: 'CAPABILITY_REQUIRED' }
+        );
+        await assert.rejects(
+            () => partialApplication.eraseDisc({ confirmed: true, reason: 'Capability boundary test' }),
+            { code: 'CAPABILITY_REQUIRED' }
+        );
+        assert.equal(partial.calls.some((call) => call.startsWith('renameTrack')), true);
+        assert.equal(partial.calls.some((call) => call.startsWith('deleteTracks')), false);
+        assert.equal(partial.calls.includes('wipeDisc'), false);
 
         const protectedDevice = makeGateway({ writeProtected: true });
         const protectedApplication = new MiniDiscApplication(protectedDevice.gateway);

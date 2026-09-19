@@ -40,4 +40,37 @@ describe('NetMDDeviceGateway', () => {
 
         assert.deepEqual(calls, [[4, 1, true]]);
     });
+
+    it('expands legacy metadata editing while preserving operation-level capabilities', async () => {
+        const makeService = (capabilities: Capability[]) =>
+            ({
+                async getDeviceStatus() {
+                    return { discPresent: false, state: 'stopped', track: 0 };
+                },
+                async getDeviceName() {
+                    return 'Capability test';
+                },
+                async getServiceCapabilities() {
+                    return capabilities;
+                },
+            }) as unknown as NetMDService;
+
+        const legacy = await new NetMDDeviceGateway(
+            makeService([Capability.metadataEdit]),
+            new DefaultMinidiscSpec()
+        ).readSnapshot();
+        assert.equal(legacy.capabilities.includes('disc.rename'), true);
+        assert.equal(legacy.capabilities.includes('track.delete'), true);
+        assert.equal(legacy.capabilities.includes('disc.erase'), true);
+
+        const partial = await new NetMDDeviceGateway(
+            makeService([Capability.trackRename, Capability.trackMove]),
+            new DefaultMinidiscSpec()
+        ).readSnapshot();
+        assert.equal(partial.capabilities.includes('metadata.edit'), true);
+        assert.equal(partial.capabilities.includes('track.rename'), true);
+        assert.equal(partial.capabilities.includes('track.move'), true);
+        assert.equal(partial.capabilities.includes('disc.rename'), false);
+        assert.equal(partial.capabilities.includes('track.delete'), false);
+    });
 });

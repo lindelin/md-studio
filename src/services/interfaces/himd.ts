@@ -303,11 +303,11 @@ export class HiMDRestrictedService extends NetMDService {
     }
 
     async deleteTracks(_indexes: number[]): Promise<void> {
-        window.alert('Unavailable in restricted mode');
+        throw new Error('Deleting tracks is unavailable in restricted Hi-MD mode.');
     }
 
     async wipeDisc(): Promise<void> {
-        window.alert('Unavailable in restricted mode');
+        throw new Error('Erasing the disc is unavailable in restricted Hi-MD mode.');
     }
 
     async moveTrack(src: number, dst: number, updateGroups?: boolean) {
@@ -359,7 +359,17 @@ export class HiMDRestrictedService extends NetMDService {
     }
 
     async getServiceCapabilities() {
-        return [Capability.contentList, Capability.metadataEdit, Capability.trackDownload, Capability.himdTitles];
+        return [
+            Capability.contentList,
+            Capability.trackDownload,
+            Capability.himdTitles,
+            Capability.discRename,
+            Capability.trackRename,
+            Capability.groupRename,
+            Capability.groupCreate,
+            Capability.groupDelete,
+            Capability.trackMove,
+        ];
     }
 
     async pair() {
@@ -434,7 +444,20 @@ export class HiMDFullService extends HiMDRestrictedService {
     }
 
     async getServiceCapabilities() {
-        return [Capability.contentList, Capability.metadataEdit, Capability.trackDownload, Capability.trackUpload, Capability.himdTitles];
+        return [
+            Capability.contentList,
+            Capability.trackDownload,
+            Capability.trackUpload,
+            Capability.himdTitles,
+            Capability.discRename,
+            Capability.trackRename,
+            Capability.groupRename,
+            Capability.groupCreate,
+            Capability.groupDelete,
+            Capability.trackDelete,
+            Capability.trackMove,
+            Capability.discErase,
+        ];
     }
 
     async pair() {

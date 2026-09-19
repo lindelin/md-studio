@@ -98,7 +98,14 @@ export const TopMenu = function (props: { tracksSelected?: number[]; onClick?: (
     const deviceCapabilities = {
         contentList: capabilities.includes('content.read'),
         playbackControl: capabilities.includes('playback.control'),
-        metadataEdit: capabilities.includes('metadata.edit'),
+        discRename: capabilities.includes('disc.rename'),
+        discErase: capabilities.includes('disc.erase'),
+        metadataImport:
+            capabilities.includes('disc.rename') &&
+            (capabilities.includes('track.rename') || capabilities.includes('metadata.himd')) &&
+            capabilities.includes('group.rename') &&
+            capabilities.includes('group.create') &&
+            capabilities.includes('group.delete'),
         trackDownload: capabilities.includes('track.download'),
         factoryMode: capabilities.includes('advanced.factory'),
         himdFormat: capabilities.includes('disc.formatHimd'),
@@ -424,7 +431,7 @@ export const TopMenu = function (props: { tracksSelected?: number[]; onClick?: (
     }
     if (mainView === 'MAIN' && disc !== null) {
         menuItems.push(
-            <MenuItem key="title" onClick={handleRenameDisc} disabled={!deviceCapabilities.metadataEdit}>
+            <MenuItem key="title" onClick={handleRenameDisc} disabled={!deviceCapabilities.discRename}>
                 <ListItemIcon className={classes.listItemIcon}>
                     <EditIcon fontSize="small" />
                 </ListItemIcon>
@@ -432,7 +439,7 @@ export const TopMenu = function (props: { tracksSelected?: number[]; onClick?: (
             </MenuItem>
         );
         menuItems.push(
-            <MenuItem key="wipe" onClick={handleWipeDisc} disabled={!deviceCapabilities.metadataEdit}>
+            <MenuItem key="wipe" onClick={handleWipeDisc} disabled={!deviceCapabilities.discErase}>
                 <ListItemIcon className={classes.listItemIcon}>
                     <DeleteForeverIcon fontSize="small" />
                 </ListItemIcon>
@@ -441,7 +448,7 @@ export const TopMenu = function (props: { tracksSelected?: number[]; onClick?: (
         );
         if (deviceCapabilities.himdFormat) {
             menuItems.push(
-                <MenuItem key="himdFormat" onClick={handleFormatToHiMD} disabled={!deviceCapabilities.metadataEdit}>
+                <MenuItem key="himdFormat" onClick={handleFormatToHiMD}>
                     <ListItemIcon className={classes.listItemIcon}>
                         <StorageIcon fontSize="small" />
                     </ListItemIcon>
@@ -464,7 +471,7 @@ export const TopMenu = function (props: { tracksSelected?: number[]; onClick?: (
         );
 
         menuItems.push(
-            <MenuItem key="import-csv" onClick={handleImportCSV} disabled={!deviceCapabilities.metadataEdit}>
+            <MenuItem key="import-csv" onClick={handleImportCSV} disabled={!deviceCapabilities.metadataImport}>
                 <ListItemIcon className={classes.listItemIcon}>
                     <PublishIcon fontSize="small" />
                 </ListItemIcon>

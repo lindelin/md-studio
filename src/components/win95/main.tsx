@@ -121,7 +121,9 @@ export const W95Main = (props: {
 
     const capabilities = useApplicationWorkspace().device?.capabilities ?? [];
     const canListContent = capabilities.includes('content.read');
-    const canEditMetadata = capabilities.includes('metadata.edit');
+    const canMoveTrack = capabilities.includes('track.move');
+    const canDeleteTrack = capabilities.includes('track.delete');
+    const canRenameTrack = capabilities.includes('track.rename') || capabilities.includes('metadata.himd');
     const canUpload = capabilities.includes('track.upload');
     const canDownload = capabilities.includes('track.download');
 
@@ -164,7 +166,7 @@ export const W95Main = (props: {
                     <>
                         <Button
                             variant="menu"
-                            disabled={props.selectedCount !== 1 || !canEditMetadata}
+                            disabled={props.selectedCount !== 1 || !canMoveTrack}
                             onClick={props.handleShowMoveMenu}
                         >
                             <img alt="move" src={MoveIconUrl} className={classes.toolbarIcon} />
@@ -174,14 +176,14 @@ export const W95Main = (props: {
                             <img alt="record" src={MicIconUrl} className={classes.toolbarIcon} />
                             Record
                         </Button>
-                        <Button variant="menu" disabled={!canEditMetadata} onClick={props.handleDeleteSelected}>
+                        <Button variant="menu" disabled={!canDeleteTrack} onClick={props.handleDeleteSelected}>
                             <img alt="delete" src={DeleteIconUrl} className={classes.toolbarIcon} />
                             Delete
                         </Button>
                         <Button
                             variant="menu"
                             onClick={props.handleRenameActionClick}
-                            disabled={props.selectedCount > 1 || !canEditMetadata}
+                            disabled={props.selectedCount > 1 || !canRenameTrack}
                         >
                             <img alt="rename" src={RenameIconUrl} className={classes.toolbarIcon} />
                             Rename
@@ -222,7 +224,7 @@ export const W95Main = (props: {
                                         style={props.selected.includes(track.index) ? themeContext.selectedTableRow : {}}
                                         key={track.index}
                                         onDoubleClick={(event: React.MouseEvent) =>
-                                            canEditMetadata && props.handleRenameTrack(event, track.index)
+                                            canRenameTrack && props.handleRenameTrack(event, track.index)
                                         }
                                         onClick={(event: React.MouseEvent) => props.handleSelectTrackClick(event, track.index)}
                                     >
