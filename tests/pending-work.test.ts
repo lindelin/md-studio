@@ -15,30 +15,23 @@ function makeWorkspace(changes: Partial<WorkspaceSnapshot> = {}) {
     } as WorkspaceSnapshot;
 }
 
-const noLegacyWork = { factoryProgressVisible: false };
-
 describe('hasPendingWorkspaceWork', () => {
     it('warns for active tasks and device changes that still need flushing', () => {
         assert.equal(
-            hasPendingWorkspaceWork(makeWorkspace({ tasks: [{ status: 'running' } as WorkspaceSnapshot['tasks'][number]] }), noLegacyWork),
+            hasPendingWorkspaceWork(makeWorkspace({ tasks: [{ status: 'running' } as WorkspaceSnapshot['tasks'][number]] })),
             true
         );
         assert.equal(
             hasPendingWorkspaceWork(
                 makeWorkspace({
                     device: { status: { canBeFlushed: true } } as WorkspaceSnapshot['device'],
-                }),
-                noLegacyWork
+                })
             ),
             true
         );
     });
 
-    it('keeps legacy operations covered during migration', () => {
-        assert.equal(hasPendingWorkspaceWork(makeWorkspace(), { ...noLegacyWork, factoryProgressVisible: true }), true);
-    });
-
     it('allows navigation when the workspace is idle and clean', () => {
-        assert.equal(hasPendingWorkspaceWork(makeWorkspace(), noLegacyWork), false);
+        assert.equal(hasPendingWorkspaceWork(makeWorkspace()), false);
     });
 });

@@ -12,7 +12,6 @@ import localLibrary from './local-library-feature';
 import factory from './factory/factory-feature';
 
 import factoryFragmentModeEditDialog from './factory/factory-fragment-mode-edit-dialog-feature';
-import factoryProgressDialog from './factory/factory-progress-dialog-feature';
 import factoryNoticeDialog from './factory/factory-notice-dialog-feature';
 import factoryEditOtherValuesDialog from './factory/factory-edit-other-values-dialog-feature';
 import factoryBadSectorDialog from './factory/factory-bad-sector-dialog-feature';
@@ -43,7 +42,6 @@ const reducer = combineReducers({
     songRecognitionDialog,
     factory,
     factoryFragmentModeEditDialog,
-    factoryProgressDialog,
     factoryNoticeDialog,
     factoryEditOtherValuesDialog,
     factoryBadSectorDialog,

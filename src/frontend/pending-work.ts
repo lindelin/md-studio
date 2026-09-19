@@ -1,13 +1,8 @@
 import type { WorkspaceSnapshot } from '../application/workspace-store';
 
-export interface LegacyOperationState {
-    factoryProgressVisible: boolean;
-}
-
-export function hasPendingWorkspaceWork(workspace: WorkspaceSnapshot, legacy: LegacyOperationState) {
+export function hasPendingWorkspaceWork(workspace: WorkspaceSnapshot) {
     return (
         workspace.tasks.some((task) => task.status === 'queued' || task.status === 'running') ||
-        workspace.device?.status.canBeFlushed === true ||
-        legacy.factoryProgressVisible
+        workspace.device?.status.canBeFlushed === true
     );
 }

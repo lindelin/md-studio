@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
-import { useShallowEqualSelector } from "../../frontend-utils";
-
-import { actions as factoryProgressDialogActions } from '../../redux/factory/factory-progress-dialog-feature';
+import { batchActions, useDispatch } from '../../frontend-utils';
+import { actions as errorDialogActions } from '../../redux/error-dialog-feature';
+import { useApplicationClient, useApplicationWorkspace } from '../../frontend/use-application-client';
 
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
@@ -13,9 +13,8 @@ import Button from '@mui/material/Button';
 import LinearProgress from '@mui/material/LinearProgress';
 import Box from '@mui/material/Box';
 import { makeStyles } from 'tss-react/mui';
-import { useDispatch } from '../../frontend-utils';
 
-const useStyles = makeStyles()(theme => ({
+const useStyles = makeStyles()((theme) => ({
     progressPerc: {
         marginTop: theme.spacing(1),
     },
@@ -24,26 +23,40 @@ const useStyles = makeStyles()(theme => ({
     },
 }));
 
-const Transition = React.forwardRef(function Transition(
-    props: SlideProps,
-    ref: React.Ref<unknown>
-) {
+const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
 });
 
 export const FactoryModeProgressDialog = () => {
     const { classes } = useStyles();
     const dispatch = useDispatch();
-
-    const { visible, actionName, units, currentProgress, totalProgress, additionalInfo, canBeCancelled, cancelled } = useShallowEqualSelector(
-        state => state.factoryProgressDialog
+    const applicationClient = useApplicationClient();
+    const workspace = useApplicationWorkspace();
+    const task = workspace.tasks.find(
+        (candidate) =>
+            (candidate.kind === 'advanced.memory-export' || candidate.kind === 'advanced.track-export') &&
+            (candidate.status === 'queued' || candidate.status === 'running')
     );
 
-    const handleCancel = useCallback(() => {
-        dispatch(factoryProgressDialogActions.setCancelled(true));
-    }, [dispatch]);
+    const visible = Boolean(task);
+    const actionName = task?.label ?? '';
+    const units = task?.progress.unit ?? '';
+    const currentProgress = task?.progress.bytesWritten ?? task?.progress.completed ?? 0;
+    const totalProgress = task?.progress.bytesTotal ?? task?.progress.total ?? 0;
+    const additionalInfo = task?.progress.currentLabel ?? '';
+    const canBeCancelled = task?.kind === 'advanced.track-export';
+    const cancelled = task?.cancellationRequested ?? false;
+
+    const handleCancel = useCallback(async () => {
+        if (!task) return;
+        const result = await applicationClient.execute({ type: 'task.cancel', id: task.id });
+        if (!result.ok) {
+            dispatch(batchActions([errorDialogActions.setErrorMessage(result.error.message), errorDialogActions.setVisible(true)]));
+        }
+    }, [applicationClient, dispatch, task]);
 
     const progressValue = Math.round((100 / (totalProgress || 1)) * currentProgress);
+    const hasDeterminateProgress = currentProgress >= 0 && totalProgress > 0;
 
     return (
         <Dialog
@@ -57,17 +70,17 @@ export const FactoryModeProgressDialog = () => {
             <DialogTitle id="factory-dialog-slide-title">{actionName}...</DialogTitle>
             <DialogContent>
                 <DialogContentText id="factory-dialog-slide-description">
-                    {currentProgress >= 0
+                    {hasDeterminateProgress
                         ? `${currentProgress} ${units} of ${totalProgress} done ${additionalInfo && `(${additionalInfo})`}`
                         : additionalInfo}
                 </DialogContentText>
                 <LinearProgress
                     className={classes.progressBar}
-                    variant={currentProgress >= 0 ? 'determinate' : 'indeterminate'}
+                    variant={hasDeterminateProgress ? 'determinate' : 'indeterminate'}
                     color="primary"
                     value={progressValue}
                 />
-                <Box className={classes.progressPerc}>{currentProgress >= 0 ? `${progressValue}%` : ``}</Box>
+                <Box className={classes.progressPerc}>{hasDeterminateProgress ? `${progressValue}%` : ``}</Box>
             </DialogContent>
             <DialogActions>
                 {canBeCancelled && (

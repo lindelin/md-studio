@@ -104,9 +104,9 @@ const Toc = () => {
     const { classes } = useStyles();
     const dispatch = useDispatch() as AppDispatch;
     const { toc, modified, firmwareVersion, exploitCapabilities } = useShallowEqualSelector(state => state.factory);
-    const deviceName = useApplicationWorkspace().device?.deviceName ?? '';
+    const workspace = useApplicationWorkspace();
+    const deviceName = workspace.device?.deviceName ?? '';
     const { visible: factoryFragmentDialogVisible } = useShallowEqualSelector(state => state.factoryFragmentModeEditDialog);
-    const { visible: factoryProgressDialogVisible } = useShallowEqualSelector(state => state.factoryProgressDialog);
     const [selectedTile, setSelectedTile] = useState(-1);
     const [selectedTab, setSelectedTab] = useState(0);
 
@@ -128,7 +128,12 @@ const Toc = () => {
         return all / gcdValue;
     }, [contentsTable]);
 
-    const dialogVisible = factoryFragmentDialogVisible || factoryProgressDialogVisible;
+    const factoryTaskVisible = workspace.tasks.some(
+        task =>
+            (task.kind === 'advanced.memory-export' || task.kind === 'advanced.track-export') &&
+            (task.status === 'queued' || task.status === 'running')
+    );
+    const dialogVisible = factoryFragmentDialogVisible || factoryTaskVisible;
 
     const handleKeyUpdate = useCallback(
         (e: KeyboardEvent) => {

@@ -86,12 +86,7 @@ if (readRawPreference('version') !== (window as any).wmdVersion) {
 
 (function setupEventHandlers() {
     window.addEventListener('beforeunload', (ev) => {
-        const state = store.getState();
-        if (
-            !hasPendingWorkspaceWork(applicationClient.getWorkspaceSnapshot(), {
-                factoryProgressVisible: state.factoryProgressDialog.visible,
-            })
-        ) {
+        if (!hasPendingWorkspaceWork(applicationClient.getWorkspaceSnapshot())) {
             return;
         }
         ev.preventDefault();

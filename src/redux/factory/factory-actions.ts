@@ -1,16 +1,16 @@
-import { actions as factoryProgressDialogActions } from './factory-progress-dialog-feature';
 import { actions as factoryBadSectorDialogActions } from './factory-bad-sector-dialog-feature';
 import { actions as factoryActions } from '../factory/factory-feature';
 import { batchActions } from '../../frontend-utils';
 import { AppDispatch, RootState } from '../store';
 import { actions as appStateActions } from '../app-feature';
-import { downloadBlob, getTracks, Promised, sleep } from '../../utils';
+import { downloadBlob, getTracks, Promised } from '../../utils';
 import { ExploitCapability } from '../../services/interfaces/capabilities';
 import { parseTOC, getTitleByTrackNumber, reconstructTOC, updateFlagAllFragmentsOfTrack, ModeFlag, ToC } from 'netmd-tocmanip';
 import { downloadTracks, exportCSV } from '../actions';
 import JSZip from 'jszip';
 import { AtracRecoveryConfig } from 'netmd-exploits';
 import { getApplicationClient } from '../../application/runtime';
+import { waitForApplicationTask } from '../../application/application-client';
 import { INTERACTIVE_ADVANCED_AUTHORIZATION } from '../../application/interactive-authorization';
 import { executeSessionEndingCommand } from '../../application/device-session-transition';
 
@@ -33,23 +33,12 @@ function resolveExploitCapabilities(names: string[]) {
         .filter((capability): capability is ExploitCapability => typeof capability === 'number');
 }
 
-async function monitorAdvancedMemoryExport(dispatch: AppDispatch, taskId: string) {
-    for (;;) {
-        const task = getApplicationClient()
-            .getWorkspaceSnapshot()
-            .tasks.find((candidate) => candidate.id === taskId);
-        if (!task) throw new Error(`Task ${taskId} is no longer available.`);
-        dispatch(
-            factoryProgressDialogActions.setProgress({
-                current: task.progress.completed,
-                total: task.progress.total,
-                additionalInfo: task.progress.currentLabel ?? '',
-            })
-        );
-        if (task.status === 'failed') throw new Error(task.error?.message ?? 'Advanced memory export failed.');
-        if (task.status !== 'queued' && task.status !== 'running') return;
-        await sleep(50);
+async function waitForAdvancedTask(taskId: string, fallbackError: string) {
+    const task = await waitForApplicationTask(getApplicationClient(), taskId);
+    if (task.status === 'failed' || task.status === 'interrupted') {
+        throw new Error(task.error?.message ?? fallbackError);
     }
+    return task;
 }
 
 export function initializeFactoryMode() {
@@ -155,86 +144,42 @@ export function runTetris() {
 }
 
 export function downloadRam() {
-    return async function(dispatch: AppDispatch, getState: () => RootState) {
+    return async function(_dispatch: AppDispatch, getState: () => RootState) {
         const firmwareVersion = getState().factory.firmwareVersion;
-        dispatch(
-            batchActions([
-                factoryProgressDialogActions.setDetails({
-                    name: 'Transferring RAM',
-                    units: 'bytes',
-                }),
-                factoryProgressDialogActions.setProgress({
-                    current: 0,
-                    total: 0,
-                    additionalInfo: '',
-                }),
-                factoryProgressDialogActions.setCanBeCancelled(false),
-                factoryProgressDialogActions.setVisible(true),
-            ])
-        );
-        try {
-            const task = await getApplicationClient().startLocalAdvancedMemoryExport('ram', (_region, data) => {
-                const deviceName = getApplicationClient().getWorkspaceSnapshot().device?.deviceName ?? 'device';
-                const fileName = `ram_${deviceName}_${firmwareVersion}.bin`;
-                downloadBlob(new Blob([new Uint8Array(data)]), fileName);
-            });
-            await monitorAdvancedMemoryExport(dispatch, task.id);
-        } finally {
-            dispatch(factoryProgressDialogActions.setVisible(false));
-        }
+        const task = await getApplicationClient().startLocalAdvancedMemoryExport('ram', (_region, data) => {
+            const deviceName = getApplicationClient().getWorkspaceSnapshot().device?.deviceName ?? 'device';
+            const fileName = `ram_${deviceName}_${firmwareVersion}.bin`;
+            downloadBlob(new Blob([new Uint8Array(data)]), fileName);
+        });
+        await waitForAdvancedTask(task.id, 'Advanced RAM export failed.');
     };
 }
 
 export function downloadRom() {
-    return async function(dispatch: AppDispatch, getState: () => RootState) {
-        dispatch(
-            batchActions([
-                factoryProgressDialogActions.setDetails({
-                    name: 'Transferring Firmware',
-                    units: 'bytes',
-                }),
-                factoryProgressDialogActions.setCanBeCancelled(false),
-                factoryProgressDialogActions.setVisible(true),
-            ])
-        );
+    return async function(_dispatch: AppDispatch, getState: () => RootState) {
         const firmwareVersion = getState().factory.firmwareVersion;
-        try {
-            const task = await getApplicationClient().startLocalAdvancedMemoryExport('firmware', (region, data) => {
-                const prefix = region === 'ROM' ? 'firmware' : region.toLowerCase();
-                const deviceName = getApplicationClient().getWorkspaceSnapshot().device?.deviceName ?? 'device';
-                const fileName = `${prefix}_${deviceName}_${firmwareVersion}.bin`;
-                downloadBlob(new Blob([new Uint8Array(data)]), fileName);
-            });
-            await monitorAdvancedMemoryExport(dispatch, task.id);
-        } finally {
-            dispatch(factoryProgressDialogActions.setVisible(false));
-        }
+        const task = await getApplicationClient().startLocalAdvancedMemoryExport('firmware', (region, data) => {
+            const prefix = region === 'ROM' ? 'firmware' : region.toLowerCase();
+            const deviceName = getApplicationClient().getWorkspaceSnapshot().device?.deviceName ?? 'device';
+            const fileName = `${prefix}_${deviceName}_${firmwareVersion}.bin`;
+            downloadBlob(new Blob([new Uint8Array(data)]), fileName);
+        });
+        await waitForAdvancedTask(task.id, 'Advanced firmware export failed.');
     };
 }
 
 export function downloadToc(callback: (blob: Blob, name: string) => void = downloadBlob) {
     return async function(dispatch: AppDispatch, getState: () => RootState) {
-        dispatch(
-            batchActions([
-                factoryProgressDialogActions.setDetails({
-                    name: 'Transferring TOC',
-                    units: 'sectors',
-                }),
-                factoryProgressDialogActions.setProgress({
-                    total: 6,
-                    current: 0,
-                }),
-                factoryProgressDialogActions.setCanBeCancelled(false),
-                factoryProgressDialogActions.setVisible(true),
-            ])
-        );
-        const result = await getApplicationClient().execute({ type: 'advanced.readToc' });
-        if (!result.ok) throw new Error(result.error.message);
-        if (!result.advancedToc) throw new Error('Advanced TOC export did not return data.');
-        dispatch(factoryProgressDialogActions.setProgress({ current: 6, total: 6 }));
-        const fileName = `toc_${getTitleByTrackNumber(getState().factory.toc!, 0 /* Disc */)}.bin`;
-        callback(new Blob([decodeBase64(result.advancedToc.dataBase64)]), fileName);
-        dispatch(factoryProgressDialogActions.setVisible(false));
+        dispatch(appStateActions.setLoading(true));
+        try {
+            const result = await getApplicationClient().execute({ type: 'advanced.readToc' });
+            if (!result.ok) throw new Error(result.error.message);
+            if (!result.advancedToc) throw new Error('Advanced TOC export did not return data.');
+            const fileName = `toc_${getTitleByTrackNumber(getState().factory.toc!, 0 /* Disc */)}.bin`;
+            callback(new Blob([decodeBase64(result.advancedToc.dataBase64)]), fileName);
+        } finally {
+            dispatch(appStateActions.setLoading(false));
+        }
     };
 }
 
@@ -280,7 +225,7 @@ export function exploitDownloadTracks(
     convertOutputToWav: boolean,
     callback: (blob: Blob, name: string) => void = downloadBlob
 ) {
-    return async function(dispatch: AppDispatch, getState: () => RootState) {
+    return async function(dispatch: AppDispatch, _getState: () => RootState) {
         const disc = getApplicationClient().getWorkspaceSnapshot().device?.disc;
         if (!disc) throw new Error('No MiniDisc is loaded.');
         const settings = getApplicationClient().getWorkspaceSnapshot().settings.values;
@@ -297,76 +242,37 @@ export function exploitDownloadTracks(
             return;
         }
 
-        dispatch(
-            batchActions([
-                factoryProgressDialogActions.setVisible(true),
-                factoryProgressDialogActions.setCanBeCancelled(true),
-                factoryProgressDialogActions.setDetails({
-                    name: 'Initializing',
-                    units: '',
-                }),
-                factoryProgressDialogActions.setProgress({
-                    current: -1,
-                    total: 0,
-                    additionalInfo: 'Uploading code...',
-                }),
-            ])
-        );
         let storedBadSectorHandling: null | BadSectorResponse = null;
-        try {
-            const task = await getApplicationClient().startLocalAdvancedTrackExport(
-                {
-                    indexes: trackIndexes,
-                    convertToWav: convertOutputToWav,
-                    nerawDownload,
-                    useSlowerExploit,
-                },
-                (data, fileName) => callback(new Blob([new Uint8Array(data)]), fileName),
-                async (address, count, seconds) => {
-                    if (sessionStoredBadSectorHandling !== null) return sessionStoredBadSectorHandling;
-                    if (storedBadSectorHandling !== null) return storedBadSectorHandling;
-                    dispatch(
-                        batchActions([
-                            factoryBadSectorDialogActions.setAddress(address),
-                            factoryBadSectorDialogActions.setSeconds(seconds),
-                            factoryBadSectorDialogActions.setCount(count),
-                            factoryBadSectorDialogActions.setVisible(true),
-                        ])
-                    );
-                    const result = await new Promise<{
-                        response: BadSectorResponse;
-                        rememberForTheRestOfDownload: boolean;
-                        rememberForTheRestOfSession: boolean;
-                    }>((resolve) => (badSectorPromise = resolve));
-                    if (result.rememberForTheRestOfDownload) storedBadSectorHandling = result.response;
-                    if (result.rememberForTheRestOfSession) sessionStoredBadSectorHandling = result.response;
-                    return result.response;
-                }
-            );
-            let cancellationSent = false;
-            for (;;) {
-                const current = getApplicationClient()
-                    .getWorkspaceSnapshot()
-                    .tasks.find((candidate) => candidate.id === task.id);
-                if (!current) throw new Error(`Task ${task.id} is no longer available.`);
-                if (getState().factoryProgressDialog.cancelled && !cancellationSent) {
-                    cancellationSent = true;
-                    await getApplicationClient().execute({ type: 'task.cancel', id: task.id });
-                }
+        const task = await getApplicationClient().startLocalAdvancedTrackExport(
+            {
+                indexes: trackIndexes,
+                convertToWav: convertOutputToWav,
+                nerawDownload,
+                useSlowerExploit,
+            },
+            (data, fileName) => callback(new Blob([new Uint8Array(data)]), fileName),
+            async (address, count, seconds) => {
+                if (sessionStoredBadSectorHandling !== null) return sessionStoredBadSectorHandling;
+                if (storedBadSectorHandling !== null) return storedBadSectorHandling;
                 dispatch(
-                    factoryProgressDialogActions.setProgress({
-                        current: current.progress.bytesWritten ?? current.progress.completed,
-                        total: current.progress.bytesTotal ?? current.progress.total,
-                        additionalInfo: current.progress.currentLabel ?? '',
-                    })
+                    batchActions([
+                        factoryBadSectorDialogActions.setAddress(address),
+                        factoryBadSectorDialogActions.setSeconds(seconds),
+                        factoryBadSectorDialogActions.setCount(count),
+                        factoryBadSectorDialogActions.setVisible(true),
+                    ])
                 );
-                if (current.status === 'failed') throw new Error(current.error?.message ?? 'Advanced track export failed.');
-                if (current.status !== 'queued' && current.status !== 'running') break;
-                await sleep(50);
+                const result = await new Promise<{
+                    response: BadSectorResponse;
+                    rememberForTheRestOfDownload: boolean;
+                    rememberForTheRestOfSession: boolean;
+                }>((resolve) => (badSectorPromise = resolve));
+                if (result.rememberForTheRestOfDownload) storedBadSectorHandling = result.response;
+                if (result.rememberForTheRestOfSession) sessionStoredBadSectorHandling = result.response;
+                return result.response;
             }
-        } finally {
-            dispatch(factoryProgressDialogActions.setVisible(false));
-        }
+        );
+        await waitForAdvancedTask(task.id, 'Advanced track export failed.');
     };
 }
 
