@@ -45,6 +45,11 @@ export interface ImportWriteRequest {
     expectedRevision?: number;
 }
 
+export interface ImportQueueMetadataUpdate {
+    id: string;
+    changes: Partial<ImportTrackMetadata>;
+}
+
 export interface ImportWriter {
     start(request: ImportWriteRequest, queue: ImportQueue, tasks: TaskManager): Promise<TaskSnapshot>;
 }
@@ -84,11 +89,25 @@ export class ImportQueue {
     }
 
     update(id: string, changes: Partial<ImportTrackMetadata>, expectedRevision?: number) {
+        return this.updateMany([{ id, changes }], expectedRevision);
+    }
+
+    updateMany(updates: ImportQueueMetadataUpdate[], expectedRevision?: number) {
         this.assertRevision(expectedRevision);
-        const index = this.requireIndex(id);
-        const updated = { ...this.items[index], ...structuredClone(changes) };
-        this.validateMetadata(updated);
-        this.items[index] = updated;
+        if (updates.length === 0) throw new ApplicationError('INVALID_INPUT', 'At least one import update is required.');
+        const requestedIds = new Set(updates.map((update) => update.id));
+        if (requestedIds.size !== updates.length) {
+            throw new ApplicationError('INVALID_INPUT', 'An import item was supplied more than once.');
+        }
+
+        const replacements = new Map<number, ImportQueueItem>();
+        for (const update of updates) {
+            const index = this.requireIndex(update.id);
+            const updated = { ...this.items[index], ...structuredClone(update.changes) };
+            this.validateMetadata(updated);
+            replacements.set(index, updated);
+        }
+        for (const [index, item] of replacements) this.items[index] = item;
         return this.commit();
     }
 

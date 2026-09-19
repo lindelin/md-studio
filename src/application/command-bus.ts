@@ -9,7 +9,14 @@ import type {
 import type { MiniDiscApplication } from './minidisc-application';
 import type { TaskSnapshot } from './task-manager';
 import { TaskManager } from './task-manager';
-import type { ImportQueueInput, ImportQueueSnapshot, ImportTrackMetadata, ImportWriteRequest, ImportWriter } from './import-queue';
+import type {
+    ImportQueueInput,
+    ImportQueueMetadataUpdate,
+    ImportQueueSnapshot,
+    ImportTrackMetadata,
+    ImportWriteRequest,
+    ImportWriter,
+} from './import-queue';
 import { ImportQueue } from './import-queue';
 import type { TrackExporter, TrackExportRequest } from './track-export';
 
@@ -42,6 +49,7 @@ export type ApplicationCommand =
     | { type: 'import.list' }
     | { type: 'import.add'; inputs: Omit<ImportQueueInput, 'payload'>[]; expectedRevision?: number }
     | { type: 'import.update'; id: string; changes: Partial<ImportTrackMetadata>; expectedRevision?: number }
+    | { type: 'import.updateMany'; updates: ImportQueueMetadataUpdate[]; expectedRevision?: number }
     | { type: 'import.move'; id: string; destinationIndex: number; expectedRevision?: number }
     | { type: 'import.remove'; ids: string[]; expectedRevision?: number }
     | { type: 'import.clear'; expectedRevision?: number }
@@ -84,6 +92,12 @@ export class ApplicationCommandBus {
                 return {
                     ok: true,
                     importQueue: this.imports.update(command.id, command.changes, command.expectedRevision),
+                };
+            }
+            if (command.type === 'import.updateMany') {
+                return {
+                    ok: true,
+                    importQueue: this.imports.updateMany(command.updates, command.expectedRevision),
                 };
             }
             if (command.type === 'import.move') {

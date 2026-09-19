@@ -39,6 +39,44 @@ describe('ImportQueue', () => {
         assert.equal(queue.snapshot().items[0].title, 'A');
     });
 
+    it('validates batch metadata edits before applying any of them', () => {
+        const queue = new ImportQueue();
+        const initial = queue.add([
+            input('One.flac'),
+            input('Two.flac'),
+        ]);
+        const [one, two] = initial.items;
+
+        assert.throws(
+            () =>
+                queue.updateMany(
+                    [
+                        { id: one.id, changes: { title: 'Changed' } },
+                        { id: two.id, changes: { duration: -1 } },
+                    ],
+                    initial.revision
+                ),
+            /non-negative/
+        );
+        assert.deepEqual(
+            queue.snapshot().items.map((item) => item.title),
+            ['One', 'Two']
+        );
+
+        const updated = queue.updateMany(
+            [
+                { id: one.id, changes: { title: 'First' } },
+                { id: two.id, changes: { title: 'Second' } },
+            ],
+            initial.revision
+        );
+        assert.equal(updated.revision, initial.revision + 1);
+        assert.deepEqual(
+            updated.items.map((item) => item.title),
+            ['First', 'Second']
+        );
+    });
+
     it('keeps non-serializable payloads out of snapshots', () => {
         const queue = new ImportQueue();
         const payload = { arrayBuffer: async () => new ArrayBuffer(0) };

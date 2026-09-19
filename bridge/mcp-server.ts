@@ -362,6 +362,35 @@ function createServer() {
         async ({ id, changes, expectedRevision }) => execute({ type: 'import.update', id, changes, expectedRevision })
     );
     server.registerTool(
+        'minidisc_update_imports',
+        {
+            description: 'Atomically update titles, metadata, or encoding choices for multiple queued imports.',
+            inputSchema: z.object({
+                updates: z
+                    .array(
+                        z.object({
+                            id: z.string().min(1),
+                            changes: z.object({
+                                title: z.string().optional(),
+                                fullWidthTitle: z.string().optional(),
+                                artist: z.string().optional(),
+                                album: z.string().optional(),
+                                duration: z.number().nonnegative().optional(),
+                                forcedEncoding: z
+                                    .object({ codec: z.string().min(1), bitrate: z.number().int().nonnegative() })
+                                    .nullable()
+                                    .optional(),
+                                bytesToSkip: z.number().int().nonnegative().optional(),
+                            }),
+                        })
+                    )
+                    .min(1),
+                expectedRevision: z.number().int().nonnegative().optional(),
+            }),
+        },
+        async ({ updates, expectedRevision }) => execute({ type: 'import.updateMany', updates, expectedRevision })
+    );
+    server.registerTool(
         'minidisc_move_import',
         {
             description: 'Move one queued import to a new zero-based position.',
