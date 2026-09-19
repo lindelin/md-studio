@@ -31,8 +31,8 @@ function makeGateway() {
             calls.push('read');
             return {
                 deviceName: 'MockMD',
-                status: { discPresent: true } as any,
-                capabilities: ['content.read', 'metadata.edit', 'playback.control', 'disc.eject'],
+                status: { discPresent: true, canBeFlushed: true } as any,
+                capabilities: ['content.read', 'metadata.edit', 'metadata.himd', 'playback.control', 'disc.eject', 'disc.formatHimd'],
                 disc: structuredClone(disc),
             };
         },
@@ -43,6 +43,10 @@ function makeGateway() {
         async renameTrack(update: TrackMetadataUpdate) {
             calls.push(`renameTrack:${update.index}:${update.title}`);
             disc.groups[0].tracks[update.index].title = update.title;
+        },
+        async renameHiMDTrack(update) {
+            calls.push(`renameHiMDTrack:${update.index}:${update.title ?? ''}:${update.album ?? ''}:${update.artist ?? ''}`);
+            if (update.title !== undefined) disc.groups[0].tracks[update.index].title = update.title;
         },
         async renameGroup(update) {
             calls.push(`renameGroup:${update.index}:${update.title}`);
@@ -68,6 +72,14 @@ function makeGateway() {
             calls.push('wipeDisc');
             disc.groups[0].tracks = [];
             disc.trackCount = 0;
+        },
+        async formatToHiMD() {
+            calls.push('formatToHiMD');
+            disc.groups[0].tracks = [];
+            disc.trackCount = 0;
+        },
+        async flush() {
+            calls.push('flush');
         },
         async ejectDisc() {
             calls.push('ejectDisc');
@@ -169,5 +181,42 @@ describe('MiniDiscApplication', () => {
         assert.equal(snapshot.disc, null);
         assert.equal(snapshot.status.discPresent, false);
         assert.deepEqual(calls, ['read', 'ejectDisc']);
+    });
+
+    it('updates HiMD metadata through the shared application layer', async () => {
+        const { gateway, calls } = makeGateway();
+        const application = new MiniDiscApplication(gateway);
+        await application.refresh();
+
+        const snapshot = await application.renameHiMDTracks([{ index: 0, title: 'Updated', album: 'Album', artist: 'Artist' }]);
+
+        assert.equal(snapshot.disc?.groups[0].tracks[0].title, 'Updated');
+        assert.equal(calls.includes('renameHiMDTrack:0:Updated:Album:Artist'), true);
+    });
+
+    it('requires confirmation before formatting a disc as HiMD', async () => {
+        const { gateway, calls } = makeGateway();
+        const application = new MiniDiscApplication(gateway);
+        await application.refresh();
+
+        await assert.rejects(
+            () => application.formatToHiMD(),
+            (error: unknown) => {
+                assert.equal((error as ApplicationError).code, 'CONFIRMATION_REQUIRED');
+                return true;
+            }
+        );
+        assert.equal(calls.includes('formatToHiMD'), false);
+    });
+
+    it('flushes pending device changes and refreshes the snapshot', async () => {
+        const { gateway, calls } = makeGateway();
+        const application = new MiniDiscApplication(gateway);
+        await application.refresh();
+
+        const snapshot = await application.flush(0);
+
+        assert.equal(snapshot.revision, 1);
+        assert.deepEqual(calls, ['read', 'flush', 'read']);
     });
 });

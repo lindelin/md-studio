@@ -1,4 +1,11 @@
-import type { DestructiveConfirmation, DeviceSnapshot, GroupMetadataUpdate, PlaybackCommand, TrackMetadataUpdate } from './contracts';
+import type {
+    DestructiveConfirmation,
+    DeviceSnapshot,
+    GroupMetadataUpdate,
+    HiMDTrackMetadataUpdate,
+    PlaybackCommand,
+    TrackMetadataUpdate,
+} from './contracts';
 import type { MiniDiscApplication } from './minidisc-application';
 import type { TaskSnapshot } from './task-manager';
 import { TaskManager } from './task-manager';
@@ -9,8 +16,11 @@ export type ApplicationCommand =
     | { type: 'disc.refresh'; dropCache?: boolean }
     | { type: 'disc.rename'; title: string; fullWidthTitle?: string; expectedRevision?: number }
     | { type: 'disc.erase'; confirmation?: DestructiveConfirmation; expectedRevision?: number }
+    | { type: 'disc.formatHimd'; confirmation?: DestructiveConfirmation; expectedRevision?: number }
+    | { type: 'device.flush'; expectedRevision?: number }
     | { type: 'disc.eject'; expectedRevision?: number }
     | { type: 'track.renameMany'; updates: TrackMetadataUpdate[]; expectedRevision?: number }
+    | { type: 'track.renameHimdMany'; updates: HiMDTrackMetadataUpdate[]; expectedRevision?: number }
     | { type: 'track.move'; sourceIndex: number; destinationIndex: number; expectedRevision?: number }
     | { type: 'track.deleteMany'; indexes: number[]; confirmation?: DestructiveConfirmation; expectedRevision?: number }
     | { type: 'group.rename'; update: GroupMetadataUpdate; expectedRevision?: number }
@@ -95,11 +105,20 @@ export class ApplicationCommandBus {
                 case 'disc.erase':
                     snapshot = await this.application.eraseDisc(command.confirmation, command.expectedRevision);
                     break;
+                case 'disc.formatHimd':
+                    snapshot = await this.application.formatToHiMD(command.confirmation, command.expectedRevision);
+                    break;
+                case 'device.flush':
+                    snapshot = await this.application.flush(command.expectedRevision);
+                    break;
                 case 'disc.eject':
                     snapshot = await this.application.ejectDisc(command.expectedRevision);
                     break;
                 case 'track.renameMany':
                     snapshot = await this.application.renameTracks(command.updates, command.expectedRevision);
+                    break;
+                case 'track.renameHimdMany':
+                    snapshot = await this.application.renameHiMDTracks(command.updates, command.expectedRevision);
                     break;
                 case 'track.move':
                     snapshot = await this.application.moveTrack(command.sourceIndex, command.destinationIndex, command.expectedRevision);

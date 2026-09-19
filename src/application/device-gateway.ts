@@ -1,4 +1,4 @@
-import type { DeviceGateway, ApplicationCapability, GroupMetadataUpdate, PlaybackCommand } from './contracts';
+import type { DeviceGateway, ApplicationCapability, GroupMetadataUpdate, HiMDTrackMetadataUpdate, PlaybackCommand } from './contracts';
 import { Capability, type MinidiscSpec, type NetMDService } from '../services/interfaces/netmd';
 
 const capabilityNames: Record<Capability, ApplicationCapability> = {
@@ -37,6 +37,10 @@ export class NetMDDeviceGateway implements DeviceGateway {
         await this.service.renameTrack(index, this.spec.sanitizeHalfWidthTitle(title), this.sanitizeFullWidthTitle(fullWidthTitle));
     }
 
+    async renameHiMDTrack({ index, title, album, artist }: HiMDTrackMetadataUpdate) {
+        await this.service.renameTrack(index, { title, album, artist });
+    }
+
     async renameGroup({ index, title, fullWidthTitle }: GroupMetadataUpdate) {
         await this.service.renameGroup(index, this.spec.sanitizeHalfWidthTitle(title), this.sanitizeFullWidthTitle(fullWidthTitle));
     }
@@ -64,6 +68,14 @@ export class NetMDDeviceGateway implements DeviceGateway {
 
     async wipeDisc() {
         await this.service.wipeDisc();
+    }
+
+    async formatToHiMD() {
+        await this.service.formatToHiMD();
+    }
+
+    async flush() {
+        await this.service.flush();
     }
 
     async ejectDisc() {

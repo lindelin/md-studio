@@ -5,6 +5,7 @@ import {
     type DeviceGateway,
     type DeviceSnapshot,
     type GroupMetadataUpdate,
+    type HiMDTrackMetadataUpdate,
     type PlaybackCommand,
     type TrackMetadataUpdate,
 } from './contracts';
@@ -63,6 +64,30 @@ export class MiniDiscApplication {
                 requestedIndexes.add(update.index);
             }
             for (const update of updates) await this.gateway.renameTrack(update);
+        });
+    }
+
+    renameHiMDTracks(updates: HiMDTrackMetadataUpdate[], expectedRevision?: number) {
+        return this.mutate('metadata.himd', expectedRevision, async (disc) => {
+            const knownIndexes = new Set(disc.groups.flatMap((group) => group.tracks.map((track) => track.index)));
+            const requestedIndexes = new Set<number>();
+            for (const update of updates) {
+                if (!knownIndexes.has(update.index)) {
+                    throw new ApplicationError('INVALID_INPUT', `Track ${update.index} does not exist.`, { index: update.index });
+                }
+                if (requestedIndexes.has(update.index)) {
+                    throw new ApplicationError('INVALID_INPUT', `Track ${update.index} was supplied more than once.`, {
+                        index: update.index,
+                    });
+                }
+                if (![update.title, update.album, update.artist].some((value) => typeof value === 'string')) {
+                    throw new ApplicationError('INVALID_INPUT', `Track ${update.index} has no metadata changes.`, {
+                        index: update.index,
+                    });
+                }
+                requestedIndexes.add(update.index);
+            }
+            for (const update of updates) await this.gateway.renameHiMDTrack(update);
         });
     }
 
@@ -130,6 +155,27 @@ export class MiniDiscApplication {
         return this.mutate('metadata.edit', expectedRevision, async () => {
             this.requireConfirmation(confirmation, 'Erasing a disc permanently removes every track and group.');
             await this.gateway.wipeDisc();
+        });
+    }
+
+    formatToHiMD(confirmation?: DestructiveConfirmation, expectedRevision?: number) {
+        return this.mutate('disc.formatHimd', expectedRevision, async () => {
+            this.requireConfirmation(confirmation, 'Formatting a disc as HiMD permanently removes its current contents.');
+            await this.gateway.formatToHiMD();
+        });
+    }
+
+    flush(expectedRevision?: number) {
+        return this.serial(async () => {
+            this.assertRevision(expectedRevision);
+            if (!this.snapshot?.status.canBeFlushed) {
+                throw new ApplicationError('INVALID_INPUT', 'The connected device has no pending changes to flush.');
+            }
+            await this.gateway.flush();
+            this.revision += 1;
+            const next = await this.gateway.readSnapshot(true);
+            this.snapshot = { ...next, sessionId: this.sessionId, revision: this.revision };
+            return this.snapshot;
         });
     }
 

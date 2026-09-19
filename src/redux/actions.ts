@@ -350,12 +350,9 @@ export function renameTrack(...entries: { index: number; newName: string; newFul
 
 export function himdRenameTrack(...entries: { index: number; title?: string; album?: string; artist?: string }[]) {
     return async function (dispatch: AppDispatch) {
-        const { netmdService } = serviceRegistry;
         dispatch(batchActions([renameDialogActions.setVisible(false), appStateActions.setLoading(true)]));
         try {
-            for (const { index, title, album, artist } of entries) {
-                await netmdService!.renameTrack(index, { title, album, artist });
-            }
+            applyDeviceSnapshot(dispatch, await getApplicationRuntime().renameHiMDTracks(entries));
         } catch (err) {
             console.error(err);
             dispatch(
@@ -366,7 +363,7 @@ export function himdRenameTrack(...entries: { index: number; title?: string; alb
                 ])
             );
         }
-        await listContent()(dispatch);
+        dispatch(appStateActions.setLoading(false));
     };
 }
 
@@ -427,10 +424,18 @@ export function formatToHiMD() {
         if (!confirmation) {
             return;
         }
-        const { netmdService } = serviceRegistry;
         dispatch(appStateActions.setLoading(true));
-        await netmdService!.formatToHiMD();
-        dispatch(appStateActions.setMainView('WELCOME'));
+        try {
+            applyDeviceSnapshot(
+                dispatch,
+                await getApplicationRuntime().formatToHiMD({
+                    confirmed: true,
+                    reason: 'Confirmed in the Web MiniDisc user interface',
+                })
+            );
+        } finally {
+            dispatch(appStateActions.setLoading(false));
+        }
     };
 }
 
@@ -1171,11 +1176,13 @@ export function recognizeTracks(_trackEntries: TitleEntry[], mode: 'exploits' | 
 }
 
 export function flushDevice() {
-    return async function (dispatch: AppDispatch, getState: () => RootState) {
-        const { netmdService } = serviceRegistry;
+    return async function (dispatch: AppDispatch) {
         dispatch(appStateActions.setLoading(true));
-        await netmdService!.flush();
-        dispatch(batchActions([appStateActions.setLoading(false), mainActions.setFlushable(false)]));
+        try {
+            applyDeviceSnapshot(dispatch, await getApplicationRuntime().flush());
+        } finally {
+            dispatch(appStateActions.setLoading(false));
+        }
     };
 }
 

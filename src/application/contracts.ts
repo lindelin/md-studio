@@ -34,6 +34,13 @@ export interface GroupMetadataUpdate {
     fullWidthTitle?: string;
 }
 
+export interface HiMDTrackMetadataUpdate {
+    index: number;
+    title?: string;
+    album?: string;
+    artist?: string;
+}
+
 export interface DestructiveConfirmation {
     confirmed: true;
     reason: string;
@@ -48,12 +55,15 @@ export interface DeviceGateway {
     readSnapshot(dropCache?: boolean): Promise<Omit<DeviceSnapshot, 'sessionId' | 'revision'>>;
     renameDisc(title: string, fullWidthTitle?: string): Promise<void>;
     renameTrack(update: TrackMetadataUpdate): Promise<void>;
+    renameHiMDTrack(update: HiMDTrackMetadataUpdate): Promise<void>;
     renameGroup(update: GroupMetadataUpdate): Promise<void>;
     addGroup(firstTrack: number, trackCount: number, title: string, fullWidthTitle?: string): Promise<void>;
     deleteGroup(index: number): Promise<void>;
     deleteTracks(indexes: number[]): Promise<void>;
     moveTrack(sourceIndex: number, destinationIndex: number): Promise<void>;
     wipeDisc(): Promise<void>;
+    formatToHiMD(): Promise<void>;
+    flush(): Promise<void>;
     ejectDisc(): Promise<void>;
     controlPlayback(command: PlaybackCommand): Promise<void>;
 }

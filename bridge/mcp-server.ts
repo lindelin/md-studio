@@ -76,6 +76,26 @@ function createServer() {
         async ({ updates, expectedRevision }) => execute({ type: 'track.renameMany', updates, expectedRevision })
     );
     server.registerTool(
+        'minidisc_rename_himd_tracks',
+        {
+            description: 'Update title, album, and artist metadata on one or more tracks in a HiMD-capable session.',
+            inputSchema: z.object({
+                updates: z
+                    .array(
+                        z.object({
+                            index: z.number().int().nonnegative(),
+                            title: z.string().optional(),
+                            album: z.string().optional(),
+                            artist: z.string().optional(),
+                        })
+                    )
+                    .min(1),
+                expectedRevision: z.number().int().nonnegative().optional(),
+            }),
+        },
+        async ({ updates, expectedRevision }) => execute({ type: 'track.renameHimdMany', updates, expectedRevision })
+    );
+    server.registerTool(
         'minidisc_create_group',
         {
             description: 'Create a named group over a contiguous range of tracks.',
@@ -152,6 +172,27 @@ function createServer() {
         },
         async ({ confirmed, reason, expectedRevision }) =>
             execute({ type: 'disc.erase', confirmation: { confirmed, reason }, expectedRevision })
+    );
+    server.registerTool(
+        'minidisc_format_himd',
+        {
+            description: 'Permanently format the current disc as HiMD after explicit user confirmation.',
+            inputSchema: z.object({
+                confirmed: z.literal(true),
+                reason: z.string().min(1),
+                expectedRevision: z.number().int().nonnegative().optional(),
+            }),
+        },
+        async ({ confirmed, reason, expectedRevision }) =>
+            execute({ type: 'disc.formatHimd', confirmation: { confirmed, reason }, expectedRevision })
+    );
+    server.registerTool(
+        'minidisc_flush_device',
+        {
+            description: 'Commit pending device-side database changes when the current status reports that flushing is available.',
+            inputSchema: z.object({ expectedRevision: z.number().int().nonnegative().optional() }),
+        },
+        async ({ expectedRevision }) => execute({ type: 'device.flush', expectedRevision })
     );
     server.registerTool(
         'minidisc_eject_disc',
