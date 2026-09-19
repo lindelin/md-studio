@@ -218,12 +218,15 @@ export class MiniDiscApplication {
                 const currentTrack = this.snapshot!.status.track;
                 if (currentTrack === undefined || currentTrack === null) throw error;
                 const destination = command.action === 'next' ? currentTrack + 1 : currentTrack - 1;
-                if (destination < 0 || destination >= disc.trackCount) return this.snapshot!;
-                await this.gateway.controlPlayback({ action: 'stop' });
-                await this.gateway.controlPlayback({ action: 'gotoTrack', index: destination });
-                await this.gateway.controlPlayback({ action: 'play' });
+                if (destination >= 0 && destination < disc.trackCount) {
+                    await this.gateway.controlPlayback({ action: 'stop' });
+                    await this.gateway.controlPlayback({ action: 'gotoTrack', index: destination });
+                    await this.gateway.controlPlayback({ action: 'play' });
+                }
             }
-            return this.snapshot!;
+            const next = await this.gateway.readSnapshot(false);
+            this.snapshot = { ...next, sessionId: this.sessionId, revision: this.revision };
+            return this.snapshot;
         });
     }
 

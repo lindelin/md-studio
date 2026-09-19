@@ -5,6 +5,7 @@ import { MiniDiscApplication } from '../src/application/minidisc-application.ts'
 
 function makeGateway() {
     const calls: string[] = [];
+    const status = { discPresent: true, canBeFlushed: true, state: 'stopped', track: 0 } as any;
     const disc = {
         title: 'Test Disc',
         fullWidthTitle: '',
@@ -31,7 +32,7 @@ function makeGateway() {
             calls.push('read');
             return {
                 deviceName: 'MockMD',
-                status: { discPresent: true, canBeFlushed: true } as any,
+                status: structuredClone(status),
                 capabilities: ['content.read', 'metadata.edit', 'metadata.himd', 'playback.control', 'disc.eject', 'disc.formatHimd'],
                 disc: structuredClone(disc),
             };
@@ -86,6 +87,10 @@ function makeGateway() {
         },
         async controlPlayback(command) {
             calls.push(`playback:${command.action}`);
+            if (command.action === 'play') status.state = 'playing';
+            if (command.action === 'pause') status.state = 'paused';
+            if (command.action === 'stop') status.state = 'stopped';
+            if (command.action === 'gotoTrack' || command.action === 'seek') status.track = command.index;
         },
     };
     return { gateway, calls };
@@ -218,5 +223,17 @@ describe('MiniDiscApplication', () => {
 
         assert.equal(snapshot.revision, 1);
         assert.deepEqual(calls, ['read', 'flush', 'read']);
+    });
+
+    it('returns device-confirmed playback state without changing the disc revision', async () => {
+        const { gateway, calls } = makeGateway();
+        const application = new MiniDiscApplication(gateway);
+        await application.refresh();
+
+        const snapshot = await application.controlPlayback({ action: 'play' });
+
+        assert.equal(snapshot.status.state, 'playing');
+        assert.equal(snapshot.revision, 0);
+        assert.deepEqual(calls, ['read', 'playback:play', 'read']);
     });
 });
