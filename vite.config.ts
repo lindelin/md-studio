@@ -2,6 +2,9 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import svgr from "vite-plugin-svgr";
 import { VitePWA } from 'vite-plugin-pwa';
+import { fileURLToPath } from 'node:url';
+
+const browserDependency = (path: string) => fileURLToPath(new URL(`./node_modules/${path}`, import.meta.url));
 
 let base = process.env.PUBLIC_URL ?? '/';
 if(!base.endsWith("/")) base += '/';
@@ -14,10 +17,10 @@ export default () => {
     base,
     resolve: {
       alias: {
-        events: 'events/',
-        process: 'process/browser',
-        stream: 'stream-browserify',
-        util: 'util/',
+        events: browserDependency('events/events.js'),
+        process: browserDependency('process/browser.js'),
+        stream: browserDependency('stream-browserify/index.js'),
+        util: browserDependency('util/util.js'),
       },
     },
     plugins: [
