@@ -25,7 +25,7 @@ import {
 } from '../utils';
 import { isDeferredFile } from '../application/deferred-file';
 import NotificationCompleteIconUrl from '../images/record-complete-notification-icon.png';
-import { assertNumber, getHalfWidthTitleLength } from 'netmd-js/dist/utils';
+import { assertNumber } from 'netmd-js/dist/utils';
 import { Capability, NetMDService, Codec, MinidiscSpec, ExploitCapability } from '../services/interfaces/netmd';
 import { getSimpleServices, ServiceConstructionInfo } from '../services/interface-service-manager';
 import { AudioServices, resolveAudioServiceIndex } from '../services/audio-export-service-manager';
@@ -40,6 +40,7 @@ import { MetadataImportError } from '../domain/metadata-import';
 import { resolveGroupedTrackMove } from '../domain/disc-layout';
 import { DeviceSessionConnector } from '../application/device-session';
 import type { TaskSnapshot } from '../application/task-manager';
+import { allocateRecordingTitle } from '../domain/recording-title-budget';
 
 export function requestTaskCancellation(id: string) {
     return async function () {
@@ -1175,8 +1176,7 @@ export function convertAndUpload(
         const disc = getState().main.disc;
         const usesHiMDTitles = getState().main.deviceCapabilities.includes(Capability.himdTitles);
         const useFullWidth = getState().appState.fullWidthSupport;
-        let { halfWidth: availableHalfWidthCharacters, fullWidth: availableFullWidthCharacters } =
-            netmdSpec!.getRemainingCharactersForTitles(disc!);
+        let titleBudget = netmdSpec!.getRemainingCharactersForTitles(disc!);
 
         let error: any;
         let errorMessage = ``;
@@ -1200,18 +1200,20 @@ export function convertAndUpload(
                 }
 
                 const title = file.title;
-
-                const fixLength = (l: number) => Math.max(Math.ceil(l / 7) * 7, 7);
-                const halfWidthTitle = title.substring(0, Math.min(getHalfWidthTitleLength(title), availableHalfWidthCharacters));
-                availableHalfWidthCharacters -= fixLength(getHalfWidthTitleLength(halfWidthTitle));
-
-                let fullWidthTitle = file.fullWidthTitle;
-                if (useFullWidth) {
-                    fullWidthTitle = fullWidthTitle.substring(
-                        0,
-                        Math.min(fullWidthTitle.length * 2, availableFullWidthCharacters, 210 /* limit is 105 */) / 2
+                const formatOverride: Codec = (file.forcedEncoding as Codec | null) ?? format;
+                let halfWidthTitle = title;
+                let fullWidthTitle = '';
+                if (!usesHiMDTitles) {
+                    const allocatedTitle = allocateRecordingTitle(
+                        netmdSpec!.sanitizeHalfWidthTitle(title),
+                        netmdSpec!.sanitizeFullWidthTitle(file.fullWidthTitle),
+                        titleBudget,
+                        useFullWidth,
+                        formatOverride.codec === 'SPS' || formatOverride.codec === 'SPM' ? 0 : 7
                     );
-                    availableFullWidthCharacters -= fixLength(fullWidthTitle.length * 2);
+                    halfWidthTitle = allocatedTitle.halfWidthTitle;
+                    fullWidthTitle = allocatedTitle.fullWidthTitle;
+                    titleBudget = allocatedTitle.remaining;
                 }
 
                 trackUpdate.current = i++;
@@ -1243,7 +1245,6 @@ export function convertAndUpload(
                     );
                 } else {
                     // SPS / SPM was filtered out before
-                    const formatOverride: Codec = (file.forcedEncoding as Codec | null) ?? format;
                     await netmdService?.upload(
                         usesHiMDTitles ? { title, artist: file.artist, album: file.album } : halfWidthTitle,
                         fullWidthTitle,
