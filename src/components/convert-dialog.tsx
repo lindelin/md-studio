@@ -61,6 +61,8 @@ import {
 } from '../services/interfaces/netmd';
 import serviceRegistry from '../services/registry';
 import { INTERACTIVE_HOMEBREW_AUTHORIZATION } from '../application/interactive-authorization';
+import { getApplicationClient } from '../application/runtime';
+import { useApplicationWorkspace } from './use-application-client';
 import Link from '@mui/material/Link';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -248,7 +250,7 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
     const { disc, deviceCapabilities } = useShallowEqualSelector((state) => state.main);
     const minidiscSpec = serviceRegistry.netmdSpec!;
 
-    const [queueSnapshot, setQueueSnapshot] = useState(() => serviceRegistry.importQueue.snapshot());
+    const queueSnapshot = useApplicationWorkspace().imports;
     const files = queueSnapshot.items;
     const [selectedTrackIndex, setSelectedTrack] = useState(-1);
     const [availableCharacters, setAvailableCharacters] = useState<{ halfWidth: number; fullWidth: number }>({
@@ -263,8 +265,6 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
     const [availableDurationUnits, setAvailableDurationUnits] = useState(0);
     const [availableSPSeconds, setAvailableSPSeconds] = useState(0);
     const [loadingMetadata, setLoadingMetadata] = useState(false);
-
-    useEffect(() => serviceRegistry.importQueue.subscribe(setQueueSnapshot), []);
 
     useEffect(() => {
         dispatch(
@@ -785,7 +785,7 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
             mp3Updates.length > 0 ? serviceRegistry.importQueue.updateMany(mp3Updates, initial.revision) : initial;
         hideDialog();
         setEnableReplayGain(false);
-        const result = await serviceRegistry.commandBus!.execute({
+        const result = await getApplicationClient().execute({
             type: 'import.write',
             format: currentlySelectedCodec,
             enableReplayGain,

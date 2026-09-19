@@ -2,6 +2,7 @@ import serviceRegistry from '../services/registry';
 import { ApplicationCommandBus } from './command-bus';
 import { NetMDAdvancedDeviceGateway, NetMDDeviceGateway } from './device-gateway';
 import { MiniDiscApplication } from './minidisc-application';
+import { InProcessApplicationClient } from './application-client';
 
 export function bindApplicationRuntime() {
     if (!serviceRegistry.netmdService || !serviceRegistry.netmdSpec) {
@@ -43,6 +44,16 @@ export function ensureApplicationCommandBus() {
         serviceRegistry.trackRecorder
     );
     return serviceRegistry.commandBus;
+}
+
+export function getApplicationClient() {
+    if (!serviceRegistry.applicationClient) {
+        serviceRegistry.applicationClient = new InProcessApplicationClient(
+            ensureApplicationCommandBus(),
+            serviceRegistry.workspaceStore
+        );
+    }
+    return serviceRegistry.applicationClient;
 }
 
 export function getApplicationRuntime() {

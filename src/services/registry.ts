@@ -13,6 +13,7 @@ import type { TrackExporter } from '../application/track-export';
 import type { TrackRecorder } from '../application/track-record';
 import { WorkspaceStore } from '../application/workspace-store';
 import { applicationSettings, type SettingsStore } from '../application/settings-store';
+import type { ApplicationClient } from '../application/application-client';
 
 export interface ImportPayloadResolver {
     resolve(reference: string): Promise<File>;
@@ -32,6 +33,7 @@ interface ServiceRegistry {
     libraryService?: LibraryService;
     application?: MiniDiscApplication;
     commandBus?: ApplicationCommandBus;
+    applicationClient?: ApplicationClient;
     taskManager: TaskManager;
     importQueue: ImportQueue;
     importPayloadResolver?: ImportPayloadResolver;
