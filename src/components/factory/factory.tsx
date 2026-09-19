@@ -275,10 +275,10 @@ const Toc = () => {
     useEffect(() => {
         const newMap = Array(256)
             .fill(0)
-            .map(n => ({ current: 0, contents: [] }));
+            .map(() => ({ current: 0, contents: [] }));
         const newContents = Array(256)
             .fill(0)
-            .map(n => ({ current: 0, contents: [] }));
+            .map(() => ({ current: 0, contents: [] }));
         if(selectedTab !== 3) {
             applyParameters(newMap, junctionTables[selectedTab] ?? [], e => e !== 0, 'L', '#5ec8f9', 'U'); // Apply 'Linked' and 'Unlinked' parameters
         } else {
@@ -473,7 +473,7 @@ const Toc = () => {
                                         <IconButton
                                             aria-label='Download track'
                                             disabled={!exploitCapabilities.includes(ExploitCapability.downloadAtrac) || modified}
-                                            onClick={e => handleDownloadTrack(selectedTile - 1)}
+                                            onClick={() => handleDownloadTrack(selectedTile - 1)}
                                         >
                                             <GetAppIcon />
                                         </IconButton>

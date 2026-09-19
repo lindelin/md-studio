@@ -39,17 +39,17 @@ if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScop
                 return;
             }
             // Allocate the buffer and copy PCM:
-            let addr = Module._malloc(data.byteLength);
+            const addr = Module._malloc(data.byteLength);
             Module.HEAPU8.set(new Uint8Array(data), addr);
 
-            let res = Module.ccall('initialize', 'number', ['number'], [bitrate]);
+            const res = Module.ccall('initialize', 'number', ['number'], [bitrate]);
             if (res != 1) {
                 self.postMessage({ action: 'encode', error: res, func: 'initialize' });
                 return;
             }
 
-            let expectedSize = Module.ccall('calculate_atrac_buf_size', 'number', ['number'], [data.byteLength]);
-            let atracAddr = Module._malloc(expectedSize);
+            const expectedSize = Module.ccall('calculate_atrac_buf_size', 'number', ['number'], [data.byteLength]);
+            const atracAddr = Module._malloc(expectedSize);
 
             let encodedBytes = Module.ccall(
                 'encode',
@@ -64,7 +64,7 @@ if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScop
                 encodedBytes = Module.ccall('finish', 'number', ['number', 'number'], [atracAddr, encodedBytes]);
             }
 
-            let result = new Uint8Array<ArrayBuffer>(Module.HEAPU8.subarray(atracAddr, atracAddr + encodedBytes)).buffer;
+            const result = new Uint8Array<ArrayBuffer>(Module.HEAPU8.subarray(atracAddr, atracAddr + encodedBytes)).buffer;
 
             Module._free(addr);
             Module._free(atracAddr);

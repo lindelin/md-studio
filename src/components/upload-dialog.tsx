@@ -43,7 +43,7 @@ const Transition = React.forwardRef(function Transition(props: SlideProps, ref: 
     return <Slide direction="up" ref={ref} {...props} />;
 });
 
-export const UploadDialog = (props: {}) => {
+export const UploadDialog = () => {
     const { classes } = useStyles();
     const dispatch = useDispatch();
 

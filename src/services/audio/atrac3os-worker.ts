@@ -52,6 +52,8 @@ class CDAatracproject {
             console.log("ATRACVM:", line);
         });
 
+        // The v86 callback binds `this` to its CPU object, so retain the encoder instance explicitly.
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
         const _atrac = this;
         this.emulator.v86.cpu.io.register_write(0xFE, this.emulator.v86.cpu, function(this: any) {
             const hi = this.reg32[0];
@@ -59,7 +61,7 @@ class CDAatracproject {
             const value = ((hi << 32) | lo) >>> 0;
             _atrac.progress?.(value);
         });
-        this.emulator.v86.cpu.io.register_write(0xfc, this.emulator.v86.cpu, function(this: any, data: number) {
+        this.emulator.v86.cpu.io.register_write(0xfc, this.emulator.v86.cpu, function(this: any, _data: number) {
             const destination = this.reg32[0],
                 source = this.reg32[3],
                 length = this.reg32[1];
@@ -149,7 +151,7 @@ class VM {
 
     async init() {
         self.importScripts(getPublicPathFor("atrac3vm/libv86.js"));
-        // @ts-ignore
+        // @ts-expect-error V86 is provided by the worker script loaded immediately above.
         this.emulator = new V86({
             wasm_path: getPublicPathFor("atrac3vm/v86-patched.wasm"),
             memory_size: 32 * 1024 * 1024,

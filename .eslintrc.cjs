@@ -18,6 +18,10 @@ module.exports = {
     "@typescript-eslint/ban-types": "off",
     "no-async-promise-executor": "off",
     "no-empty": "off",
+    "@typescript-eslint/no-unused-vars": [
+      "error",
+      { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
+    ],
   },
   overrides: [
     {

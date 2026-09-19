@@ -58,7 +58,9 @@ export class NetworkWMService extends NetMDService {
             const nwjsTracks: AbstractedTrack[] = [];
             const groups = [];
 
-            let { left, total, used } = await this.database!.database.filesystem.statFilesystem();
+            const stats = await this.database!.database.filesystem.statFilesystem();
+            let { left, used } = stats;
+            const { total } = stats;
 
             if(left < 4 * 1048576) {
                 // If we have less than 4 MiB left, make it seem the drive is 100% filled.
@@ -67,16 +69,16 @@ export class NetworkWMService extends NetMDService {
             }
 
             let i = 0;
-            for(let artist of sorted){
-                for(let album of artist.contents) {
-                    let tracks: Track[] = [];
+            for(const artist of sorted){
+                for(const album of artist.contents) {
+                    const tracks: Track[] = [];
                     groups.push({
                         fullWidthTitle: null,
                         title: `${artist.name} - ${album.name}`,
                         tracks,
                         index: i,
                     })
-                    for(let track of album.contents) {
+                    for(const track of album.contents) {
                         nwjsTracks.push(track);
                         tracks.push({
                             channel: 2,
@@ -165,7 +167,7 @@ export class NetworkWMService extends NetMDService {
         this.cache = null;
     }
 
-    async renameTrack(index: number, newTitle: TitleParameter, newFullWidthTitle?: string): Promise<void> {
+    async renameTrack(index: number, newTitle: TitleParameter, _newFullWidthTitle?: string): Promise<void> {
         // The objects are never cloned - current cache maintains a reference to the database abstraction's track structure
         if(!this.cache) await this.listContent();
         const track = this.cache!.nwjsTracks[index];
@@ -190,18 +192,18 @@ export class NetworkWMService extends NetMDService {
     async deleteTracks(indices: number[]) {
         // Sorting here does not matter.
         // Deleting an index does not move any other indices around
-        for(let index of indices) {
+        for(const index of indices) {
             await this.database!.deleteTrack(this.cache!.nwjsTracks[index].systemIndex);
         }
         await this.flush();
         this.cache = null;
     }
 
-    async moveTrack(src: number, dst: number, updateGroups?: boolean) {
+    async moveTrack(src: number, dst: number, _updateGroups?: boolean) {
         // Assure the user cannot move this track beyond the limits of its region.
         if(!this.cache) await this.listContent();
         // Find top and bottom of this album.
-        let thisTrack = this.cache!.nwjsTracks[src]!;
+        const thisTrack = this.cache!.nwjsTracks[src]!;
         const isInThisAlbum = (index: number) => this.cache!.nwjsTracks[index]?.album === thisTrack.album && this.cache!.nwjsTracks[index]?.artist === thisTrack.artist;
         let bottomIndex = src, topIndex = src;
         while(isInThisAlbum(bottomIndex - 1)) bottomIndex--;
@@ -270,7 +272,7 @@ export class NetworkWMService extends NetMDService {
         return Promise.resolve();
     }
 
-    async renameGroup(groupIndex: number, newTitle: string, newFullWidthTitle?: string): Promise<void> {
+    async renameGroup(groupIndex: number, newTitle: string, _newFullWidthTitle?: string): Promise<void> {
         // Check if the new title isn't ambiguous.
         if(!this.cache) await this.listContent();
         if((newTitle.length - newTitle.replace('-', '').length) !== 1) {
@@ -289,13 +291,13 @@ export class NetworkWMService extends NetMDService {
         await this.flush();
         this.cache = null;
     }
-    addGroup(groupBegin: number, groupLength: number, name: string, fullWidthTitle?: string): Promise<void> {
+    addGroup(_groupBegin: number, _groupLength: number, _name: string, _fullWidthTitle?: string): Promise<void> {
         return this.virtualGroupError();
     }
-    deleteGroup(groupIndex: number): Promise<void> {
+    deleteGroup(_groupIndex: number): Promise<void> {
         return this.virtualGroupError();
     }
-    rewriteGroups(groups: Group[]): Promise<void> {
+    rewriteGroups(_groups: Group[]): Promise<void> {
         return Promise.resolve();
     }
 
@@ -306,10 +308,10 @@ export class NetworkWMService extends NetMDService {
     async stop(): Promise<void> {}
     async next(): Promise<void> { this.notAvailableInThisMode(); }
     async prev(): Promise<void> { this.notAvailableInThisMode(); }
-    async gotoTrack(index: number): Promise<void> { this.notAvailableInThisMode(); }
-    async gotoTime(index: number, hour: number, minute: number, second: number, frame: number): Promise<void> { this.notAvailableInThisMode(); }
+    async gotoTrack(_index: number): Promise<void> { this.notAvailableInThisMode(); }
+    async gotoTime(_index: number, _hour: number, _minute: number, _second: number, _frame: number): Promise<void> { this.notAvailableInThisMode(); }
     async getPosition(): Promise<number[]> { throw new Error("Not implemented!"); }
     ejectDisc(): Promise<void> { throw new Error("Not implemented!"); }
     wipeDiscTitleInfo(): Promise<void> { throw new Error("Not implemented!"); }
-    renameDisc(newName: string, newFullWidthName?: string): Promise<void> { window.alert("No disc to be renamed in Network Walkmans!"); return Promise.resolve(); } // TODO: Volume label support...
+    renameDisc(_newName: string, _newFullWidthName?: string): Promise<void> { window.alert("No disc to be renamed in Network Walkmans!"); return Promise.resolve(); } // TODO: Volume label support...
 }

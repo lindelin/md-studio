@@ -23,7 +23,7 @@ export function defaultSorter(a: File, b: File, by: string, asc: boolean){
     return aV.toString().localeCompare(bV.toString()) * ascMultiply;
 }
 
-export function dirSorter(a: File, b: File, by: string, asc: boolean){
+export function dirSorter(a: File, b: File, _by: string, _asc: boolean){
     if(a.type === FileType.Directory && b.type === FileType.File) return -1;
     if(a.type === FileType.File && b.type === FileType.Directory) return 1;
     return 0;

@@ -11,7 +11,7 @@ export class AtracdencAudioExportService extends DefaultFfmpegAudioExportService
         await this.atracdencProcess.init();
     }
 
-    async encodeATRAC3Plus(parameters: ExportParams): Promise<ArrayBuffer> {
+    async encodeATRAC3Plus(_parameters: ExportParams): Promise<ArrayBuffer> {
         throw new Error('Unsupported codec! Please select a different encoder');
     }
 

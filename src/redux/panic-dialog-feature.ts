@@ -17,7 +17,7 @@ const slice = createSlice({
         setErrorProvided: (state, action: PayloadAction<string>) => {
             state.errorProvided = action.payload;
         },
-        dismiss: (state, action: PayloadAction<void>) => {
+        dismiss: (state) => {
             state.visible = false;
             state.dismissed = true;
         },

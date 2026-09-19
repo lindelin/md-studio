@@ -11,13 +11,12 @@ import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import Slide, { SlideProps } from '@mui/material/Slide';
 import Button from '@mui/material/Button';
-import { TransitionProps } from '@mui/material/transitions';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
 });
 
-export const ErrorDialog = (props: {}) => {
+export const ErrorDialog = () => {
     const dispatch = useDispatch();
 
     const { visible, error } = useShallowEqualSelector((state) => state.errorDialog);

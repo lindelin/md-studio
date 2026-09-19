@@ -48,7 +48,6 @@ import ArchiveIcon from '@mui/icons-material/Archive';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import SettingsIcon from '@mui/icons-material/Settings';
 import HomeRepairServiceIcon from '@mui/icons-material/HomeRepairService';
-import DiscFullIcon from '@mui/icons-material/DiscFull';
 
 import { Capability, ExploitCapability } from '../../services/interfaces/capabilities';
 
@@ -62,7 +61,7 @@ const useStyles = makeStyles()(theme => ({
     },
 }));
 
-export const FactoryTopMenu = function(props: { onClick?: () => void }) {
+export const FactoryTopMenu = function() {
     const { classes } = useStyles();
     const dispatch = useDispatch();
 

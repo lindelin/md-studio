@@ -13,7 +13,6 @@ import Button from '@mui/material/Button';
 import LinearProgress from '@mui/material/LinearProgress';
 import Box from '@mui/material/Box';
 import { makeStyles } from 'tss-react/mui';
-import { TransitionProps } from '@mui/material/transitions';
 import { useDispatch } from '../../frontend-utils';
 
 const useStyles = makeStyles()(theme => ({
@@ -32,7 +31,7 @@ const Transition = React.forwardRef(function Transition(
     return <Slide direction="up" ref={ref} {...props} />;
 });
 
-export const FactoryModeProgressDialog = (props: {}) => {
+export const FactoryModeProgressDialog = () => {
     const { classes } = useStyles();
     const dispatch = useDispatch();
 

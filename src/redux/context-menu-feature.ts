@@ -32,7 +32,7 @@ export const slice = createSlice({
             state.position = action.payload.position;
             state.track = action.payload.track;
         },
-        closeContextMenu: (state, action: PayloadAction<null>) => {
+        closeContextMenu: (state, _action: PayloadAction<null>) => {
             state.visible = false;
             state.position = null;
             state.track = null;

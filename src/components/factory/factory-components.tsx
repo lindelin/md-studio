@@ -234,7 +234,7 @@ export const CellInput = ({ value, setValue }: { value: number[]; setValue: (new
 
     function backslashToStandard(text: string): number[] {
         const ALLOWED = '01234567889ABCDEFabcdef';
-        let raw: number[] = [];
+        const raw: number[] = [];
         let sequence = false;
         let half = null;
         for (const char of [...text]) {

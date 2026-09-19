@@ -25,7 +25,7 @@ const Transition = React.forwardRef(function Transition(
     return <Slide direction="up" ref={ref} {...props} />;
 });
 
-export const FactoryModeBadSectorDialog = (props: {}) => {
+export const FactoryModeBadSectorDialog = () => {
     const dispatch = useDispatch();
 
     const { visible, address, count, remember, rememberForRestOfSession, seconds } = useShallowEqualSelector(state => state.factoryBadSectorDialog);

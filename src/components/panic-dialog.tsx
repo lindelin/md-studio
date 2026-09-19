@@ -10,7 +10,6 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Slide, { SlideProps } from '@mui/material/Slide';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
-import { TransitionProps } from '@mui/material/transitions';
 import { makeStyles } from 'tss-react/mui';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
@@ -30,7 +29,7 @@ const useStyles = makeStyles()((theme) => ({
     },
 }));
 
-export const PanicDialog = (props: {}) => {
+export const PanicDialog = () => {
     const dispatch = useDispatch();
     const { classes } = useStyles();
 

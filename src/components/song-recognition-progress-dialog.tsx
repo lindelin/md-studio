@@ -41,7 +41,7 @@ const Transition = React.forwardRef(function Transition(props: SlideProps, ref: 
     return <Slide direction="up" ref={ref} {...props} />;
 });
 
-export const SongRecognitionProgressDialog = (props: {}) => {
+export const SongRecognitionProgressDialog = () => {
     const { classes } = useStyles();
     const dispatch = useDispatch();
 

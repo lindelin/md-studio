@@ -390,7 +390,7 @@ class NetMDMockService extends NetMDService {
         progressCallback({ written: 100, encrypted: 100, total: 100 });
     }
 
-    async download(index: number, progressCallback: (progress: { read: number; total: number }) => void) {
+    async download(_index: number, _progressCallback: (progress: { read: number; total: number }) => void) {
         return null;
     }
 
@@ -430,7 +430,7 @@ class NetMDMockService extends NetMDService {
         await sleep(500);
     }
 
-    async gotoTime(index: number, hour = 0, minute = 0, second = 0, frame = 0) {
+    async gotoTime(index: number, _hour = 0, _minute = 0, _second = 0, _frame = 0) {
         this._status.track = index;
         await sleep(500);
     }
@@ -460,24 +460,24 @@ class NetMDMockService extends NetMDService {
 
     async flush(): Promise<void> {}
     async himdRenameTrack(
-        index: number,
-        newName: { title?: string | undefined; album?: string | undefined; artist?: string | undefined }
+        _index: number,
+        _newName: { title?: string | undefined; album?: string | undefined; artist?: string | undefined }
     ): Promise<void> {}
 }
 class NetMDFactoryMockService implements NetMDFactoryService {
     async prepareDownload(): Promise<void> {}
     async finalizeDownload(): Promise<void> {}
-    async setDiscSwapDetection(enable: boolean): Promise<void> {}
+    async setDiscSwapDetection(_enable: boolean): Promise<void> {}
     async uploadSP(
-        title: string,
-        fullWidthTitle: string,
-        mono: boolean,
-        data: ArrayBuffer,
-        progressCallback: (progress: { written: number; encrypted: number; total: number }) => void
+        _title: string,
+        _fullWidthTitle: string,
+        _mono: boolean,
+        _data: ArrayBuffer,
+        _progressCallback: (progress: { written: number; encrypted: number; total: number }) => void
     ): Promise<number> {
         return 0;
     }
-    async finalizeSPUpload(tracks: { index: number; channels: 1 | 2 }[]): Promise<void> {}
+    async finalizeSPUpload(_tracks: { index: number; channels: 1 | 2 }[]): Promise<void> {}
     async getExploitCapabilities() {
         return [ExploitCapability.downloadAtrac];
     }
@@ -509,22 +509,22 @@ class NetMDFactoryMockService implements NetMDFactoryService {
 
     async flushUTOCCacheToDisc() {}
 
-    async readFirmware(callback: (progress: { type: 'RAM' | 'ROM'; readBytes: number; totalBytes: number }) => void) {
+    async readFirmware(_callback: (progress: { type: 'RAM' | 'ROM'; readBytes: number; totalBytes: number }) => void) {
         return {
             ram: new Uint8Array(Buffer.from('***MOCK DATA***')),
             rom: new Uint8Array(Buffer.from('***MOCK DATA***')),
         };
     }
 
-    async readRAM(callback?: (progress: { readBytes: number; totalBytes: number }) => void): Promise<Uint8Array<ArrayBuffer>> {
+    async readRAM(_callback?: (progress: { readBytes: number; totalBytes: number }) => void): Promise<Uint8Array<ArrayBuffer>> {
         return new Uint8Array(Buffer.from('***MOCK DATA***'));
     }
 
     async exploitDownloadTrack(
-        track: number,
-        nerawDownload: boolean,
-        callback: (data: { read: number; total: number; action: 'READ' | 'SEEK' | 'CHUNK'; sector?: string }) => void,
-        config?: any
+        _track: number,
+        _nerawDownload: boolean,
+        _callback: (data: { read: number; total: number; action: 'READ' | 'SEEK' | 'CHUNK'; sector?: string }) => void,
+        _config?: any
     ): Promise<{ data: Uint8Array<ArrayBuffer>, extension: string }> {
         return Promise.resolve({
             extension: 'bin',
@@ -532,9 +532,9 @@ class NetMDFactoryMockService implements NetMDFactoryService {
         });
     }
 
-    async setSPSpeedupActive(newState: boolean) {}
+    async setSPSpeedupActive(_newState: boolean) {}
     async enableHiMDFullMode(): Promise<void> {}
-    async enableMonoUpload(enable: boolean): Promise<void> {}
+    async enableMonoUpload(_enable: boolean): Promise<void> {}
     async enterServiceMode(): Promise<void> {}
 }
 

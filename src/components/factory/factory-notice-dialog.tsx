@@ -10,13 +10,12 @@ import Slide, { SlideProps } from '@mui/material/Slide';
 import Button from '@mui/material/Button';
 import Link from '@mui/material/Link';
 import { makeStyles } from 'tss-react/mui';
-import { TransitionProps } from '@mui/material/transitions';
 import { useDispatch } from '../../frontend-utils';
 import { actions as factoryNoticeDialogActions } from '../../redux/factory/factory-notice-dialog-feature';
 import { actions as appStateActions } from '../../redux/app-feature';
 import { readToc } from '../../redux/factory/factory-actions';
 
-const useStyles = makeStyles()((theme) => ({
+const useStyles = makeStyles()(() => ({
     mainText: {
         whiteSpace: 'pre-wrap',
         textAlign: 'justify',
@@ -27,7 +26,7 @@ const Transition = React.forwardRef(function Transition(props: SlideProps, ref: 
     return <Slide direction="up" ref={ref} {...props} />;
 });
 
-export const FactoryModeNoticeDialog = (props: {}) => {
+export const FactoryModeNoticeDialog = () => {
     const { classes } = useStyles();
     const dispatch = useDispatch();
     const { visible } = useShallowEqualSelector((state) => state.factoryNoticeDialog);

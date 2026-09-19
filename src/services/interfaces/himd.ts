@@ -69,11 +69,11 @@ export class HiMDSpec implements MinidiscSpec {
         const t = (x: string) => Math.floor((x.length + 13) / 14) * 14;
         let amt = 0;
         // TODO: this can be integrated into himd-js at some point...
-        for (let group of disc.groups) {
+        for (const group of disc.groups) {
             if (group.title) {
                 amt += t(group.title);
             }
-            for (let track of group.tracks) {
+            for (const track of group.tracks) {
                 if (track.title) amt += t(track.title);
                 if (track.album) amt += t(track.album);
                 if (track.artist) amt += t(track.artist);
@@ -92,7 +92,7 @@ export class HiMDSpec implements MinidiscSpec {
         return { halfWidth: amt, fullWidth: 0 };
     }
 
-    translateDefaultMeasuringModeTo(codec: Codec, defaultMeasuringModeDuration: number): number {
+    translateDefaultMeasuringModeTo(_codec: Codec, _defaultMeasuringModeDuration: number): number {
         throw new Error('Illegal in bytes-measuring mode!');
     }
 
@@ -154,7 +154,7 @@ export class HiMDRestrictedService extends NetMDService {
         }
         this.spec = new HiMDSpec();
     }
-    getRemainingCharactersForTitles(disc: Disc): { halfWidth: number; fullWidth: number } {
+    getRemainingCharactersForTitles(_disc: Disc): { halfWidth: number; fullWidth: number } {
         return { halfWidth: Number.MAX_SAFE_INTEGER, fullWidth: Number.MAX_SAFE_INTEGER };
     }
     getCharactersForTitle(track: Track): { halfWidth: number; fullWidth: number } {
@@ -183,7 +183,9 @@ export class HiMDRestrictedService extends NetMDService {
 
     protected async reloadCache() {
         if (this.cachedDisc === undefined) {
-            let { left, total, used } = await this.himd!.filesystem.statFilesystem();
+            const stats = await this.himd!.filesystem.statFilesystem();
+            let { left, used } = stats;
+            const { total } = stats;
 
             if (left < 1048576) {
                 // If we have less than a MiB left, make it seem the drive is 100% filled.
@@ -253,7 +255,7 @@ export class HiMDRestrictedService extends NetMDService {
     }
     async finalize(): Promise<void> {}
 
-    async renameTrack(index: number, newTitle: TitleParameter, newFullWidthTitle?: string | undefined) {
+    async renameTrack(index: number, newTitle: TitleParameter, _newFullWidthTitle?: string | undefined) {
         if (typeof newTitle === 'string') {
             newTitle = { title: newTitle };
         }
@@ -261,12 +263,12 @@ export class HiMDRestrictedService extends NetMDService {
         this.dropCachedContentList();
     }
 
-    async renameDisc(newName: string, newFullWidthName?: string | undefined) {
+    async renameDisc(newName: string, _newFullWidthName?: string | undefined) {
         renameDisc(this.himd!, newName);
         this.dropCachedContentList();
     }
 
-    async renameGroup(groupIndex: number, newTitle: string, newFullWidthTitle?: string | undefined): Promise<void> {
+    async renameGroup(groupIndex: number, newTitle: string, _newFullWidthTitle?: string | undefined): Promise<void> {
         // groupIndex here is the index of the first track in the group
         // convert it to the actual group index
         const groups = getGroups(this.himd!);
@@ -275,7 +277,7 @@ export class HiMDRestrictedService extends NetMDService {
         this.dropCachedContentList();
     }
 
-    async addGroup(groupBegin: number, groupLength: number, name: string, fullWidthTitle?: string | undefined) {
+    async addGroup(groupBegin: number, groupLength: number, name: string, _fullWidthTitle?: string | undefined) {
         addGroup(this.himd!, name, groupBegin, groupLength);
         this.dropCachedContentList();
     }
@@ -300,7 +302,7 @@ export class HiMDRestrictedService extends NetMDService {
         this.dropCachedContentList();
     }
 
-    async deleteTracks(indexes: number[]): Promise<void> {
+    async deleteTracks(_indexes: number[]): Promise<void> {
         window.alert('Unavailable in restricted mode');
     }
 
@@ -330,11 +332,11 @@ export class HiMDRestrictedService extends NetMDService {
     }
 
     async upload(
-        title: TitleParameter,
-        fullWidthTitle: string,
-        data: ArrayBuffer,
-        format: Codec,
-        progressCallback: (progress: { written: number; encrypted: number; total: number }) => void
+        _title: TitleParameter,
+        _fullWidthTitle: string,
+        _data: ArrayBuffer,
+        _format: Codec,
+        _progressCallback: (progress: { written: number; encrypted: number; total: number }) => void
     ) {
         throw new Error('Unavailable in restricted mode');
     }
@@ -385,7 +387,7 @@ export class HiMDRestrictedService extends NetMDService {
 
     async wipeDiscTitleInfo(): Promise<void> {}
 
-    isDeviceConnected(device: USBDevice) {
+    isDeviceConnected(_device: USBDevice) {
         return false;
     }
 
@@ -406,10 +408,10 @@ export class HiMDRestrictedService extends NetMDService {
     prev(): Promise<void> {
         return Promise.resolve();
     }
-    gotoTrack(index: number): Promise<void> {
+    gotoTrack(_index: number): Promise<void> {
         return Promise.resolve();
     }
-    gotoTime(index: number, hour: number, minute: number, second: number, frame: number): Promise<void> {
+    gotoTime(_index: number, _hour: number, _minute: number, _second: number, _frame: number): Promise<void> {
         return Promise.resolve();
     }
     getPosition(): Promise<number[] | null> {
@@ -522,7 +524,7 @@ export class HiMDFullService extends HiMDRestrictedService {
         // Re-sign the disc
         const session = new HiMDSecureSession(this.himd!, this.fsDriver!.driver);
         await session.performAuthentication();
-        for (let trackSlot of allTrackSlots) {
+        for (const trackSlot of allTrackSlots) {
             session.allMacs!.set(new Uint8Array(8).fill(0), (trackSlot - 1) * 8);
         }
         await session.finalizeSession();

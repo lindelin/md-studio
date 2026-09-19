@@ -133,8 +133,19 @@ export const Controls = () => {
     const [lcdScreen, _setLCDScreen] = useState<number>(-1);
     const [trackPercentage, _setTrackPercentage] = useState<number>(0);
     const setLCDScreen = (newScreen: number) => (lcdScreen === newScreen ? void 0 : _setLCDScreen(newScreen));
-    const setTrackPercentage = (newTrackPercentage: typeof _setTrackPercentage extends (a: infer R) => any ? R : never) =>
-        newTrackPercentage === trackPercentage ? void 0 : _setTrackPercentage(newTrackPercentage);
+    const setTrackPercentage = useCallback(
+        (nextTrackPercentage: React.SetStateAction<number>) =>
+            _setTrackPercentage((currentTrackPercentage) => {
+                const resolvedTrackPercentage =
+                    typeof nextTrackPercentage === 'function'
+                        ? nextTrackPercentage(currentTrackPercentage)
+                        : nextTrackPercentage;
+                return resolvedTrackPercentage === currentTrackPercentage
+                    ? currentTrackPercentage
+                    : resolvedTrackPercentage;
+            }),
+        []
+    );
 
     const handlePrev = useCallback(() => {
         dispatch(control('prev'));
@@ -186,10 +197,11 @@ export const Controls = () => {
             case 1: // Elapsed Time
                 messageIsTime();
                 break;
-            case 2:
+            case 2: {
                 const timeDiff = track.duration - currentTimeSecs;
                 message = `-${formatTimeFromSeconds(timeDiff, false)}`;
                 break;
+            }
         }
         if (isSeekingProgressLocked) {
             currentTimeSecs = Math.floor((trackPercentage * track.duration) / 100);
@@ -243,7 +255,7 @@ export const Controls = () => {
         };
         window.addEventListener('mousemove', func);
         return () => window.removeEventListener('mousemove', func);
-    }, [isSeeking, durationHolderRef]);
+    }, [isSeeking, durationHolderRef, setTrackPercentage]);
 
     useEffect(() => {
         const func = () => {
@@ -264,7 +276,7 @@ export const Controls = () => {
         };
         window.addEventListener('mouseup', func);
         return () => window.removeEventListener('mouseup', func);
-    }, [setIsSeeking, deviceStatus, tracks, dispatch]);
+    }, [setIsSeeking, deviceStatus, tracks, dispatch, setTrackPercentage]);
 
     // LCD Text scrolling
     const animationDelayInMS = 2000;

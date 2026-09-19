@@ -15,7 +15,6 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
-import { TransitionProps } from '@mui/material/transitions';
 import { actions as fragmentModeEditActions } from '../../redux/factory/factory-fragment-mode-edit-dialog-feature';
 import { ModeFlag } from 'netmd-tocmanip';
 import { editFragmentMode } from '../../redux/factory/factory-actions';
@@ -34,7 +33,7 @@ const useStyles = makeStyles()(theme => ({
     },
 }));
 
-export const FactoryModeEditDialog = (props: {}) => {
+export const FactoryModeEditDialog = () => {
     const dispatch = useDispatch();
     const { classes } = useStyles();
 

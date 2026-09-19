@@ -75,7 +75,7 @@ const AnnotatedTextField = ({ label, className, value, onChange, annotation }: {
     </div>
 }
 
-export const FactoryModeEditOtherValuesDialog = (props: {}) => {
+export const FactoryModeEditOtherValuesDialog = () => {
     const dispatch = useDispatch();
     const { classes } = useStyles();
 

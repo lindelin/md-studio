@@ -12,7 +12,6 @@ import Slide, { SlideProps } from '@mui/material/Slide';
 import Button from '@mui/material/Button';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
-import { TransitionProps } from '@mui/material/transitions';
 import { Services } from '../services/interface-service-manager';
 import { addService } from '../redux/actions';
 import { isAllValid, initializeParameters } from '../custom-parameters';
@@ -36,7 +35,7 @@ const useStyles = makeStyles()((theme) => ({
     },
 }));
 
-export const OtherDeviceDialog = (props: {}) => {
+export const OtherDeviceDialog = () => {
     const dispatch = useDispatch();
     const { classes } = useStyles();
 

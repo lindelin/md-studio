@@ -185,7 +185,7 @@ interface TrackRowProps {
 }
 
 export function MockTrackRow({ isHimdTrack }: { isHimdTrack: boolean }) {
-    const { classes, cx } = useStyles();
+    const { classes } = useStyles();
     return (
         <TableRow hover color="inherit" className={classes.mockRow} style={{ maxHeight: '0px !important', height: '0px !important' }}>
             <TableCell className={classes.dragHandle} onClick={(event) => event.stopPropagation()}></TableCell>
