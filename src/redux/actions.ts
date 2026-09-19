@@ -6,24 +6,17 @@ import { actions as errorDialogAction } from './error-dialog-feature';
 import { actions as recordDialogAction } from './record-dialog-feature';
 import { actions as appStateActions } from './app-feature';
 import { actions as songRecognitionDialogActions, TitleEntry } from './song-recognition-dialog-feature';
-import { actions as songRecognitionProgressDialogActions } from './song-recognition-progress-dialog-feature';
-import {
-    sleep,
-    askNotificationPermission,
-    timeToSeekArgs,
-    downloadBlob,
-    secondsToHumanReadable,
-    getTracks,
-} from '../utils';
+import { sleep, askNotificationPermission, timeToSeekArgs, downloadBlob, secondsToHumanReadable, getTracks } from '../utils';
 import { assertNumber } from 'netmd-js/dist/utils';
 import { getSimpleServices, ServiceConstructionInfo } from '../services/interface-service-manager';
-import { getApplicationClient, getTrackRecognizer } from '../application/runtime';
+import { getApplicationClient } from '../application/runtime';
+import { waitForApplicationTask } from '../application/application-client';
 import { MetadataImportError } from '../domain/metadata-import';
 import { resolveGroupedTrackMove } from '../domain/disc-layout';
 import type { TaskSnapshot } from '../application/task-manager';
 import type { ApplicationCommand } from '../application/command-bus';
 import type { PlaybackCommand } from '../application/contracts';
-import type { TrackRecognitionProgress } from '../application/browser-track-recognizer';
+import type { TrackRecognitionTaskResult } from '../application/browser-track-recognizer';
 
 async function executeDeviceCommand(command: ApplicationCommand) {
     const result = await getApplicationClient().execute(command);
@@ -154,8 +147,7 @@ export function dragDropTrack(sourceList: number, sourceIndex: number, targetLis
         dispatch(appStateActions.setLoading(true));
         try {
             const client = getApplicationClient();
-            const snapshot =
-                client.getWorkspaceSnapshot().device ?? (await executeDeviceCommand({ type: 'disc.refresh' }));
+            const snapshot = client.getWorkspaceSnapshot().device ?? (await executeDeviceCommand({ type: 'disc.refresh' }));
             if (!snapshot.disc) return;
             const move = resolveGroupedTrackMove(snapshot.disc, sourceList, sourceIndex, targetList, targetIndex);
             if (move.sourceIndex === move.destinationIndex) return;
@@ -347,12 +339,7 @@ export function moveTrack(srcIndex: number, destIndex: number) {
     };
 }
 
-async function monitorTaskInRecordDialog(
-    dispatch: AppDispatch,
-    initialTask: TaskSnapshot,
-    fallbackError: string,
-    reportFailure = true
-) {
+async function monitorTaskInRecordDialog(dispatch: AppDispatch, initialTask: TaskSnapshot, fallbackError: string, reportFailure = true) {
     const client = getApplicationClient();
     let task = initialTask;
     dispatch(batchActions([recordDialogAction.setVisible(true), recordDialogAction.setTaskId(task.id)]));
@@ -365,10 +352,7 @@ async function monitorTaskInRecordDialog(
         }
         if (reportFailure && task.status === 'failed') {
             dispatch(
-                batchActions([
-                    errorDialogAction.setVisible(true),
-                    errorDialogAction.setErrorMessage(task.error?.message ?? fallbackError),
-                ])
+                batchActions([errorDialogAction.setVisible(true), errorDialogAction.setErrorMessage(task.error?.message ?? fallbackError)])
             );
         }
         return task;
@@ -377,11 +361,7 @@ async function monitorTaskInRecordDialog(
     }
 }
 
-export function downloadTracks(
-    indexes: number[],
-    convertOutputToWav: boolean,
-    callback?: (blob: Blob, name: string) => void
-) {
+export function downloadTracks(indexes: number[], convertOutputToWav: boolean, callback?: (blob: Blob, name: string) => void) {
     return async function (dispatch: AppDispatch): Promise<void> {
         const request = {
             indexes,
@@ -391,14 +371,11 @@ export function downloadTracks(
         let task;
         try {
             if (callback) {
-                task = await getApplicationClient().startLocalTrackExport(
-                    request,
-                    (data, fileName) => {
-                        const copy = new Uint8Array(data.byteLength);
-                        copy.set(data);
-                        callback(new Blob([copy.buffer], { type: 'application/octet-stream' }), fileName);
-                    }
-                );
+                task = await getApplicationClient().startLocalTrackExport(request, (data, fileName) => {
+                    const copy = new Uint8Array(data.byteLength);
+                    copy.set(data);
+                    callback(new Blob([copy.buffer], { type: 'application/octet-stream' }), fileName);
+                });
             } else {
                 const result = await getApplicationClient().execute({ type: 'track.export', ...request });
                 if (!result.ok) throw new Error(result.error.message);
@@ -686,69 +663,29 @@ export function openRecognizeTrackDialog(selectedTracks: number[]) {
 
 export function recognizeTracks(_trackEntries: TitleEntry[], mode: 'exploits' | 'line-in', inputModeConfiguration?: { deviceId?: string }) {
     const trackEntries = [..._trackEntries];
-    return async function (dispatch: AppDispatch, getState: () => RootState) {
-        const toRecognize = trackEntries.filter((n) => n.selectedToRecognize && !n.alreadyRecognized);
-        dispatch(
-            batchActions([
-                songRecognitionProgressDialogActions.setCancelled(false),
-                songRecognitionProgressDialogActions.setVisible(true),
-                songRecognitionProgressDialogActions.setCurrentTrack(0),
-                songRecognitionProgressDialogActions.setTotalTracks(toRecognize.length),
-            ])
-        );
-        const disc = getApplicationClient().getWorkspaceSnapshot().device?.disc;
+    return async function (dispatch: AppDispatch) {
+        const client = getApplicationClient();
+        const disc = client.getWorkspaceSnapshot().device?.disc;
         if (!disc) throw new Error('No MiniDisc is loaded.');
         const tracks = new Map(getTracks(disc).map((track) => [track.index, track]));
-        const publishProgress = (progress: TrackRecognitionProgress) => {
-            switch (progress.type) {
-                case 'track':
-                    dispatch(songRecognitionProgressDialogActions.setCurrentTrack(progress.current));
-                    break;
-                case 'phase':
-                    dispatch(
-                        songRecognitionProgressDialogActions.setCurrentStep(
-                            progress.phase === 'reading' ? 0 : progress.phase === 'calculating' ? 1 : 2
-                        )
-                    );
-                    if (progress.phase !== 'reading') {
-                        dispatch(
-                            batchActions([
-                                songRecognitionProgressDialogActions.setCurrentStepProgress(-1),
-                                songRecognitionProgressDialogActions.setCurrentStepTotal(0),
-                            ])
-                        );
-                    }
-                    break;
-                case 'read':
-                    dispatch(
-                        batchActions([
-                            songRecognitionProgressDialogActions.setCurrentStepProgress(progress.current),
-                            songRecognitionProgressDialogActions.setCurrentStepTotal(progress.total),
-                        ])
-                    );
-                    break;
-            }
-        };
 
         try {
-            const results = await getTrackRecognizer().recognize(
-                {
-                    mode,
-                    deviceId: inputModeConfiguration?.deviceId,
-                    useSlowerExploit:
-                        getApplicationClient().getWorkspaceSnapshot().settings.values.factoryModeUseSlowerExploit,
-                    tracks: trackEntries.map((entry) => ({
-                        index: entry.index,
-                        duration: tracks.get(entry.index)?.duration ?? 0,
-                        selected: entry.selectedToRecognize,
-                        alreadyRecognized: entry.alreadyRecognized,
-                    })),
-                },
-                {
-                    isCancelled: () => getState().songRecognitionProgressDialog.cancelled,
-                    onProgress: publishProgress,
-                }
-            );
+            const started = await client.startLocalTrackRecognition({
+                mode,
+                deviceId: inputModeConfiguration?.deviceId,
+                useSlowerExploit: client.getWorkspaceSnapshot().settings.values.factoryModeUseSlowerExploit,
+                tracks: trackEntries.map((entry) => ({
+                    index: entry.index,
+                    duration: tracks.get(entry.index)?.duration ?? 0,
+                    selected: entry.selectedToRecognize,
+                    alreadyRecognized: entry.alreadyRecognized,
+                })),
+            });
+            const finished = await waitForApplicationTask(client, started.id);
+            if (finished.status === 'failed' || finished.status === 'interrupted') {
+                throw new Error(finished.error?.message ?? 'Song recognition failed.');
+            }
+            const results = (finished.result as TrackRecognitionTaskResult | undefined)?.tracks ?? [];
             const byIndex = new Map(results.map((result) => [result.index, result]));
             const updatedEntries = trackEntries.map((entry) => {
                 const result = byIndex.get(entry.index);
@@ -765,9 +702,12 @@ export function recognizeTracks(_trackEntries: TitleEntry[], mode: 'exploits' | 
             });
             dispatch(songRecognitionDialogActions.setTitles(updatedEntries));
         } catch (error) {
-            window.alert(error instanceof Error ? error.message : 'Song recognition failed.');
-        } finally {
-            dispatch(songRecognitionProgressDialogActions.setVisible(false));
+            dispatch(
+                batchActions([
+                    errorDialogAction.setVisible(true),
+                    errorDialogAction.setErrorMessage(error instanceof Error ? error.message : 'Song recognition failed.'),
+                ])
+            );
         }
     };
 }

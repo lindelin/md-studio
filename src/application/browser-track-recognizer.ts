@@ -1,6 +1,7 @@
 import type { ApplicationClient } from './application-client';
 import type { AdvancedTrackReader } from './contracts';
 import { ffmpegTranscode, timeToSeekArgs } from '../utils';
+import type { TaskManager, TaskSnapshot, TaskStageProgress } from './task-manager';
 
 export const RECOGNITION_SAMPLE_SECONDS = 12;
 export const RECOGNITION_ATTEMPTS = 3;
@@ -47,6 +48,7 @@ export interface AudioRecognitionService {
 }
 
 export interface TrackRecognizer {
+    start(request: TrackRecognitionRequest, tasks: TaskManager): Promise<TaskSnapshot<TrackRecognitionTaskResult>>;
     recognize(
         request: TrackRecognitionRequest,
         hooks?: {
@@ -56,12 +58,13 @@ export interface TrackRecognizer {
     ): Promise<RecognizedTrackMetadata[]>;
 }
 
+export interface TrackRecognitionTaskResult {
+    tracks: RecognizedTrackMetadata[];
+}
+
 type RecognitionClient = Pick<
     ApplicationClient,
-    | 'getWorkspaceSnapshot'
-    | 'runLocalAdvancedTrackDownloadSession'
-    | 'runLocalPlaybackCaptureSession'
-    | 'captureLocalAudioInput'
+    'getWorkspaceSnapshot' | 'runLocalAdvancedTrackDownloadSession' | 'runLocalPlaybackCaptureSession' | 'captureLocalAudioInput'
 >;
 
 export interface BrowserTrackRecognizerDependencies {
@@ -77,6 +80,14 @@ export class BrowserTrackRecognizer implements TrackRecognizer {
             transcode: ffmpegTranscode,
         }
     ) {}
+
+    async start(request: TrackRecognitionRequest, tasks: TaskManager) {
+        const total = request.tracks.filter((track) => track.selected && !track.alreadyRecognized).length;
+        const task = tasks.create('metadata.recognize', `Recognize ${total} track${total === 1 ? '' : 's'}`, total, 'tracks');
+        tasks.start(task.id, 'preparing');
+        void this.runTask(task.id, request, tasks);
+        return tasks.get(task.id) as TaskSnapshot<TrackRecognitionTaskResult>;
+    }
 
     async recognize(
         request: TrackRecognitionRequest,
@@ -101,6 +112,60 @@ export class BrowserTrackRecognizer implements TrackRecognizer {
         return run();
     }
 
+    private async runTask(taskId: string, request: TrackRecognitionRequest, tasks: TaskManager) {
+        const stages: Record<string, TaskStageProgress> = {
+            recognition: { completed: 0, total: 0, currentLabel: 'reading' },
+        };
+        const isRunning = () => tasks.get(taskId).status === 'running';
+        const isCancelled = () => {
+            const task = tasks.get(taskId);
+            return task.cancellationRequested || task.status === 'cancelled' || task.status === 'interrupted';
+        };
+
+        try {
+            const results = await this.recognize(request, {
+                isCancelled,
+                onProgress: (progress) => {
+                    if (!isRunning()) return;
+                    if (progress.type === 'track') {
+                        tasks.reportProgress(taskId, {
+                            completed: progress.current,
+                            currentLabel: `Track ${progress.trackIndex + 1}`,
+                            stages,
+                        });
+                        return;
+                    }
+                    if (progress.type === 'phase') {
+                        const phase =
+                            progress.phase === 'reading' ? 'transferring' : progress.phase === 'calculating' ? 'converting' : 'finalizing';
+                        if (tasks.get(taskId).phase !== phase) tasks.setPhase(taskId, phase);
+                        stages.recognition = { completed: 0, total: 0, currentLabel: progress.phase };
+                        tasks.reportProgress(taskId, { stages });
+                        return;
+                    }
+                    stages.recognition = {
+                        completed: progress.current,
+                        total: progress.total,
+                        currentLabel: 'reading',
+                    };
+                    tasks.reportProgress(taskId, { stages });
+                },
+            });
+            if (!isRunning()) return;
+            const result: TrackRecognitionTaskResult = { tracks: results };
+            if (isCancelled()) tasks.cancel(taskId, result);
+            else tasks.succeed(taskId, result);
+        } catch (error) {
+            if (!isRunning()) return;
+            tasks.fail(taskId, error, {
+                retryable: true,
+                completedItems: tasks.get(taskId).progress.completed,
+                pendingItems: tasks.get(taskId).progress.total - tasks.get(taskId).progress.completed,
+                recoveryAction: 'Check the audio source and recognition service, then retry the remaining tracks.',
+            });
+        }
+    }
+
     private async recognizeCandidates(
         tracks: TrackRecognitionInput[],
         request: TrackRecognitionRequest,
@@ -123,11 +188,7 @@ export class BrowserTrackRecognizer implements TrackRecognizer {
             }
 
             let match: RecognitionMatch | null = null;
-            for (
-                let attempt = 0;
-                attempt < RECOGNITION_ATTEMPTS && !isCancelled() && match === null;
-                attempt += 1
-            ) {
+            for (let attempt = 0; attempt < RECOGNITION_ATTEMPTS && !isCancelled() && match === null; attempt += 1) {
                 hooks.onProgress?.({ type: 'phase', phase: 'reading' });
                 hooks.onProgress?.({ type: 'read', current: 0, total: 1 });
                 const startSeconds = attempt * RECOGNITION_SAMPLE_SECONDS;
@@ -138,11 +199,7 @@ export class BrowserTrackRecognizer implements TrackRecognizer {
 
                 if (isCancelled()) break;
                 hooks.onProgress?.({ type: 'phase', phase: 'calculating' });
-                const rawSamples = await this.dependencies.transcode(
-                    captured.data,
-                    captured.extension,
-                    '-ar 16000 -ac 1 -f s16le'
-                );
+                const rawSamples = await this.dependencies.transcode(captured.data, captured.extension, '-ar 16000 -ac 1 -f s16le');
                 if (isCancelled()) break;
                 match = await recognition.recognize(rawSamples, (phase) => hooks.onProgress?.({ type: 'phase', phase }));
             }

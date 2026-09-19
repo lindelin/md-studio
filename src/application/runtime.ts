@@ -21,13 +21,9 @@ export function bindApplicationRuntime() {
     const application = new MiniDiscApplication(
         new NetMDDeviceGateway(serviceRegistry.netmdService, serviceRegistry.netmdSpec),
         serviceRegistry.operationCoordinator,
-        new NetMDAdvancedDeviceGateway(
-            serviceRegistry.netmdService,
-            serviceRegistry.netmdFactoryService,
-            (factoryService) => {
-                serviceRegistry.netmdFactoryService = factoryService;
-            }
-        )
+        new NetMDAdvancedDeviceGateway(serviceRegistry.netmdService, serviceRegistry.netmdFactoryService, (factoryService) => {
+            serviceRegistry.netmdFactoryService = factoryService;
+        })
     );
     serviceRegistry.application = application;
     serviceRegistry.workspaceStore.attachApplication(application);
@@ -50,10 +46,7 @@ export function ensureApplicationCommandBus() {
             (paths, expectedLibraryRevision) => {
                 const selections = serviceRegistry.libraryCatalog.resolveTracks(paths, expectedLibraryRevision);
                 return selections.map((selection) => {
-                    const processFile = serviceRegistry.libraryCatalog.createFileProcessor(
-                        selection.path,
-                        expectedLibraryRevision
-                    );
+                    const processFile = serviceRegistry.libraryCatalog.createFileProcessor(selection.path, expectedLibraryRevision);
                     const payload: AdaptiveFile = {
                         name: selection.name,
                         ...selection.metadata,
@@ -121,12 +114,7 @@ export function getApplicationClient() {
                 if (!serviceRegistry.trackExporter) {
                     throw new Error('Track export is unavailable in this application environment.');
                 }
-                return serviceRegistry.trackExporter.start(
-                    request,
-                    getApplicationRuntime(),
-                    serviceRegistry.taskManager,
-                    sink
-                );
+                return serviceRegistry.trackExporter.start(request, getApplicationRuntime(), serviceRegistry.taskManager, sink);
             },
             async (kind, sink) => {
                 const task = serviceRegistry.taskManager.create(
@@ -142,8 +130,7 @@ export function getApplicationClient() {
                             completed: progress.readBytes,
                             total: progress.totalBytes,
                             currentLabel: progress.region,
-                            currentPercent:
-                                progress.totalBytes === 0 ? 0 : (progress.readBytes / progress.totalBytes) * 100,
+                            currentPercent: progress.totalBytes === 0 ? 0 : (progress.readBytes / progress.totalBytes) * 100,
                         });
                     })
                     .then(async (dump) => {
@@ -173,11 +160,7 @@ export function getApplicationClient() {
                     handleBadSector
                 ),
             (useSlowerExploit, operation) =>
-                getApplicationRuntime().runAdvancedTrackDownloadSession(
-                    useSlowerExploit,
-                    INTERACTIVE_ADVANCED_AUTHORIZATION,
-                    operation
-                ),
+                getApplicationRuntime().runAdvancedTrackDownloadSession(useSlowerExploit, INTERACTIVE_ADVANCED_AUTHORIZATION, operation),
             (requiredExploitCapabilities, operation, expectedDeviceVersion) =>
                 getApplicationRuntime().runDeviceUploadSession(
                     requiredExploitCapabilities,
@@ -188,8 +171,7 @@ export function getApplicationClient() {
             (filePath) => {
                 return serviceRegistry.libraryCatalog.createFileProcessor(filePath.split('/'));
             },
-            (expectedDeviceVersion, operation) =>
-                getApplicationRuntime().runPlaybackCaptureSession(expectedDeviceVersion, operation),
+            (expectedDeviceVersion, operation) => getApplicationRuntime().runPlaybackCaptureSession(expectedDeviceVersion, operation),
             localMediaServices,
             {
                 connect: async (request) => {
@@ -252,6 +234,12 @@ export function getApplicationClient() {
                     await releaseDeviceSession(finalize);
                     serviceRegistry.workspaceStore.setConnection(disconnectedDeviceConnection());
                 },
+            },
+            async (request) => {
+                if (!serviceRegistry.trackRecognizer) {
+                    throw new Error('Song recognition is unavailable in this application environment.');
+                }
+                return serviceRegistry.trackRecognizer.start(request, serviceRegistry.taskManager);
             }
         );
     }
@@ -265,13 +253,6 @@ function disconnectedDeviceConnection() {
         method: null,
         message: null,
     };
-}
-
-export function getTrackRecognizer() {
-    if (!serviceRegistry.trackRecognizer) {
-        throw new Error('Song recognition is unavailable in this application environment.');
-    }
-    return serviceRegistry.trackRecognizer;
 }
 
 export function getApplicationRuntime() {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { InProcessApplicationClient } from '../src/application/application-client.ts';
+import { InProcessApplicationClient, waitForApplicationTask } from '../src/application/application-client.ts';
 import { ImportQueue } from '../src/application/import-queue.ts';
 import { SettingsStore } from '../src/application/settings-store.ts';
 import { TaskManager } from '../src/application/task-manager.ts';
@@ -13,10 +13,7 @@ import type {
     PlaybackSession,
 } from '../src/application/contracts.ts';
 
-async function runAdvancedSession<T>(
-    _useSlowerExploit: boolean,
-    operation: (readTrack: AdvancedTrackReader) => Promise<T>
-) {
+async function runAdvancedSession<T>(_useSlowerExploit: boolean, operation: (readTrack: AdvancedTrackReader) => Promise<T>) {
     return operation(async () => ({ data: new Uint8Array(), extension: 'aea' }));
 }
 
@@ -39,6 +36,23 @@ function createUploadService(): DeviceUploadService {
 }
 
 describe('InProcessApplicationClient', () => {
+    it('waits for a shared workspace task without polling a second state store', async () => {
+        const tasks = new TaskManager();
+        const workspace = new WorkspaceStore(tasks, new ImportQueue(), new SettingsStore(null));
+        const task = tasks.create('test', 'Test task');
+        tasks.start(task.id);
+
+        const finishedPromise = waitForApplicationTask(
+            { getWorkspaceSnapshot: workspace.getSnapshot, subscribe: workspace.subscribe },
+            task.id
+        );
+        tasks.succeed(task.id, { completed: true });
+        const finished = await finishedPromise;
+
+        assert.equal(finished.status, 'succeeded');
+        assert.deepEqual(finished.result, { completed: true });
+    });
+
     it('offers one command and subscription interface for browser UI state', async () => {
         const tasks = new TaskManager();
         const imports = new ImportQueue();
@@ -177,7 +191,11 @@ describe('InProcessApplicationClient', () => {
         const workspace = new WorkspaceStore(tasks, imports, new SettingsStore(null));
         const indexes: number[][] = [];
         const client = new InProcessApplicationClient(
-            { async execute() { return { ok: true }; } },
+            {
+                async execute() {
+                    return { ok: true };
+                },
+            },
             workspace,
             imports,
             async () => tasks.create('track-export', 'Local export'),
@@ -206,7 +224,11 @@ describe('InProcessApplicationClient', () => {
         const workspace = new WorkspaceStore(tasks, imports, new SettingsStore(null));
         const sessionModes: boolean[] = [];
         const client = new InProcessApplicationClient(
-            { async execute() { return { ok: true }; } },
+            {
+                async execute() {
+                    return { ok: true };
+                },
+            },
             workspace,
             imports,
             async () => tasks.create('track-export', 'Local export'),
@@ -219,12 +241,20 @@ describe('InProcessApplicationClient', () => {
             runUploadSession
         );
 
-        const extension = await client.runLocalAdvancedTrackDownloadSession(true, async (readTrack) =>
-            (await readTrack(0, {
-                nerawDownload: false,
-                shouldCancel: () => false,
-                handleBadSector: async () => 'abort',
-            }, () => {})).extension
+        const extension = await client.runLocalAdvancedTrackDownloadSession(
+            true,
+            async (readTrack) =>
+                (
+                    await readTrack(
+                        0,
+                        {
+                            nerawDownload: false,
+                            shouldCancel: () => false,
+                            handleBadSector: async () => 'abort',
+                        },
+                        () => {}
+                    )
+                ).extension
         );
 
         assert.equal(extension, 'aea');
@@ -237,7 +267,11 @@ describe('InProcessApplicationClient', () => {
         const workspace = new WorkspaceStore(tasks, imports, new SettingsStore(null));
         const capabilities: string[][] = [];
         const client = new InProcessApplicationClient(
-            { async execute() { return { ok: true }; } },
+            {
+                async execute() {
+                    return { ok: true };
+                },
+            },
             workspace,
             imports,
             async () => tasks.create('track-export', 'Local export'),
@@ -271,7 +305,11 @@ describe('InProcessApplicationClient', () => {
         const workspace = new WorkspaceStore(tasks, imports, new SettingsStore(null));
         const events: string[] = [];
         const client = new InProcessApplicationClient(
-            { async execute() { return { ok: true }; } },
+            {
+                async execute() {
+                    return { ok: true };
+                },
+            },
             workspace,
             imports,
             async () => tasks.create('track-export', 'Local export'),
@@ -294,13 +332,10 @@ describe('InProcessApplicationClient', () => {
             }
         );
 
-        const position = await client.runLocalPlaybackCaptureSession(
-            { sessionId: 'session', revision: 3 },
-            async (playback) => {
-                await playback.control({ action: 'play' });
-                return playback.readPosition();
-            }
-        );
+        const position = await client.runLocalPlaybackCaptureSession({ sessionId: 'session', revision: 3 }, async (playback) => {
+            await playback.control({ action: 'play' });
+            return playback.readPosition();
+        });
 
         assert.deepEqual(position, [0, 0, 0, 2]);
         assert.deepEqual(events, ['play']);
@@ -312,7 +347,11 @@ describe('InProcessApplicationClient', () => {
         const workspace = new WorkspaceStore(tasks, imports, new SettingsStore(null));
         const requestedPaths: string[] = [];
         const client = new InProcessApplicationClient(
-            { async execute() { return { ok: true }; } },
+            {
+                async execute() {
+                    return { ok: true };
+                },
+            },
             workspace,
             imports,
             async () => tasks.create('track-export', 'Local export'),
@@ -339,7 +378,11 @@ describe('InProcessApplicationClient', () => {
         const workspace = new WorkspaceStore(tasks, imports, new SettingsStore(null));
         const events: unknown[] = [];
         const client = new InProcessApplicationClient(
-            { async execute() { return { ok: true }; } },
+            {
+                async execute() {
+                    return { ok: true };
+                },
+            },
             workspace,
             imports,
             async () => tasks.create('track-export', 'Local export'),
@@ -373,7 +416,11 @@ describe('InProcessApplicationClient', () => {
         const imports = new ImportQueue();
         const workspace = new WorkspaceStore(tasks, imports, new SettingsStore(null));
         const client = new InProcessApplicationClient(
-            { async execute() { return { ok: true }; } },
+            {
+                async execute() {
+                    return { ok: true };
+                },
+            },
             workspace,
             imports,
             async () => tasks.create('track-export', 'Local export'),

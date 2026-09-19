@@ -8,7 +8,6 @@ import convertDialog from './convert-dialog-feature';
 import dumpDialog from './dump-dialog-feature';
 import recordDialog from './record-dialog-feature';
 import songRecognitionDialog from './song-recognition-dialog-feature';
-import songRecognitionProgressDialog from './song-recognition-progress-dialog-feature';
 import appState, { actions as appActions, buildInitialState as buildInitialAppState } from './app-feature';
 import localLibrary from './local-library-feature';
 import factory from './factory/factory-feature';
@@ -44,7 +43,6 @@ const reducer = combineReducers({
     dumpDialog,
     recordDialog,
     songRecognitionDialog,
-    songRecognitionProgressDialog,
     factory,
     factoryFragmentModeEditDialog,
     factoryProgressDialog,

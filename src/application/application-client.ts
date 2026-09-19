@@ -16,11 +16,9 @@ import type { AdvancedBadSectorHandler, AdvancedTrackExportRequest } from './adv
 import type { ExportParams } from '../services/audio/audio-export';
 import type { LocalAudioInput } from './browser-audio-input';
 import type { CustomParameters } from '../custom-parameters';
+import type { TrackRecognitionRequest, TrackRecognitionTaskResult } from './browser-track-recognizer';
 
-export type LocalAdvancedMemorySink = (
-    region: AdvancedMemoryRegion,
-    data: Uint8Array
-) => void | Promise<void>;
+export type LocalAdvancedMemorySink = (region: AdvancedMemoryRegion, data: Uint8Array) => void | Promise<void>;
 
 export interface ApplicationCommandExecutor {
     execute(command: ApplicationCommand): Promise<CommandResult>;
@@ -50,6 +48,7 @@ export interface ApplicationClient {
         sink: TrackExportSink,
         handleBadSector: AdvancedBadSectorHandler
     ): Promise<TaskSnapshot>;
+    startLocalTrackRecognition(request: TrackRecognitionRequest): Promise<TaskSnapshot<TrackRecognitionTaskResult>>;
     runLocalAdvancedTrackDownloadSession<T>(
         useSlowerExploit: boolean,
         operation: (readTrack: AdvancedTrackReader) => Promise<T>
@@ -83,10 +82,7 @@ export class InProcessApplicationClient implements ApplicationClient {
         private readonly workspace: WorkspaceStore,
         private readonly localImports: Pick<ImportQueue, 'add'>,
         private readonly localTrackExport: (request: TrackExportRequest, sink: TrackExportSink) => Promise<TaskSnapshot>,
-        private readonly localAdvancedMemoryExport: (
-            kind: AdvancedMemoryKind,
-            sink: LocalAdvancedMemorySink
-        ) => Promise<TaskSnapshot>,
+        private readonly localAdvancedMemoryExport: (kind: AdvancedMemoryKind, sink: LocalAdvancedMemorySink) => Promise<TaskSnapshot>,
         private readonly localAdvancedTrackExport: (
             request: AdvancedTrackExportRequest,
             sink: TrackExportSink,
@@ -113,7 +109,8 @@ export class InProcessApplicationClient implements ApplicationClient {
         private readonly localDeviceSessions?: {
             connect(request: LocalDeviceConnectionRequest): Promise<LocalDeviceConnectionResult>;
             disconnect(finalize?: boolean): Promise<void>;
-        }
+        },
+        private readonly localTrackRecognition?: (request: TrackRecognitionRequest) => Promise<TaskSnapshot<TrackRecognitionTaskResult>>
     ) {}
 
     execute = (command: ApplicationCommand) => this.commands.execute(command);
@@ -129,8 +126,7 @@ export class InProcessApplicationClient implements ApplicationClient {
         }
         return this.localDeviceSessions.disconnect(finalize);
     };
-    addLocalImports = (inputs: ImportQueueInput[], expectedRevision?: number) =>
-        this.localImports.add(inputs, expectedRevision);
+    addLocalImports = (inputs: ImportQueueInput[], expectedRevision?: number) => this.localImports.add(inputs, expectedRevision);
     startLocalTrackExport = (request: TrackExportRequest, sink: TrackExportSink) => this.localTrackExport(request, sink);
     startLocalAdvancedMemoryExport = (kind: AdvancedMemoryKind, sink: LocalAdvancedMemorySink) =>
         this.localAdvancedMemoryExport(kind, sink);
@@ -139,10 +135,14 @@ export class InProcessApplicationClient implements ApplicationClient {
         sink: TrackExportSink,
         handleBadSector: AdvancedBadSectorHandler
     ) => this.localAdvancedTrackExport(request, sink, handleBadSector);
-    runLocalAdvancedTrackDownloadSession = <T>(
-        useSlowerExploit: boolean,
-        operation: (readTrack: AdvancedTrackReader) => Promise<T>
-    ) => this.localAdvancedTrackDownloadSession(useSlowerExploit, operation);
+    startLocalTrackRecognition = (request: TrackRecognitionRequest) => {
+        if (!this.localTrackRecognition) {
+            throw new Error('Song recognition is unavailable in this application environment.');
+        }
+        return this.localTrackRecognition(request);
+    };
+    runLocalAdvancedTrackDownloadSession = <T>(useSlowerExploit: boolean, operation: (readTrack: AdvancedTrackReader) => Promise<T>) =>
+        this.localAdvancedTrackDownloadSession(useSlowerExploit, operation);
     runLocalDeviceUploadSession = <T>(
         requiredExploitCapabilities: string[],
         operation: (uploadService: DeviceUploadService, advancedUploadService?: AdvancedUploadService) => Promise<T>,
@@ -189,4 +189,28 @@ export class InProcessApplicationClient implements ApplicationClient {
     };
     getWorkspaceSnapshot = this.workspace.getSnapshot;
     subscribe = this.workspace.subscribe;
+}
+
+export function waitForApplicationTask(client: Pick<ApplicationClient, 'getWorkspaceSnapshot' | 'subscribe'>, id: string) {
+    const readTask = () => {
+        const task = client.getWorkspaceSnapshot().tasks.find((candidate) => candidate.id === id);
+        if (!task) throw new Error(`Task ${id} is no longer available.`);
+        return task;
+    };
+    const initial = readTask();
+    if (initial.status !== 'queued' && initial.status !== 'running') return Promise.resolve(initial);
+
+    return new Promise<TaskSnapshot>((resolve, reject) => {
+        const unsubscribe = client.subscribe(() => {
+            try {
+                const task = readTask();
+                if (task.status === 'queued' || task.status === 'running') return;
+                unsubscribe();
+                resolve(task);
+            } catch (error) {
+                unsubscribe();
+                reject(error);
+            }
+        });
+    });
 }

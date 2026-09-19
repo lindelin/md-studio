@@ -8,6 +8,7 @@ import {
     type TrackRecognitionProgress,
 } from '../src/application/browser-track-recognizer.ts';
 import type { AdvancedTrackReader, PlaybackSession } from '../src/application/contracts.ts';
+import { TaskManager, type TaskSnapshot } from '../src/application/task-manager.ts';
 
 function createRecognizer(
     client: Partial<ApplicationClient>,
@@ -22,7 +23,100 @@ function createRecognizer(
     });
 }
 
+async function waitForFinished(tasks: TaskManager, id: string) {
+    const current = tasks.get(id);
+    if (current.status !== 'queued' && current.status !== 'running') return current;
+    return new Promise<TaskSnapshot>((resolve) => {
+        const unsubscribe = tasks.subscribe((task) => {
+            if (task.id !== id || task.status === 'queued' || task.status === 'running') return;
+            unsubscribe();
+            resolve(task);
+        });
+    });
+}
+
 describe('BrowserTrackRecognizer', () => {
+    it('publishes recognition phases, results, and completion through one workspace task', async () => {
+        const tasks = new TaskManager();
+        const client = {
+            async runLocalAdvancedTrackDownloadSession<T>(
+                _useSlowerExploit: boolean,
+                operation: (readTrack: AdvancedTrackReader) => Promise<T>
+            ) {
+                return operation(async (_index, _options, onProgress) => {
+                    onProgress({ read: 6, total: 12, action: 'READ' });
+                    return { data: new Uint8Array([1, 2]), extension: 'aea' };
+                });
+            },
+        };
+        const recognizer = createRecognizer(client, {
+            async recognize(_samples, onPhase) {
+                onPhase('calculating');
+                onPhase('identifying');
+                return { title: 'Recognized', artist: 'Artist', album: 'Album' };
+            },
+        });
+
+        const started = await recognizer.start(
+            {
+                mode: 'exploits',
+                tracks: [{ index: 2, duration: 90, selected: true, alreadyRecognized: false }],
+            },
+            tasks
+        );
+        const finished = await waitForFinished(tasks, started.id);
+
+        assert.equal(finished.kind, 'metadata.recognize');
+        assert.equal(finished.status, 'succeeded');
+        assert.deepEqual(finished.result, {
+            tracks: [{ index: 2, recognized: true, title: 'Recognized', artist: 'Artist', album: 'Album' }],
+        });
+        assert.equal(finished.progress.completed, 1);
+        assert.equal(finished.progress.stages?.recognition.currentLabel, 'identifying');
+    });
+
+    it('turns a task cancellation request into a partial cancelled result', async () => {
+        const tasks = new TaskManager();
+        let recognitionStarted!: () => void;
+        const startedRecognition = new Promise<void>((resolve) => {
+            recognitionStarted = resolve;
+        });
+        let finishRecognition!: () => void;
+        const mayFinishRecognition = new Promise<void>((resolve) => {
+            finishRecognition = resolve;
+        });
+        const client = {
+            async runLocalAdvancedTrackDownloadSession<T>(
+                _useSlowerExploit: boolean,
+                operation: (readTrack: AdvancedTrackReader) => Promise<T>
+            ) {
+                return operation(async () => ({ data: new Uint8Array([1]), extension: 'aea' }));
+            },
+        };
+        const recognizer = createRecognizer(client, {
+            async recognize() {
+                recognitionStarted();
+                await mayFinishRecognition;
+                return null;
+            },
+        });
+
+        const started = await recognizer.start(
+            {
+                mode: 'exploits',
+                tracks: [{ index: 1, duration: 90, selected: true, alreadyRecognized: false }],
+            },
+            tasks
+        );
+        await startedRecognition;
+        tasks.requestCancellation(started.id);
+        finishRecognition();
+        const finished = await waitForFinished(tasks, started.id);
+
+        assert.equal(finished.status, 'cancelled');
+        assert.deepEqual(finished.result, { tracks: [] });
+    });
+
     it('owns advanced capture attempts and reports short and recognized tracks', async () => {
         const offsets: number[] = [];
         const progress: TrackRecognitionProgress[] = [];
@@ -45,9 +139,7 @@ describe('BrowserTrackRecognizer', () => {
             async recognize(_samples, onPhase) {
                 recognitionAttempts += 1;
                 onPhase('identifying');
-                return recognitionAttempts === 1
-                    ? null
-                    : { title: 'Recognized', artist: 'Artist', album: 'Album' };
+                return recognitionAttempts === 1 ? null : { title: 'Recognized', artist: 'Artist', album: 'Album' };
             },
         });
 
@@ -129,12 +221,8 @@ describe('BrowserTrackRecognizer', () => {
             { action: 'play' },
         ]);
         assert.deepEqual(captureCalls, [{ deviceId: 'audio-input', durationMs: 12_000 }]);
-        assert.deepEqual(transcodeCalls, [
-            { data: [3, 4], extension: 'wav', parameters: '-ar 16000 -ac 1 -f s16le' },
-        ]);
-        assert.deepEqual(results, [
-            { index: 7, recognized: true, title: 'Line song', artist: 'Line artist', album: 'Unknown' },
-        ]);
+        assert.deepEqual(transcodeCalls, [{ data: [3, 4], extension: 'wav', parameters: '-ar 16000 -ac 1 -f s16le' }]);
+        assert.deepEqual(results, [{ index: 7, recognized: true, title: 'Line song', artist: 'Line artist', album: 'Unknown' }]);
     });
 
     it('stops before another attempt after cancellation', async () => {
@@ -171,7 +259,14 @@ describe('BrowserTrackRecognizer', () => {
     });
 
     it('requires an audio input for line-in recognition', async () => {
-        const recognizer = createRecognizer({}, { async recognize() { return null; } });
+        const recognizer = createRecognizer(
+            {},
+            {
+                async recognize() {
+                    return null;
+                },
+            }
+        );
         await assert.rejects(
             recognizer.recognize({
                 mode: 'line-in',

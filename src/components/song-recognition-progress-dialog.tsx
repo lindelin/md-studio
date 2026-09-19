@@ -1,8 +1,6 @@
 import React, { useCallback } from 'react';
-import { useDispatch } from '../frontend-utils';
-import { useShallowEqualSelector } from '../frontend-utils';
-
-import { actions as songRecognitionDialogActions } from '../redux/song-recognition-progress-dialog-feature';
+import { batchActions, useDispatch } from '../frontend-utils';
+import { actions as errorDialogActions } from '../redux/error-dialog-feature';
 
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
@@ -18,6 +16,7 @@ import Stepper from '@mui/material/Stepper';
 import StepLabel from '@mui/material/StepLabel';
 import Typography from '@mui/material/Typography';
 import { makeStyles } from 'tss-react/mui';
+import { useApplicationClient, useApplicationWorkspace } from './use-application-client';
 
 const useStyles = makeStyles()((theme) => ({
     progressPerc: {
@@ -44,24 +43,31 @@ const Transition = React.forwardRef(function Transition(props: SlideProps, ref: 
 export const SongRecognitionProgressDialog = () => {
     const { classes } = useStyles();
     const dispatch = useDispatch();
-
-    const {
-        currentStep,
-        currentTrack,
-        totalTracks,
-        visible,
-        cancelled,
-
-        currentStepCurrent,
-        currentStepTotal,
-    } = useShallowEqualSelector((state) => state.songRecognitionProgressDialog);
+    const applicationClient = useApplicationClient();
+    const workspace = useApplicationWorkspace();
+    const task = [...workspace.tasks]
+        .reverse()
+        .find((candidate) => candidate.kind === 'metadata.recognize' && (candidate.status === 'queued' || candidate.status === 'running'));
+    const stage = task?.progress.stages?.recognition;
+    const phase = stage?.currentLabel;
+    const currentStep = phase === 'calculating' ? 1 : phase === 'identifying' ? 2 : 0;
+    const currentTrack = task?.progress.completed ?? 0;
+    const totalTracks = task?.progress.total ?? 0;
+    const visible = Boolean(task);
+    const cancelled = task?.cancellationRequested ?? false;
+    const currentStepCurrent = stage?.completed ?? 0;
+    const currentStepTotal = stage?.total ?? 0;
 
     const handleCancel = useCallback(() => {
-        dispatch(songRecognitionDialogActions.setCancelled(true));
-    }, [dispatch]);
+        if (!task) return;
+        void applicationClient.execute({ type: 'task.cancel', id: task.id }).then((result) => {
+            if (result.ok) return;
+            dispatch(batchActions([errorDialogActions.setVisible(true), errorDialogActions.setErrorMessage(result.error.message)]));
+        });
+    }, [applicationClient, dispatch, task]);
 
-    const tracksProgress = Math.floor((currentTrack / totalTracks) * 100);
-    const currentStepProgress = Math.floor((currentStepCurrent / currentStepTotal) * 100);
+    const tracksProgress = totalTracks === 0 ? 0 : Math.floor((currentTrack / totalTracks) * 100);
+    const currentStepProgress = currentStepTotal === 0 ? -1 : Math.floor((currentStepCurrent / currentStepTotal) * 100);
 
     return (
         <Dialog
@@ -92,7 +98,7 @@ export const SongRecognitionProgressDialog = () => {
                     </Step>
                 </Stepper>
                 <DialogContentText id="recognize-dialog-slide-description" className={classes.label}>
-                    Recognizing {currentTrack + 1} of {totalTracks}
+                    Recognizing {Math.min(totalTracks, currentTrack + 1)} of {totalTracks}
                 </DialogContentText>
 
                 <LinearProgress
