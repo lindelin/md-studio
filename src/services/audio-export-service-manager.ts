@@ -1,17 +1,14 @@
 import { CustomParameterInfo, CustomParameters, isAllValid } from '../custom-parameters';
 import { AT3RE_INCLUDED, ATRACOS_INCLUDED } from '../version-info';
-import { Atrac3OSExportService } from './audio/atrac3os-export';
-import { Atrac3REExportService } from './audio/atrac3re-export';
-import { AtracdencAudioExportService } from './audio/atracdenc-export';
-import { AudioExportService } from './audio/audio-export';
-import { LocalAtracExportService } from './audio/ewmd-local-atrac-export';
-import { RemoteAtracExportService } from './audio/remote-atrac-export';
+import type { AudioExportService } from './audio/audio-export';
 import { ApplicationError } from '../application/contracts';
 import type { AudioEncoderConfiguration, AudioEncoderDescriptor } from '../application/audio-encoder-manager';
 
-export interface AudioServicePrototype<T extends AudioExportService> {
+type AudioServiceConstructor = new (parameters: CustomParameters) => AudioExportService;
+
+export interface AudioServicePrototype {
     id: string;
-    create: new (parameters: CustomParameters) => T;
+    load: () => Promise<AudioServiceConstructor>;
     customParameters?: CustomParameterInfo[];
     name: string;
     description?: string;
@@ -19,11 +16,11 @@ export interface AudioServicePrototype<T extends AudioExportService> {
     unavailableReason?: string;
 }
 
-export const AudioServices: AudioServicePrototype<AudioExportService>[] = [
+export const AudioServices: AudioServicePrototype[] = [
     {
         id: 'at3re',
         name: 'At3RE',
-        create: Atrac3REExportService,
+        load: async () => (await import('./audio/atrac3re-export')).Atrac3REExportService,
         description: 'Reverse engineered at3tool encoder. Client-side only, has full ATRAC3/3+ support.',
         available: Boolean(AT3RE_INCLUDED),
         unavailableReason: AT3RE_INCLUDED ? undefined : 'This build does not include the At3RE JavaScript and WebAssembly runtime.',
@@ -31,14 +28,14 @@ export const AudioServices: AudioServicePrototype<AudioExportService>[] = [
     {
         id: 'atracdenc',
         name: 'Atracdenc',
-        create: AtracdencAudioExportService,
+        load: async () => (await import('./audio/atracdenc-export')).AtracdencAudioExportService,
         description: 'The standard open-source ATRAC encoder. Its ATRAC3 support is incomplete',
         available: true,
     },
     {
         id: 'remote-atrac',
         name: 'Remote ATRAC Encoder',
-        create: RemoteAtracExportService,
+        load: async () => (await import('./audio/remote-atrac-export')).RemoteAtracExportService,
         available: true,
         customParameters: [
             {
@@ -65,7 +62,7 @@ if (ATRACOS_INCLUDED) {
     AudioServices.push({
         id: 'atrac3os',
         name: 'Built in High-Quality Encoder',
-        create: Atrac3OSExportService,
+        load: async () => (await import('./audio/atrac3os-export')).Atrac3OSExportService,
         description: 'The Sony encoder in a purpose-built Web VM',
         available: true,
     });
@@ -75,7 +72,7 @@ if (typeof window !== 'undefined' && window.native?.invokeLocalEncoder) {
     AudioServices.push({
         id: 'local-atrac',
         name: 'Local ATRAC Encoder',
-        create: LocalAtracExportService,
+        load: async () => (await import('./audio/ewmd-local-atrac-export')).LocalAtracExportService,
         available: true,
         description: 'A local copy of the high-quality Sony encoder.',
         customParameters: [
@@ -104,16 +101,17 @@ export function resolveAudioServiceIndex(preferredIndex: number): number {
     return fallbackIndex;
 }
 
-export function createAudioEncoder(configuration: AudioEncoderConfiguration): AudioEncoderDescriptor {
+export async function createAudioEncoder(configuration: AudioEncoderConfiguration): Promise<AudioEncoderDescriptor> {
     const index = resolveAudioServiceIndex(configuration.index);
     const prototype = AudioServices[index];
     if (!isAllValid(prototype.customParameters, configuration.parameters)) {
         throw new ApplicationError('INVALID_INPUT', `The configuration for ${prototype.name} is invalid.`);
     }
+    const Constructor = await prototype.load();
     return {
         index,
         id: prototype.id,
         name: prototype.name,
-        service: new prototype.create(configuration.parameters),
+        service: new Constructor(configuration.parameters),
     };
 }

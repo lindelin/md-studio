@@ -51,7 +51,9 @@ export class AudioEncoderManager {
 
     constructor(
         private readonly resolveConfiguration: () => AudioEncoderConfiguration,
-        private readonly createEncoder: (configuration: AudioEncoderConfiguration) => AudioEncoderDescriptor
+        private readonly createEncoder: (
+            configuration: AudioEncoderConfiguration
+        ) => AudioEncoderDescriptor | Promise<AudioEncoderDescriptor>
     ) {}
 
     getSnapshot = () => structuredClone(this.snapshot);
@@ -94,7 +96,7 @@ export class AudioEncoderManager {
     private async initialize(configuration: AudioEncoderConfiguration, signature: string) {
         this.publish({ status: 'loading', error: null });
         try {
-            const descriptor = this.createEncoder(configuration);
+            const descriptor = await this.createEncoder(configuration);
             await descriptor.service.init();
             this.active = descriptor;
             this.activeSignature = signature;

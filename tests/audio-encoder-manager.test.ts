@@ -27,7 +27,7 @@ describe('AudioEncoderManager', () => {
         let initialized = 0;
         const manager = new AudioEncoderManager(
             () => configuration,
-            (current) => ({
+            async (current) => ({
                 index: current.index,
                 id: `encoder-${current.index}`,
                 name: `Encoder ${current.index}`,
