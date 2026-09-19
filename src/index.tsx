@@ -35,6 +35,7 @@ import { BrowserLocalFileGateway } from './application/browser-local-file-gatewa
 import { BrowserTrackRecognizer } from './application/browser-track-recognizer';
 import NotificationCompleteIconUrl from './images/record-complete-notification-icon.png';
 import { ApplicationClientProvider } from './frontend/application-client-provider';
+import { hasPendingWorkspaceWork } from './frontend/pending-work';
 const mediaRecorderService = new MediaRecorderService();
 const localFiles = new BrowserLocalFileGateway();
 serviceRegistry.localAudioInput = new BrowserAudioInput(mediaRecorderService);
@@ -119,11 +120,13 @@ if (readRawPreference('version') !== (window as any).wmdVersion) {
 (function setupEventHandlers() {
     window.addEventListener('beforeunload', (ev) => {
         const state = store.getState();
-        const hasActiveTask = serviceRegistry.taskManager
-            .list()
-            .some((task) => task.status === 'queued' || task.status === 'running');
-        const hasLegacyOperation = state.uploadDialog.visible || state.factoryProgressDialog.visible || state.recordDialog.visible;
-        if (!(hasActiveTask || hasLegacyOperation)) {
+        if (
+            !hasPendingWorkspaceWork(applicationClient.getWorkspaceSnapshot(), {
+                uploadVisible: state.uploadDialog.visible,
+                factoryProgressVisible: state.factoryProgressDialog.visible,
+                recordVisible: state.recordDialog.visible,
+            })
+        ) {
             return;
         }
         ev.preventDefault();
