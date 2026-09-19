@@ -463,9 +463,15 @@ const ConnectedConvertDialog = (props: {
         [applicationClient, fullWidthSupport, refreshTitledFiles, titleFormat, usesHimdTitles]
     );
 
+    const processedInputBatch = useRef<(File | AdaptiveFile)[] | null>(null);
     useEffect(() => {
         const newFiles = Array.from(props.files);
-        if (newFiles.length === 0) return;
+        if (newFiles.length === 0) {
+            processedInputBatch.current = props.files;
+            return;
+        }
+        if (processedInputBatch.current === props.files) return;
+        processedInputBatch.current = props.files;
         resetDialog();
         loadMetadataFromFiles(newFiles)
             .then(addInspectedFiles)

@@ -807,17 +807,6 @@ export function flushDevice() {
 export function openLocalLibrary() {
     return async function (dispatch: AppDispatch) {
         dispatch(localLibraryActions.setVisible(true));
-        dispatch(batchActions([localLibraryActions.setDatabase(null), localLibraryActions.setStatus('Loading database...')]));
-        const result = await getApplicationClient().execute({ type: 'library.refresh' });
-        if (!result.ok) {
-            dispatch(localLibraryActions.setStatus(`Could not load library: ${result.error.message}`));
-            return;
-        }
-        dispatch(
-            batchActions([
-                localLibraryActions.setStatus(null),
-                localLibraryActions.setDatabase(result.library?.database ?? null),
-            ])
-        );
+        await getApplicationClient().execute({ type: 'library.refreshSummary' });
     };
 }

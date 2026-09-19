@@ -20,11 +20,13 @@ import TableRow from '@mui/material/TableRow';
 import { AdaptiveFile, formatTimeFromSeconds } from '../utils';
 import { makeStyles } from 'tss-react/mui';
 import { ExportParams } from '../services/audio/audio-export';
-import { LocalDatabase } from '../services/library/library';
 import { File, FileBrowser } from './file-browser/browser';
 import { Add, ArrowUpward } from '@mui/icons-material';
 import { dirSorter, FileType } from './file-browser/utils';
-import { useApplicationClient } from './use-application-client';
+import { useApplicationClient, useApplicationWorkspace } from './use-application-client';
+import type { LibraryCatalogEntry } from '../application/library-catalog';
+
+const LIBRARY_PAGE_SIZE = 200;
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
@@ -71,41 +73,87 @@ const useStyles = makeStyles()((theme) => ({
 
 export const LocalLibraryDialog = ({ setUploadedFiles }: { setUploadedFiles: (files: AdaptiveFile[]) => void }) => {
     const applicationClient = useApplicationClient();
-    const [currentPath, setCurrentPath] = useState<string[]>([]);
-    const convertToFileArray = (data: LocalDatabase, path: string[] = []): File[] => {
-        const originalPath = [...path];
-        path = [...path];
-        while (path.length) {
-            data = data[path.splice(0, 1)[0]] as any;
-        }
-        return Object.entries(data).map(([key, value]) => {
-            const isFolder = !('artist' in value);
-            return {
-                name: key,
-                type: isFolder ? FileType.Directory : FileType.File,
-                props: isFolder
-                    ? {}
-                    : {
-                          ...value,
-                          id: [...originalPath, key].join('/'),
-                      },
-            };
-        });
-    };
-
+    const library = useApplicationWorkspace().library;
     const { classes } = useStyles();
     const dispatch = useDispatch();
-    const { visible, database, status } = useShallowEqualSelector((state) => state.localLibrary);
+    const { visible } = useShallowEqualSelector((state) => state.localLibrary);
     const { visible: convertDialogVisible } = useShallowEqualSelector((state) => state.convertDialog);
+    const [currentPath, setCurrentPath] = useState<string[]>([]);
+    const [currentFileTree, setCurrentFileTree] = useState<File[]>([]);
+    const [listingStatus, setListingStatus] = useState<string | null>(null);
+
+    const listDirectory = useCallback(
+        async (path: string[], expectedRevision: number): Promise<File[]> => {
+            const entries: LibraryCatalogEntry[] = [];
+            let nextOffset: number | undefined = 0;
+            while (nextOffset !== undefined) {
+                const result = await applicationClient.execute({
+                    type: 'library.list',
+                    path,
+                    offset: nextOffset,
+                    limit: LIBRARY_PAGE_SIZE,
+                    expectedRevision,
+                });
+                if (!result.ok) throw new Error(result.error.message);
+                const page = result.libraryPage;
+                if (!page) throw new Error('The library did not return a directory listing.');
+                entries.push(...page.items);
+                nextOffset = page.nextOffset;
+            }
+            return entries.map((entry) => {
+                const entryPath = [...path, entry.name];
+                const isFolder = entry.kind === 'directory';
+                return {
+                    name: entry.name,
+                    type: isFolder ? FileType.Directory : FileType.File,
+                    props: isFolder
+                        ? { path: entryPath }
+                        : {
+                              ...entry,
+                              id: entryPath.join('/'),
+                              path: entryPath,
+                          },
+                };
+            });
+        },
+        [applicationClient]
+    );
+
+    useEffect(() => {
+        if (!visible || library.status !== 'ready') {
+            setCurrentFileTree([]);
+            return;
+        }
+        let cancelled = false;
+        setListingStatus('Loading folder...');
+        void listDirectory(currentPath, library.revision)
+            .then((files) => {
+                if (!cancelled) setCurrentFileTree(files);
+            })
+            .catch((error) => {
+                if (!cancelled) {
+                    setCurrentFileTree([]);
+                    setListingStatus(`Could not list library: ${error instanceof Error ? error.message : String(error)}`);
+                }
+            })
+            .finally(() => {
+                if (!cancelled) setListingStatus((status) => (status === 'Loading folder...' ? null : status));
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [currentPath, library, listDirectory, visible]);
+
+    const libraryStatus = useMemo(() => {
+        if (listingStatus) return listingStatus;
+        if (library.status === 'loading' || library.status === 'idle') return 'Loading database...';
+        if (library.status === 'error') return `Could not load library: ${library.error ?? 'Unknown error'}`;
+        return null;
+    }, [library, listingStatus]);
 
     const handleClose = useCallback(() => {
         dispatch(localLibraryActions.setVisible(false));
     }, [dispatch]);
-
-    const [currentFileTree, setCurrentFileTree] = useState<File[]>(convertToFileArray(database ?? {}));
-    useEffect(() => {
-        setCurrentFileTree(convertToFileArray(database || {}, currentPath));
-    }, [database, currentPath, setCurrentFileTree]);
 
     const [selectedFiles, setSelectedFiles] = useState<
         { path: string; album: string; artist: string; title: string; duration: number; trackIndex?: number }[]
@@ -147,7 +195,7 @@ export const LocalLibraryDialog = ({ setUploadedFiles }: { setUploadedFiles: (fi
     const handleFileAction = useCallback(
         (file: File) => {
             if (file.type === FileType.Directory) {
-                setCurrentPath((e) => [...e, file.name]);
+                setCurrentPath(file.props?.['path'] ?? []);
             } else {
                 addFiles([file]);
             }
@@ -156,22 +204,23 @@ export const LocalLibraryDialog = ({ setUploadedFiles }: { setUploadedFiles: (fi
     );
 
     const handleAddAllSelected = useCallback(
-        (files: File[]) => {
-            const process = (path: string[], files: File[]): File[] => {
-                const finalFiles = [];
-                for (const file of files) {
+        async (files: File[]) => {
+            if (library.status !== 'ready') return false;
+            const process = async (filesToProcess: File[]): Promise<File[]> => {
+                const finalFiles: File[] = [];
+                for (const file of filesToProcess) {
                     if (file.type === FileType.Directory) {
-                        const newPath = [...path, file.name];
-                        const subFiles = convertToFileArray(database ?? {}, newPath);
+                        const newPath = file.props?.['path'] as string[];
+                        const subFiles = await listDirectory(newPath, library.revision);
                         subFiles.sort((a, b) => {
                             const dirSortResult = dirSorter(a, b, '', false);
                             if (dirSortResult) return dirSortResult;
-                            if (a.props?.['trackIndex'] !== undefined && a.props?.['trackIndex'] !== undefined) {
+                            if (a.props?.['trackIndex'] !== undefined && b.props?.['trackIndex'] !== undefined) {
                                 return a.props!['trackIndex'] - b.props!['trackIndex'];
                             }
                             return a.name.localeCompare(b.name);
                         });
-                        finalFiles.push(...process(newPath, subFiles));
+                        finalFiles.push(...(await process(subFiles)));
                     } else {
                         finalFiles.push(file);
                     }
@@ -179,10 +228,17 @@ export const LocalLibraryDialog = ({ setUploadedFiles }: { setUploadedFiles: (fi
                 return finalFiles;
             };
 
-            addFiles(process(currentPath, files));
+            setListingStatus('Loading selected folders...');
+            try {
+                addFiles(await process(files));
+            } catch (error) {
+                setListingStatus(`Could not list library: ${error instanceof Error ? error.message : String(error)}`);
+                return false;
+            }
+            setListingStatus(null);
             return true;
         },
-        [addFiles, database, currentPath]
+        [addFiles, library, listDirectory]
     );
 
     const handleForwardFiles = useCallback(() => {
@@ -222,7 +278,7 @@ export const LocalLibraryDialog = ({ setUploadedFiles }: { setUploadedFiles: (fi
             <DialogContent>
                 <div className={classes.wrapperDiv}>
                     <div className={classes.internalDiv}>
-                        <DialogContentText>{status}&nbsp;</DialogContentText>
+                        <DialogContentText>{libraryStatus}&nbsp;</DialogContentText>
                         {visible && (
                             <FileBrowser
                                 fileTree={currentFileTree}
@@ -261,7 +317,10 @@ export const LocalLibraryDialog = ({ setUploadedFiles }: { setUploadedFiles: (fi
                                         name: 'Add / Remove Selected',
                                         icon: <Add />,
                                         actionPossible: (e) => e.length > 0,
-                                        handler: (e) => handleAddAllSelected(e),
+                                        handler: (e) => {
+                                            void handleAddAllSelected(e);
+                                            return false;
+                                        },
                                     },
                                 ]}
                             />
