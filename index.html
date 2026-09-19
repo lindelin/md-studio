@@ -2,33 +2,26 @@
 <html lang="en">
     <head>
         <meta charset="utf-8" />
+        <meta
+            http-equiv="Content-Security-Policy"
+            content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' data: blob:; worker-src 'self' blob:; connect-src 'self' http: https: ws: wss:"
+        />
         <link rel="icon" href="/favicon.ico" />
-        <link rel="canonical" href="https://web.minidisc.wiki/" />
         <link rel="stylesheet" href="src/fonts/fonts.css" />
         <link rel="stylesheet" href="src/index.css" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#000000" />
         <meta
             name="description"
-            content="Copy audio to your NetMD MiniDisc device using only a web browser. Replace SonicStage, improve audio quality, and unlock new features."
+            content="Organize, record, play, export, and automate compatible NetMD and Hi-MD MiniDisc devices."
         />
         <link rel="apple-touch-icon" href="/MiniDisc192.png" />
         <title>MiniDisc Workspace</title>
     </head>
     <body>
-        <script>
-            try {
-                if (location.protocol !== 'file:' && location.protocol !== 'https:' && !location.host.match(/^localhost/gm)) {
-                    // Make sure we're on https/file, or WebUSB won't work.
-                    location.replace(`https:${location.href.substring(location.protocol.length)}`);
-                    console.log('Redirecting to https....');
-                }
-            } catch (err) {
-                console.log(err);
-            }
-        </script>
         <noscript>You need to enable JavaScript to run this app.</noscript>
         <div id="root"></div>
+        <script type="module" src="src/secure-context.ts"></script>
         <script type="module" src="src/index.tsx"></script>
     </body>
 </html>

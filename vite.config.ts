@@ -32,7 +32,7 @@ export default () => {
         // A waiting worker activates after the last old client closes, so an
         // update cannot remove lazy chunks while a device task is still live.
         registerType: 'prompt',
-        injectRegister: 'inline',
+        injectRegister: 'script-defer',
         manifestFilename: 'manifest.json',
         manifest: {
           "short_name": "MD Workspace",
@@ -58,7 +58,7 @@ export default () => {
           "start_url": ".",
           "display": "standalone",
           "theme_color": "#000000",
-          "orientation": "portrait",
+          "orientation": "any",
           "background_color": "#ffffff"
         },
         workbox: {
