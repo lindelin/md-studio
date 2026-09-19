@@ -187,6 +187,14 @@ export class ApplicationCommandBus {
                                   entryCount: 0,
                                   error: null,
                               },
+                              encoder: {
+                                  revision: 0,
+                                  status: 'idle',
+                                  index: null,
+                                  id: null,
+                                  name: null,
+                                  error: null,
+                              },
                           },
                 };
             }

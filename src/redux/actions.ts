@@ -26,7 +26,6 @@ import NotificationCompleteIconUrl from '../images/record-complete-notification-
 import { assertNumber } from 'netmd-js/dist/utils';
 import { Capability, NetMDService, Codec, MinidiscSpec, ExploitCapability } from '../services/interfaces/netmd';
 import { getSimpleServices, ServiceConstructionInfo } from '../services/interface-service-manager';
-import { AudioServices, resolveAudioServiceIndex } from '../services/audio-export-service-manager';
 import { checkFactoryCapability } from './factory/factory-actions';
 import { s16LEToSamplesArray, Shazam } from 'shazam-api';
 import { bindApplicationRuntime, getApplicationClient, releaseDeviceSession } from '../application/runtime';
@@ -207,7 +206,7 @@ export function deleteService(index: number) {
 }
 
 export function pair(serviceInstance: NetMDService, spec: MinidiscSpec) {
-    return async function (dispatch: AppDispatch, getState: () => RootState) {
+    return async function (dispatch: AppDispatch) {
         dispatch(
             batchActions([
                 appStateActions.setPairingFailed(false),
@@ -219,9 +218,7 @@ export function pair(serviceInstance: NetMDService, spec: MinidiscSpec) {
         try {
             serviceRegistry.mediaSessionService?.init(); // no need to await
 
-            const audioServiceIndex = resolveAudioServiceIndex(getState().appState.audioExportService);
-            serviceRegistry.audioExportService = new AudioServices[audioServiceIndex].create(getState().appState.audioExportServiceConfig);
-            await serviceRegistry.audioExportService.init();
+            await serviceRegistry.audioEncoderManager.getService();
 
             const session = await new DeviceSessionConnector(serviceRegistry, bindApplicationRuntime).connect(serviceInstance, spec);
             if (session.cachedConnectionError) console.error(session.cachedConnectionError);
@@ -1070,7 +1067,8 @@ export function convertAndUpload(
         }
         if (!options.operationLockHeld) throw new Error('The upload transaction was not acquired.');
 
-        const { audioExportService, netmdService, netmdSpec } = serviceRegistry;
+        const { netmdService, netmdSpec } = serviceRegistry;
+        const audioExportService = await serviceRegistry.audioEncoderManager.getService();
         const netmdFactoryService = options.advancedUploadService;
         if ((usesAtrac1Upload || usesMonoUploadExploit) && !netmdFactoryService) {
             throw new Error('The advanced upload service was not initialized during preflight.');
@@ -1219,7 +1217,7 @@ export function convertAndUpload(
         };
         updateTrack();
 
-        const conversionIterator = convertImportAudio(files, format, additionalParameters, audioExportService!, {
+        const conversionIterator = convertImportAudio(files, format, additionalParameters, audioExportService, {
             isCancelled: hasUploadBeenCancelled,
             onTrackStarted: (index, _total, file) => {
                 trackUpdate.converting = index;

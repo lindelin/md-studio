@@ -1,5 +1,4 @@
 import { MinidiscSpec, NetMDFactoryService, NetMDService } from './interfaces/netmd';
-import { AudioExportService } from './audio/audio-export';
 import { MediaRecorderService } from './browserintegration/mediarecorder';
 import { MediaSessionService } from './browserintegration/media-session';
 import type { MiniDiscApplication } from '../application/minidisc-application';
@@ -15,6 +14,8 @@ import { applicationSettings, type SettingsStore } from '../application/settings
 import type { ApplicationClient } from '../application/application-client';
 import { LibraryCatalog } from '../application/library-catalog';
 import { createLibraryService } from './library-services';
+import { AudioEncoderManager } from '../application/audio-encoder-manager';
+import { createAudioEncoder } from './audio-export-service-manager';
 
 export interface ImportPayloadResolver {
     resolve(reference: string): Promise<File>;
@@ -28,7 +29,7 @@ interface ServiceRegistry {
     netmdService?: NetMDService;
     netmdSpec?: MinidiscSpec;
     netmdFactoryService?: NetMDFactoryService;
-    audioExportService?: AudioExportService;
+    audioEncoderManager: AudioEncoderManager;
     mediaRecorderService?: MediaRecorderService;
     mediaSessionService?: MediaSessionService;
     libraryCatalog: LibraryCatalog;
@@ -53,13 +54,21 @@ const libraryCatalog = new LibraryCatalog(() => {
     const settings = applicationSettings.getSnapshot().values;
     return createLibraryService(settings.libraryService, settings.libraryServiceConfig);
 });
+const audioEncoderManager = new AudioEncoderManager(
+    () => {
+        const settings = applicationSettings.getSnapshot().values;
+        return { index: settings.audioExportService, parameters: settings.audioExportServiceConfig };
+    },
+    createAudioEncoder
+);
 const ServiceRegistry: ServiceRegistry = {
     taskManager,
     importQueue,
     operationCoordinator: new DeviceOperationCoordinator(),
     settingsStore: applicationSettings,
     libraryCatalog,
-    workspaceStore: new WorkspaceStore(taskManager, importQueue, applicationSettings, libraryCatalog),
+    audioEncoderManager,
+    workspaceStore: new WorkspaceStore(taskManager, importQueue, applicationSettings, libraryCatalog, audioEncoderManager),
 };
 
 export default ServiceRegistry;

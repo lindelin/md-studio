@@ -865,7 +865,7 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
     }, [currentlySelectedCodec, dispatch, enableGapless, enableReplayGain, hideDialog, reportApplicationError]);
 
     const encoderSupportState = useMemo(
-        () => serviceRegistry.audioExportService!.getSupport(currentlySelectedCodec.codec),
+        () => serviceRegistry.audioEncoderManager.getActiveService().getSupport(currentlySelectedCodec.codec),
         [currentlySelectedCodec]
     );
     useEffect(() => {
@@ -873,7 +873,9 @@ export const ConvertDialog = (props: { files: (File | AdaptiveFile)[] }) => {
     }, [setEnableGapless, encoderSupportState]);
     const isSelectedMediocre = encoderSupportState.state === 'mediocre';
     const isSelectedUnsupported = encoderSupportState.state === 'unsupported';
-    const formatsSupport = minidiscSpec.availableFormats.map((e) => serviceRegistry.audioExportService!.getSupport(e.codec));
+    const formatsSupport = minidiscSpec.availableFormats.map((e) =>
+        serviceRegistry.audioEncoderManager.getActiveService().getSupport(e.codec)
+    );
 
     const { vintageMode, libraryService } = useShallowEqualSelector((state) => state.appState);
 

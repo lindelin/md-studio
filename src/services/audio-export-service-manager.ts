@@ -1,4 +1,4 @@
-import { CustomParameterInfo, CustomParameters } from '../custom-parameters';
+import { CustomParameterInfo, CustomParameters, isAllValid } from '../custom-parameters';
 import { AT3RE_INCLUDED, ATRACOS_INCLUDED } from '../version-info';
 import { Atrac3OSExportService } from './audio/atrac3os-export';
 import { Atrac3REExportService } from './audio/atrac3re-export';
@@ -6,6 +6,8 @@ import { AtracdencAudioExportService } from './audio/atracdenc-export';
 import { AudioExportService } from './audio/audio-export';
 import { LocalAtracExportService } from './audio/ewmd-local-atrac-export';
 import { RemoteAtracExportService } from './audio/remote-atrac-export';
+import { ApplicationError } from '../application/contracts';
+import type { AudioEncoderConfiguration, AudioEncoderDescriptor } from '../application/audio-encoder-manager';
 
 interface AudioServicePrototype<T extends AudioExportService> {
     id: string;
@@ -69,7 +71,7 @@ if (ATRACOS_INCLUDED) {
     });
 }
 
-if (window.native?.invokeLocalEncoder) {
+if (typeof window !== 'undefined' && window.native?.invokeLocalEncoder) {
     AudioServices.push({
         id: 'local-atrac',
         name: 'Local ATRAC Encoder',
@@ -100,4 +102,18 @@ export function resolveAudioServiceIndex(preferredIndex: number): number {
     const fallbackIndex = AudioServices.findIndex((service) => service.available);
     if (fallbackIndex === -1) throw new Error('This build has no available audio encoder.');
     return fallbackIndex;
+}
+
+export function createAudioEncoder(configuration: AudioEncoderConfiguration): AudioEncoderDescriptor {
+    const index = resolveAudioServiceIndex(configuration.index);
+    const prototype = AudioServices[index];
+    if (!isAllValid(prototype.customParameters, configuration.parameters)) {
+        throw new ApplicationError('INVALID_INPUT', `The configuration for ${prototype.name} is invalid.`);
+    }
+    return {
+        index,
+        id: prototype.id,
+        name: prototype.name,
+        service: new prototype.create(configuration.parameters),
+    };
 }

@@ -4,6 +4,7 @@ import type { MiniDiscApplication } from './minidisc-application';
 import type { TaskManager, TaskSnapshot } from './task-manager';
 import type { SettingsSnapshot, SettingsStore } from './settings-store';
 import type { LibraryCatalog, LibraryCatalogState } from './library-catalog';
+import type { AudioEncoderManager, AudioEncoderSnapshot } from './audio-encoder-manager';
 
 export interface WorkspaceSnapshot {
     device: DeviceSnapshot | null;
@@ -11,6 +12,7 @@ export interface WorkspaceSnapshot {
     tasks: TaskSnapshot[];
     settings: SettingsSnapshot;
     library: LibraryCatalogState;
+    encoder: AudioEncoderSnapshot;
 }
 
 type WorkspaceListener = () => void;
@@ -24,7 +26,8 @@ export class WorkspaceStore {
         private readonly taskManager: TaskManager,
         private readonly importQueue: ImportQueue,
         settingsStore: SettingsStore,
-        libraryCatalog?: LibraryCatalog
+        libraryCatalog?: LibraryCatalog,
+        audioEncoderManager?: AudioEncoderManager
     ) {
         this.snapshot = {
             device: null,
@@ -32,11 +35,20 @@ export class WorkspaceStore {
             tasks: taskManager.list(),
             settings: settingsStore.getSnapshot(),
             library: libraryCatalog?.getState() ?? { revision: 0, status: 'idle', entryCount: 0, error: null },
+            encoder: audioEncoderManager?.getSnapshot() ?? {
+                revision: 0,
+                status: 'idle',
+                index: null,
+                id: null,
+                name: null,
+                error: null,
+            },
         };
         taskManager.subscribe(() => this.update({ tasks: taskManager.list() }));
         importQueue.subscribe((imports) => this.update({ imports }));
         settingsStore.subscribe((settings) => this.update({ settings }));
         libraryCatalog?.subscribe(() => this.update({ library: libraryCatalog.getState() }));
+        audioEncoderManager?.subscribe((encoder) => this.update({ encoder }));
     }
 
     getSnapshot = () => this.snapshot;
