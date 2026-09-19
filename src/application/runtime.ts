@@ -25,7 +25,8 @@ export function bindApplicationRuntime() {
         serviceRegistry.taskManager,
         serviceRegistry.importQueue,
         serviceRegistry.importWriter,
-        serviceRegistry.trackExporter
+        serviceRegistry.trackExporter,
+        serviceRegistry.settingsStore
     );
     return application;
 }

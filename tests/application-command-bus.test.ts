@@ -4,6 +4,7 @@ import { ApplicationCommandBus } from '../src/application/command-bus.ts';
 import { ImportQueue, type ImportWriter } from '../src/application/import-queue.ts';
 import type { MiniDiscApplication } from '../src/application/minidisc-application.ts';
 import { TaskManager } from '../src/application/task-manager.ts';
+import { SettingsStore } from '../src/application/settings-store.ts';
 
 describe('ApplicationCommandBus import writing', () => {
     it('rejects unknown runtime commands instead of reporting a false success', async () => {
@@ -59,5 +60,27 @@ describe('ApplicationCommandBus import writing', () => {
                 details: undefined,
             },
         });
+    });
+
+    it('updates shared settings but rejects attempts to enable the local bridge', async () => {
+        const settings = new SettingsStore(null);
+        const bus = new ApplicationCommandBus(
+            {} as MiniDiscApplication,
+            new TaskManager(),
+            new ImportQueue(),
+            undefined,
+            undefined,
+            settings
+        );
+
+        const updated = await bus.execute({ type: 'settings.update', changes: { colorTheme: 'dark' }, expectedRevision: 0 });
+        const rejected = await bus.execute({
+            type: 'settings.update',
+            changes: { minidiscLocalBridgeEnabled: true },
+        } as any);
+
+        assert.equal(updated.ok && updated.settings?.values.colorTheme, 'dark');
+        assert.equal(rejected.ok, false);
+        assert.equal(!rejected.ok && rejected.error.code, 'INVALID_INPUT');
     });
 });

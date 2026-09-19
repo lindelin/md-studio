@@ -22,6 +22,7 @@ import type {
 import { ImportQueue } from './import-queue';
 import type { TrackExporter, TrackExportRequest } from './track-export';
 import type { MetadataCsvExport, MetadataImportPlan } from '../domain/metadata-import';
+import { SettingsStore, type SettingsSnapshot, type UserSettingsUpdate } from './settings-store';
 
 export type ApplicationCommand =
     | { type: 'disc.refresh'; dropCache?: boolean }
@@ -35,6 +36,8 @@ export type ApplicationCommand =
     | { type: 'metadata.applyCsv'; text: string; includedTrackIndexes: number[]; expectedRevision?: number }
     | { type: 'advanced.inspect' }
     | { type: 'advanced.readToc' }
+    | { type: 'settings.get' }
+    | { type: 'settings.update'; changes: UserSettingsUpdate; expectedRevision?: number }
     | { type: 'track.renameMany'; updates: TrackMetadataUpdate[]; expectedRevision?: number }
     | { type: 'track.renameHimdMany'; updates: HiMDTrackMetadataUpdate[]; expectedRevision?: number }
     | { type: 'track.move'; sourceIndex: number; destinationIndex: number; expectedRevision?: number }
@@ -73,6 +76,7 @@ export interface CommandSuccess {
     metadataPlan?: MetadataImportPlan;
     advancedInfo?: AdvancedDeviceInfo;
     advancedToc?: AdvancedTocDump;
+    settings?: SettingsSnapshot;
 }
 
 export interface CommandFailure {
@@ -88,7 +92,8 @@ export class ApplicationCommandBus {
         private readonly tasks: TaskManager,
         private readonly imports: ImportQueue,
         private readonly importWriter?: ImportWriter,
-        private readonly trackExporter?: TrackExporter
+        private readonly trackExporter?: TrackExporter,
+        private readonly settings = new SettingsStore(null)
     ) {}
 
     async execute(command: ApplicationCommand): Promise<CommandResult> {
@@ -97,6 +102,10 @@ export class ApplicationCommandBus {
             if (command.type === 'task.get') return { ok: true, task: this.tasks.get(command.id) };
             if (command.type === 'task.cancel') return { ok: true, task: this.tasks.requestCancellation(command.id) };
             if (command.type === 'import.list') return { ok: true, importQueue: this.imports.snapshot() };
+            if (command.type === 'settings.get') return { ok: true, settings: this.settings.getSnapshot() };
+            if (command.type === 'settings.update') {
+                return { ok: true, settings: this.settings.update(command.changes, command.expectedRevision) };
+            }
             if (command.type === 'import.add') {
                 return { ok: true, importQueue: this.imports.add(command.inputs, command.expectedRevision) };
             }

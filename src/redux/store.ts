@@ -21,10 +21,28 @@ import factoryEditOtherValuesDialog from './factory/factory-edit-other-values-di
 import factoryBadSectorDialog from './factory/factory-bad-sector-dialog-feature';
 
 import main from './main-feature';
-import { BatchAction, batchActions, batchDispatchMiddleware } from 'redux-batched-actions';
+import { batchActions, batchDispatchMiddleware } from 'redux-batched-actions';
 import { clearApplicationRuntime } from '../application/runtime';
+import { applicationSettings, type UserSettings } from '../application/settings-store';
 
-const errorCatcher: Middleware = (store) => (next) => async (action) => {
+function sharedSettingsFromState(state: { appState: UserSettings }): UserSettings {
+    const source = state.appState;
+    return {
+        colorTheme: source.colorTheme,
+        vintageMode: source.vintageMode,
+        discProtectedDialogDisabled: source.discProtectedDialogDisabled,
+        notifyWhenFinished: source.notifyWhenFinished,
+        fullWidthSupport: source.fullWidthSupport,
+        pageFullHeight: source.pageFullHeight,
+        pageFullWidth: source.pageFullWidth,
+        archiveDiscCreateZip: source.archiveDiscCreateZip,
+        factoryModeUseSlowerExploit: source.factoryModeUseSlowerExploit,
+        factoryModeShortcuts: source.factoryModeShortcuts,
+        factoryModeNERAWDownload: source.factoryModeNERAWDownload,
+    };
+}
+
+const errorCatcher: Middleware = () => (next) => async (action) => {
     try {
         return await next(action);
     } catch (e) {
@@ -70,6 +88,19 @@ const applicationLifecycle: Middleware = () => (next) => (action) => {
     }
     return next(action);
 };
+const sharedSettingsPersistence: Middleware = (storeApi) => (next) => (action) => {
+    const result = next(action);
+    if ((action as { type?: string }).type === appActions.applySharedSettings.toString()) return result;
+    const values = sharedSettingsFromState(storeApi.getState() as { appState: UserSettings });
+    const current = applicationSettings.getSnapshot().values;
+    const changes = Object.fromEntries(
+        (Object.keys(values) as (keyof UserSettings)[])
+            .filter((key) => values[key] !== current[key])
+            .map((key) => [key, values[key]])
+    );
+    if (Object.keys(changes).length > 0) applicationSettings.update(changes);
+    return result;
+};
 const resetStateReducer: typeof reducer = function (...args) {
     const action = args[1];
     if (action.type === resetStateAction && action.payload === resetStatePayload) {
@@ -87,10 +118,11 @@ const resetStateReducer: typeof reducer = function (...args) {
 export const store = configureStore({
     reducer: resetStateReducer,
     middleware: (getDefaultMiddleware) =>
-        getDefaultMiddleware().prepend(errorCatcher, applicationLifecycle).concat(batchDispatchMiddleware),
+        getDefaultMiddleware().prepend(errorCatcher, applicationLifecycle, sharedSettingsPersistence).concat(batchDispatchMiddleware),
 });
 
 const initialState = Object.freeze(store.getState());
+applicationSettings.subscribe((snapshot) => store.dispatch(appActions.applySharedSettings(snapshot.values)));
 
 export type AppStore = typeof store;
 export type AppSubscribe = typeof store.subscribe;

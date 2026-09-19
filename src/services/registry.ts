@@ -11,6 +11,7 @@ import type { ImportWriter } from '../application/import-queue';
 import { DeviceOperationCoordinator } from '../application/operation-coordinator';
 import type { TrackExporter } from '../application/track-export';
 import { WorkspaceStore } from '../application/workspace-store';
+import { applicationSettings, type SettingsStore } from '../application/settings-store';
 
 export interface ImportPayloadResolver {
     resolve(reference: string): Promise<File>;
@@ -38,6 +39,7 @@ interface ServiceRegistry {
     trackExporter?: TrackExporter;
     operationCoordinator: DeviceOperationCoordinator;
     workspaceStore: WorkspaceStore;
+    settingsStore: SettingsStore;
 }
 
 const taskManager = new TaskManager();
@@ -46,7 +48,8 @@ const ServiceRegistry: ServiceRegistry = {
     taskManager,
     importQueue,
     operationCoordinator: new DeviceOperationCoordinator(),
-    workspaceStore: new WorkspaceStore(taskManager, importQueue),
+    settingsStore: applicationSettings,
+    workspaceStore: new WorkspaceStore(taskManager, importQueue, applicationSettings),
 };
 
 export default ServiceRegistry;

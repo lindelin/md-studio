@@ -4,7 +4,8 @@ import { CustomParameters } from '../custom-parameters';
 import { filterOutCorrupted, getSimpleServices, ServiceConstructionInfo } from '../services/interface-service-manager';
 import { savePreference, loadPreference } from '../utils';
 import { resolveAudioServiceIndex } from '../services/audio-export-service-manager';
-import { isBoolean, isFiniteNumber, isOneOf, isPrimitiveRecord, isServiceList } from '../preferences';
+import { isBoolean, isFiniteNumber, isPrimitiveRecord, isServiceList } from '../preferences';
+import { applicationSettings, type UserSettings } from '../application/settings-store';
 
 export type Views = 'WELCOME' | 'MAIN' | 'FACTORY';
 
@@ -43,6 +44,7 @@ export interface AppState {
 }
 
 export const buildInitialState = (): AppState => {
+    const sharedSettings = applicationSettings.getSnapshot().values;
     return {
         mainView: 'WELCOME',
         loading: false,
@@ -51,16 +53,16 @@ export const buildInitialState = (): AppState => {
         browserSupported: true,
         runningChrome: true,
         connectingInProgress: false,
-        colorTheme: loadPreference('colorTheme', 'system', isOneOf(['dark', 'light', 'system'] as const)),
-        vintageMode: loadPreference('vintageMode', false, isBoolean),
+        colorTheme: sharedSettings.colorTheme,
+        vintageMode: sharedSettings.vintageMode,
         changelogDialogVisible: false,
         aboutDialogVisible: false,
         discProtectedDialogVisible: false,
-        discProtectedDialogDisabled: loadPreference('discProtectedDialogDisabled', false, isBoolean),
+        discProtectedDialogDisabled: sharedSettings.discProtectedDialogDisabled,
         settingsDialogVisible: false,
-        notifyWhenFinished: loadPreference('notifyWhenFinished', false, isBoolean),
+        notifyWhenFinished: sharedSettings.notifyWhenFinished,
         hasNotificationSupport: true,
-        fullWidthSupport: loadPreference('fullWidthSupport', false, isBoolean),
+        fullWidthSupport: sharedSettings.fullWidthSupport,
         localBridgeEnabled: loadPreference('minidiscLocalBridgeEnabled', false, isBoolean),
         availableServices: getSimpleServices().concat(
             filterOutCorrupted(loadPreference<ServiceConstructionInfo[]>('customServices', [], isServiceList))
@@ -72,12 +74,12 @@ export const buildInitialState = (): AppState => {
         audioExportServiceConfig: loadPreference('audioExportServiceConfig', {}, isPrimitiveRecord),
         libraryService: loadPreference('libraryService', -1, isFiniteNumber),
         libraryServiceConfig: loadPreference('libraryServiceConfig', {}, isPrimitiveRecord),
-        pageFullHeight: loadPreference('pageFullHeight', false, isBoolean),
-        pageFullWidth: loadPreference('pageFullWidth', false, isBoolean),
-        archiveDiscCreateZip: loadPreference('archiveDiscCreateZip', false, isBoolean),
-        factoryModeUseSlowerExploit: loadPreference('factoryModeUseSlowerExploit', false, isBoolean),
-        factoryModeShortcuts: loadPreference('factoryModeShortcuts', false, isBoolean),
-        factoryModeNERAWDownload: loadPreference('factoryModeNERAWDownload', false, isBoolean),
+        pageFullHeight: sharedSettings.pageFullHeight,
+        pageFullWidth: sharedSettings.pageFullWidth,
+        archiveDiscCreateZip: sharedSettings.archiveDiscCreateZip,
+        factoryModeUseSlowerExploit: sharedSettings.factoryModeUseSlowerExploit,
+        factoryModeShortcuts: sharedSettings.factoryModeShortcuts,
+        factoryModeNERAWDownload: sharedSettings.factoryModeNERAWDownload,
     };
 };
 
@@ -111,18 +113,15 @@ export const slice = createSlice({
         },
         setDarkMode: (state, action: PayloadAction<'dark' | 'light' | 'system'>) => {
             state.colorTheme = action.payload;
-            savePreference('colorTheme', state.colorTheme);
         },
         setNotifyWhenFinished: (state, action: PayloadAction<boolean>) => {
             state.notifyWhenFinished = action.payload;
-            savePreference('notifyWhenFinished', action.payload);
         },
         setNotificationSupport: (state, action: PayloadAction<boolean>) => {
             state.hasNotificationSupport = action.payload;
         },
         setVintageMode: (state, action: PayloadAction<boolean>) => {
             state.vintageMode = action.payload;
-            savePreference('vintageMode', action.payload);
         },
         showAboutDialog: (state, action: PayloadAction<boolean>) => {
             state.aboutDialogVisible = action.payload;
@@ -132,7 +131,6 @@ export const slice = createSlice({
         },
         disableDiscProtectedDialog: (state, action: PayloadAction<boolean>) => {
             state.discProtectedDialogDisabled = action.payload;
-            savePreference('discProtectedDialogDisabled', action.payload);
         },
         showSettingsDialog: (state, action: PayloadAction<boolean>) => {
             state.settingsDialogVisible = action.payload;
@@ -142,7 +140,6 @@ export const slice = createSlice({
         },
         setFullWidthSupport: (state, action: PayloadAction<boolean>) => {
             state.fullWidthSupport = action.payload;
-            savePreference('fullWidthSupport', state.fullWidthSupport);
         },
         setLocalBridgeEnabled: (state, action: PayloadAction<boolean>) => {
             state.localBridgeEnabled = action.payload;
@@ -181,27 +178,24 @@ export const slice = createSlice({
         },
         setPageFullHeight: (state, action: PayloadAction<boolean>) => {
             state.pageFullHeight = action.payload;
-            savePreference('pageFullHeight', action.payload);
         },
         setPageFullWidth: (state, action: PayloadAction<boolean>) => {
             state.pageFullWidth = action.payload;
-            savePreference('pageFullWidth', action.payload);
         },
         setArchiveDiscCreateZip: (state, action: PayloadAction<boolean>) => {
             state.archiveDiscCreateZip = action.payload;
-            savePreference('archiveDiscCreateZip', action.payload);
         },
         setFactoryModeUseSlowerExploit: (state, action: PayloadAction<boolean>) => {
             state.factoryModeUseSlowerExploit = action.payload;
-            savePreference('factoryModeUseSlowerExploit', action.payload);
         },
         setFactoryModeShortcuts: (state, action: PayloadAction<boolean>) => {
             state.factoryModeShortcuts = action.payload;
-            savePreference('factoryModeShortcuts', action.payload);
         },
         setFactoryModeNERAWDownload: (state, action: PayloadAction<boolean>) => {
             state.factoryModeNERAWDownload = action.payload;
-            savePreference('factoryModeNERAWDownload', action.payload);
+        },
+        applySharedSettings: (state, action: PayloadAction<UserSettings>) => {
+            Object.assign(state, action.payload);
         },
     },
 });

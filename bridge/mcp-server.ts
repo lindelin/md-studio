@@ -51,6 +51,41 @@ function createServer() {
         async () => execute({ type: 'disc.refresh' })
     );
     server.registerTool(
+        'minidisc_get_settings',
+        {
+            description:
+                'Read shared appearance, metadata, archive, and advanced-mode preferences. Local bridge authorization is intentionally excluded.',
+            inputSchema: z.object({}),
+        },
+        async () => execute({ type: 'settings.get' })
+    );
+    server.registerTool(
+        'minidisc_update_settings',
+        {
+            description:
+                'Update shared app preferences with revision protection. This cannot enable or reconfigure the local MCP/CLI bridge.',
+            inputSchema: z.object({
+                changes: z
+                    .object({
+                        colorTheme: z.enum(['dark', 'light', 'system']).optional(),
+                        vintageMode: z.boolean().optional(),
+                        discProtectedDialogDisabled: z.boolean().optional(),
+                        notifyWhenFinished: z.boolean().optional(),
+                        fullWidthSupport: z.boolean().optional(),
+                        pageFullHeight: z.boolean().optional(),
+                        pageFullWidth: z.boolean().optional(),
+                        archiveDiscCreateZip: z.boolean().optional(),
+                        factoryModeUseSlowerExploit: z.boolean().optional(),
+                        factoryModeShortcuts: z.boolean().optional(),
+                        factoryModeNERAWDownload: z.boolean().optional(),
+                    })
+                    .refine((changes) => Object.keys(changes).length > 0, 'At least one setting is required.'),
+                expectedRevision: z.number().int().nonnegative().optional(),
+            }),
+        },
+        async ({ changes, expectedRevision }) => execute({ type: 'settings.update', changes, expectedRevision })
+    );
+    server.registerTool(
         'minidisc_get_advanced_device_info',
         {
             description: 'Read firmware and supported advanced maintenance capabilities from a factory-capable NetMD device.',

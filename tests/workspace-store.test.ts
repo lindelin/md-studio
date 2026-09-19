@@ -5,6 +5,7 @@ import { ImportQueue } from '../src/application/import-queue.ts';
 import { MiniDiscApplication } from '../src/application/minidisc-application.ts';
 import { TaskManager } from '../src/application/task-manager.ts';
 import { WorkspaceStore } from '../src/application/workspace-store.ts';
+import { SettingsStore } from '../src/application/settings-store.ts';
 
 function makeApplication() {
     let title = 'Workspace Disc';
@@ -51,7 +52,8 @@ describe('WorkspaceStore', () => {
     it('combines device, import queue and task updates into one observable snapshot', async () => {
         const tasks = new TaskManager();
         const imports = new ImportQueue();
-        const store = new WorkspaceStore(tasks, imports);
+        const settings = new SettingsStore(null);
+        const store = new WorkspaceStore(tasks, imports, settings);
         const application = makeApplication();
         let changes = 0;
         store.subscribe(() => changes++);
@@ -67,12 +69,14 @@ describe('WorkspaceStore', () => {
         ]);
         const task = tasks.create('disc.write', 'Write Song', 1, 'tracks');
         tasks.start(task.id);
+        settings.update({ colorTheme: 'dark' });
 
         const snapshot = store.getSnapshot();
         assert.equal(snapshot.device?.disc?.title, 'Workspace Disc');
         assert.equal(snapshot.imports.items[0].title, 'Song');
         assert.equal(snapshot.tasks[0].status, 'running');
-        assert.equal(changes, 5);
+        assert.equal(snapshot.settings.values.colorTheme, 'dark');
+        assert.equal(changes, 6);
 
         store.detachApplication();
         assert.equal(store.getSnapshot().device, null);
