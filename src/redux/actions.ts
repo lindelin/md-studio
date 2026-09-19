@@ -36,6 +36,38 @@ import { checkFactoryCapability, initializeFactoryMode } from './factory/factory
 import { ExportParams } from '../services/audio/audio-export';
 import { LibraryServices } from '../services/library-services';
 import { s16LEToSamplesArray, Shazam } from 'shazam-api';
+import { bindApplicationRuntime, getApplicationRuntime } from '../application/runtime';
+import type { DeviceSnapshot } from '../application/contracts';
+
+function applyDeviceSnapshot(dispatch: AppDispatch, snapshot: DeviceSnapshot) {
+    dispatch(
+        batchActions([
+            mainActions.setDisc(snapshot.disc),
+            mainActions.setDeviceName(snapshot.deviceName),
+            mainActions.setDeviceStatus(snapshot.status),
+            mainActions.setDeviceCapabilities(
+                snapshot.capabilities
+                    .map(
+                        (capability) =>
+                            ({
+                                'content.read': Capability.contentList,
+                                'playback.control': Capability.playbackControl,
+                                'metadata.edit': Capability.metadataEdit,
+                                'track.upload': Capability.trackUpload,
+                                'track.download': Capability.trackDownload,
+                                'disc.eject': Capability.discEject,
+                                'advanced.factory': Capability.factoryMode,
+                                'metadata.himd': Capability.himdTitles,
+                                'metadata.fullWidth': Capability.fullWidthSupport,
+                                'track.uploadMono': Capability.nativeMonoUpload,
+                                'disc.formatHimd': Capability.himdFormat,
+                            })[capability]
+                    )
+                    .filter((capability) => capability !== undefined) as Capability[]
+            ),
+        ])
+    );
+}
 
 export function control(action: 'play' | 'stop' | 'next' | 'prev' | 'goto' | 'pause' | 'seek', params?: unknown) {
     return async function (dispatch: AppDispatch, getState: () => RootState) {
@@ -274,6 +306,7 @@ export function pair(serviceInstance: NetMDService, spec: MinidiscSpec) {
 
             try {
                 if (await serviceRegistry.netmdService.connect()) {
+                    bindApplicationRuntime();
                     dispatch(
                         batchActions([
                             appStateActions.setMainView('MAIN'),
@@ -290,6 +323,7 @@ export function pair(serviceInstance: NetMDService, spec: MinidiscSpec) {
 
             const paired = await serviceRegistry.netmdService!.pair();
             if (paired) {
+                bindApplicationRuntime();
                 dispatch(
                     batchActions([
                         appStateActions.setMainView('MAIN'),
@@ -316,42 +350,8 @@ export function listContent(dropCache: boolean = false) {
     return async function (dispatch: AppDispatch) {
         dispatch(appStateActions.setLoading(true));
         try {
-            let disc = null;
-            let deviceStatus = null;
-            try {
-                deviceStatus = await serviceRegistry.netmdService!.getDeviceStatus();
-            } catch (e) {
-                console.log('listContent: Cannot get device status');
-                console.log(e);
-            }
-            const deviceName = await serviceRegistry.netmdService!.getDeviceName();
-            const deviceCapabilities = await serviceRegistry.netmdService!.getServiceCapabilities();
-
-            if (deviceStatus?.discPresent) {
-                try {
-                    disc = await serviceRegistry.netmdService!.listContent(dropCache);
-                } catch (err) {
-                    console.log(err);
-                    if (!(err as any).message.startsWith('Rejected')) {
-                        if (
-                            window.confirm(
-                                "This disc's title seems to be corrupted, do you wish to erase it?\nNone of the tracks will be deleted."
-                            )
-                        ) {
-                            await serviceRegistry.netmdService!.wipeDiscTitleInfo();
-                            disc = await serviceRegistry.netmdService!.listContent(true);
-                        } else throw err;
-                    }
-                }
-            }
-            dispatch(
-                batchActions([
-                    mainActions.setDisc(disc),
-                    mainActions.setDeviceName(deviceName),
-                    mainActions.setDeviceStatus(deviceStatus),
-                    mainActions.setDeviceCapabilities(deviceCapabilities),
-                ])
-            );
+            const snapshot: DeviceSnapshot = await getApplicationRuntime().refresh(dropCache);
+            applyDeviceSnapshot(dispatch, snapshot);
         } finally {
             dispatch(appStateActions.setLoading(false));
         }
@@ -360,12 +360,16 @@ export function listContent(dropCache: boolean = false) {
 
 export function renameTrack(...entries: { index: number; newName: string; newFullWidthName?: string }[]) {
     return async function (dispatch: AppDispatch) {
-        const { netmdService } = serviceRegistry;
         dispatch(batchActions([renameDialogActions.setVisible(false), appStateActions.setLoading(true)]));
         try {
-            for (const { index, newName, newFullWidthName } of entries) {
-                await netmdService!.renameTrack(index, newName, newFullWidthName);
-            }
+            const snapshot = await getApplicationRuntime().renameTracks(
+                entries.map(({ index, newName, newFullWidthName }) => ({
+                    index,
+                    title: newName,
+                    fullWidthTitle: newFullWidthName,
+                }))
+            );
+            applyDeviceSnapshot(dispatch, snapshot);
         } catch (err) {
             console.error(err);
             dispatch(
@@ -376,7 +380,7 @@ export function renameTrack(...entries: { index: number; newName: string; newFul
                 ])
             );
         }
-        await listContent()(dispatch);
+        dispatch(appStateActions.setLoading(false));
     };
 }
 
@@ -404,13 +408,12 @@ export function himdRenameTrack(...entries: { index: number; title?: string; alb
 
 export function renameDisc({ newName, newFullWidthName }: { newName: string; newFullWidthName?: string }) {
     return async function (dispatch: AppDispatch) {
-        const { netmdService } = serviceRegistry;
-        await netmdService!.renameDisc(
+        const snapshot = await getApplicationRuntime().renameDisc(
             newName.replace(/\/\//g, ' /'), // Make sure the title doesn't interfere with the groups
             newFullWidthName?.replace(/／／/g, '／')
         );
+        applyDeviceSnapshot(dispatch, snapshot);
         dispatch(renameDialogActions.setVisible(false));
-        await listContent()(dispatch);
     };
 }
 
@@ -465,9 +468,8 @@ export function ejectDisc() {
 
 export function moveTrack(srcIndex: number, destIndex: number) {
     return async function (dispatch: AppDispatch) {
-        const { netmdService } = serviceRegistry;
-        await netmdService!.moveTrack(srcIndex, destIndex);
-        await listContent()(dispatch);
+        const snapshot = await getApplicationRuntime().moveTrack(srcIndex, destIndex);
+        applyDeviceSnapshot(dispatch, snapshot);
     };
 }
 

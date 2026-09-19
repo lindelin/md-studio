@@ -22,6 +22,7 @@ import factoryBadSectorDialog from './factory/factory-bad-sector-dialog-feature'
 
 import main from './main-feature';
 import { BatchAction, batchActions, batchDispatchMiddleware } from 'redux-batched-actions';
+import { clearApplicationRuntime } from '../application/runtime';
 
 const errorCatcher: Middleware = (store) => (next) => async (action) => {
     try {
@@ -60,6 +61,15 @@ const reducer = combineReducers({
 
 const resetStateAction = appActions.setMainView.toString();
 const resetStatePayload = 'WELCOME';
+const applicationLifecycle: Middleware = () => (next) => (action) => {
+    if (
+        (action as { type?: string; payload?: unknown }).type === resetStateAction &&
+        (action as { payload?: unknown }).payload === resetStatePayload
+    ) {
+        clearApplicationRuntime();
+    }
+    return next(action);
+};
 const resetStateReducer: typeof reducer = function (...args) {
     const action = args[1];
     if (action.type === resetStateAction && action.payload === resetStatePayload) {
@@ -76,7 +86,8 @@ const resetStateReducer: typeof reducer = function (...args) {
 
 export const store = configureStore({
     reducer: resetStateReducer,
-    middleware: (getDefaultMiddleware) => getDefaultMiddleware().prepend(errorCatcher).concat(batchDispatchMiddleware),
+    middleware: (getDefaultMiddleware) =>
+        getDefaultMiddleware().prepend(errorCatcher, applicationLifecycle).concat(batchDispatchMiddleware),
 });
 
 const initialState = Object.freeze(store.getState());

@@ -34,7 +34,12 @@ function orderedTitles(disc: ReturnType<typeof makeDisc>) {
 }
 
 function namedGroupTitles(disc: ReturnType<typeof makeDisc>) {
-    return disc.groups.find((group: any) => group.title === 'Group')?.tracks.map((track: any) => track.title).join('') ?? '';
+    return (
+        disc.groups
+            .find((group: any) => group.title === 'Group')
+            ?.tracks.map((track: any) => track.title)
+            .join('') ?? ''
+    );
 }
 
 describe('recomputeGroupsAfterTrackMove', () => {
