@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { assertImportWritePolicy } from '../src/application/import-write-policy.ts';
+import { assertDiscWritableForImport, assertImportWritePolicy } from '../src/application/import-write-policy.ts';
 import type { ResolvedImportQueueItem } from '../src/application/import-queue.ts';
+import type { Disc } from '../src/services/interfaces/netmd.ts';
 
 function selected(codec: string | null): ResolvedImportQueueItem[] {
     return [
@@ -62,6 +63,25 @@ describe('import write policy', () => {
                 nativeMonoUpload: true,
                 allowInteractiveHomebrew: false,
             })
+        );
+    });
+
+    it('rejects a missing or write-protected disc before creating a write task', () => {
+        assert.throws(() => assertDiscWritableForImport(null), (error: any) => error.code === 'NO_DISC');
+        assert.throws(
+            () =>
+                assertDiscWritableForImport({
+                    title: '',
+                    fullWidthTitle: '',
+                    writable: true,
+                    writeProtected: true,
+                    used: 0,
+                    left: 0,
+                    total: 0,
+                    trackCount: 0,
+                    groups: [],
+                } satisfies Disc),
+            (error: any) => error.code === 'DISC_READ_ONLY'
         );
     });
 });

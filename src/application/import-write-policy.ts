@@ -1,5 +1,6 @@
 import { ApplicationError } from './contracts';
 import type { ResolvedImportQueueItem } from './import-queue';
+import type { Disc } from '../services/interfaces/netmd';
 
 export interface ImportWritePolicyInput {
     selected: ResolvedImportQueueItem[];
@@ -22,5 +23,15 @@ export function assertImportWritePolicy(input: ImportWritePolicyInput) {
                 monoExploitRequired,
             }
         );
+    }
+}
+
+export function assertDiscWritableForImport(disc: Disc | null) {
+    if (!disc) throw new ApplicationError('NO_DISC', 'Insert a MiniDisc before starting a write task.');
+    if (!disc.writable || disc.writeProtected) {
+        throw new ApplicationError('DISC_READ_ONLY', 'The inserted MiniDisc is not writable.', {
+            writable: disc.writable,
+            writeProtected: disc.writeProtected,
+        });
     }
 }
