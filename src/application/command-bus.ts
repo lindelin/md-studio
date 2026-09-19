@@ -215,6 +215,7 @@ export class ApplicationCommandBus {
                                   id: null,
                                   name: null,
                                   error: null,
+                                  support: {},
                               },
                           },
                 };

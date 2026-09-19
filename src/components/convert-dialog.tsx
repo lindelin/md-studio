@@ -55,7 +55,6 @@ import {
     Capability,
     Codec,
 } from '../services/interfaces/netmd';
-import serviceRegistry from '../services/registry';
 import { INTERACTIVE_HOMEBREW_AUTHORIZATION } from '../application/interactive-authorization';
 import { getApplicationClient } from '../application/runtime';
 import { useApplicationWorkspace } from './use-application-client';
@@ -859,16 +858,20 @@ const ConnectedConvertDialog = (props: {
     ]);
 
     const encoderSupportState = useMemo(
-        () => serviceRegistry.audioEncoderManager.getActiveService().getSupport(currentlySelectedCodec.codec),
-        [currentlySelectedCodec]
+        () =>
+            workspace.encoder.support[currentlySelectedCodec.codec] ?? {
+                state: 'unsupported' as const,
+                gapless: false,
+            },
+        [currentlySelectedCodec.codec, workspace.encoder.support]
     );
     useEffect(() => {
         if (!encoderSupportState.gapless) setEnableGapless(false);
     }, [setEnableGapless, encoderSupportState]);
     const isSelectedMediocre = encoderSupportState.state === 'mediocre';
     const isSelectedUnsupported = encoderSupportState.state === 'unsupported';
-    const formatsSupport = recordingProfile.availableFormats.map((e) =>
-        serviceRegistry.audioEncoderManager.getActiveService().getSupport(e.codec)
+    const formatsSupport = recordingProfile.availableFormats.map(
+        (format) => workspace.encoder.support[format.codec] ?? { state: 'unsupported' as const, gapless: false }
     );
 
     const { vintageMode, libraryService } = useShallowEqualSelector((state) => state.appState);

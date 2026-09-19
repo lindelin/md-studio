@@ -42,6 +42,7 @@ export class WorkspaceStore {
                 id: null,
                 name: null,
                 error: null,
+                support: {},
             },
         };
         taskManager.subscribe(() => this.update({ tasks: taskManager.list() }));

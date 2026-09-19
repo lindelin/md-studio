@@ -1,6 +1,12 @@
 import type { CustomParameters } from '../custom-parameters';
 import type { AudioExportService } from '../services/audio/audio-export';
+import type { CodecFamily } from '../services/interfaces/netmd';
 import { ApplicationError } from './contracts';
+
+export interface AudioEncoderSupport {
+    state: 'perfect' | 'mediocre' | 'unsupported';
+    gapless: boolean;
+}
 
 export interface AudioEncoderConfiguration {
     index: number;
@@ -21,7 +27,10 @@ export interface AudioEncoderSnapshot {
     id: string | null;
     name: string | null;
     error: string | null;
+    support: Partial<Record<CodecFamily, AudioEncoderSupport>>;
 }
+
+const codecFamilies: CodecFamily[] = ['SPS', 'SPM', 'AT3', 'A3+', 'PCM', 'MP3'];
 
 type AudioEncoderListener = (snapshot: AudioEncoderSnapshot) => void;
 
@@ -33,6 +42,7 @@ export class AudioEncoderManager {
         id: null,
         name: null,
         error: null,
+        support: {},
     };
     private readonly listeners = new Set<AudioEncoderListener>();
     private active?: AudioEncoderDescriptor;
@@ -95,6 +105,9 @@ export class AudioEncoderManager {
                     id: descriptor.id,
                     name: descriptor.name,
                     error: null,
+                    support: Object.fromEntries(
+                        codecFamilies.map((codec) => [codec, descriptor.service.getSupport(codec)])
+                    ),
                     revision: this.snapshot.revision + 1,
                 }
             );

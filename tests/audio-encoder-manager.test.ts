@@ -49,6 +49,14 @@ describe('AudioEncoderManager', () => {
             id: 'encoder-0',
             name: 'Encoder 0',
             error: null,
+            support: {
+                SPS: { state: 'perfect', gapless: false },
+                SPM: { state: 'perfect', gapless: false },
+                AT3: { state: 'perfect', gapless: false },
+                'A3+': { state: 'perfect', gapless: false },
+                PCM: { state: 'perfect', gapless: false },
+                MP3: { state: 'perfect', gapless: false },
+            },
         });
 
         configuration = { index: 1, parameters: {} };
