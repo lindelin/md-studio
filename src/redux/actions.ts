@@ -33,7 +33,8 @@ import { applyDeviceSnapshot } from './application-adapter';
 import { MetadataImportError } from '../domain/metadata-import';
 import { resolveGroupedTrackMove } from '../domain/disc-layout';
 import { describeDeviceSessionFailure, DeviceSessionConnector } from '../application/device-session';
-import type { TaskSnapshot } from '../application/task-manager';
+import type { TaskManager, TaskSnapshot } from '../application/task-manager';
+import type { AudioExportService } from '../services/audio/audio-export';
 import { convertImportAudio } from '../application/audio-conversion-pipeline';
 import { ImportUploadSessionError, runImportUploadSession } from '../application/import-upload-session';
 import { finishRejectedImportWrite } from '../application/import-write-task';
@@ -983,12 +984,16 @@ export function convertAndUpload(
         taskId?: string;
         operationLockHeld?: boolean;
         preflightComplete?: boolean;
+        taskManager?: TaskManager;
+        audioExportService?: AudioExportService;
         uploadService?: DeviceUploadService;
         advancedUploadService?: AdvancedUploadService;
         deviceVersion?: { sessionId: string; revision: number };
     } = {}
 ) {
     return async function (dispatch: AppDispatch, getState: () => RootState): Promise<void> {
+        const taskManager = options.taskManager;
+        if (!taskManager) throw new Error('The write task manager was not provided.');
         const deviceCapabilities = getApplicationClient().getWorkspaceSnapshot().device?.capabilities ?? [];
         const usesAtrac1Upload = files.some((e) => e.forcedEncoding?.codec === 'SPS' || e.forcedEncoding?.codec === 'SPM');
         const usesMonoUploadExploit = format.codec === 'SPM' && !deviceCapabilities.includes('track.uploadMono');
@@ -996,7 +1001,7 @@ export function convertAndUpload(
             if (!deviceCapabilities.includes('advanced.factory')) {
                 const message = 'This device cannot enter Homebrew mode, so ATRAC1 upload is unavailable.';
                 window.alert(message);
-                finishRejectedImportWrite(serviceRegistry.taskManager, options.taskId, {
+                finishRejectedImportWrite(taskManager, options.taskId, {
                     kind: 'unavailable',
                     reason: message,
                     pendingItems: files.length,
@@ -1010,7 +1015,7 @@ export function convertAndUpload(
             ) {
                 const message = 'ATRAC1 upload was cancelled before any tracks were transferred.';
                 window.alert(message);
-                finishRejectedImportWrite(serviceRegistry.taskManager, options.taskId, {
+                finishRejectedImportWrite(taskManager, options.taskId, {
                     kind: 'cancelled',
                     reason: message,
                     pendingItems: files.length,
@@ -1019,7 +1024,7 @@ export function convertAndUpload(
             } else if (!(await checkFactoryCapability(dispatch, ExploitCapability.uploadAtrac1))) {
                 const message = 'This device does not support the ATRAC1 upload exploit.';
                 window.alert(message);
-                finishRejectedImportWrite(serviceRegistry.taskManager, options.taskId, {
+                finishRejectedImportWrite(taskManager, options.taskId, {
                     kind: 'unavailable',
                     reason: message,
                     pendingItems: files.length,
@@ -1029,7 +1034,7 @@ export function convertAndUpload(
             }
         }
         if (!options.preflightComplete && files.length === 0) {
-            finishRejectedImportWrite(serviceRegistry.taskManager, options.taskId, {
+            finishRejectedImportWrite(taskManager, options.taskId, {
                 kind: 'cancelled',
                 reason: 'The write request did not contain any tracks.',
                 pendingItems: 0,
@@ -1042,7 +1047,7 @@ export function convertAndUpload(
             if (!deviceCapabilities.includes('advanced.factory')) {
                 const message = 'This device cannot enter Homebrew mode, so SP MONO upload is unavailable.';
                 window.alert(message);
-                finishRejectedImportWrite(serviceRegistry.taskManager, options.taskId, {
+                finishRejectedImportWrite(taskManager, options.taskId, {
                     kind: 'unavailable',
                     reason: message,
                     pendingItems: files.length,
@@ -1057,7 +1062,7 @@ export function convertAndUpload(
             ) {
                 const message = 'SP MONO upload was cancelled before any tracks were transferred.';
                 window.alert(message);
-                finishRejectedImportWrite(serviceRegistry.taskManager, options.taskId, {
+                finishRejectedImportWrite(taskManager, options.taskId, {
                     kind: 'cancelled',
                     reason: message,
                     pendingItems: files.length,
@@ -1067,7 +1072,7 @@ export function convertAndUpload(
             } else if (!(await checkFactoryCapability(dispatch, ExploitCapability.uploadMonoSP))) {
                 const message = 'This device does not support the SP MONO upload exploit.';
                 window.alert(message);
-                finishRejectedImportWrite(serviceRegistry.taskManager, options.taskId, {
+                finishRejectedImportWrite(taskManager, options.taskId, {
                     kind: 'unavailable',
                     reason: message,
                     pendingItems: files.length,
@@ -1106,7 +1111,8 @@ export function convertAndUpload(
         }
         if (!options.operationLockHeld) throw new Error('The upload transaction was not acquired.');
 
-        const audioExportService = await serviceRegistry.audioEncoderManager.getService();
+        const audioExportService = options.audioExportService;
+        if (!audioExportService) throw new Error('The audio encoder was not initialized before writing.');
         const uploadService = options.uploadService;
         const netmdFactoryService = options.advancedUploadService;
         if (!uploadService) throw new Error('The standard upload service was not initialized during preflight.');
@@ -1135,14 +1141,14 @@ export function convertAndUpload(
         );
 
         const writeTask = options.taskId
-            ? serviceRegistry.taskManager.get(options.taskId)
-            : serviceRegistry.taskManager.create(
+            ? taskManager.get(options.taskId)
+            : taskManager.create(
                   'disc.write',
                   `Write ${files.length} track${files.length === 1 ? '' : 's'} to MiniDisc`,
                   files.length,
                   'tracks'
               );
-        if (writeTask.status === 'queued') serviceRegistry.taskManager.start(writeTask.id, 'preparing');
+        if (writeTask.status === 'queued') taskManager.start(writeTask.id, 'preparing');
         else if (writeTask.status !== 'running') throw new Error(`Write task ${writeTask.id} is no longer active.`);
 
         let lastUploadProgress = new Date().getTime(),
@@ -1159,7 +1165,7 @@ export function convertAndUpload(
                 lastUploadProgress = now;
                 bytesSentFromThisTrack = written;
                 if (isWriteTaskRunning()) {
-                    serviceRegistry.taskManager.reportProgress(writeTask.id, {
+                    taskManager.reportProgress(writeTask.id, {
                         bytesWritten: bytesSentFromPrevTracks + written,
                         bytesTotal: totalBytesAllTracks || bytesSentFromPrevTracks + total,
                     });
@@ -1196,7 +1202,7 @@ export function convertAndUpload(
         };
 
         const hasUploadBeenCancelled = () => {
-            const currentTask = serviceRegistry.taskManager.get(writeTask.id);
+            const currentTask = taskManager.get(writeTask.id);
             return (
                 getState().uploadDialog.cancelled ||
                 currentTask.cancellationRequested ||
@@ -1205,7 +1211,7 @@ export function convertAndUpload(
             );
         };
 
-        const isWriteTaskRunning = () => serviceRegistry.taskManager.get(writeTask.id).status === 'running';
+        const isWriteTaskRunning = () => taskManager.get(writeTask.id).status === 'running';
 
         const releaseScreenLockIfPresent = async () => {
             if (!screenWakeLock) return;
@@ -1292,8 +1298,8 @@ export function convertAndUpload(
                 isCancelled: hasUploadBeenCancelled,
                 hooks: {
                     onPhase: (phase) => {
-                        if (isWriteTaskRunning() && serviceRegistry.taskManager.get(writeTask.id).phase !== phase) {
-                            serviceRegistry.taskManager.setPhase(writeTask.id, phase);
+                        if (isWriteTaskRunning() && taskManager.get(writeTask.id).phase !== phase) {
+                            taskManager.setPhase(writeTask.id, phase);
                         }
                     },
                     onTrackStarted: (track) => {
@@ -1303,7 +1309,7 @@ export function convertAndUpload(
                         bytesSentFromThisTrack = 0;
                         updateTrack();
                         if (isWriteTaskRunning()) {
-                            serviceRegistry.taskManager.reportProgress(writeTask.id, {
+                            taskManager.reportProgress(writeTask.id, {
                                 completed: track.index,
                                 currentLabel: track.displayTitle,
                             });
@@ -1312,7 +1318,7 @@ export function convertAndUpload(
                     onTrackProgress: (_track, progress) => updateUploadProgressCallback(progress),
                     onTrackCompleted: (track) => {
                         if (isWriteTaskRunning()) {
-                            serviceRegistry.taskManager.reportProgress(writeTask.id, { completed: track.index + 1 });
+                            taskManager.reportProgress(writeTask.id, { completed: track.index + 1 });
                         }
                     },
                 },
@@ -1341,7 +1347,7 @@ export function convertAndUpload(
 
             if (isWriteTaskRunning()) {
                 if (error) {
-                    serviceRegistry.taskManager.fail(writeTask.id, error, {
+                    taskManager.fail(writeTask.id, error, {
                         completedItems: writtenTracks,
                         pendingItems: files.length - writtenTracks,
                         recoveryAction:
@@ -1351,9 +1357,9 @@ export function convertAndUpload(
                         details: { displayMessage: errorMessage },
                     });
                 } else if (cancelled || hasUploadBeenCancelled()) {
-                    serviceRegistry.taskManager.cancel(writeTask.id, { writtenTracks });
+                    taskManager.cancel(writeTask.id, { writtenTracks });
                 } else {
-                    serviceRegistry.taskManager.succeed(writeTask.id, { writtenTracks });
+                    taskManager.succeed(writeTask.id, { writtenTracks });
                     showFinishedNotificationIfNeeded();
                 }
             }

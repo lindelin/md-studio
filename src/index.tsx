@@ -29,8 +29,16 @@ import { applyDeviceSnapshot } from './redux/application-adapter';
 serviceRegistry.mediaRecorderService = new MediaRecorderService();
 serviceRegistry.mediaSessionService = new BrowserMediaSessionService(store);
 serviceRegistry.importWriter = new BrowserImportWriter({
-    startUpload: async (files, format, parameters, taskId, deviceVersion) => {
-        await store.dispatch(convertAndUpload(files, format, parameters, { taskId, deviceVersion }));
+    startUpload: async (files, format, parameters, taskId, deviceVersion, tasks) => {
+        const audioExportService = await serviceRegistry.audioEncoderManager.getService();
+        await store.dispatch(
+            convertAndUpload(files, format, parameters, {
+                taskId,
+                deviceVersion,
+                taskManager: tasks,
+                audioExportService,
+            })
+        );
     },
     showImportDialog: () => {
         store.dispatch(convertDialogActions.setVisible(true));

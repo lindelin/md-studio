@@ -19,7 +19,8 @@ export interface BrowserImportWriterDependencies {
         format: Codec,
         parameters: { enableReplayGain: boolean; enableGapless: boolean },
         taskId: string,
-        deviceVersion: { sessionId: string; revision: number }
+        deviceVersion: { sessionId: string; revision: number },
+        tasks: TaskManager
     ): Promise<void>;
     showImportDialog(): void;
 }
@@ -119,7 +120,8 @@ export class BrowserImportWriter implements ImportWriter {
                     enableGapless: request.enableGapless ?? false,
                 },
                 taskId,
-                deviceVersion
+                deviceVersion,
+                tasks
             );
 
             const finalTask = tasks.get(taskId);
