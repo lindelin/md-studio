@@ -27,6 +27,21 @@ export interface LibraryCatalogPage {
     items: LibraryCatalogEntry[];
 }
 
+export interface LibraryCatalogSearchItem extends LocalTrackMetadata {
+    path: string[];
+    name: string;
+}
+
+export interface LibraryCatalogSearchPage {
+    revision: number;
+    query: string;
+    offset: number;
+    limit: number;
+    total: number;
+    nextOffset?: number;
+    items: LibraryCatalogSearchItem[];
+}
+
 export interface LibraryTrackSelection {
     path: string[];
     name: string;
@@ -38,6 +53,7 @@ type LibraryCatalogListener = (snapshot: LibraryCatalogSnapshot) => void;
 const MAX_LIBRARY_DEPTH = 64;
 const MAX_LIBRARY_ENTRIES = 100_000;
 const MAX_LIBRARY_TEXT_LENGTH = 1024;
+const MAX_LIBRARY_SEARCH_LENGTH = 256;
 export const MAX_LIBRARY_PAGE_SIZE = 200;
 const MAX_LIBRARY_IMPORT_ITEMS = 500;
 
@@ -214,6 +230,62 @@ export class LibraryCatalog {
             total: items.length,
             ...(nextOffset < items.length ? { nextOffset } : {}),
             items: pageItems,
+        });
+    }
+
+    search(query: string, offset = 0, limit = 100, expectedRevision?: number): LibraryCatalogSearchPage {
+        if (this.snapshot.status !== 'ready' || !this.snapshot.database) {
+            throw new ApplicationError('INVALID_INPUT', 'Refresh the library before searching its contents.');
+        }
+        if (expectedRevision !== undefined && expectedRevision !== this.snapshot.revision) {
+            throw new ApplicationError('STALE_REVISION', 'The library changed after this search was prepared.', {
+                expectedRevision,
+                actualRevision: this.snapshot.revision,
+            });
+        }
+        const normalizedQuery = typeof query === 'string' ? query.trim() : '';
+        if (normalizedQuery.length === 0 || normalizedQuery.length > MAX_LIBRARY_SEARCH_LENGTH) {
+            throw new ApplicationError(
+                'INVALID_INPUT',
+                `Library search text must contain 1 to ${MAX_LIBRARY_SEARCH_LENGTH} characters.`
+            );
+        }
+        if (!Number.isInteger(offset) || offset < 0) {
+            throw new ApplicationError('INVALID_INPUT', 'Library search offset must be a non-negative whole number.');
+        }
+        if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIBRARY_PAGE_SIZE) {
+            throw new ApplicationError('INVALID_INPUT', `Library page size must be from 1 to ${MAX_LIBRARY_PAGE_SIZE}.`);
+        }
+
+        const needle = normalizedQuery.toLowerCase();
+        const items: LibraryCatalogSearchItem[] = [];
+        let total = 0;
+        const visit = (directory: LocalDatabase, parentPath: string[]) => {
+            const entries = Object.entries(directory).sort(([left], [right]) => left.localeCompare(right));
+            for (const [name, entry] of entries) {
+                const path = [...parentPath, name];
+                if (isTrackMetadata(entry)) {
+                    const searchable = [...path, entry.artist, entry.album, entry.title].join('\n').toLowerCase();
+                    if (searchable.includes(needle)) {
+                        if (total >= offset && items.length < limit) items.push({ path, name, ...entry });
+                        total += 1;
+                    }
+                } else {
+                    visit(entry, path);
+                }
+            }
+        };
+        visit(this.snapshot.database, []);
+
+        const nextOffset = offset + items.length;
+        return structuredClone({
+            revision: this.snapshot.revision,
+            query: normalizedQuery,
+            offset,
+            limit,
+            total,
+            ...(nextOffset < total ? { nextOffset } : {}),
+            items,
         });
     }
 

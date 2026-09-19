@@ -84,6 +84,7 @@ describe('ApplicationCommandBus import writing', () => {
 
         const result = await bus.execute({ type: 'library.refreshSummary' });
         const page = await bus.execute({ type: 'library.list', limit: 10, expectedRevision: 1 });
+        const search = await bus.execute({ type: 'library.search', query: 'artist', limit: 10, expectedRevision: 1 });
         const imported = await bus.execute({
             type: 'library.import',
             paths: [['track.wav']],
@@ -96,6 +97,7 @@ describe('ApplicationCommandBus import writing', () => {
         assert.deepEqual(page.ok && page.libraryPage?.items, [
             { kind: 'track', name: 'track.wav', artist: 'Artist', album: 'Album', title: 'Track', duration: 3 },
         ]);
+        assert.deepEqual(search.ok && search.librarySearch?.items[0]?.path, ['track.wav']);
         assert.equal(imported.ok && imported.importQueue?.items[0].kind, 'library');
         assert.equal(imported.ok && imported.importQueue?.items[0].title, 'Track');
     });

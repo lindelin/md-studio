@@ -84,6 +84,21 @@ function createServer() {
             execute({ type: 'library.list', path, offset, limit, expectedRevision })
     );
     server.registerTool(
+        'minidisc_search_library',
+        {
+            description:
+                'Search tracks in the refreshed audio library by file name, directory, artist, album, or title. Results include exact paths that can be passed to minidisc_import_library_tracks.',
+            inputSchema: z.object({
+                query: z.string().trim().min(1).max(256),
+                offset: z.number().int().nonnegative().optional(),
+                limit: z.number().int().min(1).max(200).optional(),
+                expectedRevision: z.number().int().nonnegative().optional(),
+            }),
+        },
+        async ({ query, offset, limit, expectedRevision }) =>
+            execute({ type: 'library.search', query, offset, limit, expectedRevision })
+    );
+    server.registerTool(
         'minidisc_import_library_tracks',
         {
             description:
@@ -125,6 +140,14 @@ function createServer() {
                         factoryModeUseSlowerExploit: z.boolean().optional(),
                         factoryModeShortcuts: z.boolean().optional(),
                         factoryModeNERAWDownload: z.boolean().optional(),
+                        audioExportService: z.number().int().nonnegative().optional(),
+                        audioExportServiceConfig: z
+                            .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+                            .optional(),
+                        libraryService: z.number().int().min(-1).optional(),
+                        libraryServiceConfig: z
+                            .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+                            .optional(),
                         uploadFormat: z.record(z.string(), z.tuple([z.number().int().nonnegative(), z.number().int().nonnegative()])).optional(),
                         trackTitleFormat: z
                             .enum(['filename', 'title', 'album-title', 'artist-title', 'artist-album-title', 'title-artist'])

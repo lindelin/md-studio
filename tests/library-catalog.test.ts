@@ -83,6 +83,40 @@ describe('LibraryCatalog', () => {
         assert.throws(() => catalog.list([], 0, 201), /page size/i);
     });
 
+    it('searches track paths and metadata with revisioned bounded pages', async () => {
+        const catalog = new LibraryCatalog(() =>
+            serviceWithDatabase({
+                'Various Artists': {
+                    Compilation: {
+                        '02-song.flac': { artist: 'Beta', album: 'Summer Mix', title: 'Night Train', duration: 2 },
+                        '01-song.flac': { artist: 'Alpha', album: 'Summer Mix', title: 'Day Train', duration: 1 },
+                    },
+                },
+                Solo: {
+                    'train.wav': { artist: 'Gamma', album: 'Winter', title: 'Still', duration: 3 },
+                },
+            })
+        );
+        await catalog.refresh();
+
+        const firstPage = catalog.search(' train ', 0, 2, 1);
+        const albumMatch = catalog.search('summer mix', 0, 10, 1);
+
+        assert.equal(firstPage.query, 'train');
+        assert.equal(firstPage.total, 3);
+        assert.equal(firstPage.nextOffset, 2);
+        assert.deepEqual(firstPage.items.map((item) => item.path), [
+            ['Solo', 'train.wav'],
+            ['Various Artists', 'Compilation', '01-song.flac'],
+        ]);
+        assert.equal(albumMatch.total, 2);
+        assert.throws(() => catalog.search('   '), /search text/i);
+        assert.throws(
+            () => catalog.search('train', 0, 10, 0),
+            (error: unknown) => (error as { code?: string }).code === 'STALE_REVISION'
+        );
+    });
+
     it('binds selected audio to the service instance that produced the catalog revision', async () => {
         const processed: string[] = [];
         const service: LibraryService = {

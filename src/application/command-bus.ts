@@ -28,7 +28,13 @@ import { SettingsStore, type SettingsSnapshot, type UserSettingsUpdate } from '.
 import { ApplicationError } from './contracts';
 import type { WorkspaceSnapshot, WorkspaceStore } from './workspace-store';
 import { INTERACTIVE_ADVANCED_AUTHORIZATION } from './interactive-authorization';
-import type { LibraryCatalog, LibraryCatalogPage, LibraryCatalogSnapshot, LibraryCatalogState } from './library-catalog';
+import type {
+    LibraryCatalog,
+    LibraryCatalogPage,
+    LibraryCatalogSearchPage,
+    LibraryCatalogSnapshot,
+    LibraryCatalogState,
+} from './library-catalog';
 
 export type LibraryImportFactory = (paths: string[][], expectedLibraryRevision?: number) => ImportQueueInput[];
 
@@ -85,6 +91,7 @@ export type ApplicationCommand =
     | { type: 'library.status' }
     | { type: 'library.refreshSummary' }
     | { type: 'library.list'; path?: string[]; offset?: number; limit?: number; expectedRevision?: number }
+    | { type: 'library.search'; query: string; offset?: number; limit?: number; expectedRevision?: number }
     | {
           type: 'library.import';
           paths: string[][];
@@ -135,6 +142,7 @@ export interface CommandSuccess {
     library?: LibraryCatalogSnapshot;
     libraryState?: LibraryCatalogState;
     libraryPage?: LibraryCatalogPage;
+    librarySearch?: LibraryCatalogSearchPage;
     workspace?: WorkspaceSnapshot;
 }
 
@@ -229,6 +237,18 @@ export class ApplicationCommandBus {
                     ok: true,
                     libraryPage: this.libraryCatalog.list(
                         command.path,
+                        command.offset,
+                        command.limit,
+                        command.expectedRevision
+                    ),
+                };
+            }
+            if (command.type === 'library.search') {
+                if (!this.libraryCatalog) throw new Error('The library catalog is unavailable in this application environment.');
+                return {
+                    ok: true,
+                    librarySearch: this.libraryCatalog.search(
+                        command.query,
                         command.offset,
                         command.limit,
                         command.expectedRevision
