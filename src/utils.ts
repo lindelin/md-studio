@@ -77,7 +77,7 @@ export async function getMetadataFromFile(
             const dataSectionLength = file.size - 2048;
             const soundGroupsCount = dataSectionLength / 212;
             const totalSecondsOfAudio = (soundGroupsCount * 11.6) / 1000 / channelCount;
-            const titleBytes = new Uint8Array((await file.arrayBuffer()).slice(4, 4 + 256));
+            const titleBytes = new Uint8Array(await file.slice(4, 4 + 256).arrayBuffer());
             const firstNull = titleBytes.indexOf(0);
             const titleString = new TextDecoder('ascii').decode(titleBytes.slice(0, firstNull === -1 ? 256 : firstNull));
             return {
@@ -108,9 +108,7 @@ export async function getMetadataFromFile(
 
     try {
         const { parseBlob } = await import('music-metadata');
-        const fileData = await file.arrayBuffer();
-        const blob = new Blob([new Uint8Array(fileData)]);
-        const metadata = await parseBlob(blob, { duration: true });
+        const metadata = await parseBlob(file, { duration: true });
         const bitrate = (metadata.format.bitrate ?? 0) / 1000;
         const duration = metadata.format.duration ?? 0;
         const title = metadata.common.title ?? removeExtension(file.name); //Fallback to file name if there's no title in the metadata.
@@ -132,7 +130,7 @@ export async function getMetadataFromFile(
 export async function getChannelsFromAEA(file: File) {
     if (file.size < 2048) return null; // Too short to be an AEA
     const channelsOffset = 4 /* Magic */ + 256 /* title */ + 4; /* soundgroups */
-    const channels = new Uint8Array((await file.arrayBuffer()).slice(channelsOffset, channelsOffset + 1))[0];
+    const channels = new Uint8Array(await file.slice(channelsOffset, channelsOffset + 1).arrayBuffer())[0];
     if (channels !== 1 && channels !== 2) return null;
     return channels as 1 | 2;
 }
@@ -140,20 +138,21 @@ export async function getChannelsFromAEA(file: File) {
 export async function getATRACOMAEncoding(
     file: File
 ): Promise<{ format: { codec: 'AT3' | 'A3+'; bitrate: number }; headerLength: number } | 'ILLEGAL' | null> {
-    const fileData = new Uint8Array(await file.arrayBuffer());
     if (file.size < 96) return null; // Too short to be an OMA
 
+    const prefix = new Uint8Array(await file.slice(0, 10).arrayBuffer());
     let ea3Offset;
-    if (Buffer.from(fileData.slice(0, 3)).toString() === 'ea3') {
-        const tagLength = ((fileData[6] & 0x7f) << 21) | ((fileData[7] & 0x7f) << 14) | ((fileData[8] & 0x7f) << 7) | (fileData[9] & 0x7f);
+    if (Buffer.from(prefix.slice(0, 3)).toString() === 'ea3') {
+        const tagLength = ((prefix[6] & 0x7f) << 21) | ((prefix[7] & 0x7f) << 14) | ((prefix[8] & 0x7f) << 7) | (prefix[9] & 0x7f);
         ea3Offset = tagLength + 10;
-        if ((fileData[5] & 0x10) !== 0) {
+        if ((prefix[5] & 0x10) !== 0) {
             ea3Offset += 10;
         }
     } else {
         ea3Offset = 0;
     }
-    const ea3Header = fileData.slice(ea3Offset, ea3Offset + 96);
+    if (ea3Offset + 96 > file.size) return null;
+    const ea3Header = new Uint8Array(await file.slice(ea3Offset, ea3Offset + 96).arrayBuffer());
     const headerLength = ea3Offset + 96;
 
     if (Buffer.from(ea3Header.slice(0, 4)).toString() !== 'EA3\x01') return null; // Not a valid OMA - invalid EA3 header
@@ -194,35 +193,39 @@ export async function getATRACOMAEncoding(
 export async function getATRACWAVEncoding(
     file: File
 ): Promise<{ format: { codec: 'AT3' | 'A3+'; bitrate: number }; headerLength: number } | null> {
-    const fileData = await file.arrayBuffer();
-    if (fileData.byteLength < 44) return null; // Too short to be a WAV
+    if (file.size < 44) return null; // Too short to be a WAV
+    const fileHeader = await file.slice(0, 44).arrayBuffer();
 
-    if (Buffer.from(fileData.slice(0, 4)).toString() !== 'RIFF') return null; // Missing header part 1
-    if (Buffer.from(fileData.slice(8, 16)).toString() !== 'WAVEfmt ') return null; // Missing header part 2
+    if (Buffer.from(fileHeader.slice(0, 4)).toString() !== 'RIFF') return null; // Missing header part 1
+    if (Buffer.from(fileHeader.slice(8, 16)).toString() !== 'WAVEfmt ') return null; // Missing header part 2
 
-    const wavType = Buffer.from(fileData.slice(20, 22)).readUInt16LE(0);
-    const channels = Buffer.from(fileData.slice(22, 24)).readUInt16LE(0);
+    const wavType = Buffer.from(fileHeader.slice(20, 22)).readUInt16LE(0);
+    const channels = Buffer.from(fileHeader.slice(22, 24)).readUInt16LE(0);
     if ((wavType !== 0x270 && wavType !== 0xfffe) || channels !== 0x02) return null; // Not ATRAC3
 
     let headerLength = 12;
     let dataChunkFound = false;
-    while (headerLength + 8 <= fileData.byteLength) {
-        const chunkType = Buffer.from(fileData.slice(headerLength, headerLength + 4)).toString();
-        const chunkSize = Buffer.from(fileData.slice(headerLength + 4, headerLength + 8)).readUInt32LE(0);
+    let chunksScanned = 0;
+    while (headerLength + 8 <= file.size && chunksScanned < 512) {
+        const chunkHeader = await file.slice(headerLength, headerLength + 8).arrayBuffer();
+        if (chunkHeader.byteLength !== 8) return null;
+        const chunkType = Buffer.from(chunkHeader.slice(0, 4)).toString();
+        const chunkSize = Buffer.from(chunkHeader.slice(4, 8)).readUInt32LE(0);
         if (chunkType === 'data') {
             headerLength = headerLength + 8;
             dataChunkFound = true;
             break;
         } else {
             const nextChunk = headerLength + chunkSize + 8 + (chunkSize % 2);
-            if (nextChunk <= headerLength || nextChunk > fileData.byteLength) return null;
+            if (nextChunk <= headerLength || nextChunk > file.size) return null;
             headerLength = nextChunk;
         }
+        chunksScanned += 1;
     }
     if (!dataChunkFound) return null;
 
-    const bytesSampleRate = Buffer.from(fileData.slice(24, 28)).readUInt32LE(0);
-    const bytesPerFrame = Buffer.from(fileData.slice(32, 34)).readUInt16LE(0) / 2;
+    const bytesSampleRate = Buffer.from(fileHeader.slice(24, 28)).readUInt32LE(0);
+    const bytesPerFrame = Buffer.from(fileHeader.slice(32, 34)).readUInt16LE(0) / 2;
     if (bytesSampleRate !== 44100) return null;
     switch (bytesPerFrame) {
         case 192:

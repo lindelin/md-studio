@@ -11,7 +11,7 @@ export interface InspectedImportFile {
     title: string;
     album: string;
     artist: string;
-    duration: number;
+    duration?: number;
     forcedEncoding: { codec: string; bitrate: number } | null;
     bytesToSkip: number;
 }
@@ -41,7 +41,7 @@ export async function inspectImportFiles(
                 title: input.title,
                 album: input.album,
                 artist: input.artist,
-                duration: input.duration,
+                duration: normalizeDuration(input.duration),
                 forcedEncoding: null,
                 bytesToSkip: 0,
             });
@@ -68,12 +68,17 @@ export async function inspectImportFiles(
         files.push({
             file: input,
             ...metadata,
+            duration: normalizeDuration(metadata.duration),
             forcedEncoding: forcedEncoding?.format ?? null,
             bytesToSkip: forcedEncoding?.headerLength ?? 0,
         });
     }
 
     return { files, failures };
+}
+
+function normalizeDuration(duration: number) {
+    return Number.isFinite(duration) && duration > 0 ? duration : undefined;
 }
 
 function isAdaptiveFile(file: File | AdaptiveFile): file is AdaptiveFile {
