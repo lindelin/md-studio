@@ -48,9 +48,18 @@ export function startLocalBridgeServer(broker: LocalBridgeBroker, options: Local
         socket.on('error', (error) => console.error('Browser bridge socket error:', error));
     });
 
+    const ready = new Promise<void>((resolve, reject) => {
+        server.once('listening', resolve);
+        server.once('error', reject);
+    });
+
     return {
         host,
-        port,
+        get port() {
+            const address = server.address();
+            return typeof address === 'object' && address ? address.port : port;
+        },
+        ready,
         close: () =>
             new Promise<void>((resolve, reject) => {
                 for (const client of clients) client.terminate();
