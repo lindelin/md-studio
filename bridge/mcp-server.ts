@@ -36,6 +36,23 @@ async function execute(command: ApplicationCommand) {
     }
 }
 
+const importMetadataChangesSchema = z
+    .object({
+        title: z.string().optional(),
+        fullWidthTitle: z.string().optional(),
+        artist: z.string().optional(),
+        album: z.string().optional(),
+        duration: z.number().nonnegative().optional(),
+        forcedEncoding: z
+            .object({ codec: z.string().min(1), bitrate: z.number().int().positive() })
+            .strict()
+            .nullable()
+            .optional(),
+        bytesToSkip: z.number().int().nonnegative().optional(),
+    })
+    .strict()
+    .refine((changes) => Object.keys(changes).length > 0, 'At least one metadata field is required.');
+
 function createServer() {
     const server = new McpServer(
         { name: 'minidisc-workspace', version: '0.1.0' },
@@ -58,7 +75,7 @@ function createServer() {
         'minidisc_list_services',
         {
             description:
-                'List available audio encoders and library backends with stable IDs, build availability, parameter types, and defaults. Use the returned index when updating shared settings.',
+                'List available audio encoders and library backends with stable IDs, build availability, parameter types, and defaults. Persist encoder choices by stable ID.',
             inputSchema: z.object({}),
         },
         async () => execute({ type: 'services.get' })
@@ -525,18 +542,7 @@ function createServer() {
             description: 'Update title, metadata, or encoding choices for one queued import.',
             inputSchema: z.object({
                 id: z.string().min(1),
-                changes: z.object({
-                    title: z.string().optional(),
-                    fullWidthTitle: z.string().optional(),
-                    artist: z.string().optional(),
-                    album: z.string().optional(),
-                    duration: z.number().nonnegative().optional(),
-                    forcedEncoding: z
-                        .object({ codec: z.string().min(1), bitrate: z.number().int().nonnegative() })
-                        .nullable()
-                        .optional(),
-                    bytesToSkip: z.number().int().nonnegative().optional(),
-                }),
+                changes: importMetadataChangesSchema,
                 expectedRevision: z.number().int().nonnegative().optional(),
             }),
         },
@@ -551,18 +557,7 @@ function createServer() {
                     .array(
                         z.object({
                             id: z.string().min(1),
-                            changes: z.object({
-                                title: z.string().optional(),
-                                fullWidthTitle: z.string().optional(),
-                                artist: z.string().optional(),
-                                album: z.string().optional(),
-                                duration: z.number().nonnegative().optional(),
-                                forcedEncoding: z
-                                    .object({ codec: z.string().min(1), bitrate: z.number().int().nonnegative() })
-                                    .nullable()
-                                    .optional(),
-                                bytesToSkip: z.number().int().nonnegative().optional(),
-                            }),
+                            changes: importMetadataChangesSchema,
                         })
                     )
                     .min(1),

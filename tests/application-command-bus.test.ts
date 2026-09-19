@@ -59,6 +59,38 @@ describe('ApplicationCommandBus import writing', () => {
         assert.equal(addedImport.ok && addedImport.importQueue?.items[0]?.name, 'track.wav');
     });
 
+    it('rejects malformed import metadata from serializable clients without changing the queue', async () => {
+        const imports = new ImportQueue();
+        const bus = new ApplicationCommandBus(undefined, new TaskManager(), imports);
+        const added = await bus.execute({
+            type: 'import.add',
+            inputs: [
+                {
+                    source: { kind: 'local-path', name: 'track.wav', reference: 'bridge-file:opaque' },
+                    metadata: { title: 'Track' },
+                },
+            ],
+        });
+        assert.equal(added.ok, true);
+        const id = added.ok ? added.importQueue!.items[0].id : '';
+        const revision = added.ok ? added.importQueue!.revision : -1;
+
+        const empty = await bus.execute({ type: 'import.update', id, changes: {}, expectedRevision: revision });
+        const unknown = await bus.execute({
+            type: 'import.update',
+            id,
+            changes: { injected: 'value' } as any,
+            expectedRevision: revision,
+        });
+
+        assert.equal(empty.ok, false);
+        assert.equal(!empty.ok && empty.error.code, 'INVALID_INPUT');
+        assert.equal(unknown.ok, false);
+        assert.equal(!unknown.ok && unknown.error.code, 'INVALID_INPUT');
+        assert.equal(imports.snapshot().revision, revision);
+        assert.equal('injected' in imports.snapshot().items[0], false);
+    });
+
     it('returns one disconnected workspace snapshot for UI and automation clients', async () => {
         const tasks = new TaskManager();
         const imports = new ImportQueue();

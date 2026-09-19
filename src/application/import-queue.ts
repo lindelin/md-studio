@@ -69,6 +69,24 @@ export interface ResolvedImportQueueItem {
 
 type ImportQueueListener = (snapshot: ImportQueueSnapshot) => void;
 
+const SOURCE_KEYS = new Set<keyof ImportSourceDescriptor>(['kind', 'name', 'reference', 'size', 'mimeType']);
+const METADATA_KEYS = new Set<keyof ImportTrackMetadata>([
+    'title',
+    'sourceTitle',
+    'fullWidthTitle',
+    'artist',
+    'sourceArtist',
+    'album',
+    'sourceAlbum',
+    'duration',
+    'forcedEncoding',
+    'bytesToSkip',
+]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
 function createImportId() {
     return globalThis.crypto?.randomUUID?.() ?? `import-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
@@ -110,9 +128,10 @@ export class ImportQueue {
 
         const replacements = new Map<number, ImportQueueItem>();
         for (const update of updates) {
+            this.validateMetadataChanges(update.changes);
             const index = this.requireIndex(update.id);
             const updated = { ...this.items[index], ...structuredClone(update.changes) };
-            this.validateMetadata(updated);
+            this.validateMetadata(updated, false);
             replacements.set(index, updated);
         }
         for (const [index, item] of replacements) this.items[index] = item;
@@ -184,22 +203,80 @@ export class ImportQueue {
     }
 
     private validateInput(input: ImportQueueInput) {
+        if (!isRecord(input) || !isRecord(input.source) || !isRecord(input.metadata)) {
+            throw new ApplicationError('INVALID_INPUT', 'Every import must contain a source and metadata object.');
+        }
+        this.assertKnownKeys(input.source, SOURCE_KEYS, 'audio source');
+        if (!['browser-file', 'local-path', 'library'].includes(String(input.source.kind))) {
+            throw new ApplicationError('INVALID_INPUT', 'The audio source kind is invalid.');
+        }
+        if (typeof input.source.name !== 'string' || typeof input.source.reference !== 'string') {
+            throw new ApplicationError('INVALID_INPUT', 'Every audio source needs string name and reference fields.');
+        }
         if (!input.source.name.trim() || !input.source.reference.trim()) {
             throw new ApplicationError('INVALID_INPUT', 'Every audio source needs a name and reference.');
+        }
+        if (input.source.size !== undefined && (!Number.isSafeInteger(input.source.size) || input.source.size < 0)) {
+            throw new ApplicationError('INVALID_INPUT', 'Audio source size must be a non-negative whole number.');
+        }
+        if (input.source.mimeType !== undefined && typeof input.source.mimeType !== 'string') {
+            throw new ApplicationError('INVALID_INPUT', 'Audio source MIME type must be a string.');
         }
         this.validateMetadata(input.metadata);
     }
 
-    private validateMetadata(metadata: ImportTrackMetadata) {
+    private validateMetadata(metadata: ImportTrackMetadata, checkKeys = true) {
+        if (!isRecord(metadata)) throw new ApplicationError('INVALID_INPUT', 'Import metadata must be an object.');
+        if (checkKeys) this.assertKnownKeys(metadata, METADATA_KEYS, 'import metadata');
         if (typeof metadata.title !== 'string') {
             throw new ApplicationError('INVALID_INPUT', 'Every imported track needs a title string.');
+        }
+        for (const key of [
+            'sourceTitle',
+            'fullWidthTitle',
+            'artist',
+            'sourceArtist',
+            'album',
+            'sourceAlbum',
+        ] as const) {
+            if (metadata[key] !== undefined && typeof metadata[key] !== 'string') {
+                throw new ApplicationError('INVALID_INPUT', `${key} must be a string.`);
+            }
         }
         if (metadata.duration !== undefined && (!Number.isFinite(metadata.duration) || metadata.duration < 0)) {
             throw new ApplicationError('INVALID_INPUT', 'Track duration must be a non-negative number.');
         }
+        if (metadata.forcedEncoding !== undefined && metadata.forcedEncoding !== null) {
+            const encoding = metadata.forcedEncoding;
+            if (
+                !isRecord(encoding) ||
+                Object.keys(encoding).some((key) => key !== 'codec' && key !== 'bitrate') ||
+                typeof encoding.codec !== 'string' ||
+                encoding.codec.trim().length === 0 ||
+                !Number.isSafeInteger(encoding.bitrate) ||
+                encoding.bitrate <= 0
+            ) {
+                throw new ApplicationError(
+                    'INVALID_INPUT',
+                    'Forced encoding must contain a codec and a positive whole-number bitrate.'
+                );
+            }
+        }
         if (metadata.bytesToSkip !== undefined && (!Number.isInteger(metadata.bytesToSkip) || metadata.bytesToSkip < 0)) {
             throw new ApplicationError('INVALID_INPUT', 'The encoded audio offset must be a non-negative whole number.');
         }
+    }
+
+    private validateMetadataChanges(changes: Partial<ImportTrackMetadata>) {
+        if (!isRecord(changes) || Object.keys(changes).length === 0) {
+            throw new ApplicationError('INVALID_INPUT', 'Every import update must change at least one metadata field.');
+        }
+        this.assertKnownKeys(changes, METADATA_KEYS, 'import update');
+    }
+
+    private assertKnownKeys<T extends string>(value: Record<string, unknown>, allowed: ReadonlySet<T>, label: string) {
+        const unknownKey = Object.keys(value).find((key) => !allowed.has(key as T));
+        if (unknownKey) throw new ApplicationError('INVALID_INPUT', `Unknown ${label} field: ${unknownKey}.`);
     }
 
     private requireIndex(id: string) {

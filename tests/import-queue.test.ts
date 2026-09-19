@@ -77,6 +77,37 @@ describe('ImportQueue', () => {
         );
     });
 
+    it('rejects empty, unknown, and malformed metadata at the shared command boundary', () => {
+        const queue = new ImportQueue();
+        const initial = queue.add([input('Safe.flac')]);
+        const id = initial.items[0].id;
+
+        assert.throws(
+            () => queue.update(id, {}, initial.revision),
+            (error: unknown) => (error as ApplicationError).code === 'INVALID_INPUT'
+        );
+        assert.throws(
+            () => queue.update(id, { injected: 'value' } as any, initial.revision),
+            /Unknown import update field/
+        );
+        assert.throws(
+            () => queue.update(id, { forcedEncoding: { codec: 'AT3', bitrate: 0 } }, initial.revision),
+            /positive whole-number bitrate/
+        );
+        assert.throws(
+            () =>
+                queue.add([
+                    {
+                        ...input('Bad.flac'),
+                        source: { ...input('Bad.flac').source, kind: 'network-url' },
+                    } as any,
+                ]),
+            /source kind is invalid/
+        );
+        assert.equal(queue.snapshot().revision, initial.revision);
+        assert.deepEqual(queue.snapshot().items[0], initial.items[0]);
+    });
+
     it('keeps non-serializable payloads out of snapshots', () => {
         const queue = new ImportQueue();
         const payload = { arrayBuffer: async () => new ArrayBuffer(0) };
