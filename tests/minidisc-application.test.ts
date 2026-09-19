@@ -1,20 +1,31 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { describe, it } from 'node:test';
-import { ApplicationError, type DeviceGateway, type TrackMetadataUpdate } from '../src/application/contracts.ts';
+import {
+    ApplicationError,
+    type ApplicationCapability,
+    type DeviceGateway,
+    type TrackMetadataUpdate,
+} from '../src/application/contracts.ts';
 import { MiniDiscApplication } from '../src/application/minidisc-application.ts';
 import { INTERACTIVE_ADVANCED_AUTHORIZATION } from '../src/application/interactive-authorization.ts';
 import { calculateImportPreview } from '../src/application/import-preview.ts';
 import { DefaultMinidiscSpec } from '../src/services/interfaces/netmd.ts';
 
-function makeGateway() {
+function makeGateway(
+    options: {
+        capabilities?: ApplicationCapability[];
+        writable?: boolean;
+        writeProtected?: boolean;
+    } = {}
+) {
     const calls: string[] = [];
     const status = { discPresent: true, canBeFlushed: true, state: 'stopped', track: 0 } as any;
     const disc = {
         title: 'Test Disc',
         fullWidthTitle: '',
-        writable: true,
-        writeProtected: false,
+        writable: options.writable ?? true,
+        writeProtected: options.writeProtected ?? false,
         used: 10,
         left: 90,
         total: 100,
@@ -37,7 +48,7 @@ function makeGateway() {
             return {
                 deviceName: 'MockMD',
                 status: structuredClone(status),
-                capabilities: [
+                capabilities: options.capabilities ?? [
                     'content.read',
                     'metadata.edit',
                     'metadata.himd',
@@ -329,6 +340,42 @@ describe('MiniDiscApplication', () => {
             }
         );
         assert.equal(calls.filter((call) => call.startsWith('renameDisc')).length, 1);
+    });
+
+    it('enforces device capabilities and write protection before public mutations', async () => {
+        const limited = makeGateway({ capabilities: ['content.read'] });
+        const limitedApplication = new MiniDiscApplication(limited.gateway);
+        await limitedApplication.refresh();
+
+        await assert.rejects(() => limitedApplication.renameDisc('Blocked'), { code: 'CAPABILITY_REQUIRED' });
+        await assert.rejects(() => limitedApplication.controlPlayback({ action: 'play' }), {
+            code: 'CAPABILITY_REQUIRED',
+        });
+        await assert.rejects(() => limitedApplication.ejectDisc(), { code: 'CAPABILITY_REQUIRED' });
+        assert.deepEqual(limited.calls, ['read']);
+
+        const protectedDevice = makeGateway({ writeProtected: true });
+        const protectedApplication = new MiniDiscApplication(protectedDevice.gateway);
+        await protectedApplication.refresh();
+
+        await assert.rejects(() => protectedApplication.renameDisc('Blocked'), { code: 'DISC_READ_ONLY' });
+        await assert.rejects(
+            () =>
+                protectedApplication.deleteTracks([0], {
+                    confirmed: true,
+                    reason: 'Capability boundary test',
+                }),
+            { code: 'DISC_READ_ONLY' }
+        );
+        await assert.rejects(
+            () =>
+                protectedApplication.formatToHiMD({
+                    confirmed: true,
+                    reason: 'Capability boundary test',
+                }),
+            { code: 'DISC_READ_ONLY' }
+        );
+        assert.deepEqual(protectedDevice.calls, ['read']);
     });
 
     it('validates an entire batch before renaming any track', async () => {
