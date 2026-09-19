@@ -41,13 +41,15 @@ if (readRawPreference('version') !== (window as any).wmdVersion) {
 (function setupEventHandlers() {
     window.addEventListener('beforeunload', (ev) => {
         const state = store.getState();
-        const isUploading = state.uploadDialog.visible;
-        const isDownloading = state.factoryProgressDialog.visible || state.recordDialog.visible;
-        if (!(isUploading || isDownloading)) {
+        const hasActiveTask = serviceRegistry.taskManager
+            .list()
+            .some((task) => task.status === 'queued' || task.status === 'running');
+        const hasLegacyOperation = state.uploadDialog.visible || state.factoryProgressDialog.visible || state.recordDialog.visible;
+        if (!(hasActiveTask || hasLegacyOperation)) {
             return;
         }
         ev.preventDefault();
-        ev.returnValue = `Warning! Recording will be interrupted`;
+        ev.returnValue = `A MiniDisc operation is still running and will be interrupted.`;
     });
 
     if (navigator && navigator.usb) {
@@ -81,22 +83,7 @@ if (readRawPreference('version') !== (window as any).wmdVersion) {
     let consecutiveFailures = 0;
 
     function shouldMonitorBeRunning(state: ReturnType<typeof store.getState>): boolean {
-        return (
-            // App ready
-            state.appState.mainView === 'MAIN' &&
-            state.appState.loading === false &&
-            // Disc playing
-            // (state.main.deviceStatus?.state === 'playing' || state.main.disc === null) &&
-            // No operational dialogs running
-            state.convertDialog.visible === false &&
-            state.uploadDialog.visible === false &&
-            state.recordDialog.visible === false &&
-            state.panicDialog.visible === false &&
-            state.errorDialog.visible === false &&
-            state.dumpDialog.visible === false &&
-            state.songRecognitionProgressDialog.visible === false &&
-            state.factoryProgressDialog.visible === false
-        );
+        return state.appState.mainView === 'MAIN' && state.appState.loading === false;
     }
 
     async function monitor() {
@@ -114,7 +101,10 @@ if (readRawPreference('version') !== (window as any).wmdVersion) {
                     setTimeout(monitor, nextPollDelay);
                     return;
                 }
-                const deviceStatus = await service.getDeviceStatus();
+                const deviceStatus = await serviceRegistry.operationCoordinator.run(async () => {
+                    if (serviceRegistry.netmdService !== service) throw new Error('The active device session changed.');
+                    return service.getDeviceStatus();
+                });
                 if (serviceRegistry.netmdService !== service) {
                     setTimeout(monitor, nextPollDelay);
                     return;
@@ -130,8 +120,6 @@ if (readRawPreference('version') !== (window as any).wmdVersion) {
                 if (typeof serviceFlushability === 'boolean' && currentFlushability !== serviceFlushability) {
                     store.dispatch(mainActions.setFlushable(serviceFlushability));
                 }
-                // Since this function doesn't execute if there's any operational dialog on screen
-                // (including the track upload dialog), this won't conflict with anything.
                 if (document.title !== originalApplicationTitle) {
                     document.title = originalApplicationTitle;
                 }
