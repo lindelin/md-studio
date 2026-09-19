@@ -238,14 +238,19 @@ export async function getATRACWAVEncoding(
     return null;
 }
 
-export async function sleepWithProgressCallback(ms: number, cb: (perc: number) => void) {
-    let elapsedSecs = 1;
-    const interval = setInterval(() => {
-        elapsedSecs++;
-        cb(Math.min(100, ((elapsedSecs * 1000) / ms) * 100));
-    }, 1000);
-    await sleep(ms);
-    window.clearInterval(interval);
+export async function sleepWithProgressCallback(ms: number, cb: (perc: number) => void, isCancelled = () => false) {
+    if (ms <= 0) {
+        cb(100);
+        return !isCancelled();
+    }
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < ms) {
+        if (isCancelled()) return false;
+        const remaining = ms - (Date.now() - startedAt);
+        await sleep(Math.min(250, remaining));
+        cb(Math.min(100, ((Date.now() - startedAt) / ms) * 100));
+    }
+    return !isCancelled();
 }
 
 export function getPublicPathFor(script: string) {
@@ -478,6 +483,7 @@ export async function convertToWAV(
     { data, extension }: { data: Uint8Array; extension: string },
     track: Track
 ): Promise<Uint8Array<ArrayBuffer>> {
+    void track;
     return ffmpegTranscode(data, extension, '-f wav');
 }
 
@@ -495,5 +501,3 @@ export function getDeviceNameFromTOCSignature(deviceId: number) {
     const signature = SIGNATURES[deviceId];
     return `${signature || 'Unknown device'} (0x${deviceId.toString(16).padStart(4, '0')})`;
 }
-
-declare let process: any;

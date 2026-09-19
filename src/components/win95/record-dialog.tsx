@@ -1,6 +1,6 @@
 import React from 'react';
-import { WindowHeader, Progress } from 'react95';
-import { DialogOverlay, DialogWindow, DialogWindowContent } from './common';
+import { WindowHeader, Progress, Button } from 'react95';
+import { DialogFooter, DialogOverlay, DialogWindow, DialogWindowContent } from './common';
 
 export const W95RecordDialog = (props: {
     visible: boolean;
@@ -9,6 +9,7 @@ export const W95RecordDialog = (props: {
     trackCurrent: number;
     titleCurrent: string;
     progressValue: number;
+    onCancel?: () => void;
 }) => {
     if (!props.visible) {
         return null;
@@ -24,6 +25,11 @@ export const W95RecordDialog = (props: {
                         props.titleCurrent
                     }`}</p>
                     <Progress value={props.progressValue} hideValue={props.progressValue < 0} />
+                    {props.onCancel ? (
+                        <DialogFooter>
+                            <Button onClick={props.onCancel}>Cancel after current step</Button>
+                        </DialogFooter>
+                    ) : null}
                 </DialogWindowContent>
             </DialogWindow>
         </DialogOverlay>

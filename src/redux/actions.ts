@@ -40,6 +40,13 @@ import { bindApplicationRuntime, getApplicationRuntime } from '../application/ru
 import type { DeviceSnapshot } from '../application/contracts';
 import { applyDeviceSnapshot } from './application-adapter';
 import { buildImportedGroups, createMetadataImportPlan, METADATA_CSV_HEADER_ALIASES, MetadataImportError } from '../domain/metadata-import';
+import { waitForTrackReady } from '../domain/playback-position';
+
+export function requestTaskCancellation(id: string) {
+    return async function () {
+        serviceRegistry.taskManager.requestCancellation(id);
+    };
+}
 
 export function control(action: 'play' | 'stop' | 'next' | 'prev' | 'goto' | 'pause' | 'seek', params?: unknown) {
     return async function (dispatch: AppDispatch) {
@@ -514,9 +521,17 @@ export function downloadTracks(
 
 export function recordTracks(indexes: number[], deviceId: string) {
     return async function (dispatch: AppDispatch, getState: () => RootState) {
+        const task = serviceRegistry.taskManager.create(
+            'track.record',
+            `Record ${indexes.length} track${indexes.length === 1 ? '' : 's'} through the audio input`,
+            indexes.length,
+            'tracks'
+        );
+        serviceRegistry.taskManager.start(task.id, 'preparing');
         dispatch(
             batchActions([
                 recordDialogAction.setVisible(true),
+                recordDialogAction.setTaskId(task.id),
                 recordDialogAction.setProgress({ trackTotal: indexes.length, trackDone: 0, trackCurrent: 0, titleCurrent: '' }),
             ])
         );
@@ -525,71 +540,89 @@ export function recordTracks(indexes: number[], deviceId: string) {
         const tracks = getTracks(disc!).filter((t) => indexes.indexOf(t.index) >= 0);
 
         const { netmdService, mediaRecorderService } = serviceRegistry;
-        await serviceRegistry.netmdService!.stop();
-
-        for (const [i, track] of tracks.entries()) {
-            dispatch(
-                recordDialogAction.setProgress({
-                    trackTotal: tracks.length,
-                    trackDone: i,
-                    trackCurrent: -1,
-                    titleCurrent: track.title ?? '',
-                })
-            );
-
-            // Wait for the track to be ready to play from 0:00
-            await netmdService!.gotoTrack(track.index);
-            await netmdService!.play();
-            console.log('Waiting for track to be ready to play');
-            let position = await netmdService!.getPosition();
-            const expected = [track.index, 0, 0, 1];
-
-            while (position === null || !expected.every((_, i) => expected[i] === position![i])) {
-                await sleep(250);
-                position = await netmdService!.getPosition();
-            }
-            await netmdService!.pause();
-            await netmdService?.gotoTrack(track.index);
-            console.log('Track is ready to play');
-
-            // Start recording and play track
-            await mediaRecorderService?.initStream(deviceId);
-            await mediaRecorderService?.startRecording();
-            await netmdService!.play();
-
-            // Wait until track is finished
-            // await sleep(durationInSec * 1000);
-            await sleepWithProgressCallback(track.duration * 1000, (perc: number) => {
+        let recordingStarted = false;
+        try {
+            await netmdService!.stop();
+            for (const [i, track] of tracks.entries()) {
+                if (serviceRegistry.taskManager.isCancellationRequested(task.id)) break;
+                serviceRegistry.taskManager.setPhase(task.id, 'preparing');
                 dispatch(
                     recordDialogAction.setProgress({
                         trackTotal: tracks.length,
                         trackDone: i,
-                        trackCurrent: perc,
+                        trackCurrent: -1,
                         titleCurrent: track.title ?? '',
                     })
                 );
-            });
 
-            // Stop recording and download the wav
-            await mediaRecorderService?.stopRecording();
-            let title;
-            if (track.title) {
-                title = `${track.index + 1}. ${track.title}`;
-                if (track.fullWidthTitle) {
-                    title += ` (${track.fullWidthTitle})`;
+                await netmdService!.gotoTrack(track.index);
+                await netmdService!.play();
+                const readiness = await waitForTrackReady(track.index, () => netmdService!.getPosition(), {
+                    isCancelled: () => serviceRegistry.taskManager.isCancellationRequested(task.id),
+                });
+                if (readiness === 'cancelled') break;
+                await netmdService!.pause();
+                await netmdService!.gotoTrack(track.index);
+
+                await mediaRecorderService!.initStream(deviceId);
+                try {
+                    await mediaRecorderService!.startRecording();
+                    recordingStarted = true;
+                    serviceRegistry.taskManager.setPhase(task.id, 'transferring');
+                    await netmdService!.play();
+                    const completed = await sleepWithProgressCallback(
+                        track.duration * 1000,
+                        (percentage: number) => {
+                            dispatch(
+                                recordDialogAction.setProgress({
+                                    trackTotal: tracks.length,
+                                    trackDone: i,
+                                    trackCurrent: percentage,
+                                    titleCurrent: track.title ?? '',
+                                })
+                            );
+                        },
+                        () => serviceRegistry.taskManager.isCancellationRequested(task.id)
+                    );
+                    await mediaRecorderService!.stopRecording();
+                    recordingStarted = false;
+                    if (!completed) break;
+
+                    let title;
+                    if (track.title) {
+                        title = `${track.index + 1}. ${track.title}`;
+                        if (track.fullWidthTitle) title += ` (${track.fullWidthTitle})`;
+                    } else if (track.fullWidthTitle) {
+                        title = `${track.index + 1}. ${track.fullWidthTitle}`;
+                    } else {
+                        title = `Track ${track.index + 1}`;
+                    }
+                    mediaRecorderService!.downloadRecorded(title);
+                    serviceRegistry.taskManager.reportProgress(task.id, { completed: i + 1, currentLabel: title });
+                } finally {
+                    if (recordingStarted) {
+                        await mediaRecorderService!.stopRecording().catch((error) => console.error('Could not stop recording.', error));
+                        recordingStarted = false;
+                    }
+                    await mediaRecorderService!.closeStream();
                 }
-            } else if (track.fullWidthTitle) {
-                title = `${track.index + 1}. ${track.fullWidthTitle}`;
-            } else {
-                title = `Track ${track.index + 1}`;
             }
-            mediaRecorderService?.downloadRecorded(`${title}`);
 
+            if (serviceRegistry.taskManager.isCancellationRequested(task.id)) serviceRegistry.taskManager.cancel(task.id);
+            else serviceRegistry.taskManager.succeed(task.id, { recordedTracks: tracks.length });
+        } catch (error) {
+            serviceRegistry.taskManager.fail(task.id, error);
+            dispatch(
+                batchActions([
+                    errorDialogAction.setVisible(true),
+                    errorDialogAction.setErrorMessage(error instanceof Error ? error.message : 'Audio-input recording failed.'),
+                ])
+            );
+        } finally {
+            await netmdService!.stop().catch((error) => console.error('Could not stop the MiniDisc device.', error));
             await mediaRecorderService?.closeStream();
+            dispatch(batchActions([recordDialogAction.setVisible(false), recordDialogAction.setTaskId(null)]));
         }
-
-        await netmdService!.stop();
-        dispatch(recordDialogAction.setVisible(false));
     };
 }
 

@@ -9,9 +9,11 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Slide, { SlideProps } from '@mui/material/Slide';
 import LinearProgress from '@mui/material/LinearProgress';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import { makeStyles } from 'tss-react/mui';
-import { TransitionProps } from '@mui/material/transitions';
 import { W95RecordDialog } from './win95/record-dialog';
+import { useDispatch } from '../frontend-utils';
+import { requestTaskCancellation } from '../redux/actions';
 
 const useStyles = makeStyles()((theme) => ({
     progressPerc: {
@@ -26,10 +28,13 @@ const Transition = React.forwardRef(function Transition(props: SlideProps, ref: 
     return <Slide direction="up" ref={ref} {...props} />;
 });
 
-export const RecordDialog = (props: {}) => {
+export const RecordDialog = () => {
     const { classes } = useStyles();
+    const dispatch = useDispatch();
 
-    const { visible, trackTotal, trackDone, trackCurrent, titleCurrent } = useShallowEqualSelector((state) => state.recordDialog);
+    const { visible, taskId, trackTotal, trackDone, trackCurrent, titleCurrent } = useShallowEqualSelector(
+        (state) => state.recordDialog
+    );
 
     const progressValue = Math.round(trackCurrent);
 
@@ -42,6 +47,7 @@ export const RecordDialog = (props: {}) => {
             trackCurrent,
             titleCurrent,
             progressValue,
+            onCancel: taskId ? () => dispatch(requestTaskCancellation(taskId)) : undefined,
         };
         return <W95RecordDialog {...p} />;
     }
@@ -68,7 +74,9 @@ export const RecordDialog = (props: {}) => {
                 />
                 <Box className={classes.progressPerc}>{progressValue >= 0 ? `${progressValue}%` : ``}</Box>
             </DialogContent>
-            <DialogActions></DialogActions>
+            <DialogActions>
+                {taskId ? <Button onClick={() => dispatch(requestTaskCancellation(taskId))}>Cancel after current step</Button> : null}
+            </DialogActions>
         </Dialog>
     );
 };

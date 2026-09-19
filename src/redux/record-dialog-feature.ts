@@ -3,6 +3,7 @@ import { enableBatching } from 'redux-batched-actions';
 
 export interface RecordingDialogState {
     visible: boolean;
+    taskId: string | null;
 
     trackTotal: number;
     trackDone: number;
@@ -13,6 +14,7 @@ export interface RecordingDialogState {
 
 const initialState: RecordingDialogState = {
     visible: false,
+    taskId: null,
 
     trackTotal: 1,
     trackDone: 0,
@@ -34,6 +36,9 @@ export const slice = createSlice({
     reducers: {
         setVisible: (state, action: PayloadAction<boolean>) => {
             state.visible = action.payload;
+        },
+        setTaskId: (state, action: PayloadAction<string | null>) => {
+            state.taskId = action.payload;
         },
         setProgress: (
             state,
