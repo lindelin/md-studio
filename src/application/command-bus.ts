@@ -35,11 +35,13 @@ import type {
     LibraryCatalogSnapshot,
     LibraryCatalogState,
 } from './library-catalog';
+import type { ServiceCatalogSnapshot } from './service-catalog';
 
 export type LibraryImportFactory = (paths: string[][], expectedLibraryRevision?: number) => ImportQueueInput[];
 
 export type ApplicationCommand =
     | { type: 'workspace.get' }
+    | { type: 'services.get' }
     | { type: 'disc.refresh'; dropCache?: boolean }
     | { type: 'device.pollStatus' }
     | { type: 'disc.rename'; title: string; fullWidthTitle?: string; expectedRevision?: number }
@@ -144,6 +146,7 @@ export interface CommandSuccess {
     libraryPage?: LibraryCatalogPage;
     librarySearch?: LibraryCatalogSearchPage;
     workspace?: WorkspaceSnapshot;
+    services?: ServiceCatalogSnapshot;
 }
 
 export interface CommandFailure {
@@ -164,7 +167,8 @@ export class ApplicationCommandBus {
         private readonly workspace?: WorkspaceStore,
         private trackRecorder?: TrackRecorder,
         private readonly libraryCatalog?: LibraryCatalog,
-        private readonly libraryImportFactory?: LibraryImportFactory
+        private readonly libraryImportFactory?: LibraryImportFactory,
+        private readonly serviceCatalog?: ServiceCatalogSnapshot
     ) {}
 
     attachApplication(application: MiniDiscApplication | undefined) {
@@ -205,6 +209,10 @@ export class ApplicationCommandBus {
                               },
                           },
                 };
+            }
+            if (command.type === 'services.get') {
+                if (!this.serviceCatalog) throw new Error('The service catalog is unavailable in this application environment.');
+                return { ok: true, services: structuredClone(this.serviceCatalog) };
             }
             if (command.type === 'task.list') return { ok: true, tasks: this.tasks.list() };
             if (command.type === 'task.get') return { ok: true, task: this.tasks.get(command.id) };

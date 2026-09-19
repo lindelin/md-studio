@@ -3,7 +3,8 @@ import { LibraryService } from './library/library';
 import { RemoteLibraryService } from './library/remote-library';
 import { ApplicationError } from '../application/contracts';
 
-interface LibraryServicePrototype<T extends LibraryService> {
+export interface LibraryServicePrototype<T extends LibraryService> {
+    id: string;
     create: new (parameters: CustomParameters) => T;
     customParameters?: CustomParameterInfo[];
     name: string;
@@ -12,6 +13,7 @@ interface LibraryServicePrototype<T extends LibraryService> {
 
 export const LibraryServices: LibraryServicePrototype<LibraryService>[] = [
     {
+        id: 'remote-library',
         name: 'Remote Library',
         create: RemoteLibraryService,
         customParameters: [

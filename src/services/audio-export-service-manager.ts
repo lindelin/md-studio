@@ -9,7 +9,7 @@ import { RemoteAtracExportService } from './audio/remote-atrac-export';
 import { ApplicationError } from '../application/contracts';
 import type { AudioEncoderConfiguration, AudioEncoderDescriptor } from '../application/audio-encoder-manager';
 
-interface AudioServicePrototype<T extends AudioExportService> {
+export interface AudioServicePrototype<T extends AudioExportService> {
     id: string;
     create: new (parameters: CustomParameters) => T;
     customParameters?: CustomParameterInfo[];

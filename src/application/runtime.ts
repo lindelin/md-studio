@@ -70,7 +70,8 @@ export function ensureApplicationCommandBus() {
                         payload,
                     };
                 });
-            }
+            },
+            serviceRegistry.serviceCatalog
         );
     }
     serviceRegistry.commandBus.configureAdapters(

@@ -13,9 +13,10 @@ import { WorkspaceStore } from '../application/workspace-store';
 import { applicationSettings, type SettingsStore } from '../application/settings-store';
 import type { ApplicationClient } from '../application/application-client';
 import { LibraryCatalog } from '../application/library-catalog';
-import { createLibraryService } from './library-services';
+import { createLibraryService, LibraryServices } from './library-services';
 import { AudioEncoderManager } from '../application/audio-encoder-manager';
-import { createAudioEncoder } from './audio-export-service-manager';
+import { AudioServices, createAudioEncoder } from './audio-export-service-manager';
+import { createServiceCatalog, type ServiceCatalogSnapshot } from '../application/service-catalog';
 
 export interface ImportPayloadResolver {
     resolve(reference: string): Promise<File>;
@@ -30,6 +31,7 @@ interface ServiceRegistry {
     netmdSpec?: MinidiscSpec;
     netmdFactoryService?: NetMDFactoryService;
     audioEncoderManager: AudioEncoderManager;
+    serviceCatalog: ServiceCatalogSnapshot;
     mediaRecorderService?: MediaRecorderService;
     mediaSessionService?: MediaSessionService;
     libraryCatalog: LibraryCatalog;
@@ -68,6 +70,7 @@ const ServiceRegistry: ServiceRegistry = {
     settingsStore: applicationSettings,
     libraryCatalog,
     audioEncoderManager,
+    serviceCatalog: createServiceCatalog(AudioServices, LibraryServices),
     workspaceStore: new WorkspaceStore(taskManager, importQueue, applicationSettings, libraryCatalog, audioEncoderManager),
 };
 

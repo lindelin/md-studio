@@ -55,6 +55,15 @@ function createServer() {
         async () => execute({ type: 'workspace.get' })
     );
     server.registerTool(
+        'minidisc_list_services',
+        {
+            description:
+                'List available audio encoders and library backends with stable IDs, build availability, parameter types, and defaults. Use the returned index when updating shared settings.',
+            inputSchema: z.object({}),
+        },
+        async () => execute({ type: 'services.get' })
+    );
+    server.registerTool(
         'minidisc_get_status',
         { description: 'Read the connected MiniDisc device, capabilities, disc, groups, and tracks.', inputSchema: z.object({}) },
         async () => execute({ type: 'disc.refresh' })

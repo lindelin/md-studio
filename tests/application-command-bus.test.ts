@@ -10,6 +10,35 @@ import type { TrackRecorder } from '../src/application/track-record.ts';
 import { LibraryCatalog } from '../src/application/library-catalog.ts';
 
 describe('ApplicationCommandBus import writing', () => {
+    it('returns a detached copy of the serializable service catalog without a device', async () => {
+        const catalog = {
+            audioEncoders: [
+                { index: 0, id: 'encoder', name: 'Encoder', available: true, parameters: [] },
+            ],
+            libraries: [],
+        };
+        const bus = new ApplicationCommandBus(
+            undefined,
+            new TaskManager(),
+            new ImportQueue(),
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            catalog
+        );
+
+        const first = await bus.execute({ type: 'services.get' });
+        assert.equal(first.ok && first.services?.audioEncoders[0].id, 'encoder');
+        if (first.ok && first.services) first.services.audioEncoders[0].name = 'Changed';
+
+        const second = await bus.execute({ type: 'services.get' });
+        assert.equal(second.ok && second.services?.audioEncoders[0].name, 'Encoder');
+    });
+
     it('keeps settings and import planning available without a connected device', async () => {
         const settings = new SettingsStore(null);
         const imports = new ImportQueue();
