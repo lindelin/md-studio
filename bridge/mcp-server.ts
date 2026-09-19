@@ -670,10 +670,20 @@ function createServer() {
     return server;
 }
 
-const stdio = serveStdio(createServer);
-console.error(`MiniDisc MCP bridge listening on ws://${bridge.host}:${bridge.port}`);
+async function main() {
+    await bridge.ready;
+    const stdio = serveStdio(createServer);
+    console.error(`MiniDisc MCP bridge listening on ws://${bridge.host}:${bridge.port}`);
 
-process.on('SIGINT', () => {
+    process.on('SIGINT', () => {
+        localFiles.clear();
+        void Promise.allSettled([stdio.close(), bridge.close(), localOutputs.close()]).then(() => process.exit(0));
+    });
+}
+
+main().catch(async (error) => {
+    console.error(error instanceof Error ? error.message : String(error));
     localFiles.clear();
-    void Promise.allSettled([stdio.close(), bridge.close(), localOutputs.close()]).then(() => process.exit(0));
+    await Promise.allSettled([bridge.close(), localOutputs.close()]);
+    process.exitCode = 1;
 });

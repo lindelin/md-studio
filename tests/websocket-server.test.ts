@@ -85,4 +85,19 @@ describe('local bridge WebSocket server', () => {
             await bridge.close();
         }
     });
+
+    it('reports a port conflict before an MCP or CLI entrypoint announces readiness', async () => {
+        const first = startLocalBridgeServer(new LocalBridgeBroker(), { host: '127.0.0.1', port: 0 });
+        await first.ready;
+        const second = startLocalBridgeServer(new LocalBridgeBroker(), { host: '127.0.0.1', port: first.port });
+
+        try {
+            await assert.rejects(second.ready, (error: unknown) => {
+                assert.equal((error as NodeJS.ErrnoException).code, 'EADDRINUSE');
+                return true;
+            });
+        } finally {
+            await Promise.allSettled([first.close(), second.close()]);
+        }
+    });
 });

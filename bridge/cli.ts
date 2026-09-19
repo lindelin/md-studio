@@ -238,6 +238,7 @@ async function main() {
 
     let temporaryImportIds: string[] = [];
     try {
+        await bridge.ready;
         console.error(`Waiting for the MiniDisc browser app on ws://${bridge.host}:${bridge.port}...`);
         await broker.waitForConnection(parsed.timeoutMs);
         const executed = await executeOperation(parsed.operation, broker, files, outputs, parsed.timeoutMs, (ids) => {
