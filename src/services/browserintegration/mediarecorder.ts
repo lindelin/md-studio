@@ -77,9 +77,8 @@ export class MediaRecorderService {
         this.stream?.getTracks().forEach((track) => track.stop());
     }
 
-    downloadRecorded(title: string) {
-        this.recorder.exportWAV((buffer: Blob) => {
-            downloadBlob(buffer, `${title}.wav`);
-        });
+    async downloadRecorded(title: string) {
+        const buffer = await new Promise<Blob>((resolve) => this.recorder.exportWAV(resolve));
+        downloadBlob(buffer, `${title}.wav`);
     }
 }

@@ -10,6 +10,7 @@ import { ImportQueue } from '../application/import-queue';
 import type { ImportWriter } from '../application/import-queue';
 import { DeviceOperationCoordinator } from '../application/operation-coordinator';
 import type { TrackExporter } from '../application/track-export';
+import type { TrackRecorder } from '../application/track-record';
 import { WorkspaceStore } from '../application/workspace-store';
 import { applicationSettings, type SettingsStore } from '../application/settings-store';
 
@@ -37,6 +38,7 @@ interface ServiceRegistry {
     importWriter?: ImportWriter;
     exportPayloadSink?: ExportPayloadSink;
     trackExporter?: TrackExporter;
+    trackRecorder?: TrackRecorder;
     operationCoordinator: DeviceOperationCoordinator;
     workspaceStore: WorkspaceStore;
     settingsStore: SettingsStore;

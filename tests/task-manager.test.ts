@@ -39,6 +39,7 @@ describe('TaskManager', () => {
         const task = manager.create('disc.write', 'Write a track');
         manager.start(task.id);
         assert.throws(() => manager.reportProgress(task.id, { completed: 2 }), /between zero/);
+        assert.throws(() => manager.reportProgress(task.id, { currentPercent: 101 }), /100 percent/);
         const failed = manager.fail(task.id, new Error('USB disconnected'), {
             code: 'DEVICE_DISCONNECTED',
             retryable: true,

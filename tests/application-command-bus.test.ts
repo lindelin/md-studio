@@ -6,6 +6,7 @@ import type { MiniDiscApplication } from '../src/application/minidisc-applicatio
 import { TaskManager } from '../src/application/task-manager.ts';
 import { SettingsStore } from '../src/application/settings-store.ts';
 import { WorkspaceStore } from '../src/application/workspace-store.ts';
+import type { TrackRecorder } from '../src/application/track-record.ts';
 
 describe('ApplicationCommandBus import writing', () => {
     it('keeps settings and import planning available without a connected device', async () => {
@@ -128,6 +129,32 @@ describe('ApplicationCommandBus import writing', () => {
                 details: undefined,
             },
         });
+    });
+
+    it('starts audio-input recording through the injected application adapter', async () => {
+        const tasks = new TaskManager();
+        let receivedDeviceId = '';
+        const recorder: TrackRecorder = {
+            async start(request, _application, taskManager) {
+                receivedDeviceId = request.deviceId;
+                return taskManager.create('track.record', 'Record one track', 1, 'tracks');
+            },
+        };
+        const bus = new ApplicationCommandBus(
+            {} as MiniDiscApplication,
+            tasks,
+            new ImportQueue(),
+            undefined,
+            undefined,
+            new SettingsStore(null),
+            undefined,
+            recorder
+        );
+
+        const result = await bus.execute({ type: 'track.record', indexes: [0], deviceId: 'line-in' });
+
+        assert.equal(result.ok && result.task?.kind, 'track.record');
+        assert.equal(receivedDeviceId, 'line-in');
     });
 
     it('updates shared settings but rejects attempts to enable the local bridge', async () => {

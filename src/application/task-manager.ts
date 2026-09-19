@@ -7,6 +7,7 @@ export interface TaskProgress {
     total: number;
     unit: 'tracks' | 'bytes' | 'steps';
     currentLabel?: string;
+    currentPercent?: number;
     bytesWritten?: number;
     bytesTotal?: number;
 }
@@ -97,6 +98,14 @@ export class TaskManager {
             const nextProgress = { ...task.progress, ...progress };
             if (nextProgress.completed < 0 || nextProgress.total < 0 || nextProgress.completed > nextProgress.total) {
                 throw new Error('Task progress must stay between zero and its total.');
+            }
+            if (
+                nextProgress.currentPercent !== undefined &&
+                (!Number.isFinite(nextProgress.currentPercent) ||
+                    nextProgress.currentPercent < 0 ||
+                    nextProgress.currentPercent > 100)
+            ) {
+                throw new Error('Current task progress must stay between zero and 100 percent.');
             }
             task.progress = nextProgress;
         });

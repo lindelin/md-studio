@@ -33,10 +33,15 @@ export function ensureApplicationCommandBus() {
             serviceRegistry.importWriter,
             serviceRegistry.trackExporter,
             serviceRegistry.settingsStore,
-            serviceRegistry.workspaceStore
+            serviceRegistry.workspaceStore,
+            serviceRegistry.trackRecorder
         );
     }
-    serviceRegistry.commandBus.configureAdapters(serviceRegistry.importWriter, serviceRegistry.trackExporter);
+    serviceRegistry.commandBus.configureAdapters(
+        serviceRegistry.importWriter,
+        serviceRegistry.trackExporter,
+        serviceRegistry.trackRecorder
+    );
     return serviceRegistry.commandBus;
 }
 

@@ -22,6 +22,7 @@ import type {
 } from './import-queue';
 import { ImportQueue } from './import-queue';
 import type { TrackExporter, TrackExportRequest } from './track-export';
+import type { TrackRecorder, TrackRecordRequest } from './track-record';
 import type { MetadataCsvExport, MetadataImportPlan } from '../domain/metadata-import';
 import { SettingsStore, type SettingsSnapshot, type UserSettingsUpdate } from './settings-store';
 import { ApplicationError } from './contracts';
@@ -46,6 +47,7 @@ export type ApplicationCommand =
     | { type: 'track.renameHimdMany'; updates: HiMDTrackMetadataUpdate[]; expectedRevision?: number }
     | { type: 'track.move'; sourceIndex: number; destinationIndex: number; expectedRevision?: number }
     | ({ type: 'track.export' } & TrackExportRequest)
+    | ({ type: 'track.record' } & TrackRecordRequest)
     | { type: 'track.deleteMany'; indexes: number[]; confirmation?: DestructiveConfirmation; expectedRevision?: number }
     | { type: 'group.rename'; update: GroupMetadataUpdate; expectedRevision?: number }
     | {
@@ -100,16 +102,18 @@ export class ApplicationCommandBus {
         private importWriter?: ImportWriter,
         private trackExporter?: TrackExporter,
         private readonly settings = new SettingsStore(null),
-        private readonly workspace?: WorkspaceStore
+        private readonly workspace?: WorkspaceStore,
+        private trackRecorder?: TrackRecorder
     ) {}
 
     attachApplication(application: MiniDiscApplication | undefined) {
         this.application = application;
     }
 
-    configureAdapters(importWriter?: ImportWriter, trackExporter?: TrackExporter) {
+    configureAdapters(importWriter?: ImportWriter, trackExporter?: TrackExporter, trackRecorder?: TrackRecorder) {
         this.importWriter = importWriter;
         this.trackExporter = trackExporter;
+        this.trackRecorder = trackRecorder;
     }
 
     async execute(command: ApplicationCommand): Promise<CommandResult> {
@@ -171,6 +175,11 @@ export class ApplicationCommandBus {
                 const application = this.requireApplication();
                 if (!this.trackExporter) throw new Error('Track export is unavailable in this application environment.');
                 return { ok: true, task: await this.trackExporter.start(command, application, this.tasks) };
+            }
+            if (command.type === 'track.record') {
+                const application = this.requireApplication();
+                if (!this.trackRecorder) throw new Error('Audio-input recording is unavailable in this application environment.');
+                return { ok: true, task: await this.trackRecorder.start(command, application, this.tasks) };
             }
             if (command.type === 'diagnostics.selfTest') {
                 const application = this.requireApplication();
