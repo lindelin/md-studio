@@ -6,13 +6,12 @@ import { AppDispatch, RootState } from '../store';
 import { actions as appStateActions } from '../app-feature';
 import serviceRegistry from '../../services/registry';
 import { convertToWAV, createDownloadTrackName, downloadBlob, getTracks, Promised } from '../../utils';
-import { concatUint8Arrays } from 'netmd-js/dist/utils';
 import { ExploitCapability, Capability } from '../../services/interfaces/netmd';
 import { parseTOC, getTitleByTrackNumber, reconstructTOC, updateFlagAllFragmentsOfTrack, ModeFlag, ToC } from 'netmd-tocmanip';
 import { downloadTracks, exportCSV } from '../actions';
 import JSZip from 'jszip';
 import { AtracRecoveryConfig } from 'netmd-exploits';
-import { getApplicationRuntime } from '../../application/runtime';
+import { getApplicationClient } from '../../application/runtime';
 
 function decodeBase64(data: string) {
     const binary = atob(data);
@@ -30,7 +29,10 @@ export function initializeFactoryMode() {
         if (serviceRegistry.netmdFactoryService !== undefined) return;
         dispatch(appStateActions.setLoading(true));
         try {
-            const info = await getApplicationRuntime().inspectAdvancedDevice();
+            const result = await getApplicationClient().execute({ type: 'advanced.inspect' });
+            if (!result.ok) throw new Error(result.error.message);
+            const info = result.advancedInfo;
+            if (!info) throw new Error('Advanced device inspection did not return device information.');
             dispatch(
                 batchActions([
                     factoryActions.setExploitCapabilities(resolveExploitCapabilities(info.capabilities)),
@@ -47,8 +49,15 @@ export function readToc() {
     return async function(dispatch: AppDispatch) {
         dispatch(appStateActions.setLoading(true));
         try {
-            const application = getApplicationRuntime();
-            const [info, tocDump] = await Promise.all([application.inspectAdvancedDevice(), application.readRawToc()]);
+            const [infoResult, tocResult] = await Promise.all([
+                getApplicationClient().execute({ type: 'advanced.inspect' }),
+                getApplicationClient().execute({ type: 'advanced.readToc' }),
+            ]);
+            if (!infoResult.ok) throw new Error(infoResult.error.message);
+            if (!tocResult.ok) throw new Error(tocResult.error.message);
+            const info = infoResult.advancedInfo;
+            const tocDump = tocResult.advancedToc;
+            if (!info || !tocDump) throw new Error('Advanced TOC inspection returned an incomplete result.');
             const data = decodeBase64(tocDump.dataBase64);
             const sectors = Array.from({ length: tocDump.sectorCount }, (_, index) =>
                 data.slice(index * tocDump.sectorSize, (index + 1) * tocDump.sectorSize)
@@ -188,13 +197,12 @@ export function downloadToc(callback: (blob: Blob, name: string) => void = downl
                 factoryProgressDialogActions.setVisible(true),
             ])
         );
-        const readSlices: Uint8Array[] = [];
-        for (let i = 0; i < 6; i += 1) {
-            dispatch(factoryProgressDialogActions.setProgress({ current: i, total: 6 }));
-            readSlices.push(await serviceRegistry.netmdFactoryService!.readUTOCSector(i));
-        }
+        const result = await getApplicationClient().execute({ type: 'advanced.readToc' });
+        if (!result.ok) throw new Error(result.error.message);
+        if (!result.advancedToc) throw new Error('Advanced TOC export did not return data.');
+        dispatch(factoryProgressDialogActions.setProgress({ current: 6, total: 6 }));
         const fileName = `toc_${getTitleByTrackNumber(getState().factory.toc!, 0 /* Disc */)}.bin`;
-        callback(new Blob([concatUint8Arrays(...readSlices)]), fileName);
+        callback(new Blob([decodeBase64(result.advancedToc.dataBase64)]), fileName);
         dispatch(factoryProgressDialogActions.setVisible(false));
     };
 }
