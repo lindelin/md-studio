@@ -24,7 +24,7 @@ The project is under active reconstruction. The stable NetMD and HiMD protocol i
 
 MockMD is available for development without hardware.
 
-For normal recording, export, recovery, and troubleshooting flows, see the [user guide](docs/USER-GUIDE.md). For ChatGPT, MCP, and scripting setup, see the [automation guide](docs/AUTOMATION.md). Contributors should read [CONTRIBUTING.md](CONTRIBUTING.md) before changing device or task code. The first independent release is described in the [0.1.0 release notes](docs/RELEASE-NOTES-0.1.0.md).
+For normal recording, export, recovery, and troubleshooting flows, see the [user guide](docs/USER-GUIDE.md). The [feature matrix](docs/FEATURE-MATRIX.md) records migrated capabilities and outstanding hardware acceptance. For ChatGPT, MCP, and scripting setup, see the [automation guide](docs/AUTOMATION.md). Contributors should read [CONTRIBUTING.md](CONTRIBUTING.md) before changing device or task code. The first independent release is described in the [0.1.0 release notes](docs/RELEASE-NOTES-0.1.0.md).
 
 ## Run locally
 

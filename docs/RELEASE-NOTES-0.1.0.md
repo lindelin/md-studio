@@ -44,7 +44,7 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 
 ## Verification snapshot
 
-- 321 automated tests in 84 suites
+- 322 automated tests in 85 suites
 - Full TypeScript and TSX lint with zero warnings
 - Application and bridge type checks
 - Production Vite/PWA build
