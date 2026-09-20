@@ -2,44 +2,11 @@ import { CustomParameters } from '../../custom-parameters';
 import { getATRACWAVEncoding } from '../../utils';
 import { CodecFamily } from '../interfaces/netmd';
 import { DefaultFfmpegAudioExportService, ExportParams } from '../audio/audio-export';
+import { retryRemoteRequest } from '../remote-request';
 import { LibraryService, LocalDatabase } from './library';
 
-const MAX_TRIES = 3;
 const DATABASE_TIMEOUT_MS = 30_000;
 const AUDIO_TIMEOUT_MS = 120_000;
-
-export async function retryRemoteLibraryRequest<T>(
-    label: string,
-    operation: (signal: AbortSignal) => Promise<T>,
-    options: { attempts?: number; timeoutMs?: number } = {}
-): Promise<T> {
-    const attempts = options.attempts ?? MAX_TRIES;
-    const timeoutMs = options.timeoutMs ?? DATABASE_TIMEOUT_MS;
-    if (!Number.isInteger(attempts) || attempts < 1 || attempts > 10) {
-        throw new Error('Remote library attempts must be a whole number from 1 to 10.');
-    }
-    if (!Number.isFinite(timeoutMs) || timeoutMs < 1) {
-        throw new Error('Remote library timeout must be a positive number of milliseconds.');
-    }
-
-    let lastMessage = 'Unknown error.';
-    for (let attempt = 1; attempt <= attempts; attempt += 1) {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), timeoutMs);
-        try {
-            return await operation(controller.signal);
-        } catch (error) {
-            lastMessage = controller.signal.aborted
-                ? `Timed out after ${timeoutMs} ms.`
-                : error instanceof Error
-                  ? error.message
-                  : String(error);
-        } finally {
-            clearTimeout(timeout);
-        }
-    }
-    throw new Error(`${label} failed after ${attempts} attempts. ${lastMessage}`);
-}
 
 export class RemoteLibraryService extends DefaultFfmpegAudioExportService implements LibraryService {
     // These methods are required by the DefaultFFMPEGAudioExport service, but since
@@ -71,7 +38,7 @@ export class RemoteLibraryService extends DefaultFfmpegAudioExportService implem
         if (!dbPage.pathname.endsWith('/')) dbPage.pathname += '/';
         dbPage.pathname += 'database';
         dbPage.searchParams.append('cache', Math.random() + '');
-        return retryRemoteLibraryRequest(
+        return retryRemoteRequest(
             'Library database request',
             async (signal) => {
                 const response = await fetch(dbPage, { signal });
@@ -89,7 +56,7 @@ export class RemoteLibraryService extends DefaultFfmpegAudioExportService implem
             if (!rawURL.pathname.endsWith('/')) rawURL.pathname += '/';
             rawURL.pathname += 'get_local';
             rawURL.searchParams.set('file_name', filePath);
-            const audio = await retryRemoteLibraryRequest(
+            const audio = await retryRemoteRequest(
                 'Library audio request',
                 async (signal) => {
                     const response = await fetch(rawURL, { signal });
@@ -134,7 +101,7 @@ export class RemoteLibraryService extends DefaultFfmpegAudioExportService implem
             encodingURL.searchParams.set('type', encoderFormat);
             encodingURL.searchParams.set('file_name', filePath);
             if (enableReplayGain !== undefined) encodingURL.searchParams.set('applyReplaygain', enableReplayGain.toString());
-            return retryRemoteLibraryRequest(
+            return retryRemoteRequest(
                 'Library transcode request',
                 async (signal) => {
                     const response = await fetch(encodingURL.href, { signal });

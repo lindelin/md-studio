@@ -1,9 +1,10 @@
 import { CustomParameters } from '../../custom-parameters';
 import { getATRACWAVEncoding } from '../../utils';
 import { CodecFamily } from '../interfaces/netmd';
+import { retryRemoteRequest } from '../remote-request';
 import { DefaultFfmpegAudioExportService, ExportParams } from './audio-export';
 
-const MAX_TRIES = 3;
+const TRANSCODE_TIMEOUT_MS = 120_000;
 
 export class RemoteAtracExportService extends DefaultFfmpegAudioExportService {
     public address: string;
@@ -52,27 +53,25 @@ export class RemoteAtracExportService extends DefaultFfmpegAudioExportService {
         }
         encodingURL.searchParams.set('type', encoderFormat);
         if (enableReplayGain !== undefined) encodingURL.searchParams.set('applyReplaygain', enableReplayGain.toString());
-        let response: Response | null = null;
-        for (let i = 0; i < MAX_TRIES; i++) {
-            try {
-                response = await fetch(encodingURL.href, {
+        return retryRemoteRequest(
+            'Remote ATRAC transcode',
+            async (signal) => {
+                const response = await fetch(encodingURL.href, {
                     method: 'POST',
                     body: payload,
+                    signal,
                 });
-                if (response === null) {
-                    throw new Error('Failed to convert audio!');
-                }
+                if (!response.ok) throw new Error(`HTTP ${response.status}.`);
                 const source = await response.arrayBuffer();
                 const content = new Uint8Array(source);
                 const file = new File([content], 'test.at3');
-                const headerLength = (await getATRACWAVEncoding(file))!.headerLength;
+                const encoding = await getATRACWAVEncoding(file);
+                if (!encoding) throw new Error('The remote encoder returned an invalid ATRAC WAV file.');
+                const headerLength = encoding.headerLength;
                 return source.slice(headerLength);
-            } catch (ex) {
-                console.log('Error while fetching: ' + ex);
-            }
-        }
-
-        throw new Error('Failed to transcode audio!');
+            },
+            { timeoutMs: TRANSCODE_TIMEOUT_MS }
+        );
     }
 
     async encodeATRAC3Plus(parameters: ExportParams): Promise<ArrayBuffer> {
