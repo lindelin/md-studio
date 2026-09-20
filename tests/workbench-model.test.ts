@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
     areServiceParametersValid,
+    buildAdvancedExportFileName,
     buildBatchMetadataUpdates,
     canRequestTaskCancellation,
     canStartRecording,
@@ -236,6 +237,14 @@ describe('Studio Workbench recognition titles', () => {
         assert.equal(formatRecognitionTitle(metadata, 'title-artist'), 'Song - Artist');
         assert.equal(formatRecognitionTitle(metadata, 'artist-album-title'), 'Artist - Album - Song');
         assert.equal(formatRecognitionTitle({ title: 'Song', artist: '', album: '  ' }, 'artist-album-title'), 'Song');
+    });
+});
+
+describe('Studio Workbench advanced exports', () => {
+    it('creates portable descriptive backup names', () => {
+        assert.equal(buildAdvancedExportFileName('toc', 'Sony MZ-N920'), 'toc_Sony_MZ-N920.bin');
+        assert.equal(buildAdvancedExportFileName('firmware', 'MZ/N920', 'S1.600'), 'firmware_MZ_N920_S1.600.bin');
+        assert.equal(buildAdvancedExportFileName('ram', '  '), 'ram_unknown.bin');
     });
 });
 

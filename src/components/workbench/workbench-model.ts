@@ -206,6 +206,18 @@ export function formatRecognitionTitle(
     return parts.filter(Boolean).join(' - ');
 }
 
+export function buildAdvancedExportFileName(prefix: string, deviceName: string, firmwareVersion?: string) {
+    const sanitize = (value: string) =>
+        Array.from(value.trim(), (character) => (character.charCodeAt(0) < 32 ? '_' : character))
+            .join('')
+            .replace(/[<>:"/\\|?*]+/g, '_')
+            .replace(/\s+/g, '_')
+            .replace(/^_+|_+$/g, '') || 'unknown';
+    const parts = [sanitize(prefix), sanitize(deviceName)];
+    if (firmwareVersion?.trim()) parts.push(sanitize(firmwareVersion));
+    return `${parts.join('_')}.bin`;
+}
+
 export function summarizeTaskResult(result: unknown) {
     if (!result || typeof result !== 'object' || Array.isArray(result)) return [];
     const record = result as Record<string, unknown>;

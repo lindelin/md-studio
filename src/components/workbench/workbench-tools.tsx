@@ -1,8 +1,10 @@
 import React, { useRef, useState } from 'react';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import BugReportRoundedIcon from '@mui/icons-material/BugReportRounded';
+import DataObjectRoundedIcon from '@mui/icons-material/DataObjectRounded';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import MemoryRoundedIcon from '@mui/icons-material/MemoryRounded';
+import SaveAltRoundedIcon from '@mui/icons-material/SaveAltRounded';
 import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded';
 import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
@@ -10,7 +12,12 @@ import type { MetadataImportPlan } from '../../domain/metadata-import';
 import type { AdvancedDeviceInfo } from '../../application/contracts';
 import { downloadBlob, formatTimeFromSeconds } from '../../utils';
 import { useApplicationClient, useApplicationWorkspace } from '../use-application-client';
-import { defaultMetadataTrackSelection, getSelfTestReadiness } from './workbench-model';
+import { buildAdvancedExportFileName, defaultMetadataTrackSelection, getSelfTestReadiness } from './workbench-model';
+
+function decodeBase64(data: string) {
+    const binary = atob(data);
+    return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
 
 export const WorkbenchTools = ({
     onMessage,
@@ -33,6 +40,7 @@ export const WorkbenchTools = ({
     const [plannedRevision, setPlannedRevision] = useState<number | undefined>();
     const [includedTrackIndexes, setIncludedTrackIndexes] = useState<number[]>([]);
     const [advancedInfo, setAdvancedInfo] = useState<AdvancedDeviceInfo | null>(null);
+    const [tocSummary, setTocSummary] = useState<{ bytes: number; sha256: string } | null>(null);
     const [selfTestOpen, setSelfTestOpen] = useState(false);
     const [selfTestConfirmation, setSelfTestConfirmation] = useState('');
 
@@ -175,10 +183,50 @@ export const WorkbenchTools = ({
         }
     };
 
+    const exportRawToc = async () => {
+        if (!device || !disc) return;
+        setBusy(true);
+        setStatus('Reading six raw TOC sectors…');
+        try {
+            const result = await client.execute({ type: 'advanced.readToc' });
+            if (!result.ok) throw new Error(result.error.message);
+            if (!result.advancedToc) throw new Error('The device did not return a raw TOC backup.');
+            const data = decodeBase64(result.advancedToc.dataBase64);
+            const fileName = buildAdvancedExportFileName('toc', disc.title || device.deviceName);
+            downloadBlob(new Blob([data], { type: 'application/octet-stream' }), fileName);
+            setTocSummary({ bytes: result.advancedToc.byteLength, sha256: result.advancedToc.sha256 });
+            setStatus(null);
+            onMessage(`Saved ${fileName} with SHA-256 ${result.advancedToc.sha256.slice(0, 12)}….`);
+        } catch (error) {
+            setStatus(error instanceof Error ? error.message : 'Could not export the raw TOC.');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const exportAdvancedMemory = async (kind: 'ram' | 'firmware') => {
+        if (!device) return;
+        setBusy(true);
+        setStatus(`Starting ${kind === 'ram' ? 'RAM' : 'firmware'} export…`);
+        try {
+            const task = await client.startLocalAdvancedMemoryExport(kind, (region, data) => {
+                const prefix = region === 'ROM' ? 'firmware' : region.toLowerCase();
+                const fileName = buildAdvancedExportFileName(prefix, device.deviceName, advancedInfo?.firmwareVersion);
+                downloadBlob(new Blob([new Uint8Array(data)], { type: 'application/octet-stream' }), fileName);
+            });
+            setStatus(null);
+            onTaskStarted(task.id, `${kind === 'ram' ? 'RAM' : 'Firmware'} export started. Keep the device connected until every region is saved.`);
+        } catch (error) {
+            setStatus(error instanceof Error ? error.message : `Could not start the ${kind} export.`);
+        } finally {
+            setBusy(false);
+        }
+    };
+
     return (
         <section className="workbench__tools">
             <header>
-                <div><span className="workbench__eyebrow">TOOLS</span><h2>Disc metadata</h2><p>Export a restorable CSV, or validate every row before changing titles and groups.</p></div>
+                <div><span className="workbench__eyebrow">TOOLS</span><h2>Disc and device tools</h2><p>Back up metadata and low-level device information before making maintenance changes.</p></div>
             </header>
 
             <div className="workbench__tools-grid">
@@ -197,6 +245,19 @@ export const WorkbenchTools = ({
                     <MemoryRoundedIcon />
                     <div><h3>Device information</h3><p>Read the firmware version and supported Homebrew capabilities without changing disc content.</p></div>
                     <button className="secondary-button" onClick={() => void inspectDevice()} disabled={!capabilities.includes('advanced.factory') || busy}><MemoryRoundedIcon /> Inspect device</button>
+                </article>
+                <article className="workbench__tool-card">
+                    <DataObjectRoundedIcon />
+                    <div><h3>Raw TOC backup</h3><p>Save all six 2,352-byte TOC sectors with a SHA-256 checksum. This is read-only.</p>{tocSummary ? <small>{tocSummary.bytes.toLocaleString()} bytes · SHA-256 {tocSummary.sha256.slice(0, 16)}…</small> : null}</div>
+                    <button className="secondary-button" onClick={() => void exportRawToc()} disabled={!disc || !capabilities.includes('advanced.factory') || busy}><SaveAltRoundedIcon /> Export TOC</button>
+                </article>
+                <article className="workbench__tool-card">
+                    <SaveAltRoundedIcon />
+                    <div><h3>Device memory backup</h3><p>Export supported RAM and firmware regions through an observable background task.</p><small>{advancedInfo ? 'Availability is based on the inspected firmware.' : 'Inspect the device first to discover supported readers.'}</small></div>
+                    <div className="workbench__tool-actions">
+                        <button className="secondary-button" onClick={() => void exportAdvancedMemory('ram')} disabled={!advancedInfo?.capabilities.includes('readRam') || busy}>RAM</button>
+                        <button className="secondary-button" onClick={() => void exportAdvancedMemory('firmware')} disabled={!advancedInfo?.capabilities.includes('readFirmware') || busy}>Firmware</button>
+                    </div>
                 </article>
                 <article className="workbench__tool-card is-danger">
                     <BugReportRoundedIcon />
