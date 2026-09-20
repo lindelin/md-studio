@@ -16,12 +16,14 @@ The project is under active reconstruction. The stable NetMD and HiMD protocol i
 
 ## Requirements
 
--   Node.js 20 or newer and npm
+-   Node.js 20.19 or newer and npm
 -   A Chromium-based browser with WebUSB support
 -   A compatible MiniDisc device and USB cable for hardware operations
 -   On Windows, a compatible WinUSB driver for the device; the MiniDisc Wiki has current [Windows setup instructions](https://www.minidisc.wiki/guides/webminidisc/requirements#windows)
 
 MockMD is available for development without hardware.
+
+For the normal recording, export, recovery, and troubleshooting flows, see the [user guide](docs/USER-GUIDE.md). Contributors should read [CONTRIBUTING.md](CONTRIBUTING.md) before changing device or task code.
 
 ## Run locally
 
@@ -71,17 +73,19 @@ Set `MINIDISC_BRIDGE_TOKEN` to require a token, and store the same value in the 
 ## Architecture
 
 ```text
-New browser UI ─┐
-Local MCP ──────┼── Application command layer ── NetMD / HiMD services ── Device
-CLI ────────────┘              │
-                         tasks and imports
+Studio Workbench ─┐
+Local MCP ────────┼── Application command layer ── NetMD / HiMD services ── Device
+CLI ──────────────┘              │
+                           tasks and imports
 ```
 
-The application layer owns validation, revisions, destructive confirmation, serialization, task state, and device snapshots. Redux currently adapts legacy screens to that layer while the replacement UI is developed.
+The application layer owns validation, revisions, destructive confirmation, serialization, task state, and device snapshots. Studio Workbench is the primary interface and reads the same workspace model as MCP and CLI. Redux remains only for compatibility dialogs and temporary legacy presentation state; it no longer owns device, disc, task, import-queue, or persistent-setting truth.
 
 ## Safety
 
 Treat real discs as valuable media. Delete, erase, and HiMD format operations require explicit confirmation. Automated callers should refresh the disc first and send the returned revision with each prepared mutation.
+
+An active NetMD track transfer cannot currently be stopped safely on every recorder. The stop action is cooperative: it prevents the next track from starting after the current track finishes. If the recorder's write light is flashing, leave USB connected until recording finishes. Do not trust a closed dialog, cancelled browser task, or interrupted encoder as proof that the recorder has stopped.
 
 ## License and upstream credit
 
