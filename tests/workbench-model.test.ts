@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+    areServiceParametersValid,
     buildBatchMetadataUpdates,
+    createDefaultServiceParameters,
     findTaskNeedingAttention,
     getTaskErrorDetail,
     libraryPathKey,
@@ -44,6 +46,35 @@ describe('Studio Workbench selection model', () => {
             }),
             { selection: [1, 2, 3, 4], anchor: 4, primary: 4 }
         );
+    });
+});
+
+describe('Studio Workbench service settings', () => {
+    const service = {
+        index: 1,
+        id: 'test-service',
+        name: 'Test service',
+        available: true,
+        parameters: [
+            { key: 'address', label: 'Server address', type: 'string' as const, defaultValue: 'http://localhost:8000/' },
+            { key: 'threads', label: 'Threads', type: 'number' as const, defaultValue: 2 },
+            { key: 'enabled', label: 'Enabled', type: 'boolean' as const, defaultValue: false },
+        ],
+    };
+
+    it('builds service drafts from serializable catalog defaults', () => {
+        assert.deepEqual(createDefaultServiceParameters(service), {
+            address: 'http://localhost:8000/',
+            threads: 2,
+            enabled: false,
+        });
+    });
+
+    it('rejects malformed addresses and parameter types before reload', () => {
+        assert.equal(areServiceParametersValid(service, createDefaultServiceParameters(service)), true);
+        assert.equal(areServiceParametersValid(service, { address: 'not a URL', threads: 2, enabled: false }), false);
+        assert.equal(areServiceParametersValid(service, { address: 'http://localhost/', threads: Infinity, enabled: false }), false);
+        assert.equal(areServiceParametersValid(service, { address: 'http://localhost/', threads: 2, enabled: 'yes' }), false);
     });
 });
 

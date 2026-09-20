@@ -66,13 +66,13 @@ import { SongRecognitionDialog } from '../song-recognition-dialog';
 import { FactoryModeNoticeDialog } from '../factory/factory-notice-dialog';
 import { AboutDialog } from '../about-dialog';
 import { ChangelogDialog } from '../changelog-dialog';
-import { SettingsDialog } from '../settings-dialog';
 import { PanicDialog } from '../panic-dialog';
 import { WorkbenchLibrary } from './workbench-library';
+import { WorkbenchSettings } from './workbench-settings';
 
 import './workbench.css';
 
-type NavigationSection = 'device' | 'library' | 'automation' | 'tools';
+type NavigationSection = 'device' | 'library' | 'settings' | 'automation' | 'tools';
 type ContentView = 'plan' | 'disc';
 type PlanItem =
     | { kind: 'import'; key: string; index: number; item: ImportQueueItem }
@@ -614,11 +614,11 @@ export const Workbench = () => {
                         <LibraryMusicIcon /><span>Library</span>
                     </button>
                     <button aria-label="Import audio" onClick={open} disabled={!canUpload}><AddRoundedIcon /><span>Import Audio</span></button>
+                    <button aria-label="Settings" className={section === 'settings' ? 'is-active' : ''} onClick={() => setSection('settings')}><SettingsRoundedIcon /><span>Settings</span></button>
                 </nav>
 
                 <div className="workbench__sidebar-label">WORKSPACE</div>
                 <nav className="workbench__nav">
-                    <button aria-label="Settings" onClick={() => dispatch(appActions.showSettingsDialog(true))}><SettingsRoundedIcon /><span>Settings</span></button>
                     <button aria-label="Automation" className={section === 'automation' ? 'is-active' : ''} onClick={() => setSection('automation')}>
                         <AutoAwesomeIcon /><span>Automation</span><em>API</em>
                     </button>
@@ -675,7 +675,7 @@ export const Workbench = () => {
                     <section className="workbench__focus-panel">
                         <AutoAwesomeIcon />
                         <div><span className="workbench__eyebrow">AUTOMATION</span><h2>Application commands are ready</h2><p>The same workspace powers this interface, the local MCP bridge and the CLI. Local bridge access remains off until you enable it in Settings.</p></div>
-                        <button className="secondary-button" onClick={() => dispatch(appActions.showSettingsDialog(true))}>Open settings</button>
+                        <button className="secondary-button" onClick={() => setSection('settings')}>Open settings</button>
                     </section>
                 ) : section === 'tools' ? (
                     <section className="workbench__focus-panel">
@@ -692,8 +692,10 @@ export const Workbench = () => {
                             setSection('device');
                             setMessage(`${count} library track${count === 1 ? '' : 's'} added to the recording plan.`);
                         }}
-                        onOpenSettings={() => dispatch(appActions.showSettingsDialog(true))}
+                        onOpenSettings={() => setSection('settings')}
                     />
+                ) : section === 'settings' ? (
+                    <WorkbenchSettings onMessage={setMessage} />
                 ) : <div className="workbench__workspace-grid">
                     <section className="workbench__plan">
                         <div className="workbench__section-heading">
@@ -914,7 +916,6 @@ export const Workbench = () => {
             <FactoryModeNoticeDialog />
             <AboutDialog />
             <ChangelogDialog />
-            <SettingsDialog />
             <PanicDialog />
 
             {groupDialogOpen ? (

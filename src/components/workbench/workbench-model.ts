@@ -1,3 +1,6 @@
+import type { ConfigurableServiceDescriptor } from '../../application/service-catalog';
+import type { CustomParameters } from '../../custom-parameters';
+
 export type WorkbenchDraftField = 'title' | 'album' | 'artist' | 'fullWidthTitle';
 
 export interface SelectionModifiers {
@@ -33,6 +36,30 @@ export function toggleVisibleLibraryTracks<T extends LibrarySelectionItem>(curre
     const allVisibleSelected = visible.length > 0 && visible.every((item) => selectedKeys.has(libraryPathKey(item.path)));
     if (allVisibleSelected) return current.filter((item) => !visibleKeys.has(libraryPathKey(item.path)));
     return [...current, ...visible.filter((item) => !selectedKeys.has(libraryPathKey(item.path)))];
+}
+
+export function createDefaultServiceParameters(service?: ConfigurableServiceDescriptor): CustomParameters {
+    return Object.fromEntries((service?.parameters ?? []).map((parameter) => [parameter.key, parameter.defaultValue]));
+}
+
+export function areServiceParametersValid(service: ConfigurableServiceDescriptor | undefined, values: CustomParameters) {
+    return (service?.parameters ?? []).every((parameter) => {
+        const value = values[parameter.key];
+        if (parameter.type === 'number') return typeof value === 'number' && Number.isFinite(value);
+        if (parameter.type === 'boolean') return typeof value === 'boolean';
+        if (parameter.type === 'hostFilePath' || parameter.type === 'hostDirPath') {
+            return typeof value === 'string' && value.length > 0;
+        }
+        if (parameter.key.toLowerCase().includes('address')) {
+            try {
+                new URL(String(value));
+                return true;
+            } catch {
+                return false;
+            }
+        }
+        return typeof value === 'string';
+    });
 }
 
 export function updateOrderedSelection<T>(
