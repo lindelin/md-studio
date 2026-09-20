@@ -1,7 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { enableBatching } from 'redux-batched-actions';
 import { filterOutCorrupted, getSimpleServices, ServiceConstructionInfo } from '../services/interface-service-manager';
-import { savePreference, loadPreference } from '../utils';
+import { loadPreference } from '../utils';
 import { isBoolean, isFiniteNumber, isServiceList } from '../preferences';
 import { normalizeServiceSelection } from '../frontend/service-selection';
 import { updateLoadingOperations } from '../frontend/loading-state';
@@ -76,21 +76,13 @@ export const slice = createSlice({
         },
         setLocalBridgeEnabled: (state, action: PayloadAction<boolean>) => {
             state.localBridgeEnabled = action.payload;
-            savePreference('minidiscLocalBridgeEnabled', action.payload);
         },
         setAvailableServices: (state, action: PayloadAction<ServiceConstructionInfo[]>) => {
             state.availableServices = action.payload;
             state.lastSelectedService = normalizeServiceSelection(state.availableServices.length, state.lastSelectedService);
-            const simpleServices = getSimpleServices().map((n) => n.name);
-            savePreference(
-                'customServices',
-                action.payload.filter((n) => !simpleServices.includes(n.name))
-            ); // Only write the custom services
-            savePreference('lastSelectedService', state.lastSelectedService);
         },
         setLastSelectedService: (state, action: PayloadAction<number>) => {
             state.lastSelectedService = normalizeServiceSelection(state.availableServices.length, action.payload);
-            savePreference('lastSelectedService', state.lastSelectedService);
         },
     },
 });

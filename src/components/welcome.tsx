@@ -8,7 +8,7 @@ import UsbRoundedIcon from '@mui/icons-material/UsbRounded';
 import React, { useCallback, useState } from 'react';
 import { batchActions, useDispatch, useShallowEqualSelector } from '../frontend-utils';
 import { initializeParameters } from '../custom-parameters';
-import { deleteService } from '../redux/actions';
+import { deleteService, setSelectedService } from '../redux/actions';
 import { actions as appActions } from '../redux/app-feature';
 import { actions as errorDialogActions } from '../redux/error-dialog-feature';
 import { actions as otherDialogActions } from '../redux/other-device-feature';
@@ -38,6 +38,7 @@ export const Welcome = () => {
     );
     const [showWhyUnsupported, setWhyUnsupported] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const [preferenceError, setPreferenceError] = useState<string | null>(null);
     const [fullHimdReview, setFullHimdReview] = useState<{ service: ServiceConstructionInfo; index: number } | null>(null);
     const openSettings = useCallback(() => setSettingsOpen(true), []);
     const closeSettings = useCallback(() => setSettingsOpen(false), []);
@@ -53,7 +54,12 @@ export const Welcome = () => {
 
     const connectToService = async (service = selectedService, serviceIndex = selectedIndex) => {
         if (!service) return;
-        dispatch(appActions.setLastSelectedService(serviceIndex));
+        try {
+            await dispatch(setSelectedService(serviceIndex));
+            setPreferenceError(null);
+        } catch (error) {
+            setPreferenceError(t(error instanceof Error ? error.message : String(error)));
+        }
         try {
             const result = await applicationClient.connectLocalDevice(service);
             if (result.connected) {
@@ -93,7 +99,15 @@ export const Welcome = () => {
 
     const removeSelectedCustomDevice = () => {
         if (!selectedServiceIsCustom) return;
-        dispatch(deleteService(selectedIndex));
+        void dispatch(deleteService(selectedIndex)).then(() => setPreferenceError(null)).catch((error) => {
+            setPreferenceError(t(error instanceof Error ? error.message : String(error)));
+        });
+    };
+
+    const selectService = (index: number) => {
+        void dispatch(setSelectedService(index)).then(() => setPreferenceError(null)).catch((error) => {
+            setPreferenceError(t(error instanceof Error ? error.message : String(error)));
+        });
     };
 
     return (
@@ -126,7 +140,7 @@ export const Welcome = () => {
                             <p>{t('Select the adapter that matches your recorder or local service.')}</p>
                             <label className="welcome-workspace__field">
                                 <span>{t('Connection method')}</span>
-                                <select value={selectedIndex} disabled={connecting} onChange={(event) => dispatch(appActions.setLastSelectedService(Number(event.target.value)))}>
+                                <select value={selectedIndex} disabled={connecting} onChange={(event) => selectService(Number(event.target.value))}>
                                     {availableServices.map((service, index) => <option value={index} key={`${service.name}:${index}`}>{service.name}</option>)}
                                 </select>
                             </label>
@@ -136,6 +150,7 @@ export const Welcome = () => {
                                 {selectedServiceIsCustom ? <button className="welcome-workspace__danger" disabled={connecting} onClick={removeSelectedCustomDevice}><DeleteOutlineRoundedIcon />{t('Remove')}</button> : null}
                             </div>
                             {selectedServiceUnavailable ? <div className="welcome-workspace__notice">{t('The selected connection needs a Chromium browser with WebUSB.')}</div> : null}
+                            {preferenceError ? <div className="welcome-workspace__error" role="alert"><strong>{t('Could not save this preference.')}</strong><span>{preferenceError}</span></div> : null}
                             {connectionFailed ? <div className="welcome-workspace__error" role="alert"><strong>{t('Connection failed')}</strong><span>{connection.message}</span></div> : null}
                             {!window.native?.interface && navigator.userAgent.includes('Vivaldi') ? <div className="welcome-workspace__notice"><strong>{t('Notice for users of the Vivaldi web browser')}</strong><span>{t("Vivaldi's implementation of WebUSB is broken.")} {t('Please switch to a different Chromium-based browser.')}</span></div> : null}
                             <a className="welcome-workspace__guide" rel="noopener noreferrer" target="_blank" href="https://www.minidisc.wiki/guides/webminidisc">{t('First time here? Read the guide')}<LaunchRoundedIcon /></a>

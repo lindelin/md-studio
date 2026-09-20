@@ -18,6 +18,7 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 
 - Device mutations are serialized and checked for capability, disc presence, write protection, session, revision, index, and destructive confirmation.
 - Shared settings are persisted before their revision is published. Browser storage failures return a structured error and multi-field updates restore their previous values instead of reporting a success that disappears after reload.
+- Device selection, custom-device entries, and the local-bridge switch are also persisted before Redux state changes. Their reducers remain free of browser-storage side effects, and failed writes stay visible in the bilingual interface.
 - Encoder output is validated for ATRAC container, codec, bitrate, and non-empty frames before upload.
 - Remote requests, browser workers, playback readiness, and cached reconnects have bounded failure paths.
 - Local bridge messages, file chunks, output paths, origins, and tokens are bounded and validated.
@@ -34,7 +35,7 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 
 ## Verification snapshot
 
-- 306 automated tests in 82 suites
+- 309 automated tests in 83 suites
 - Full TypeScript and TSX lint with zero warnings
 - Application and bridge type checks
 - Production Vite/PWA build

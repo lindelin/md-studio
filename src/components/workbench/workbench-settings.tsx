@@ -3,7 +3,7 @@ import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import FolderOpenRoundedIcon from '@mui/icons-material/FolderOpenRounded';
 import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
 import { useDispatch, useShallowEqualSelector } from '../../frontend-utils';
-import { actions as appActions } from '../../redux/app-feature';
+import { setLocalBridgeEnabled } from '../../redux/actions';
 import type { ServiceCatalogSnapshot, ServiceParameterDescriptor } from '../../application/service-catalog';
 import type { CustomParameters } from '../../custom-parameters';
 import type { UserSettings, UserSettingsUpdate } from '../../application/settings-store';
@@ -203,7 +203,12 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
         if (!selectedEncoder || !serviceConfigurationValid) return;
         setBusy(true);
         setStatus(null);
+        let bridgePersisted = false;
         try {
+            if (bridgeEnabled !== localBridgeEnabled) {
+                await dispatch(setLocalBridgeEnabled(bridgeEnabled));
+                bridgePersisted = true;
+            }
             await updateSettings({
                 audioEncoderId: selectedEncoder.id,
                 audioExportService: selectedEncoder.index,
@@ -211,9 +216,15 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
                 libraryService: libraryIndex,
                 libraryServiceConfig: libraryParameters,
             });
-            if (bridgeEnabled !== localBridgeEnabled) dispatch(appActions.setLocalBridgeEnabled(bridgeEnabled));
             window.reload();
         } catch (error) {
+            if (bridgePersisted) {
+                try {
+                    await dispatch(setLocalBridgeEnabled(localBridgeEnabled));
+                } catch {
+                    // Keep the original error visible; a failed rollback will be retried on the next explicit save.
+                }
+            }
             setStatus(t(error instanceof Error ? error.message : String(error)));
             setBusy(false);
         }

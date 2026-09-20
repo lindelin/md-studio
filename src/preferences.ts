@@ -42,6 +42,41 @@ function defaultStorage(): Storage | null {
     }
 }
 
+export interface PreferenceWriteResult {
+    ok: boolean;
+    cause?: string;
+    rollbackFailed?: boolean;
+}
+
+export function savePreferencesAtomically(
+    entries: readonly (readonly [string, unknown])[],
+    storage: Storage | null = defaultStorage()
+): PreferenceWriteResult | null {
+    if (!storage) return null;
+
+    const previous = new Map<string, string | null>();
+    try {
+        for (const [key] of entries) previous.set(key, storage.getItem(key));
+        for (const [key, value] of entries) storage.setItem(key, JSON.stringify(value));
+        return { ok: true };
+    } catch (cause) {
+        let rollbackFailed = false;
+        for (const [key, serialized] of previous) {
+            try {
+                if (serialized === null) storage.removeItem(key);
+                else storage.setItem(key, serialized);
+            } catch {
+                rollbackFailed = true;
+            }
+        }
+        return {
+            ok: false,
+            cause: cause instanceof Error ? cause.message : String(cause),
+            rollbackFailed,
+        };
+    }
+}
+
 function removeInvalidPreference(storage: Storage, key: string): void {
     try {
         storage.removeItem(key);
@@ -51,14 +86,10 @@ function removeInvalidPreference(storage: Storage, key: string): void {
 }
 
 export function savePreference(key: string, value: unknown, storage: Storage | null = defaultStorage()): boolean {
-    if (!storage) return false;
-    try {
-        storage.setItem(key, JSON.stringify(value));
-        return true;
-    } catch (error) {
-        console.warn(`Could not save preference "${key}"`, error);
-        return false;
-    }
+    const result = savePreferencesAtomically([[key, value]], storage);
+    if (result?.ok) return true;
+    if (result) console.warn(`Could not save preference "${key}"`, result.cause);
+    return false;
 }
 
 export function readRawPreference(key: string, storage: Storage | null = defaultStorage()): string | null {

@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { batchActions, useDispatch, useShallowEqualSelector } from '../frontend-utils';
 import { CustomParameterInfo, initializeParameters, isAllValid } from '../custom-parameters';
 import { addService } from '../redux/actions';
@@ -81,14 +81,20 @@ export const OtherDeviceDialog = () => {
     const customServices = Services.filter((service) => service.customParameters);
     const safeSelectedIndex = customServices[selectedServiceIndex] ? selectedServiceIndex : 0;
     const currentService = customServices[safeSelectedIndex];
+    const [saveError, setSaveError] = useState<string | null>(null);
 
-    const handleClose = useCallback(() => dispatch(otherDeviceActions.setVisible(false)), [dispatch]);
+    const handleClose = useCallback(() => {
+        setSaveError(null);
+        dispatch(otherDeviceActions.setVisible(false));
+    }, [dispatch]);
 
     const handleAdd = useCallback(() => {
         if (!currentService || !isAllValid(currentService.customParameters, customParameters)) return;
-        dispatch(otherDeviceActions.setVisible(false));
-        dispatch(addService({ id: currentService.id, name: currentService.name, parameters: customParameters }));
-    }, [currentService, customParameters, dispatch]);
+        setSaveError(null);
+        void dispatch(addService({ id: currentService.id, name: currentService.name, parameters: customParameters }))
+            .then(() => dispatch(otherDeviceActions.setVisible(false)))
+            .catch((error) => setSaveError(t(error instanceof Error ? error.message : String(error))));
+    }, [currentService, customParameters, dispatch, t]);
 
     const handleServiceSelectionChanged = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
         const nextIndex = Number(event.target.value);
@@ -119,6 +125,7 @@ export const OtherDeviceDialog = () => {
                 </>
             }
         >
+            {saveError ? <p role="alert">{saveError}</p> : null}
             {currentService ? (
                 <div className="app-dialog__form">
                     <label className="app-dialog__field">
