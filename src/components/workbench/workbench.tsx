@@ -828,6 +828,16 @@ export const Workbench = () => {
         }
     };
 
+    const selectContentViewFromKeyboard = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+        let next: ContentView | null = null;
+        if (event.key === 'ArrowLeft' || event.key === 'Home') next = 'plan';
+        if (event.key === 'ArrowRight' || event.key === 'End') next = 'disc';
+        if (!next) return;
+        event.preventDefault();
+        setContentView(next);
+        document.getElementById(`workbench-${next}-tab`)?.focus();
+    };
+
     const renderPlanRow = (row: PlanItem) => {
         const isSelected =
             row.kind === 'track'
@@ -880,26 +890,26 @@ export const Workbench = () => {
                 </div>
 
                 <nav className="workbench__nav" aria-label="Workspace">
-                    <button aria-label="Device" className={section === 'device' ? 'is-active' : ''} onClick={() => setSection('device')}>
+                    <button aria-label="Device" aria-current={section === 'device' ? 'page' : undefined} className={section === 'device' ? 'is-active' : ''} onClick={() => setSection('device')}>
                         <UsbRoundedIcon /><span>Device</span><i className={device ? 'is-online' : ''} />
                     </button>
-                    <button aria-label="Library" className={section === 'library' ? 'is-active' : ''} onClick={() => setSection('library')}>
+                    <button aria-label="Library" aria-current={section === 'library' ? 'page' : undefined} className={section === 'library' ? 'is-active' : ''} onClick={() => setSection('library')}>
                         <LibraryMusicIcon /><span>Library</span>
                     </button>
                     <button aria-label="Import audio" onClick={open} disabled={!canUpload}><AddRoundedIcon /><span>Import Audio</span></button>
-                    <button aria-label="Settings" className={section === 'settings' ? 'is-active' : ''} onClick={() => setSection('settings')}><SettingsRoundedIcon /><span>Settings</span></button>
-                    <button aria-label="Tools" className={`workbench__mobile-only ${section === 'tools' ? 'is-active' : ''}`} onClick={() => setSection('tools')}><TuneRoundedIcon /><span>Tools</span></button>
+                    <button aria-label="Settings" aria-current={section === 'settings' ? 'page' : undefined} className={section === 'settings' ? 'is-active' : ''} onClick={() => setSection('settings')}><SettingsRoundedIcon /><span>Settings</span></button>
+                    <button aria-label="Tools" aria-current={section === 'tools' ? 'page' : undefined} className={`workbench__mobile-only ${section === 'tools' ? 'is-active' : ''}`} onClick={() => setSection('tools')}><TuneRoundedIcon /><span>Tools</span></button>
                 </nav>
 
                 <div className="workbench__sidebar-label">WORKSPACE</div>
-                <nav className="workbench__nav">
-                    <button aria-label="Automation" className={section === 'automation' ? 'is-active' : ''} onClick={() => setSection('automation')}>
+                <nav className="workbench__nav" aria-label="Workspace tools">
+                    <button aria-label="Automation" aria-current={section === 'automation' ? 'page' : undefined} className={section === 'automation' ? 'is-active' : ''} onClick={() => setSection('automation')}>
                         <AutoAwesomeIcon /><span>Automation</span><em>API</em>
                     </button>
-                    <button aria-label="Tools" className={section === 'tools' ? 'is-active' : ''} onClick={() => setSection('tools')}><TuneRoundedIcon /><span>Tools</span></button>
+                    <button aria-label="Tools" aria-current={section === 'tools' ? 'page' : undefined} className={section === 'tools' ? 'is-active' : ''} onClick={() => setSection('tools')}><TuneRoundedIcon /><span>Tools</span></button>
                 </nav>
 
-                <nav className="workbench__nav workbench__support-nav">
+                <nav className="workbench__nav workbench__support-nav" aria-label="Help">
                     <a href="https://www.minidisc.wiki/guides/start" target="_blank" rel="noreferrer"><HelpOutlineRoundedIcon /><span>Help &amp; Support</span></a>
                     <button aria-label="About" onClick={() => dispatch(appActions.showAboutDialog(true))}><InfoOutlinedIcon /><span>About</span></button>
                 </nav>
@@ -934,7 +944,7 @@ export const Workbench = () => {
                     <div className="workbench__capacity">
                         <div><span>USED</span><strong>{capacityUsed}</strong></div>
                         <div><span>CAPACITY</span><strong>{capacityTotal}</strong></div>
-                        <div className="workbench__capacity-meter"><i style={{ width: `${usedPercent}%` }} /></div>
+                        <div className="workbench__capacity-meter" role="progressbar" aria-label="Disc capacity used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(usedPercent)}><i style={{ width: `${usedPercent}%` }} /></div>
                         <small>{Math.round(usedPercent)}% used · {disc ? `${measurementIsBytes ? bytesToHumanReadable(disc.left) : formatTimeFromSeconds(disc.left)} available` : 'No media'}</small>
                     </div>
                     <dl className="workbench__device-facts">
@@ -975,15 +985,22 @@ export const Workbench = () => {
                         }}
                     />
                 ) : <div className="workbench__workspace-grid">
-                    <section className="workbench__plan">
+                    <section
+                        className="workbench__plan"
+                        {...(imports.length > 0 ? {
+                            role: 'tabpanel',
+                            id: 'workbench-content-panel',
+                            'aria-labelledby': `workbench-${contentView}-tab`,
+                        } : {})}
+                    >
                         <div className="workbench__section-heading">
                             <div>
                                 <span className="workbench__eyebrow">{contentView === 'plan' && imports.length ? 'READY TO TRANSFER' : 'DISC CONTENTS'}</span>
                                 <h2>{contentView === 'plan' && imports.length ? 'Recording Plan' : 'Tracks on MiniDisc'}</h2>
                                 {imports.length > 0 ? (
                                     <div className="workbench__view-switch" role="tablist" aria-label="Workspace content">
-                                        <button className={contentView === 'plan' ? 'is-active' : ''} onClick={() => setContentView('plan')} role="tab">Recording plan <span>{imports.length}</span></button>
-                                        <button className={contentView === 'disc' ? 'is-active' : ''} onClick={() => setContentView('disc')} role="tab">On disc <span>{tracks.length}</span></button>
+                                        <button id="workbench-plan-tab" aria-controls="workbench-content-panel" aria-selected={contentView === 'plan'} tabIndex={contentView === 'plan' ? 0 : -1} className={contentView === 'plan' ? 'is-active' : ''} onClick={() => setContentView('plan')} onKeyDown={selectContentViewFromKeyboard} role="tab">Recording plan <span>{imports.length}</span></button>
+                                        <button id="workbench-disc-tab" aria-controls="workbench-content-panel" aria-selected={contentView === 'disc'} tabIndex={contentView === 'disc' ? 0 : -1} className={contentView === 'disc' ? 'is-active' : ''} onClick={() => setContentView('disc')} onKeyDown={selectContentViewFromKeyboard} role="tab">On disc <span>{tracks.length}</span></button>
                                     </div>
                                 ) : null}
                             </div>
@@ -1108,6 +1125,7 @@ export const Workbench = () => {
                                         return (
                                             <button
                                                 className={task.id === selectedTask?.id ? 'is-active' : ''}
+                                                aria-current={task.id === selectedTask?.id ? 'true' : undefined}
                                                 key={task.id}
                                                 onClick={() => setSelectedTaskId(task.id)}
                                             >
@@ -1124,7 +1142,7 @@ export const Workbench = () => {
                                             <div><span className="workbench__eyebrow">{selectedTask.kind}</span><h3>{selectedTask.label}</h3></div>
                                             <span className={`workbench__task-badge is-${selectedTask.status}`}>{taskStatusLabel(selectedTask.status)}</span>
                                         </div>
-                                        <div className="workbench__task-detail-meter"><i style={{ width: `${taskProgressPercent(selectedTask)}%` }} /></div>
+                                        <div className="workbench__task-detail-meter" role="progressbar" aria-label={`${selectedTask.label} progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={taskProgressPercent(selectedTask)}><i style={{ width: `${taskProgressPercent(selectedTask)}%` }} /></div>
                                         <dl>
                                             <div><dt>Phase</dt><dd>{selectedTask.phase}</dd></div>
                                             <div><dt>Progress</dt><dd>{selectedTask.progress.completed} / {selectedTask.progress.total} {selectedTask.progress.unit}</dd></div>
@@ -1186,7 +1204,7 @@ export const Workbench = () => {
             </main>
 
             {isDragActive ? <div className="workbench__drop-overlay"><FolderOpenIcon /><strong>Drop audio to add it to the recording plan</strong></div> : null}
-            {message ? <button className="workbench__toast" onClick={() => setMessage(null)}>{message}</button> : null}
+            {message ? <button className="workbench__toast" aria-live="polite" aria-atomic="true" onClick={() => setMessage(null)}>{message}</button> : null}
 
             <DiscProtectedDialog />
             <RenameDialog />
