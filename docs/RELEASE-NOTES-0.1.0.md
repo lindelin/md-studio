@@ -16,6 +16,7 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 - CSV metadata planning, normal and recovery export review, raw TOC review, protection flags, diagnostics, and capability-gated advanced tools are available from the workbench.
 - Device services return results and errors without opening browser-native alert, confirm, or prompt dialogs. Full-access HiMD uses a bilingual in-app review.
 - Windows development and production builds use cross-platform runtime preparation and version metadata.
+- A tracked development fallback keeps tests and type checks runnable immediately after checkout; Vite injects real build metadata without rewriting source files.
 - The bundled open-source Atracdenc runtime is rebuilt from pinned source and toolchain revisions with a checksum-enforced Windows script.
 - The legacy Redux shell has been removed. Runtime state comes from the shared Workspace, while the browser-only device catalog and local-bridge switch use a small revisioned preference store.
 - The unrelated device-side Tetris easter egg has been removed from the application commands, automation protocol, capability model, and NetMD service surface. Undocumented console globals that exposed raw NetMD, HiMD, exploit, patch, and TOC objects have also been removed so device operations stay behind the application boundary.
@@ -46,11 +47,12 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 
 ## Verification snapshot
 
-- 313 automated tests in 82 suites
+- 314 automated tests in 82 suites
 - Full TypeScript and TSX lint with zero warnings
 - Application and bridge type checks
 - Production Vite/PWA build
 - Lockfile-derived third-party license inventory and runtime-asset provenance checks
+- Fresh Windows checkout: `npm ci`, tests, lint, type checks, production audit, license/runtime provenance checks, and the production build all pass before any local generated state exists
 - MockMD browser regression in Simplified Chinese and English
 - Sony MZ-N920 read, metadata, playback, reconnect, diagnostics, LP2 write, refresh, and capacity verification on an authorized test disc
 

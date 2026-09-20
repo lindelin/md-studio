@@ -100,4 +100,4 @@ The friendly tool surface is: `minidisc_get_workspace`, `minidisc_list_services`
 2. Verify representative HiMD metadata/export and Network Walkman operations without weakening capability gates.
 3. Verify browser audio-input recording.
 4. Verify device-specific advanced backup/recovery and Homebrew write paths only on explicitly disposable media.
-5. Capture final release screenshots, then repeat the clean-install, build, license and runtime-asset release gates.
+5. Capture final release screenshots, then repeat the already-passing clean-install and release gates after the last hardware-acceptance change.
