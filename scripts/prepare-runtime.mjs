@@ -1,29 +1,9 @@
-import { copyFile, mkdir, stat, writeFile } from 'node:fs/promises';
-import { spawnSync } from 'node:child_process';
+import { copyFile, mkdir, stat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const runtimeDirectory = path.join(repositoryRoot, 'public', 'runtime');
-
-function git(args, fallback) {
-    const result = spawnSync('git', args, {
-        cwd: repositoryRoot,
-        encoding: 'utf8',
-        windowsHide: true,
-    });
-    return result.status === 0 ? result.stdout.trim() : fallback;
-}
-
-function countChangedLines(diff) {
-    return diff.split(/\r?\n/).reduce((total, row) => {
-        if (!row) return total;
-        const [added, removed] = row.split('\t');
-        const parsedAdded = Number.parseInt(added, 10);
-        const parsedRemoved = Number.parseInt(removed, 10);
-        return total + (Number.isFinite(parsedAdded) ? parsedAdded : 0) + (Number.isFinite(parsedRemoved) ? parsedRemoved : 0);
-    }, 0);
-}
 
 async function copyRuntimeAsset(sourceSegments, destinationName) {
     const source = path.join(repositoryRoot, ...sourceSegments);
@@ -39,39 +19,10 @@ async function copyRuntimeAsset(sourceSegments, destinationName) {
     }
 }
 
-async function allFilesExist(relativePaths) {
-    const states = await Promise.all(
-        relativePaths.map((relativePath) => stat(path.join(repositoryRoot, ...relativePath.split('/'))).catch(() => null))
-    );
-    return states.every((state) => state?.isFile());
-}
-
 await mkdir(runtimeDirectory, { recursive: true });
 await Promise.all([
     copyRuntimeAsset(['node_modules', '@ffmpeg', 'ffmpeg', 'dist', 'worker.min.js'], 'ffmpeg-worker.min.js'),
     copyRuntimeAsset(['node_modules', 'recorderjs', 'recorderWorker.js'], 'recorder-worker.js'),
 ]);
 
-const unstagedDiff = git(['diff', '--numstat'], '');
-const stagedDiff = git(['diff', '--cached', '--numstat'], '');
-const at3reJavascript = await stat(path.join(repositoryRoot, 'public', 'at3re-harness.js')).catch(() => null);
-const at3reWasm = await stat(path.join(repositoryRoot, 'public', 'at3re-harness.wasm')).catch(() => null);
-const atrac3OsIncluded = await allFilesExist([
-    'public/atrac3vm/libv86.js',
-    'public/atrac3vm/v86-patched.wasm',
-    'public/atrac3vm/seabios.bin',
-    'public/atrac3vm/kernel.bin',
-    'public/atrac3vm/system.cmi',
-]);
-const versionInfo = [
-    '// This file has been auto-generated. Please do not modify.',
-    `export const GIT_HASH = ${JSON.stringify(git(['rev-parse', '--short', 'HEAD'], 'unknown'))};`,
-    `export const GIT_DIFF = ${JSON.stringify(String(countChangedLines(`${unstagedDiff}\n${stagedDiff}`)))};`,
-    `export const BUILD_DATE = ${JSON.stringify(new Date().toISOString())};`,
-    `export const ATRACOS_INCLUDED = ${Number(atrac3OsIncluded)};`,
-    `export const AT3RE_INCLUDED = ${Number(Boolean(at3reJavascript?.isFile() && at3reWasm?.isFile()))};`,
-    '',
-].join('\n');
-
-await writeFile(path.join(repositoryRoot, 'src', 'version-info.ts'), versionInfo, 'utf8');
-console.log('Prepared browser runtime assets and build metadata.');
+console.log('Prepared browser runtime assets.');

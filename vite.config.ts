@@ -2,10 +2,56 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import svgr from "vite-plugin-svgr";
 import { VitePWA } from 'vite-plugin-pwa';
+import { existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 
 const browserDependency = (path: string) => fileURLToPath(new URL(`./node_modules/${path}`, import.meta.url));
 const sourceFile = (path: string) => fileURLToPath(new URL(`./src/${path}`, import.meta.url));
+const repositoryRoot = path.dirname(fileURLToPath(import.meta.url));
+
+const git = (args: string[], fallback: string) => {
+  const result = spawnSync('git', args, {
+    cwd: repositoryRoot,
+    encoding: 'utf8',
+    windowsHide: true,
+  });
+  return result.status === 0 ? result.stdout.trim() : fallback;
+};
+
+const countChangedLines = (diff: string) => diff.split(/\r?\n/).reduce((total, row) => {
+  if (!row) return total;
+  const [added, removed] = row.split('\t');
+  const parsedAdded = Number.parseInt(added, 10);
+  const parsedRemoved = Number.parseInt(removed, 10);
+  return total + (Number.isFinite(parsedAdded) ? parsedAdded : 0) + (Number.isFinite(parsedRemoved) ? parsedRemoved : 0);
+}, 0);
+
+const hasFiles = (relativePaths: string[]) => relativePaths.every((relativePath) =>
+  existsSync(path.join(repositoryRoot, ...relativePath.split('/')))
+);
+
+const createBuildInfo = () => {
+  const unstagedDiff = git(['diff', '--numstat'], '');
+  const stagedDiff = git(['diff', '--cached', '--numstat'], '');
+  return {
+    gitHash: git(['rev-parse', '--short', 'HEAD'], 'unknown'),
+    gitDiff: String(countChangedLines(`${unstagedDiff}\n${stagedDiff}`)),
+    buildDate: new Date().toISOString(),
+    atracOsIncluded: Number(hasFiles([
+      'public/atrac3vm/libv86.js',
+      'public/atrac3vm/v86-patched.wasm',
+      'public/atrac3vm/seabios.bin',
+      'public/atrac3vm/kernel.bin',
+      'public/atrac3vm/system.cmi',
+    ])),
+    at3reIncluded: Number(hasFiles([
+      'public/at3re-harness.js',
+      'public/at3re-harness.wasm',
+    ])),
+  };
+};
 
 let base = process.env.PUBLIC_URL ?? '/';
 if(!base.endsWith("/")) base += '/';
@@ -16,6 +62,9 @@ console.log(`Building for base = ${base}`);
 export default () => {
   return defineConfig({
     base,
+    define: {
+      __MINIDISC_BUILD_INFO__: JSON.stringify(createBuildInfo()),
+    },
     resolve: {
       alias: {
         events: browserDependency('events/events.js'),

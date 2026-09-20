@@ -24,7 +24,6 @@
         "licenses:update": "node scripts/generate-third-party-notices.mjs",
         "licenses:check": "node scripts/generate-third-party-notices.mjs --check",
         "audit:production": "npm audit --omit=dev",
-        "update-version": "node scripts/prepare-runtime.mjs",
         "pretty": "prettier src/**/*.{ts,tsx} --write",
         "mcp": "tsx bridge/mcp-server.ts",
         "cli": "tsx bridge/cli.ts"

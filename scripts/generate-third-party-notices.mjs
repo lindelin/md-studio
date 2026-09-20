@@ -63,7 +63,7 @@ const generated = lines.join('\n');
 
 if (checkOnly) {
     const current = await readFile(outputPath, 'utf8').catch(() => '');
-    if (current !== generated) {
+    if (current.replaceAll('\r\n', '\n') !== generated) {
         throw new Error('THIRD_PARTY_LICENSES.md is missing or stale. Run npm run licenses:update.');
     }
     console.log(`Verified ${entries.length} third-party package license entries.`);

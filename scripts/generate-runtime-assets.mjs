@@ -254,7 +254,7 @@ if (releaseCheck) {
 
 if (checkOnly) {
     const current = await readFile(outputPath, 'utf8').catch(() => null);
-    if (current !== serialized) {
+    if (current?.replaceAll('\r\n', '\n') !== serialized) {
         throw new Error('RUNTIME_ASSETS.json is stale. Run npm run runtime-assets:update.');
     }
     console.log(`Verified ${assets.filter((asset) => asset.present).length} runtime assets and ${assets.length} provenance records.`);

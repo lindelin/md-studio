@@ -22,6 +22,16 @@ describe('independent project identity', () => {
         assert.match(viteConfig, /"short_name": "MD Workspace"/);
     });
 
+    it('keeps a source-controlled version module available before any build step', async () => {
+        const gitignore = await readFile(new URL('../.gitignore', import.meta.url), 'utf8');
+        const prepareRuntime = await readFile(new URL('../scripts/prepare-runtime.mjs', import.meta.url), 'utf8');
+        const versionInfo = await readFile(new URL('../src/version-info.ts', import.meta.url), 'utf8');
+
+        assert.doesNotMatch(gitignore, /^src\/version-info\.ts$/m);
+        assert.doesNotMatch(prepareRuntime, /writeFile[\s\S]*version-info\.ts/);
+        assert.match(versionInfo, /typeof __MINIDISC_BUILD_INFO__ === 'undefined'/);
+    });
+
     it('keeps obsolete upstream integration artifacts and branding out of product-facing services', async () => {
         const productCopy = LibraryServices.map((service) => service.description ?? '').join('\n');
         assert.doesNotMatch(productCopy, /Web MiniDisc(?: Pro)?/i);
