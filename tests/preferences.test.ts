@@ -106,7 +106,7 @@ test('app reset restores every preference when browser storage rejects a removal
     assert.equal(storage.getItem('unrelated'), 'keep me');
 });
 
-test('storage write failures do not crash reducers', () => {
+test('storage write failures return a safe failure result', () => {
     const storage = new MemoryStorage();
     storage.setItem = () => {
         throw new Error('quota exceeded');

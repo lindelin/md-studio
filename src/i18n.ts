@@ -305,7 +305,7 @@ const zhCN: Record<string, string> = {
     'Enable Hiragana, Kanji and full-width MiniDisc titles.': '启用平假名、汉字和全角 MiniDisc 标题。',
     'Warn before operations on a protected disc.': '操作受保护碟片前发出警告。',
     'Completion notifications': '完成通知',
-    'Show a notification when a background task finishes.': '后台任务完成时显示通知。',
+    'Show a notification when a recording task finishes.': '录制任务完成时显示通知。',
     'METADATA': '元数据',
     'Default title rules': '默认标题规则',
     'Imported track title': '导入曲目标题',

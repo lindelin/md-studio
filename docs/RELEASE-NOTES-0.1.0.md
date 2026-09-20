@@ -5,7 +5,7 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 ## Highlights
 
 - Studio Workbench replaces the former main workspace with a device overview, disc and recording-plan tables, inspector, library, settings, tools, and one task center.
-- The interface starts in Simplified Chinese and retains complete English support, including runtime task states, validation, recovery guidance, and retained compatibility dialogs.
+- The interface starts in Simplified Chinese and retains complete English support, including runtime task states, validation, recovery guidance, and advanced maintenance workflows.
 - Browser UI, MCP, and CLI share revision-checked application commands, import queue state, device snapshots, and long-running tasks.
 - Local-path automation reads audio tags and duration before staging, while file bytes remain behind short-lived local handles until conversion starts.
 - Audio, transcoding, caches, task queues, and device traffic stay on the user's computer; hosted builds serve static application files only.
@@ -43,7 +43,7 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 
 ## Verification snapshot
 
-- 322 automated tests in 85 suites
+- 320 automated tests in 84 suites
 - Full TypeScript and TSX lint with zero warnings
 - Application and bridge type checks
 - Production Vite/PWA build
