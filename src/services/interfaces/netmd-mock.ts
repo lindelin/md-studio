@@ -303,11 +303,11 @@ class NetMDMockService extends NetMDService {
                 tracksIdx: g.tracks.map(t => t.index),
             }));
             this._tracks.splice(index, 1);
+            this._updateTrackIndexes();
             this._groupsDef.forEach(
                 g => (g.tracksIdx = g.tracksIdx.filter(tidx => this._tracks.find(t => t.index === tidx) !== undefined))
             );
         }
-        this._updateTrackIndexes();
     }
 
     async moveTrack(src: number, dst: number, updateGroups?: boolean) {
@@ -331,7 +331,7 @@ class NetMDMockService extends NetMDService {
     }
 
     async ejectDisc() {
-        console.log('Disc ejected!');
+        this._status.discPresent = false;
     }
 
     async wipeDiscTitleInfo() {
