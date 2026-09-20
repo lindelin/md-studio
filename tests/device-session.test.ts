@@ -70,6 +70,38 @@ describe('DeviceSessionConnector', () => {
         assert.equal(fixture.bindings.netmdSpec, undefined);
     });
 
+    it('times out a stuck remembered connection without racing the pairing flow', async () => {
+        let finishConnect!: (connected: boolean) => void;
+        let pairCount = 0;
+        let finalizeCount = 0;
+        const fixture = makeConnector(
+            () =>
+                new Promise<boolean>((resolve) => {
+                    finishConnect = resolve;
+                }),
+            async () => {
+                pairCount += 1;
+                return true;
+            }
+        );
+        fixture.service.finalize = async () => {
+            finalizeCount += 1;
+        };
+        const connector = new DeviceSessionConnector(fixture.bindings, () => fixture.application, 5);
+
+        const result = await connector.connect(fixture.service, fixture.spec);
+
+        assert.equal(result.application, null);
+        assert.equal(result.method, null);
+        assert.match(describeDeviceSessionFailure(result), /did not finish reconnecting within 1 seconds/);
+        assert.equal(pairCount, 0);
+        assert.equal(fixture.bindings.netmdService, undefined);
+
+        finishConnect(true);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        assert.equal(finalizeCount, 1);
+    });
+
     it('explains a missing device and retains a cached reconnect error', () => {
         assert.equal(
             describeDeviceSessionFailure({ application: null, method: null }),

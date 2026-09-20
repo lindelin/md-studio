@@ -19,7 +19,17 @@ export interface DeviceSessionConnectionFailure {
     cachedConnectionError?: unknown;
 }
 
+export class CachedDeviceConnectionTimeoutError extends Error {
+    constructor(readonly timeoutMs: number) {
+        super(`The remembered device did not respond within ${Math.ceil(timeoutMs / 1000)} seconds.`);
+        this.name = 'CachedDeviceConnectionTimeoutError';
+    }
+}
+
 export function describeDeviceSessionFailure(failure: DeviceSessionConnectionFailure) {
+    if (failure.cachedConnectionError instanceof CachedDeviceConnectionTimeoutError) {
+        return `The previously authorized MiniDisc device did not finish reconnecting within ${Math.ceil(failure.cachedConnectionError.timeoutMs / 1000)} seconds. Retry the connection. If Windows still holds the interface, unplug and reconnect the USB cable once.`;
+    }
     const cachedMessage = errorMessage(failure.cachedConnectionError);
     if (cachedMessage) {
         return `The previously authorized MiniDisc device could not reconnect (${cachedMessage}). No compatible device was selected in the browser prompt.`;
@@ -30,7 +40,8 @@ export function describeDeviceSessionFailure(failure: DeviceSessionConnectionFai
 export class DeviceSessionConnector {
     constructor(
         private readonly bindings: DeviceSessionBindings,
-        private readonly bindApplication: () => MiniDiscApplication
+        private readonly bindApplication: () => MiniDiscApplication,
+        private readonly cachedConnectionTimeoutMs = 15_000
     ) {}
 
     async connect(service: NetMDService, spec: MinidiscSpec): Promise<ConnectedDeviceSession | DeviceSessionConnectionFailure> {
@@ -40,7 +51,19 @@ export class DeviceSessionConnector {
 
         let cachedConnectionError: unknown;
         try {
-            if (await service.connect()) {
+            const cachedConnection = service.connect();
+            const cachedResult = await settleBeforeTimeout(cachedConnection, this.cachedConnectionTimeoutMs);
+            if (cachedResult.timedOut) {
+                cachedConnectionError = new CachedDeviceConnectionTimeoutError(this.cachedConnectionTimeoutMs);
+                this.clearFailedBindings(service);
+                void cachedConnection
+                    .then(async (connected) => {
+                        if (connected && this.bindings.netmdService !== service) await service.finalize();
+                    })
+                    .catch(() => undefined);
+                return { application: null, method: null, cachedConnectionError };
+            }
+            if (cachedResult.value) {
                 return { application: this.bindApplication(), method: 'cached' };
             }
         } catch (error) {
@@ -66,6 +89,18 @@ export class DeviceSessionConnector {
         this.bindings.netmdService = undefined;
         this.bindings.netmdSpec = undefined;
         this.bindings.netmdFactoryService = undefined;
+    }
+}
+
+async function settleBeforeTimeout<T>(promise: Promise<T>, timeoutMs: number) {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = new Promise<{ timedOut: true }>((resolve) => {
+        timeout = setTimeout(() => resolve({ timedOut: true }), timeoutMs);
+    });
+    try {
+        return await Promise.race([promise.then((value) => ({ timedOut: false as const, value })), timedOut]);
+    } finally {
+        if (timeout !== undefined) clearTimeout(timeout);
     }
 }
 
