@@ -16,9 +16,9 @@ export const APP_PREFERENCE_KEYS = [
     'audioExportServiceConfig',
     'libraryService',
     'libraryServiceConfig',
+    // Retired no-op preferences retained so Reset Application removes legacy data.
     'pageFullHeight',
     'pageFullWidth',
-    // Retired no-op preference retained so Reset Application removes it.
     'archiveDiscCreateZip',
     'factoryModeUseSlowerExploit',
     // Retired Factory UI preference retained so Reset Application removes it.

@@ -52,7 +52,6 @@ describe('SettingsStore', () => {
                 trackTitleFormat: 'artist-title',
                 recognitionTrackTitleFormat: 'title-artist',
                 recognitionImportMethod: 'exploits',
-                factoryBadSectorRememberChoice: true,
             },
             0
         );
@@ -71,7 +70,6 @@ describe('SettingsStore', () => {
         assert.equal(reloaded.values.trackTitleFormat, 'artist-title');
         assert.equal(reloaded.values.recognitionTrackTitleFormat, 'title-artist');
         assert.equal(reloaded.values.recognitionImportMethod, 'exploits');
-        assert.equal(reloaded.values.factoryBadSectorRememberChoice, true);
         assert.deepEqual(revisions, [1]);
     });
 
@@ -87,10 +85,10 @@ describe('SettingsStore', () => {
 
     it('rejects stale, empty, and malformed updates without changing state', () => {
         const settings = new SettingsStore(new MemoryStorage());
-        settings.update({ pageFullWidth: true });
+        settings.update({ fullWidthSupport: true });
 
         assert.throws(
-            () => settings.update({ pageFullHeight: true }, 0),
+            () => settings.update({ notifyWhenFinished: true }, 0),
             (error: unknown) => (error as ApplicationError).code === 'STALE_REVISION'
         );
         assert.throws(
@@ -138,7 +136,7 @@ describe('SettingsStore', () => {
             (error: unknown) => (error as ApplicationError).code === 'INVALID_INPUT'
         );
         assert.equal(settings.getSnapshot().revision, 1);
-        assert.equal(settings.getSnapshot().values.pageFullHeight, false);
+        assert.equal(settings.getSnapshot().values.notifyWhenFinished, false);
     });
 
     it('cleans invalid persisted service settings while preserving valid legacy values', () => {
@@ -152,7 +150,6 @@ describe('SettingsStore', () => {
         storage.setItem('trackTitleFormat', JSON.stringify('invalid-format'));
         storage.setItem('recognitionTrackTitleFormat', JSON.stringify('filename'));
         storage.setItem('recognitionImportMethod', JSON.stringify('microphone'));
-        storage.setItem('factoryBadSectorRememberChoice', JSON.stringify('yes'));
 
         const snapshot = new SettingsStore(storage).getSnapshot();
 
@@ -165,7 +162,6 @@ describe('SettingsStore', () => {
         assert.equal(snapshot.values.trackTitleFormat, 'filename');
         assert.equal(snapshot.values.recognitionTrackTitleFormat, 'title');
         assert.equal(snapshot.values.recognitionImportMethod, 'line-in');
-        assert.equal(snapshot.values.factoryBadSectorRememberChoice, false);
         assert.equal(storage.getItem('audioExportService'), null);
         assert.equal(storage.getItem('audioEncoderId'), null);
         assert.equal(storage.getItem('libraryServiceConfig'), null);
@@ -173,7 +169,6 @@ describe('SettingsStore', () => {
         assert.equal(storage.getItem('trackTitleFormat'), null);
         assert.equal(storage.getItem('recognitionTrackTitleFormat'), null);
         assert.equal(storage.getItem('recognitionImportMethod'), null);
-        assert.equal(storage.getItem('factoryBadSectorRememberChoice'), null);
     });
 
     it('preserves a legacy encoder index until a stable service id is saved', () => {

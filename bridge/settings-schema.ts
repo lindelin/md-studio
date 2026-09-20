@@ -7,8 +7,6 @@ const settingsShape = {
     discProtectedDialogDisabled: z.boolean().optional(),
     notifyWhenFinished: z.boolean().optional(),
     fullWidthSupport: z.boolean().optional(),
-    pageFullHeight: z.boolean().optional(),
-    pageFullWidth: z.boolean().optional(),
     factoryModeUseSlowerExploit: z.boolean().optional(),
     factoryModeNERAWDownload: z.boolean().optional(),
     audioEncoderId: z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/).nullable().optional(),
@@ -24,7 +22,6 @@ const settingsShape = {
         .enum(['title', 'album-title', 'artist-title', 'artist-album-title', 'title-artist'])
         .optional(),
     recognitionImportMethod: z.enum(['exploits', 'line-in']).optional(),
-    factoryBadSectorRememberChoice: z.boolean().optional(),
 } satisfies { [Key in keyof UserSettings]: z.ZodType<UserSettings[Key] | undefined> };
 
 export const mcpSettingsChangesSchema = z

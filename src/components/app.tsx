@@ -56,14 +56,6 @@ const useStyles = makeStyles()((theme) => ({
             height: 700,
         },
     },
-    paperFullHeight: {
-        height: 'calc(100% - 50px)',
-    },
-    layoutFullWidth: {
-        [forAnyDesktop(theme)]: {
-            width: '90%',
-        },
-    },
     bottomBar: {
         display: 'flex',
         alignItems: 'center',
@@ -228,7 +220,6 @@ const lightTheme = createTheme({
 
 const InternalApp = () => {
     const { mainView, loading } = useShallowEqualSelector((state) => state.appState);
-    const { pageFullHeight, pageFullWidth } = useApplicationSettings();
     const canListContent = useApplicationWorkspace().device?.capabilities.includes('content.read') ?? false;
     const { classes, cx } = useStyles();
 
@@ -265,15 +256,10 @@ const InternalApp = () => {
                     </Backdrop>
                 }
             >
-                <main
-                    className={cx(classes.layout, {
-                        [classes.layoutFullWidth]: pageFullWidth,
-                    })}
-                >
+                <main className={classes.layout}>
                     <Paper
                         className={cx(classes.paper, {
                             [classes.paperShowsList]: canListContent,
-                            [classes.paperFullHeight]: pageFullHeight,
                         })}
                     >
                         {mainView === 'WELCOME' ? <Welcome /> : null}

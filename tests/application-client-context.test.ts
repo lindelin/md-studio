@@ -55,11 +55,11 @@ describe('ApplicationClientProvider', () => {
             },
         } as unknown as ApplicationClient;
 
-        await updateApplicationSettings(updatingClient, { pageFullWidth: true });
+        await updateApplicationSettings(updatingClient, { fullWidthSupport: true });
 
         assert.deepEqual(received, {
             type: 'settings.update',
-            changes: { pageFullWidth: true },
+            changes: { fullWidthSupport: true },
             expectedRevision: 7,
         });
     });

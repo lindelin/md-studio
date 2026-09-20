@@ -186,8 +186,6 @@ export const SettingsDialog = () => {
     const {
         colorTheme,
         uiLanguage,
-        pageFullHeight,
-        pageFullWidth,
         fullWidthSupport,
         factoryModeUseSlowerExploit,
         factoryModeNERAWDownload,
@@ -273,12 +271,6 @@ export const SettingsDialog = () => {
         },
         [applySetting]
     );
-    const handlePageFullHeightChange = useCallback(() => {
-        applySetting({ pageFullHeight: !pageFullHeight });
-    }, [applySetting, pageFullHeight]);
-    const handlePageFullWidthChange = useCallback(() => {
-        applySetting({ pageFullWidth: !pageFullWidth });
-    }, [applySetting, pageFullWidth]);
 
     // Functionality configuration
     const handleToggleFullWidth = useCallback(() => {
@@ -362,12 +354,6 @@ export const SettingsDialog = () => {
                         <MenuItem value="dark">{t('Dark')}</MenuItem>
                         <MenuItem value="system">{t('Use system theme')}</MenuItem>
                     </Select>
-                </SimpleField>
-                <SimpleField name={t('Stretch MiniDisc Workspace to fill the screen vertically')} classes={classes} formControl={true}>
-                    <Switch checked={pageFullHeight} onChange={handlePageFullHeightChange} />
-                </SimpleField>
-                <SimpleField name={t('Stretch MiniDisc Workspace to fill the screen horizontally')} classes={classes} formControl={true}>
-                    <Switch checked={pageFullWidth} onChange={handlePageFullWidthChange} />
                 </SimpleField>
                 <NativeFields classes={classes} section="Appearance" />
 

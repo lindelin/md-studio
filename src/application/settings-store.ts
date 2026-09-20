@@ -9,8 +9,6 @@ export interface UserSettings {
     discProtectedDialogDisabled: boolean;
     notifyWhenFinished: boolean;
     fullWidthSupport: boolean;
-    pageFullHeight: boolean;
-    pageFullWidth: boolean;
     factoryModeUseSlowerExploit: boolean;
     factoryModeNERAWDownload: boolean;
     audioEncoderId: string | null;
@@ -22,7 +20,6 @@ export interface UserSettings {
     trackTitleFormat: ImportTitleFormat;
     recognitionTrackTitleFormat: Exclude<ImportTitleFormat, 'filename'>;
     recognitionImportMethod: 'exploits' | 'line-in';
-    factoryBadSectorRememberChoice: boolean;
 }
 
 export interface SettingsSnapshot {
@@ -38,8 +35,6 @@ const defaults: UserSettings = {
     discProtectedDialogDisabled: false,
     notifyWhenFinished: false,
     fullWidthSupport: false,
-    pageFullHeight: false,
-    pageFullWidth: false,
     factoryModeUseSlowerExploit: false,
     factoryModeNERAWDownload: false,
     audioEncoderId: null,
@@ -51,7 +46,6 @@ const defaults: UserSettings = {
     trackTitleFormat: 'filename',
     recognitionTrackTitleFormat: 'title',
     recognitionImportMethod: 'line-in',
-    factoryBadSectorRememberChoice: false,
 };
 
 const booleanKeys = new Set<keyof UserSettings>(
@@ -135,8 +129,6 @@ export class SettingsStore {
             ),
             notifyWhenFinished: loadPreference('notifyWhenFinished', defaults.notifyWhenFinished, isBoolean, this.storage),
             fullWidthSupport: loadPreference('fullWidthSupport', defaults.fullWidthSupport, isBoolean, this.storage),
-            pageFullHeight: loadPreference('pageFullHeight', defaults.pageFullHeight, isBoolean, this.storage),
-            pageFullWidth: loadPreference('pageFullWidth', defaults.pageFullWidth, isBoolean, this.storage),
             factoryModeUseSlowerExploit: loadPreference(
                 'factoryModeUseSlowerExploit',
                 defaults.factoryModeUseSlowerExploit,
@@ -187,12 +179,6 @@ export class SettingsStore {
                 'recognitionImportMethod',
                 defaults.recognitionImportMethod,
                 isOneOf(['exploits', 'line-in'] as const),
-                this.storage
-            ),
-            factoryBadSectorRememberChoice: loadPreference(
-                'factoryBadSectorRememberChoice',
-                defaults.factoryBadSectorRememberChoice,
-                isBoolean,
                 this.storage
             ),
         };
