@@ -256,9 +256,19 @@ export class NetworkWMService extends NetMDService {
         const fsEntry = await this.database!.database.filesystem.open(resolvePathFromGlobalIndex(this.cache!.nwjsTracks![index].systemIndex), 'ro');
         if(!fsEntry) throw new Error("Cannot read audio file!");
         let buffer = new Uint8Array(fsEntry.length);
-        for(let cursor = 0; cursor < buffer.length; cursor += Math.min(4096, buffer.length - cursor)) {
-            buffer.set(await fsEntry.read(4096), cursor);
-            progressCallback({ read: cursor, total: buffer.length });
+        let cursor = 0;
+        try {
+            while(cursor < buffer.length) {
+                const remaining = buffer.length - cursor;
+                const chunk = await fsEntry.read(Math.min(4096, remaining));
+                if(chunk.byteLength === 0) throw new Error('The Network Walkman audio file ended before the declared size.');
+                if(chunk.byteLength > remaining) throw new Error('The Network Walkman audio file exceeded its declared size.');
+                buffer.set(chunk, cursor);
+                cursor += chunk.byteLength;
+                progressCallback({ read: cursor, total: buffer.length });
+            }
+        } finally {
+            await fsEntry.close();
         }
         // Unless MP3s are being processed
         let extension;

@@ -21,7 +21,6 @@ export interface AppState {
     localBridgeEnabled: boolean;
     availableServices: ServiceConstructionInfo[];
     lastSelectedService: number;
-    factoryModeRippingInMainUi: boolean;
 }
 
 export const buildInitialState = (): AppState => {
@@ -45,8 +44,6 @@ export const buildInitialState = (): AppState => {
             availableServices.length,
             loadPreference('lastSelectedService', 0, isFiniteNumber)
         ),
-        factoryModeRippingInMainUi: false, // As this value is heavily device-dependent and not really that stable yet
-        // it should not be stored in the preferences, and should default to false.
     };
 };
 
@@ -99,9 +96,6 @@ export const slice = createSlice({
         setLastSelectedService: (state, action: PayloadAction<number>) => {
             state.lastSelectedService = normalizeServiceSelection(state.availableServices.length, action.payload);
             savePreference('lastSelectedService', state.lastSelectedService);
-        },
-        setFactoryModeRippingInMainUi: (state, action: PayloadAction<boolean>) => {
-            state.factoryModeRippingInMainUi = action.payload;
         },
     },
 });

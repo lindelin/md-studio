@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { useDispatch, useShallowEqualSelector } from '../../frontend-utils';
+import { useDispatch } from '../../frontend-utils';
 import {
     acceptedTypes,
     bytesToHumanReadable,
@@ -136,7 +136,6 @@ export const Workbench = () => {
     const client = useApplicationClient();
     const workspace = useApplicationWorkspace();
     const updateSettings = useUpdateApplicationSettings();
-    const factoryModeRippingInMainUi = useShallowEqualSelector((state) => state.appState.factoryModeRippingInMainUi);
     const device = workspace.device;
     const disc = device?.disc ?? null;
     const imports = workspace.imports.items;
@@ -371,7 +370,7 @@ export const Workbench = () => {
     const canEject = capabilities.includes('disc.eject');
     const canPlayback = capabilities.includes('playback.control');
     const canDownload = capabilities.includes('track.download');
-    const useRecoveryExport = factoryModeRippingInMainUi && capabilities.includes('advanced.factory');
+    const canInspectRecoveryExport = capabilities.includes('advanced.factory');
     const canMoveTrack = capabilities.includes('track.move');
     const canCreateGroup = capabilities.includes('group.create');
     const canDeleteGroup = capabilities.includes('group.delete');
@@ -795,9 +794,23 @@ export const Workbench = () => {
         });
     };
 
+    const openRecoveryTrackTransfer = () => void run(async () => {
+        const result = await execute({ type: 'advanced.inspect' });
+        if (!result.advancedInfo?.capabilities.includes('downloadAtrac')) {
+            throw new Error(t('This device firmware does not support ATRAC recovery export.'));
+        }
+        setTrackTransferMode('recovery');
+    });
+
     const openTrackTransfer = () => {
         if (selectedTrackIndexes.length === 0) return;
-        setTrackTransferMode(useRecoveryExport ? 'recovery' : canDownload ? 'export' : 'record');
+        if (canDownload) {
+            setTrackTransferMode('export');
+        } else if (canInspectRecoveryExport) {
+            openRecoveryTrackTransfer();
+        } else {
+            setTrackTransferMode('record');
+        }
     };
 
     const cancelTask = (id: string) => {
@@ -1076,7 +1089,8 @@ export const Workbench = () => {
                                 <span>{t('Ctrl/⌘ click toggles · Shift click extends the selection')}</span>
                                 <div>
                                     <button onClick={() => setTrackRecognitionOpen(true)} disabled={!canPlayback && !device?.capabilities.includes('advanced.factory')}><MusicNoteRoundedIcon /> {t('Recognize')}</button>
-                                    <button onClick={openTrackTransfer}><DownloadRoundedIcon /> {t(canDownload || useRecoveryExport ? 'Export' : 'Record')}</button>
+                                    <button onClick={openTrackTransfer} disabled={busy || (!canDownload && !canInspectRecoveryExport && !canPlayback)}><DownloadRoundedIcon /> {t(canDownload ? 'Export' : canInspectRecoveryExport ? 'Recovery export' : 'Record')}</button>
+                                    {canDownload && canInspectRecoveryExport ? <button onClick={openRecoveryTrackTransfer} disabled={busy}><DownloadRoundedIcon /> {t('Recovery export')}</button> : null}
                                     <button onClick={() => { setGroupDraft(''); setGroupDialogOpen(true); }} disabled={!canGroupSelection}><CreateNewFolderRoundedIcon /> {t('Group')}</button>
                                     <button onClick={ungroupSelected} disabled={!canDeleteGroup || selectedNamedGroups.length === 0}><FolderOffRoundedIcon /> {t('Ungroup')}</button>
                                 </div>

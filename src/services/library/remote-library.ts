@@ -1,5 +1,5 @@
 import { CustomParameters } from '../../custom-parameters';
-import { getATRACWAVEncoding } from '../../utils';
+import { validateAndStripAtracEncoderOutput } from '../audio/atrac-encoder-output';
 import { ExportParams, FfmpegPcmMp3Transcoder } from '../audio/audio-export';
 import { retryRemoteRequest } from '../remote-request';
 import { LibraryService, LocalDatabase } from './library';
@@ -90,12 +90,7 @@ export class RemoteLibraryService extends FfmpegPcmMp3Transcoder implements Libr
                     const response = await fetch(encodingURL.href, { signal });
                     if (!response.ok) throw new Error(`HTTP ${response.status}.`);
                     const source = await response.arrayBuffer();
-                    const content = new Uint8Array(source);
-                    const file = new File([content], 'test.at3');
-                    const encoding = await getATRACWAVEncoding(file);
-                    if (!encoding) throw new Error('The remote encoder returned an invalid ATRAC WAV file.');
-                    const headerLength = encoding.headerLength;
-                    return source.slice(headerLength);
+                    return validateAndStripAtracEncoderOutput(source, format, 'The remote library encoder');
                 },
                 { timeoutMs: AUDIO_TIMEOUT_MS }
             );

@@ -138,12 +138,7 @@ export const Welcome = () => {
     };
 
     async function connectToService(index: number) {
-        dispatch(
-            batchActions([
-                appActions.setLastSelectedService(index),
-                appActions.setFactoryModeRippingInMainUi(false),
-            ])
-        );
+        dispatch(appActions.setLastSelectedService(index));
         try {
             const result = await applicationClient.connectLocalDevice(availableServices[index]);
             if (result.connected) {
