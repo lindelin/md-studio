@@ -1,11 +1,20 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { useDispatch } from '../../frontend-utils';
-import { acceptedTypes, AdaptiveFile, bytesToHumanReadable, DisplayTrack, formatTimeFromSeconds, getSortedTracks } from '../../utils';
+import { useDispatch, useShallowEqualSelector } from '../../frontend-utils';
+import {
+    acceptedTypes,
+    AdaptiveFile,
+    bytesToHumanReadable,
+    DisplayTrack,
+    formatTimeFromSeconds,
+    getSortedTracks,
+    isSequential,
+} from '../../utils';
 import { actions as appActions } from '../../redux/app-feature';
 import { actions as convertDialogActions } from '../../redux/convert-dialog-feature';
+import { actions as dumpDialogActions } from '../../redux/dump-dialog-feature';
 import { openLocalLibrary } from '../../redux/actions';
-import { useApplicationClient, useApplicationWorkspace } from '../use-application-client';
+import { useApplicationClient, useApplicationWorkspace, useUpdateApplicationSettings } from '../use-application-client';
 import { getDefaultRecordingFormat, getRecordingCodec } from '../../application/device-profile';
 import type { ImportQueueItem } from '../../application/import-queue';
 
@@ -32,6 +41,10 @@ import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import KeyboardArrowUpRoundedIcon from '@mui/icons-material/KeyboardArrowUpRounded';
 import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
+import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
+import CreateNewFolderRoundedIcon from '@mui/icons-material/CreateNewFolderRounded';
+import FolderOffRoundedIcon from '@mui/icons-material/FolderOffRounded';
+import SelectAllRoundedIcon from '@mui/icons-material/SelectAllRounded';
 
 import { TopMenu } from '../topmenu';
 import { DiscProtectedDialog } from '../disc-protected-dialog';
@@ -55,6 +68,7 @@ import { PanicDialog } from '../panic-dialog';
 import './workbench.css';
 
 type NavigationSection = 'device' | 'library' | 'automation' | 'tools';
+type ContentView = 'plan' | 'disc';
 type PlanItem =
     | { kind: 'import'; key: string; index: number; item: ImportQueueItem }
     | { kind: 'track'; key: string; index: number; item: DisplayTrack };
@@ -85,26 +99,40 @@ export const Workbench = () => {
     const dispatch = useDispatch();
     const client = useApplicationClient();
     const workspace = useApplicationWorkspace();
+    const updateSettings = useUpdateApplicationSettings();
+    const factoryModeRippingInMainUi = useShallowEqualSelector((state) => state.appState.factoryModeRippingInMainUi);
     const device = workspace.device;
     const disc = device?.disc ?? null;
     const imports = workspace.imports.items;
     const tracks = useMemo(() => getSortedTracks(disc), [disc]);
     const [section, setSection] = useState<NavigationSection>('device');
+    const [contentView, setContentView] = useState<ContentView>(imports.length > 0 ? 'plan' : 'disc');
     const [uploadedFiles, setUploadedFiles] = useState<(File | AdaptiveFile)[]>([]);
     const [selectedKey, setSelectedKey] = useState<string | null>(null);
+    const [selectedTrackIndexes, setSelectedTrackIndexes] = useState<number[]>([]);
+    const [lastSelectedTrackIndex, setLastSelectedTrackIndex] = useState<number | null>(null);
     const [draggedId, setDraggedId] = useState<string | null>(null);
     const [draft, setDraft] = useState({ title: '', album: '', artist: '', fullWidthTitle: '' });
+    const [groupDraft, setGroupDraft] = useState('');
+    const [groupDialogOpen, setGroupDialogOpen] = useState(false);
     const [formatIndex, setFormatIndex] = useState<[number, number]>(device?.recording.defaultFormat ?? [0, 0]);
     const [message, setMessage] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
+    const previousImportCount = useRef(imports.length);
 
     const planItems: PlanItem[] = useMemo(
         () =>
-            imports.length > 0
+            contentView === 'plan' && imports.length > 0
                 ? imports.map((item, index) => ({ kind: 'import' as const, key: `import:${item.id}`, index, item }))
                 : tracks.map((item, index) => ({ kind: 'track' as const, key: `track:${item.index}`, index, item })),
-        [imports, tracks]
+        [contentView, imports, tracks]
     );
+
+    useEffect(() => {
+        if (imports.length === 0) setContentView('disc');
+        else if (previousImportCount.current === 0) setContentView('plan');
+        previousImportCount.current = imports.length;
+    }, [imports.length]);
 
     useEffect(() => {
         if (!selectedKey || !planItems.some((item) => item.key === selectedKey)) {
@@ -113,22 +141,39 @@ export const Workbench = () => {
     }, [planItems, selectedKey]);
 
     const selected = planItems.find((item) => item.key === selectedKey) ?? null;
+    const selectedTitle = selected?.item.title ?? '';
+    const selectedAlbum = selected?.item.album ?? '';
+    const selectedArtist = selected?.item.artist ?? '';
+    const selectedFullWidthTitle = selected?.item.fullWidthTitle ?? '';
+    const hasSelectedItem = selected !== null;
     useEffect(() => {
-        if (!selected) {
+        if (!hasSelectedItem) {
             setDraft({ title: '', album: '', artist: '', fullWidthTitle: '' });
             return;
         }
         setDraft({
-            title: selected.item.title ?? '',
-            album: selected.item.album ?? '',
-            artist: selected.item.artist ?? '',
-            fullWidthTitle: selected.item.fullWidthTitle ?? '',
+            title: selectedTitle,
+            album: selectedAlbum,
+            artist: selectedArtist,
+            fullWidthTitle: selectedFullWidthTitle,
         });
-    }, [selectedKey, selected]);
+    }, [selectedKey, hasSelectedItem, selectedTitle, selectedAlbum, selectedArtist, selectedFullWidthTitle]);
 
     useEffect(() => {
-        if (device) setFormatIndex(device.recording.defaultFormat);
-    }, [device]);
+        if (!device) return;
+        setFormatIndex(workspace.settings.values.uploadFormat[device.recording.specName] ?? device.recording.defaultFormat);
+    }, [device, workspace.settings.values.uploadFormat]);
+
+    useEffect(() => {
+        if (contentView === 'disc') return;
+        setSelectedTrackIndexes([]);
+        setLastSelectedTrackIndex(null);
+    }, [contentView]);
+
+    useEffect(() => {
+        const availableIndexes = new Set(tracks.map((track) => track.index));
+        setSelectedTrackIndexes((current) => current.filter((index) => availableIndexes.has(index)));
+    }, [tracks]);
 
     const onDrop = useCallback(
         (acceptedFiles: File[]) => {
@@ -174,6 +219,10 @@ export const Workbench = () => {
     const canEject = capabilities.includes('disc.eject');
     const canPlayback = capabilities.includes('playback.control');
     const canDownload = capabilities.includes('track.download');
+    const canMoveTrack = capabilities.includes('track.move');
+    const canCreateGroup = capabilities.includes('group.create');
+    const canDeleteGroup = capabilities.includes('group.delete');
+    const canRenameGroup = capabilities.includes('group.rename');
     const measurementIsBytes = device?.recording.measurementUnits === 'bytes';
     const usedPercent = disc?.total ? Math.min(100, Math.max(0, (disc.used / disc.total) * 100)) : 0;
     const queuedDuration = imports.reduce((total, item) => total + (item.duration ?? 0), 0);
@@ -182,6 +231,36 @@ export const Workbench = () => {
         ? activeTask.progress.currentPercent ??
           (activeTask.progress.total > 0 ? (activeTask.progress.completed / activeTask.progress.total) * 100 : 0)
         : 0;
+    const sortedSelectedTrackIndexes = useMemo(
+        () => [...selectedTrackIndexes].sort((left, right) => left - right),
+        [selectedTrackIndexes]
+    );
+    const selectedDiscTrack = selected?.kind === 'track' ? selected.item : null;
+    const selectedGroup = useMemo(
+        () =>
+            selectedDiscTrack
+                ? disc?.groups.find(
+                      (group) => group.title !== null && group.tracks.some((track) => track.index === selectedDiscTrack.index)
+                  ) ?? null
+                : null,
+        [disc, selectedDiscTrack]
+    );
+    const selectedNamedGroups = useMemo(() => {
+        if (!disc) return [];
+        return disc.groups.filter(
+            (group) =>
+                group.title !== null && group.tracks.some((track) => selectedTrackIndexes.includes(track.index))
+        );
+    }, [disc, selectedTrackIndexes]);
+    const canGroupSelection =
+        canCreateGroup &&
+        sortedSelectedTrackIndexes.length > 0 &&
+        isSequential(sortedSelectedTrackIndexes) &&
+        sortedSelectedTrackIndexes.every((index) => tracks.find((track) => track.index === index)?.group === null);
+
+    useEffect(() => {
+        setGroupDraft(selectedGroup?.title ?? '');
+    }, [selectedGroup?.index, selectedGroup?.title]);
 
     const saveInspector = () => {
         if (!selected || !device) return;
@@ -222,13 +301,17 @@ export const Workbench = () => {
                 await execute({ type: 'import.remove', ids: [selected.item.id], expectedRevision: workspace.imports.revision });
                 return;
             }
-            if (!window.confirm(`Delete “${selected.item.title || `Track ${selected.item.index}`}” from this test disc?`)) return;
+            const indexes = sortedSelectedTrackIndexes.length > 0 ? sortedSelectedTrackIndexes : [selected.item.index];
+            const description = indexes.length === 1 ? `“${selected.item.title || `Track ${selected.item.index}`}”` : `${indexes.length} tracks`;
+            if (!window.confirm(`Delete ${description} from this test disc?`)) return;
             await execute({
                 type: 'track.deleteMany',
-                indexes: [selected.item.index],
+                indexes,
                 confirmation: { confirmed: true, reason: 'User confirmed deletion in the workbench.' },
                 expectedRevision: device?.revision,
             });
+            setSelectedTrackIndexes([]);
+            setLastSelectedTrackIndex(null);
         });
     };
 
@@ -237,6 +320,109 @@ export const Workbench = () => {
         void run(async () => {
             await execute({ type: 'import.move', id, destinationIndex, expectedRevision: workspace.imports.revision });
         });
+    };
+
+    const moveDiscTrack = (sourceIndex: number, destinationIndex: number) => {
+        if (!device || destinationIndex < 0 || destinationIndex >= tracks.length || sourceIndex === destinationIndex) return;
+        void run(async () => {
+            await execute({ type: 'track.move', sourceIndex, destinationIndex, expectedRevision: device.revision });
+            setSelectedKey(`track:${destinationIndex}`);
+            setSelectedTrackIndexes([destinationIndex]);
+            setLastSelectedTrackIndex(destinationIndex);
+        });
+    };
+
+    const selectRow = (event: React.MouseEvent, row: PlanItem) => {
+        setSelectedKey(row.key);
+        if (row.kind === 'import') {
+            setSelectedTrackIndexes([]);
+            setLastSelectedTrackIndex(null);
+            return;
+        }
+        const index = row.item.index;
+        if (event.shiftKey && lastSelectedTrackIndex !== null) {
+            const start = Math.min(lastSelectedTrackIndex, index);
+            const end = Math.max(lastSelectedTrackIndex, index);
+            const range = tracks.map((track) => track.index).filter((trackIndex) => trackIndex >= start && trackIndex <= end);
+            setSelectedTrackIndexes((current) => Array.from(new Set([...current, ...range])));
+        } else if (event.ctrlKey || event.metaKey) {
+            setSelectedTrackIndexes((current) =>
+                current.includes(index) ? current.filter((trackIndex) => trackIndex !== index) : [...current, index]
+            );
+        } else {
+            setSelectedTrackIndexes([index]);
+        }
+        setLastSelectedTrackIndex(index);
+    };
+
+    const toggleSelectAllTracks = () => {
+        if (selectedTrackIndexes.length === tracks.length) {
+            setSelectedTrackIndexes([]);
+            setLastSelectedTrackIndex(null);
+            return;
+        }
+        const indexes = tracks.map((track) => track.index);
+        setSelectedTrackIndexes(indexes);
+        setLastSelectedTrackIndex(indexes.at(-1) ?? null);
+        if (tracks[0]) setSelectedKey(`track:${tracks[0].index}`);
+    };
+
+    const createGroup = () => {
+        if (!device || !canGroupSelection) return;
+        void run(async () => {
+            await execute({
+                type: 'group.create',
+                firstTrack: sortedSelectedTrackIndexes[0],
+                trackCount: sortedSelectedTrackIndexes.length,
+                title: groupDraft.trim(),
+                expectedRevision: device.revision,
+            });
+            setGroupDialogOpen(false);
+            setMessage('Group created.');
+        });
+    };
+
+    const ungroupSelected = () => {
+        if (!device || selectedNamedGroups.length === 0) return;
+        void run(async () => {
+            await execute({
+                type: 'group.deleteMany',
+                indexes: selectedNamedGroups.map((group) => group.index),
+                expectedRevision: device.revision,
+            });
+            setMessage(selectedNamedGroups.length === 1 ? 'Group removed.' : 'Groups removed.');
+        });
+    };
+
+    const renameSelectedGroup = () => {
+        if (!device || !selectedGroup) return;
+        void run(async () => {
+            await execute({
+                type: 'group.rename',
+                update: { index: selectedGroup.index, title: groupDraft },
+                expectedRevision: device.revision,
+            });
+            setMessage('Group name updated.');
+        });
+    };
+
+    const changeRecordingFormat = (next: [number, number]) => {
+        if (!device) return;
+        setFormatIndex(next);
+        void run(async () => {
+            await updateSettings({
+                uploadFormat: {
+                    ...workspace.settings.values.uploadFormat,
+                    [device.recording.specName]: next,
+                },
+            });
+            setMessage('Recording mode updated for the current device type.');
+        });
+    };
+
+    const openTrackTransfer = () => {
+        if (selectedTrackIndexes.length === 0) return;
+        dispatch(dumpDialogActions.setVisible(true));
     };
 
     const refresh = () => void run(async () => void (await execute({ type: 'disc.refresh', dropCache: true })));
@@ -328,7 +514,7 @@ export const Workbench = () => {
                         <span className={`workbench__status ${device ? 'is-online' : ''}`}><i />{device ? 'Connected' : 'Disconnected'}</span>
                         <button className="icon-button" aria-label="Refresh disc" onClick={refresh} disabled={!disc || busy}><RefreshRoundedIcon /></button>
                         <button className="workbench__eject-button" aria-label="Eject disc" onClick={eject} disabled={!disc || !canEject || busy}><EjectIcon /><span>Eject</span></button>
-                        <TopMenu tracksSelected={selected?.kind === 'track' ? [selected.item.index] : []} />
+                        <TopMenu tracksSelected={selectedTrackIndexes} />
                     </div>
                 </header>
 
@@ -363,30 +549,56 @@ export const Workbench = () => {
                     <section className="workbench__focus-panel">
                         <TuneRoundedIcon />
                         <div><span className="workbench__eyebrow">TOOLS</span><h2>Advanced disc tools</h2><p>Use the application menu for CSV metadata, recognition, exports, diagnostics and Homebrew features.</p></div>
-                        <TopMenu tracksSelected={selected?.kind === 'track' ? [selected.item.index] : []} />
+                        <TopMenu tracksSelected={selectedTrackIndexes} />
                     </section>
                 ) : null}
 
                 <div className="workbench__workspace-grid">
                     <section className="workbench__plan">
                         <div className="workbench__section-heading">
-                            <div><span className="workbench__eyebrow">{imports.length ? 'READY TO TRANSFER' : 'DISC CONTENTS'}</span><h2>{imports.length ? 'Recording Plan' : 'Tracks on MiniDisc'}</h2></div>
+                            <div>
+                                <span className="workbench__eyebrow">{contentView === 'plan' && imports.length ? 'READY TO TRANSFER' : 'DISC CONTENTS'}</span>
+                                <h2>{contentView === 'plan' && imports.length ? 'Recording Plan' : 'Tracks on MiniDisc'}</h2>
+                                {imports.length > 0 ? (
+                                    <div className="workbench__view-switch" role="tablist" aria-label="Workspace content">
+                                        <button className={contentView === 'plan' ? 'is-active' : ''} onClick={() => setContentView('plan')} role="tab">Recording plan <span>{imports.length}</span></button>
+                                        <button className={contentView === 'disc' ? 'is-active' : ''} onClick={() => setContentView('disc')} role="tab">On disc <span>{tracks.length}</span></button>
+                                    </div>
+                                ) : null}
+                            </div>
                             <div className="workbench__plan-actions">
-                                <span>{planItems.length} tracks · {formatDuration(imports.length ? queuedDuration : tracks.reduce((sum, track) => sum + track.duration, 0))}</span>
+                                <span>{planItems.length} tracks · {formatDuration(contentView === 'plan' && imports.length ? queuedDuration : tracks.reduce((sum, track) => sum + track.duration, 0))}</span>
+                                {contentView === 'disc' && tracks.length > 0 ? <button className="secondary-button workbench__compact-button" onClick={toggleSelectAllTracks}><SelectAllRoundedIcon /> {selectedTrackIndexes.length === tracks.length ? 'Clear' : 'Select all'}</button> : null}
                                 <button className="secondary-button" onClick={open} disabled={!canUpload}><AddRoundedIcon /> Add audio</button>
                                 <button className="primary-button" onClick={openWriter} disabled={!canUpload || imports.length === 0 || busy}><AlbumIcon /> Write to MiniDisc</button>
                             </div>
                         </div>
 
-                        <div className="workbench__table" role="table" aria-label={imports.length ? 'Recording plan' : 'Disc tracks'}>
+                        {contentView === 'disc' && selectedTrackIndexes.length > 0 ? (
+                            <div className="workbench__selection-bar">
+                                <strong>{selectedTrackIndexes.length} selected</strong>
+                                <span>Ctrl/⌘ click toggles · Shift click extends the selection</span>
+                                <div>
+                                    <button onClick={openTrackTransfer}><DownloadRoundedIcon /> {canDownload || factoryModeRippingInMainUi ? 'Export' : 'Record'}</button>
+                                    <button onClick={() => { setGroupDraft(''); setGroupDialogOpen(true); }} disabled={!canGroupSelection}><CreateNewFolderRoundedIcon /> Group</button>
+                                    <button onClick={ungroupSelected} disabled={!canDeleteGroup || selectedNamedGroups.length === 0}><FolderOffRoundedIcon /> Ungroup</button>
+                                </div>
+                            </div>
+                        ) : null}
+
+                        <div className="workbench__table" role="table" aria-label={contentView === 'plan' && imports.length ? 'Recording plan' : 'Disc tracks'}>
                             <div className="workbench__table-head" role="row">
                                 <span>#</span><span>Title</span><span>Artist</span><span>Mode</span><span>Duration</span><span />
                             </div>
                             <div className="workbench__table-body">
                                 {planItems.length === 0 ? (
-                                    <div className="workbench__empty"><QueueMusicIcon /><h3>Your recording plan is empty</h3><p>Import audio to prepare titles, order and recording modes before writing the disc.</p><button className="primary-button" onClick={open} disabled={!canUpload}><FolderOpenIcon /> Choose audio files</button></div>
+                                    <div className="workbench__empty"><QueueMusicIcon /><h3>{contentView === 'plan' ? 'Your recording plan is empty' : 'This MiniDisc is empty'}</h3><p>{contentView === 'plan' ? 'Import audio to prepare titles, order and recording modes before writing the disc.' : 'Add audio to begin building this disc.'}</p><button className="primary-button" onClick={open} disabled={!canUpload}><FolderOpenIcon /> Choose audio files</button></div>
                                 ) : planItems.map((row) => {
-                                    const isSelected = row.key === selectedKey;
+                                    const isSelected =
+                                        row.kind === 'track'
+                                            ? selectedTrackIndexes.includes(row.item.index) ||
+                                              (selectedTrackIndexes.length === 0 && row.key === selectedKey)
+                                            : row.key === selectedKey;
                                     const playing = row.kind === 'track' && device?.status.track === row.item.index && device?.status.state === 'playing';
                                     const encoding = row.kind === 'import' ? row.item.forcedEncoding ?? selectedFormat : row.item.encoding;
                                     return (
@@ -394,20 +606,22 @@ export const Workbench = () => {
                                             className={`workbench__table-row ${isSelected ? 'is-selected' : ''}`}
                                             key={row.key}
                                             role="row"
+                                            aria-selected={isSelected}
                                             draggable={row.kind === 'import'}
                                             onDragStart={() => row.kind === 'import' && setDraggedId(row.item.id)}
                                             onDragOver={(event) => row.kind === 'import' && event.preventDefault()}
                                             onDrop={() => { if (row.kind === 'import' && draggedId && draggedId !== row.item.id) moveImport(draggedId, row.index); setDraggedId(null); }}
-                                            onClick={() => setSelectedKey(row.key)}
+                                            onClick={(event) => selectRow(event, row)}
                                         >
                                             <span className="workbench__track-number"><DragIndicatorIcon />{String(row.index + 1).padStart(2, '0')}</span>
-                                            <span className="workbench__track-title"><strong>{row.item.title || 'Untitled track'}</strong><small>{row.kind === 'import' ? row.item.name : row.item.fullWidthTitle || discLabel}</small></span>
+                                            <span className="workbench__track-title"><strong>{row.item.title || 'Untitled track'}</strong><small>{row.kind === 'import' ? row.item.name : row.item.group || row.item.fullWidthTitle || discLabel}</small></span>
                                             <span>{row.item.artist || '—'}</span>
                                             <span><i className="workbench__mode-pill">{codecLabel(encoding)}</i></span>
                                             <span>{formatDuration(row.item.duration)}</span>
                                             <span className="workbench__row-actions">
                                                 {row.kind === 'track' && canPlayback ? <button aria-label={playing ? 'Pause track' : 'Play track'} onClick={(event) => { event.stopPropagation(); togglePlayback(row.item); }}>{playing ? <StopRoundedIcon /> : <PlayArrowRoundedIcon />}</button> : null}
                                                 {row.kind === 'import' ? <><button aria-label="Move track up" onClick={(event) => { event.stopPropagation(); moveImport(row.item.id, row.index - 1); }}><KeyboardArrowUpRoundedIcon /></button><button aria-label="Move track down" onClick={(event) => { event.stopPropagation(); moveImport(row.item.id, row.index + 1); }}><KeyboardArrowDownRoundedIcon /></button></> : null}
+                                                {row.kind === 'track' && canMoveTrack && selectedTrackIndexes.length <= 1 ? <><button aria-label="Move track up" disabled={row.item.index === 0} onClick={(event) => { event.stopPropagation(); moveDiscTrack(row.item.index, row.item.index - 1); }}><KeyboardArrowUpRoundedIcon /></button><button aria-label="Move track down" disabled={row.item.index === tracks.length - 1} onClick={(event) => { event.stopPropagation(); moveDiscTrack(row.item.index, row.item.index + 1); }}><KeyboardArrowDownRoundedIcon /></button></> : null}
                                             </span>
                                         </div>
                                     );
@@ -423,26 +637,37 @@ export const Workbench = () => {
                         <label>Album<input value={draft.album} disabled={!selected} onChange={(event) => setDraft((value) => ({ ...value, album: event.target.value }))} /></label>
                         {device?.recording.titleStorage === 'netmd-toc' ? <label>Full-width title<input value={draft.fullWidthTitle} disabled={!selected} onChange={(event) => setDraft((value) => ({ ...value, fullWidthTitle: event.target.value }))} /></label> : null}
                         <button className="secondary-button workbench__save" onClick={saveInspector} disabled={!selected || busy}><CheckCircleIcon /> Apply metadata</button>
+                        {selectedGroup ? (
+                            <>
+                                <div className="workbench__divider" />
+                                <label>Group name<input value={groupDraft} onChange={(event) => setGroupDraft(event.target.value)} /></label>
+                                <button className="secondary-button workbench__save" onClick={renameSelectedGroup} disabled={!canRenameGroup || busy || groupDraft === (selectedGroup.title ?? '')}><CheckCircleIcon /> Apply group name</button>
+                            </>
+                        ) : null}
                         <div className="workbench__divider" />
-                        <label>Recording mode
-                            <select
-                                value={`${formatIndex[0]}:${formatIndex[1]}`}
-                                disabled={!device}
-                                onChange={(event) => {
-                                    const [format, bitrate] = event.target.value.split(':').map(Number);
-                                    setFormatIndex([format, bitrate]);
-                                }}
-                            >
-                                {device?.recording.availableFormats.flatMap((format, formatPosition) =>
-                                    format.availableBitrates.map((bitrate, bitratePosition) => (
-                                        <option value={`${formatPosition}:${bitratePosition}`} key={`${format.codec}:${bitrate}`}>{format.userFriendlyName || codecLabel({ codec: format.codec, bitrate })}</option>
-                                    ))
-                                )}
-                            </select>
-                        </label>
-                        <div className="workbench__format-note"><BoltRoundedIcon /><span><strong>{selectedFormat?.codec || defaultFormat?.codec || 'Automatic'}</strong><small>{selectedFormat ? `${selectedFormat.bitrate} kbps recording` : 'Uses the device default'}</small></span></div>
+                        {contentView === 'plan' ? (
+                            <label>Recording mode
+                                <select
+                                    value={`${formatIndex[0]}:${formatIndex[1]}`}
+                                    disabled={!device}
+                                    onChange={(event) => {
+                                        const [format, bitrate] = event.target.value.split(':').map(Number);
+                                        changeRecordingFormat([format, bitrate]);
+                                    }}
+                                >
+                                    {device?.recording.availableFormats.flatMap((format, formatPosition) =>
+                                        format.availableBitrates.map((bitrate, bitratePosition) => (
+                                            <option value={`${formatPosition}:${bitratePosition}`} key={`${format.codec}:${bitrate}`}>{format.userFriendlyName || codecLabel({ codec: format.codec, bitrate })}</option>
+                                        ))
+                                    )}
+                                </select>
+                            </label>
+                        ) : (
+                            <label>Recorded mode<input value={codecLabel(selectedDiscTrack?.encoding)} disabled /></label>
+                        )}
+                        <div className="workbench__format-note"><BoltRoundedIcon /><span><strong>{selectedFormat?.codec || defaultFormat?.codec || 'Automatic'}</strong><small>{contentView === 'plan' ? (selectedFormat ? `${selectedFormat.bitrate} kbps for this device type` : 'Uses the device default') : 'Recorded mode is shown in the track list'}</small></span></div>
                         <div className="workbench__divider" />
-                        <button className="danger-button" onClick={removeSelected} disabled={!selected || busy}><DeleteOutlineIcon /> {selected?.kind === 'track' ? 'Delete from disc' : 'Remove from plan'}</button>
+                        <button className="danger-button" onClick={removeSelected} disabled={!selected || busy}><DeleteOutlineIcon /> {selected?.kind === 'track' ? (selectedTrackIndexes.length > 1 ? `Delete ${selectedTrackIndexes.length} tracks` : 'Delete from disc') : 'Remove from plan'}</button>
                     </aside>
                 </div>
 
@@ -465,7 +690,7 @@ export const Workbench = () => {
             <RecordDialog />
             <FactoryModeProgressDialog />
             <FactoryModeBadSectorDialog />
-            <DumpDialog trackIndexes={selected?.kind === 'track' ? [selected.item.index] : []} isCapableOfDownload={canDownload} isExploitDownload={false} />
+            <DumpDialog trackIndexes={selectedTrackIndexes} isCapableOfDownload={canDownload || factoryModeRippingInMainUi} isExploitDownload={factoryModeRippingInMainUi} />
             <SongRecognitionDialog />
             <SongRecognitionProgressDialog />
             <FactoryModeNoticeDialog />
@@ -474,6 +699,18 @@ export const Workbench = () => {
             <SettingsDialog />
             <LocalLibraryDialog setUploadedFiles={setUploadedFiles} />
             <PanicDialog />
+
+            {groupDialogOpen ? (
+                <div className="workbench__modal-backdrop" role="presentation" onMouseDown={() => setGroupDialogOpen(false)}>
+                    <section className="workbench__modal" role="dialog" aria-modal="true" aria-labelledby="workbench-group-title" onMouseDown={(event) => event.stopPropagation()}>
+                        <span className="workbench__eyebrow">ORGANIZE DISC</span>
+                        <h2 id="workbench-group-title">Create a group</h2>
+                        <p>Tracks {(sortedSelectedTrackIndexes[0] ?? 0) + 1}–{(sortedSelectedTrackIndexes.at(-1) ?? 0) + 1} will stay in their current order.</p>
+                        <label>Group name<input autoFocus value={groupDraft} onChange={(event) => setGroupDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && groupDraft.trim()) createGroup(); }} /></label>
+                        <div><button className="secondary-button" onClick={() => setGroupDialogOpen(false)}>Cancel</button><button className="primary-button" onClick={createGroup} disabled={!groupDraft.trim() || busy}>Create group</button></div>
+                    </section>
+                </div>
+            ) : null}
         </div>
     );
 };
