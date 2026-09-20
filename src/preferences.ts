@@ -3,6 +3,7 @@ export type PreferenceValidator<T> = (value: unknown) => value is T;
 export const APP_PREFERENCE_KEYS = [
     'version',
     'colorTheme',
+    // Retired preference retained so Reset Application also removes legacy data.
     'vintageMode',
     'discProtectedDialogDisabled',
     'notifyWhenFinished',

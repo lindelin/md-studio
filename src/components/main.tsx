@@ -10,7 +10,7 @@ import {
     DroppableProvided,
     DroppableStateSnapshot,
 } from 'react-beautiful-dnd';
-import { listContent, deleteTracks, moveTrack, groupTracks, deleteGroups, dragDropTrack, ejectDisc, flushDevice } from '../redux/actions';
+import { listContent, deleteTracks, groupTracks, deleteGroups, dragDropTrack, ejectDisc, flushDevice } from '../redux/actions';
 import { actions as renameDialogActions, RenameType } from '../redux/rename-dialog-feature';
 import { actions as convertDialogActions } from '../redux/convert-dialog-feature';
 import { actions as dumpDialogActions } from '../redux/dump-dialog-feature';
@@ -68,7 +68,6 @@ import { DumpDialog } from './dump-dialog';
 import { TopMenu } from './topmenu';
 import Checkbox from '@mui/material/Checkbox';
 import Button from '@mui/material/Button';
-const W95Main = React.lazy(() => import('./win95/main').then(({ W95Main }) => ({ default: W95Main })));
 import { useMemo } from 'react';
 import { ChangelogDialog } from './changelog-dialog';
 import { Track } from '../services/interfaces/netmd';
@@ -197,13 +196,12 @@ export const Main = () => {
     const deviceName = device?.deviceName ?? '';
     const deviceStatus = device?.status ?? null;
     const factoryModeRippingInMainUi = useShallowEqualSelector((state) => state.appState.factoryModeRippingInMainUi);
-    const { vintageMode, libraryService, discProtectedDialogDisabled } = workspace.settings.values;
+    const { libraryService, discProtectedDialogDisabled } = workspace.settings.values;
 
     const [selected, setSelected] = React.useState<number[]>([]);
     const [selectedGroups, setSelectedGroups] = React.useState<number[]>([]);
     const [uploadedFiles, setUploadedFiles] = React.useState<(File | AdaptiveFile)[]>([]);
     const [lastClicked, setLastClicked] = useState(-1);
-    const [moveMenuAnchorEl, setMoveMenuAnchorEl] = React.useState<null | HTMLElement>(null);
     const [showRemainingSpace, setShowRemainingSpace] = useState(true);
 
     const capabilities = device?.capabilities ?? [];
@@ -221,24 +219,6 @@ export const Main = () => {
     const canEject = capabilities.includes('disc.eject');
     const hasHimdTitles = capabilities.includes('metadata.himd');
     const recordingProfile = device?.recording;
-
-    const handleShowMoveMenu = useCallback(
-        (event: React.MouseEvent<HTMLButtonElement>) => {
-            setMoveMenuAnchorEl(event.currentTarget);
-        },
-        [setMoveMenuAnchorEl]
-    );
-    const handleCloseMoveMenu = useCallback(() => {
-        setMoveMenuAnchorEl(null);
-    }, [setMoveMenuAnchorEl]);
-
-    const handleMoveSelectedTrack = useCallback(
-        (destIndex: number) => {
-            dispatch(moveTrack(selected[0], destIndex));
-            handleCloseMoveMenu();
-        },
-        [dispatch, selected, handleCloseMoveMenu]
-    );
 
     const handleDrop = useCallback(
         (result: DropResult) => {
@@ -542,44 +522,6 @@ export const Main = () => {
         setUploadMenuAnchorEl(null);
         dispatch(openLocalLibrary());
     }, [dispatch]);
-
-    if (vintageMode) {
-        const p = {
-            disc,
-            deviceName,
-
-            factoryModeRippingInMainUi,
-
-            selected,
-            setSelected,
-            selectedCount,
-            isUsingBytes: recordingProfile?.measurementUnits === 'bytes',
-
-            tracks,
-            uploadedFiles,
-            setUploadedFiles,
-
-            onDrop,
-            getRootProps,
-            getInputProps,
-            isDragActive,
-            open,
-
-            moveMenuAnchorEl,
-            setMoveMenuAnchorEl,
-
-            handleShowMoveMenu,
-            handleCloseMoveMenu,
-            handleMoveSelectedTrack,
-            handleShowDumpDialog,
-            handleDeleteSelected,
-            handleRenameActionClick,
-            handleRenameTrack,
-            handleSelectAllClick,
-            handleSelectTrackClick,
-        };
-        return <W95Main {...p} />;
-    }
 
     return (
         <React.Fragment>

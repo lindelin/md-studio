@@ -22,9 +22,6 @@ import MDIcon0 from '../images/md0.svg?react';
 import MDIcon1 from '../images/md1.svg?react';
 import MDIcon2 from '../images/md2.svg?react';
 import MDIcon3 from '../images/md3.svg?react';
-const W95Controls = React.lazy(() =>
-    import('./win95/controls').then(({ W95Controls }) => ({ default: W95Controls }))
-);
 
 const frames = [MDIcon0, MDIcon1, MDIcon2, MDIcon3];
 
@@ -325,27 +322,6 @@ export const Controls = () => {
     }, [deviceState, lcdIconFrame]);
 
     const DiscFrame = frames[lcdIconFrame];
-
-    const { vintageMode } = workspace.settings.values;
-    if (vintageMode) {
-        const p = {
-            handlePrev,
-            handlePlay,
-            handleStop,
-            handlePause,
-            handleNext,
-
-            message,
-            loading,
-            discPresent,
-            lcdScroll,
-            lcdRef,
-            lcdScrollDuration,
-
-            classes,
-        };
-        return <W95Controls {...p} />;
-    }
 
     return (
         <Box className={classes.container}>

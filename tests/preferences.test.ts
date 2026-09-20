@@ -50,17 +50,17 @@ test('malformed JSON is isolated to the affected preference', () => {
 
 test('valid JSON with the wrong shape is rejected', () => {
     const storage = new MemoryStorage();
-    storage.setItem('vintageMode', JSON.stringify('yes'));
+    storage.setItem('notifyWhenFinished', JSON.stringify('yes'));
 
-    assert.equal(loadPreference('vintageMode', false, isBoolean, storage), false);
-    assert.equal(storage.getItem('vintageMode'), null);
+    assert.equal(loadPreference('notifyWhenFinished', false, isBoolean, storage), false);
+    assert.equal(storage.getItem('notifyWhenFinished'), null);
 });
 
 test('valid preferences round trip through storage', () => {
     const storage = new MemoryStorage();
 
-    assert.equal(savePreference('vintageMode', true, storage), true);
-    assert.equal(loadPreference('vintageMode', false, isBoolean, storage), true);
+    assert.equal(savePreference('notifyWhenFinished', true, storage), true);
+    assert.equal(loadPreference('notifyWhenFinished', false, isBoolean, storage), true);
 });
 
 test('raw preferences are safely available for legacy and bridge settings', () => {
@@ -87,5 +87,5 @@ test('storage write failures do not crash reducers', () => {
         throw new Error('quota exceeded');
     };
 
-    assert.equal(savePreference('vintageMode', true, storage), false);
+    assert.equal(savePreference('notifyWhenFinished', true, storage), false);
 });

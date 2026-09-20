@@ -17,7 +17,6 @@ const Toc = lazy(() => import('./factory/factory'));
 const Controls = lazy(() => import('./controls'));
 const Welcome = lazy(() => import('./welcome'));
 const Workbench = lazy(() => import('./workbench/workbench'));
-const W95App = lazy(() => import('./win95/app').then(({ W95App }) => ({ default: W95App })));
 const useStyles = makeStyles()((theme) => ({
     layout: {
         width: 'auto',
@@ -319,7 +318,7 @@ const InternalApp = () => {
 };
 
 const App = () => {
-    const { colorTheme, vintageMode } = useApplicationSettings();
+    const { colorTheme } = useApplicationSettings();
     const systemIsDarkTheme = useThemeDetector();
 
     const theme = useMemo(() => {
@@ -332,14 +331,6 @@ const App = () => {
                 return systemIsDarkTheme ? darkTheme : lightTheme;
         }
     }, [systemIsDarkTheme, colorTheme]);
-
-    if (vintageMode) {
-        return (
-            <Suspense fallback={null}>
-                <W95App />
-            </Suspense>
-        );
-    }
 
     return (
         <ThemeProvider theme={theme}>

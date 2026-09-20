@@ -179,11 +179,10 @@ export function exploitDownloadTracks(
                 return result.response;
             }
         );
-        const workspace = getApplicationClient().getWorkspaceSnapshot();
         await waitForAdvancedTask(
             task.id,
             'Advanced track export failed.',
-            usesLegacyTaskPresentation(getState().appState.mainView, workspace.settings.values.vintageMode)
+            usesLegacyTaskPresentation(getState().appState.mainView)
         );
     };
 }

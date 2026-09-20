@@ -12,8 +12,7 @@ import LinearProgress from '@mui/material/LinearProgress';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import { makeStyles } from 'tss-react/mui';
-const W95RecordDialog = React.lazy(() => import('./win95/record-dialog').then(({ W95RecordDialog }) => ({ default: W95RecordDialog })));
-import { useApplicationClient, useApplicationSettings, useApplicationWorkspace } from './use-application-client';
+import { useApplicationClient, useApplicationWorkspace } from './use-application-client';
 
 const useStyles = makeStyles()((theme) => ({
     progressPerc: {
@@ -65,23 +64,6 @@ export const RecordDialog = () => {
               });
           }
         : undefined;
-
-    const { vintageMode } = useApplicationSettings();
-    if (vintageMode) {
-        const p = {
-            visible,
-            trackTotal,
-            trackDone,
-            trackCurrent,
-            titleCurrent,
-            progressValue,
-            dialogTitle,
-            statusText,
-            cancelled,
-            onCancel: handleCancel,
-        };
-        return <W95RecordDialog {...p} />;
-    }
 
     return (
         <Dialog

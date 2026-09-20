@@ -38,7 +38,6 @@ import InfoIcon from '@mui/icons-material/Info';
 import ToggleOffIcon from '@mui/icons-material/ToggleOff';
 import ToggleOnIcon from '@mui/icons-material/ToggleOn';
 import MusicNoteIcon from '@mui/icons-material/MusicNote';
-import Win95Icon from '../images/win95/win95.png';
 import HelpIcon from '@mui/icons-material/Help';
 import SettingsIcon from '@mui/icons-material/Settings';
 import GetAppIcon from '@mui/icons-material/GetApp';
@@ -51,11 +50,8 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import StorageIcon from '@mui/icons-material/Storage';
 import CodeIcon from '@mui/icons-material/Code';
 
-const W95TopMenu = React.lazy(() =>
-    import('./win95/topmenu').then(({ W95TopMenu }) => ({ default: W95TopMenu }))
-);
 import { ExploitCapability } from '../services/interfaces/capabilities';
-import { useApplicationWorkspace, useUpdateApplicationSettings } from './use-application-client';
+import { useApplicationWorkspace } from './use-application-client';
 
 const loadFactoryActions = () => import('../redux/factory/factory-actions');
 
@@ -71,20 +67,18 @@ const useStyles = makeStyles()((theme) => ({
 
 export const TopMenu = function (props: {
     tracksSelected?: number[];
-    onClick?: () => void;
     onRecognizeTracks?: () => void;
     onRenameDisc?: () => void;
     onShowSettings?: () => void;
     onOpenSelfTest?: () => void;
 }) {
-    const { tracksSelected, onClick, onRecognizeTracks, onRenameDisc, onShowSettings, onOpenSelfTest } = props;
+    const { tracksSelected, onRecognizeTracks, onRenameDisc, onShowSettings, onOpenSelfTest } = props;
     const { classes } = useStyles();
     const dispatch = useDispatch();
 
     const { mainView, factoryModeRippingInMainUi } = useShallowEqualSelector((state) => state.appState);
     const workspace = useApplicationWorkspace();
-    const updateSettings = useUpdateApplicationSettings();
-    const { vintageMode, factoryModeShortcuts } = workspace.settings.values;
+    const { factoryModeShortcuts } = workspace.settings.values;
     const device = workspace.device;
     const disc = device?.disc ?? null;
     const { spUploadSpeedupActive, deviceDiscSwapDetectionDisabled } = useShallowEqualSelector((state) => state.factory);
@@ -134,12 +128,6 @@ export const TopMenu = function (props: {
         },
         [setShortcutsAnchorEl, dispatch]
     );
-
-    const handleVintageMode = useCallback(() => {
-        void updateSettings({ vintageMode: !vintageMode }).catch((error) =>
-            window.alert(error instanceof Error ? error.message : String(error))
-        );
-    }, [updateSettings, vintageMode]);
 
     const handleShortcutsClose = useCallback(() => {
         setShortcutsAnchorEl(null);
@@ -543,15 +531,6 @@ export const TopMenu = function (props: {
             <ListItemText>Settings</ListItemText>
         </MenuItem>
     );
-    menuItems.push(
-        <MenuItem key="vintageMode" onClick={handleVintageMode}>
-            <ListItemIcon className={classes.listItemIcon}>
-                <img alt="Windows 95" src={Win95Icon} width="24px" height="24px" />
-            </ListItemIcon>
-            <ListItemText>Retro Mode (beta)</ListItemText>
-        </MenuItem>
-    );
-
     if (mainView === 'MAIN') {
         if (isShiftDown || import.meta.env.DEV) {
             menuItems.push(
@@ -636,20 +615,6 @@ export const TopMenu = function (props: {
         </MenuItem>
     );
 
-    if (vintageMode) {
-        const p = {
-            mainView,
-            onClick,
-            handleWipeDisc,
-            handleRefresh,
-            handleRenameDisc,
-            handleExit,
-            handleShowAbout,
-            handleShowChangelog,
-            handleVintageMode,
-        };
-        return <W95TopMenu {...p} />;
-    }
     return (
         <React.Fragment>
             <IconButton aria-label="Open application menu" aria-controls="actions-menu" aria-haspopup="true" onClick={handleMenuOpen}>

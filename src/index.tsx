@@ -37,8 +37,7 @@ import { hasPendingWorkspaceWork } from './frontend/pending-work';
 import { usesLegacyTaskPresentation } from './frontend/task-presentation';
 const mediaRecorderService = new MediaRecorderService();
 const localFiles = new BrowserLocalFileGateway();
-const shouldUseLegacyTaskPresentation = () =>
-    usesLegacyTaskPresentation(store.getState().appState.mainView, serviceRegistry.settingsStore.getSnapshot().values.vintageMode);
+const shouldUseLegacyTaskPresentation = () => usesLegacyTaskPresentation(store.getState().appState.mainView);
 serviceRegistry.localAudioInput = new BrowserAudioInput(mediaRecorderService);
 serviceRegistry.importWriter = new BrowserImportWriter({
     getApplication: () => serviceRegistry.application,

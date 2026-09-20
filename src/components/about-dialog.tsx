@@ -12,11 +12,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import Slide, { SlideProps } from '@mui/material/Slide';
 import Button from '@mui/material/Button';
 import Link from '@mui/material/Link';
-const W95AboutDialog = React.lazy(() =>
-    import('./win95/about-dialog').then(({ W95AboutDialog }) => ({ default: W95AboutDialog }))
-);
 import { GIT_DIFF, GIT_HASH, BUILD_DATE } from '../version-info';
-import { useApplicationSettings } from './use-application-client';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
@@ -26,19 +22,9 @@ export const AboutDialog = () => {
     const dispatch = useDispatch();
 
     const visible = useShallowEqualSelector((state) => state.appState.aboutDialogVisible);
-    const { vintageMode } = useApplicationSettings();
-
     const handleClose = () => {
         dispatch(appActions.showAboutDialog(false));
     };
-
-    if (vintageMode) {
-        const p = {
-            visible,
-            handleClose,
-        };
-        return <W95AboutDialog {...p} />;
-    }
 
     return (
         <Dialog
@@ -103,12 +89,6 @@ export const AboutDialog = () => {
                             linux-minidisc
                         </Link>
                         , to make the netmd-js project possible.
-                    </li>
-                    <li>
-                        <Link rel="noopener noreferrer" href="https://react95.io/" target="_blank">
-                            react95
-                        </Link>
-                        , to build the vintage user interface.
                     </li>
                     <li>
                         <Link rel="noopener noreferrer" href="https://material-ui.com/" target="_blank">

@@ -5,7 +5,6 @@ import type { ImportTitleFormat } from './import-title';
 
 export interface UserSettings {
     colorTheme: 'dark' | 'light' | 'system';
-    vintageMode: boolean;
     discProtectedDialogDisabled: boolean;
     notifyWhenFinished: boolean;
     fullWidthSupport: boolean;
@@ -36,7 +35,6 @@ export type UserSettingsUpdate = Partial<UserSettings>;
 
 const defaults: UserSettings = {
     colorTheme: 'system',
-    vintageMode: false,
     discProtectedDialogDisabled: false,
     notifyWhenFinished: false,
     fullWidthSupport: false,
@@ -129,7 +127,6 @@ export class SettingsStore {
     private load(): UserSettings {
         return {
             colorTheme: loadPreference('colorTheme', defaults.colorTheme, isOneOf(['dark', 'light', 'system'] as const), this.storage),
-            vintageMode: loadPreference('vintageMode', defaults.vintageMode, isBoolean, this.storage),
             discProtectedDialogDisabled: loadPreference(
                 'discProtectedDialogDisabled',
                 defaults.discProtectedDialogDisabled,

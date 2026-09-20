@@ -20,7 +20,6 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
 import { TopMenu } from './topmenu';
 import ChromeIconPath from '../images/chrome-icon.svg';
-const W95Welcome = React.lazy(() => import('./win95/welcome').then(({ W95Welcome }) => ({ default: W95Welcome })));
 
 import SplitButton, { OptionType } from './split-button';
 import {
@@ -106,7 +105,6 @@ export const Welcome = () => {
     const applicationClient = useApplicationClient();
     const workspace = useApplicationWorkspace();
     const { connection } = workspace;
-    const { vintageMode } = workspace.settings.values;
     const { browserSupported, runningChrome, availableServices, lastSelectedService } = useShallowEqualSelector(
         (state) => state.appState
     );
@@ -137,17 +135,6 @@ export const Welcome = () => {
         event.preventDefault();
         dispatch(appActions.setBrowserSupported(true));
     };
-
-    if (vintageMode) {
-        const p = {
-            pairingFailed,
-            pairingMessage,
-            connectService: () => connectToService(lastSelectedService),
-            connectName: getConnectButtonName(availableServices[lastSelectedService]),
-            connectingInProgress,
-        };
-        return <W95Welcome {...p}></W95Welcome>;
-    }
 
     async function connectToService(index: number) {
         dispatch(

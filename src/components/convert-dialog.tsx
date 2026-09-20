@@ -49,9 +49,6 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import Radio from '@mui/material/Radio';
 import { useDropzone } from 'react-dropzone';
 import Backdrop from '@mui/material/Backdrop';
-const W95ConvertDialog = React.lazy(() =>
-    import('./win95/convert-dialog').then(({ W95ConvertDialog }) => ({ default: W95ConvertDialog }))
-);
 import type { Codec } from '../services/interfaces/netmd';
 import { INTERACTIVE_HOMEBREW_AUTHORIZATION } from '../application/interactive-authorization';
 import { useApplicationClient, useApplicationWorkspace, useUpdateApplicationSettings } from './use-application-client';
@@ -271,7 +268,7 @@ const ConnectedConvertDialog = (props: {
     const { visible } = useShallowEqualSelector((state) => state.convertDialog);
     const workspace = useApplicationWorkspace();
     const updateSettings = useUpdateApplicationSettings();
-    const { fullWidthSupport, vintageMode, libraryService, uploadFormat: format, trackTitleFormat: titleFormat } =
+    const { fullWidthSupport, libraryService, uploadFormat: format, trackTitleFormat: titleFormat } =
         workspace.settings.values;
     const device = workspace.device;
     const disc = device?.disc ?? null;
@@ -826,8 +823,6 @@ const ConnectedConvertDialog = (props: {
             .catch(reportApplicationError);
     }, [applicationClient, selectedTrackIndex, files, queueSnapshot.revision, handleClose, reportApplicationError]);
 
-    const dialogVisible = useShallowEqualSelector((state) => state.convertDialog.visible);
-
     const handleConvert = useCallback(async () => {
         if (!previewDeviceVersion) {
             reportApplicationError(new Error('Wait for the current import plan to finish validating before writing.'));
@@ -899,49 +894,6 @@ const ConnectedConvertDialog = (props: {
     const formatsSupport = recordingProfile.availableFormats.map(
         (format) => workspace.encoder.support[format.codec] ?? { state: 'unsupported' as const, gapless: false }
     );
-
-    if (vintageMode) {
-        const p = {
-            visible,
-            codecFamilyIndex: currentlySelectedCodecIndex[0],
-            titleFormat,
-            recordingProfile,
-
-            titles,
-            selectedTrackIndex,
-            setSelectedTrack,
-
-            availableCharacters,
-            availableSeconds: availableDurationUnits,
-            loadingMetadata,
-
-            renameTrackManually,
-
-            moveFileUp,
-            moveFileDown,
-
-            handleClose,
-            handleChangeFormat,
-            handleChangeTitleFormat,
-            handleConvert,
-
-            tracksOrderVisible,
-            setTracksOrderVisible,
-            handleToggleTracksOrder,
-            selectedTrackRef,
-
-            getRootProps,
-            getInputProps,
-            isDragActive,
-            open,
-
-            disableRemove,
-            handleRemoveSelectedTrack,
-            handleRenameSelectedTrack,
-            dialogVisible,
-        };
-        return <W95ConvertDialog {...p} />;
-    }
 
     return (
         <Dialog

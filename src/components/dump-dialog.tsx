@@ -13,11 +13,8 @@ import Slide, { SlideProps } from '@mui/material/Slide';
 import Button from '@mui/material/Button';
 import { makeStyles } from 'tss-react/mui';
 import Typography from '@mui/material/Typography';
-const W95DumpDialog = React.lazy(() =>
-    import('./win95/dump-dialog').then(({ W95DumpDialog }) => ({ default: W95DumpDialog }))
-);
 import { LineInDeviceSelect } from './line-in-helpers';
-import { useApplicationClient, useApplicationSettings, useApplicationWorkspace } from './use-application-client';
+import { useApplicationClient } from './use-application-client';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
@@ -48,7 +45,6 @@ export const DumpDialog = ({
     const [inputDeviceId, setInputDeviceId] = useState<string>('');
 
     const { visible } = useShallowEqualSelector((state) => state.dumpDialog);
-    const supportsFactoryMode = useApplicationWorkspace().device?.capabilities.includes('advanced.factory') ?? false;
 
     const handleClose = useCallback(() => {
         setInputDeviceId('');
@@ -85,21 +81,6 @@ export const DumpDialog = ({
         },
         [trackIndexes, dispatch, handleClose, isExploitDownload]
     );
-
-    const { vintageMode } = useApplicationSettings();
-
-    if (vintageMode) {
-        const p = {
-            handleClose,
-            handleChange,
-            handleStartTransfer,
-            visible,
-            supportsFactoryMode,
-            inputDeviceId,
-            isCapableOfDownload,
-        };
-        return <W95DumpDialog {...p} />;
-    }
 
     return (
         <Dialog

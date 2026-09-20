@@ -30,8 +30,7 @@ function currentDeviceRevision() {
 }
 
 function shouldReportTaskFailure(getState: () => RootState) {
-    const workspace = getApplicationClient().getWorkspaceSnapshot();
-    return usesLegacyTaskPresentation(getState().appState.mainView, workspace.settings.values.vintageMode);
+    return usesLegacyTaskPresentation(getState().appState.mainView);
 }
 
 export function disconnectDevice(finalize = true) {

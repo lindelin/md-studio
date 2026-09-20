@@ -1,3 +1,3 @@
-export function usesLegacyTaskPresentation(mainView: string, vintageMode: boolean) {
-    return vintageMode || mainView !== 'MAIN';
+export function usesLegacyTaskPresentation(mainView: string) {
+    return mainView !== 'MAIN';
 }

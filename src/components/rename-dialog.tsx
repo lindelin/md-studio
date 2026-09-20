@@ -22,9 +22,6 @@ import Slide, { SlideProps } from '@mui/material/Slide';
 import Button from '@mui/material/Button';
 import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
-const W95RenameDialog = React.lazy(() =>
-    import('./win95/rename-dialog').then(({ W95RenameDialog }) => ({ default: W95RenameDialog }))
-);
 import { useApplicationSettings, useApplicationWorkspace, useUpdateApplicationSettings } from './use-application-client';
 import { sanitizeDeviceFullWidthTitle } from '../application/device-profile';
 
@@ -57,7 +54,7 @@ export const RenameDialog = () => {
     const { fullWidthTitle, himdAlbum, himdArtist, himdTitle, index, renameType, title, visible } = useShallowEqualSelector(
         (state) => state.renameDialog
     );
-    const { fullWidthSupport: allowFullWidth, vintageMode } = useApplicationSettings();
+    const { fullWidthSupport: allowFullWidth } = useApplicationSettings();
     const updateSettings = useUpdateApplicationSettings();
     const device = useApplicationWorkspace().device;
     const supportsFullWidth = device?.capabilities.includes('metadata.fullWidth') ?? false;
@@ -208,19 +205,6 @@ export const RenameDialog = () => {
         [dispatch]
     );
     // /HIMD
-
-    if (vintageMode) {
-        const p = {
-            renameDialogVisible: visible,
-            renameDialogTitle: title,
-            renameDialogIndex: index,
-            what,
-            handleCancelRename,
-            handleDoRename,
-            handleChange,
-        };
-        return <W95RenameDialog {...p} />;
-    }
 
     return (
         <Dialog

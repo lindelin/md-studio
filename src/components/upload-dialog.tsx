@@ -14,7 +14,6 @@ import Box from '@mui/material/Box';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import { makeStyles } from 'tss-react/mui';
-const W95UploadDialog = React.lazy(() => import('./win95/upload-dialog').then(({ W95UploadDialog }) => ({ default: W95UploadDialog })));
 import { setNotifyWhenFinished } from '../redux/actions';
 import { useApplicationClient, useApplicationSettings, useApplicationWorkspace } from './use-application-client';
 import {
@@ -69,7 +68,7 @@ export const UploadDialog = () => {
     const titleCurrent = transfer?.currentLabel ?? '';
     const titleConverting = conversion?.currentLabel ?? '';
     const { hasNotificationSupport } = useShallowEqualSelector((state) => state.appState);
-    const { vintageMode, notifyWhenFinished } = useApplicationSettings();
+    const { notifyWhenFinished } = useApplicationSettings();
 
     const handleCancelUpload = useCallback(() => {
         if (!task) return;
@@ -87,33 +86,6 @@ export const UploadDialog = () => {
     const bufferValue = Math.floor((encryptedProgress / totalProgress) * 100);
     const convertedValue = Math.floor((trackConverting / trackTotal) * 100);
 
-    if (vintageMode) {
-        const p = {
-            visible,
-            cancelled,
-            canCancel,
-            cancelLabel,
-            writeSafetyNotice,
-            writtenProgress,
-            encryptedProgress,
-            totalProgress,
-
-            trackTotal,
-            trackCurrent,
-            trackConverting,
-            titleCurrent,
-            titleConverting,
-
-            handleCancelUpload,
-            progressValue,
-            bufferValue,
-            convertedValue,
-            notifyWhenFinished,
-            hasNotificationSupport,
-            handleNotifyWhenFinishedChanged,
-        };
-        return <W95UploadDialog {...p} />;
-    }
     return (
         <Dialog
             open={visible}
