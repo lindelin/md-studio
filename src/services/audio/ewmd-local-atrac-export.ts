@@ -1,7 +1,7 @@
 import { CustomParameters } from '../../custom-parameters';
-import { getATRACWAVEncoding } from '../../utils';
 import { CodecFamily } from '../interfaces/netmd';
 import { DefaultFfmpegAudioExportService, ExportParams } from './audio-export';
+import { validateAndStripAtracEncoderOutput } from './atrac-encoder-output';
 
 export class LocalAtracExportService extends DefaultFfmpegAudioExportService {
     public exe: string;
@@ -26,10 +26,7 @@ export class LocalAtracExportService extends DefaultFfmpegAudioExportService {
         const response = await window.native!.invokeLocalEncoder!(this.ffmpeg, this.exe, arrayBuffer, this.inFileName, params);
         if (!response) throw new Error("Couldn't invoke the local encoder!");
 
-        const content = new Uint8Array(response);
-        const file = new File([content], 'test.at3');
-        const headerLength = (await getATRACWAVEncoding(file))!.headerLength;
-        return response.slice(headerLength);
+        return validateAndStripAtracEncoderOutput(response, params.format, 'The local encoder');
     }
     async encodeATRAC3Plus(parameters: ExportParams): Promise<ArrayBuffer> {
         return await this.encodeATRAC3(parameters);

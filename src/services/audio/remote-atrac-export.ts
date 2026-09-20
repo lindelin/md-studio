@@ -1,8 +1,8 @@
 import { CustomParameters } from '../../custom-parameters';
-import { getATRACWAVEncoding } from '../../utils';
 import { CodecFamily } from '../interfaces/netmd';
 import { retryRemoteRequest } from '../remote-request';
 import { DefaultFfmpegAudioExportService, ExportParams } from './audio-export';
+import { validateAndStripAtracEncoderOutput } from './atrac-encoder-output';
 
 const TRANSCODE_TIMEOUT_MS = 120_000;
 
@@ -63,12 +63,7 @@ export class RemoteAtracExportService extends DefaultFfmpegAudioExportService {
                 });
                 if (!response.ok) throw new Error(`HTTP ${response.status}.`);
                 const source = await response.arrayBuffer();
-                const content = new Uint8Array(source);
-                const file = new File([content], 'test.at3');
-                const encoding = await getATRACWAVEncoding(file);
-                if (!encoding) throw new Error('The remote encoder returned an invalid ATRAC WAV file.');
-                const headerLength = encoding.headerLength;
-                return source.slice(headerLength);
+                return validateAndStripAtracEncoderOutput(source, format, 'The remote encoder');
             },
             { timeoutMs: TRANSCODE_TIMEOUT_MS }
         );
