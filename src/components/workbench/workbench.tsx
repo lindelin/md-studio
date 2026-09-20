@@ -13,7 +13,6 @@ import {
 import { actions as appActions } from '../../redux/app-feature';
 import { actions as convertDialogActions } from '../../redux/convert-dialog-feature';
 import { actions as dumpDialogActions } from '../../redux/dump-dialog-feature';
-import { openLocalLibrary } from '../../redux/actions';
 import { useApplicationClient, useApplicationWorkspace, useUpdateApplicationSettings } from '../use-application-client';
 import { getDefaultRecordingFormat, getRecordingCodec } from '../../application/device-profile';
 import type { ImportQueueItem } from '../../application/import-queue';
@@ -68,8 +67,8 @@ import { FactoryModeNoticeDialog } from '../factory/factory-notice-dialog';
 import { AboutDialog } from '../about-dialog';
 import { ChangelogDialog } from '../changelog-dialog';
 import { SettingsDialog } from '../settings-dialog';
-import { LocalLibraryDialog } from '../local-library';
 import { PanicDialog } from '../panic-dialog';
+import { WorkbenchLibrary } from './workbench-library';
 
 import './workbench.css';
 
@@ -586,11 +585,6 @@ export const Workbench = () => {
         dispatch(convertDialogActions.setVisible(true));
     };
 
-    const libraryClick = () => {
-        setUploadedFiles([]);
-        dispatch(openLocalLibrary());
-    };
-
     const discLabel = disc?.title || 'Untitled MiniDisc';
     const capacityUsed = disc
         ? measurementIsBytes
@@ -613,27 +607,27 @@ export const Workbench = () => {
                 </div>
 
                 <nav className="workbench__nav" aria-label="Workspace">
-                    <button className={section === 'device' ? 'is-active' : ''} onClick={() => setSection('device')}>
+                    <button aria-label="Device" className={section === 'device' ? 'is-active' : ''} onClick={() => setSection('device')}>
                         <UsbRoundedIcon /><span>Device</span><i className={device ? 'is-online' : ''} />
                     </button>
-                    <button className={section === 'library' ? 'is-active' : ''} onClick={() => { setSection('library'); libraryClick(); }}>
+                    <button aria-label="Library" className={section === 'library' ? 'is-active' : ''} onClick={() => setSection('library')}>
                         <LibraryMusicIcon /><span>Library</span>
                     </button>
-                    <button onClick={open} disabled={!canUpload}><AddRoundedIcon /><span>Import Audio</span></button>
+                    <button aria-label="Import audio" onClick={open} disabled={!canUpload}><AddRoundedIcon /><span>Import Audio</span></button>
                 </nav>
 
                 <div className="workbench__sidebar-label">WORKSPACE</div>
                 <nav className="workbench__nav">
-                    <button onClick={() => dispatch(appActions.showSettingsDialog(true))}><SettingsRoundedIcon /><span>Settings</span></button>
-                    <button className={section === 'automation' ? 'is-active' : ''} onClick={() => setSection('automation')}>
+                    <button aria-label="Settings" onClick={() => dispatch(appActions.showSettingsDialog(true))}><SettingsRoundedIcon /><span>Settings</span></button>
+                    <button aria-label="Automation" className={section === 'automation' ? 'is-active' : ''} onClick={() => setSection('automation')}>
                         <AutoAwesomeIcon /><span>Automation</span><em>API</em>
                     </button>
-                    <button className={section === 'tools' ? 'is-active' : ''} onClick={() => setSection('tools')}><TuneRoundedIcon /><span>Tools</span></button>
+                    <button aria-label="Tools" className={section === 'tools' ? 'is-active' : ''} onClick={() => setSection('tools')}><TuneRoundedIcon /><span>Tools</span></button>
                 </nav>
 
                 <nav className="workbench__nav workbench__support-nav">
                     <a href="https://www.minidisc.wiki/guides/start" target="_blank" rel="noreferrer"><HelpOutlineRoundedIcon /><span>Help &amp; Support</span></a>
-                    <button onClick={() => dispatch(appActions.showAboutDialog(true))}><InfoOutlinedIcon /><span>About</span></button>
+                    <button aria-label="About" onClick={() => dispatch(appActions.showAboutDialog(true))}><InfoOutlinedIcon /><span>About</span></button>
                 </nav>
 
                 <div className="workbench__sidebar-footer">
@@ -691,7 +685,16 @@ export const Workbench = () => {
                     </section>
                 ) : null}
 
-                <div className="workbench__workspace-grid">
+                {section === 'library' ? (
+                    <WorkbenchLibrary
+                        onImported={(count) => {
+                            setContentView('plan');
+                            setSection('device');
+                            setMessage(`${count} library track${count === 1 ? '' : 's'} added to the recording plan.`);
+                        }}
+                        onOpenSettings={() => dispatch(appActions.showSettingsDialog(true))}
+                    />
+                ) : <div className="workbench__workspace-grid">
                     <section className="workbench__plan">
                         <div className="workbench__section-heading">
                             <div>
@@ -822,7 +825,7 @@ export const Workbench = () => {
                         <div className="workbench__divider" />
                         <button className="danger-button" onClick={removeSelected} disabled={!selected || busy}><DeleteOutlineIcon /> {selected?.kind === 'track' ? (selectedTrackIndexes.length > 1 ? `Delete ${selectedTrackIndexes.length} tracks` : 'Delete from disc') : (selectedImportIds.length > 1 ? `Remove ${selectedImportIds.length} tracks` : 'Remove from plan')}</button>
                     </aside>
-                </div>
+                </div>}
 
                 {taskCenterOpen ? (
                     <aside
@@ -912,7 +915,6 @@ export const Workbench = () => {
             <AboutDialog />
             <ChangelogDialog />
             <SettingsDialog />
-            <LocalLibraryDialog setUploadedFiles={setUploadedFiles} />
             <PanicDialog />
 
             {groupDialogOpen ? (

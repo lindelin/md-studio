@@ -12,6 +12,29 @@ export interface OrderedSelection<T> {
     primary: T;
 }
 
+export interface LibrarySelectionItem {
+    path: string[];
+}
+
+export function libraryPathKey(path: string[]) {
+    return JSON.stringify(path);
+}
+
+export function toggleLibraryTrackSelection<T extends LibrarySelectionItem>(current: T[], target: T): T[] {
+    const targetKey = libraryPathKey(target.path);
+    return current.some((item) => libraryPathKey(item.path) === targetKey)
+        ? current.filter((item) => libraryPathKey(item.path) !== targetKey)
+        : [...current, target];
+}
+
+export function toggleVisibleLibraryTracks<T extends LibrarySelectionItem>(current: T[], visible: T[]): T[] {
+    const selectedKeys = new Set(current.map((item) => libraryPathKey(item.path)));
+    const visibleKeys = new Set(visible.map((item) => libraryPathKey(item.path)));
+    const allVisibleSelected = visible.length > 0 && visible.every((item) => selectedKeys.has(libraryPathKey(item.path)));
+    if (allVisibleSelected) return current.filter((item) => !visibleKeys.has(libraryPathKey(item.path)));
+    return [...current, ...visible.filter((item) => !selectedKeys.has(libraryPathKey(item.path)))];
+}
+
 export function updateOrderedSelection<T>(
     current: T[],
     ordered: T[],
