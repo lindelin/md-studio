@@ -23,8 +23,6 @@ export interface BrowserImportWriterDependencies {
     getUseFullWidthTitles(): boolean;
     localFiles: BrowserLocalFileGateway;
     confirmHomebrew?(requiredCapabilities: string[]): boolean | Promise<boolean>;
-    showImportDialog(): void;
-    reportError?(message: string): void;
     notifyCompleted?(): void;
 }
 
@@ -113,7 +111,6 @@ export class BrowserImportWriter implements ImportWriter {
                 const confirmed = await this.dependencies.confirmHomebrew?.(requiredExploitCapabilities);
                 if (!confirmed) {
                     tasks.cancel(taskId, { writtenTracks: 0 });
-                    this.dependencies.showImportDialog();
                     return;
                 }
             }
@@ -269,7 +266,6 @@ export class BrowserImportWriter implements ImportWriter {
                     console.error('Could not release the screen wake lock.', releaseError);
                 }
             }
-            if (errorMessage) this.dependencies.reportError?.(errorMessage);
 
             if (isRunning()) {
                 if (error) {
@@ -295,8 +291,6 @@ export class BrowserImportWriter implements ImportWriter {
                 const currentIds = new Set(queue.snapshot().items.map(({ id }) => id));
                 const completedIds = selected.map(({ item }) => item.id).filter((id) => currentIds.has(id));
                 if (completedIds.length > 0) queue.remove(completedIds);
-            } else if (finalTask.status === 'failed' || finalTask.status === 'cancelled') {
-                this.dependencies.showImportDialog();
             }
         }
     }

@@ -1,8 +1,7 @@
 import { AppDispatch, RootState } from './redux/store';
 import { Mutex } from 'async-mutex';
 import { Disc, Track } from './services/interfaces/netmd';
-import { ForcedEncodingFormat } from './redux/convert-dialog-feature';
-import { HiMDKBPSToFrameSize } from 'himd-js';
+import { HiMDKBPSToFrameSize, type HiMDCodecName } from 'himd-js';
 import { ExportParams } from './services/audio/audio-export';
 import { SIGNATURES } from 'netmd-tocmanip';
 
@@ -60,7 +59,7 @@ export type TitledFile = {
     file: File | AdaptiveFile | DeferredFile;
     title: string;
     fullWidthTitle: string;
-    forcedEncoding: ForcedEncodingFormat;
+    forcedEncoding: { codec: 'SPM' | 'SPS' | HiMDCodecName; bitrate: number } | null;
     bytesToSkip: number;
     artist: string;
     album: string;

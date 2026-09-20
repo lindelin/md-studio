@@ -5,6 +5,7 @@ import type { ImportTitleFormat } from './import-title';
 
 export interface UserSettings {
     colorTheme: 'dark' | 'light' | 'system';
+    uiLanguage: 'system' | 'en' | 'zh-CN';
     discProtectedDialogDisabled: boolean;
     notifyWhenFinished: boolean;
     fullWidthSupport: boolean;
@@ -35,6 +36,7 @@ export type UserSettingsUpdate = Partial<UserSettings>;
 
 const defaults: UserSettings = {
     colorTheme: 'system',
+    uiLanguage: 'system',
     discProtectedDialogDisabled: false,
     notifyWhenFinished: false,
     fullWidthSupport: false,
@@ -61,6 +63,7 @@ const booleanKeys = new Set<keyof UserSettings>(
         (key) =>
             ![
                 'colorTheme',
+                'uiLanguage',
                 'audioEncoderId',
                 'audioExportService',
                 'audioExportServiceConfig',
@@ -127,6 +130,7 @@ export class SettingsStore {
     private load(): UserSettings {
         return {
             colorTheme: loadPreference('colorTheme', defaults.colorTheme, isOneOf(['dark', 'light', 'system'] as const), this.storage),
+            uiLanguage: loadPreference('uiLanguage', defaults.uiLanguage, isOneOf(['system', 'en', 'zh-CN'] as const), this.storage),
             discProtectedDialogDisabled: loadPreference(
                 'discProtectedDialogDisabled',
                 defaults.discProtectedDialogDisabled,
@@ -205,6 +209,12 @@ export class SettingsStore {
         if (key === 'colorTheme') {
             if (value !== 'dark' && value !== 'light' && value !== 'system') {
                 throw new ApplicationError('INVALID_INPUT', 'colorTheme must be dark, light, or system.');
+            }
+            return;
+        }
+        if (key === 'uiLanguage') {
+            if (value !== 'system' && value !== 'en' && value !== 'zh-CN') {
+                throw new ApplicationError('INVALID_INPUT', 'uiLanguage must be system, en, or zh-CN.');
             }
             return;
         }

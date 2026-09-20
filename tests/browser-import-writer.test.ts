@@ -146,7 +146,6 @@ describe('BrowserImportWriter', () => {
             getAudioExportService: async () => makeAudioExporter(),
             getUseFullWidthTitles: () => true,
             localFiles: new BrowserLocalFileGateway(),
-            showImportDialog: () => assert.fail('the import dialog should stay closed after success'),
             notifyCompleted: () => (notified += 1),
         });
 
@@ -176,7 +175,6 @@ describe('BrowserImportWriter', () => {
         const queue = new ImportQueue();
         const added = addTracks(queue, 1, { codec: 'SPS', bitrate: 292 });
         let sessions = 0;
-        let reopened = 0;
         const writer = new BrowserImportWriter({
             getApplication: () =>
                 makeApplication(async () => undefined, {
@@ -187,7 +185,6 @@ describe('BrowserImportWriter', () => {
             getUseFullWidthTitles: () => false,
             localFiles: new BrowserLocalFileGateway(),
             confirmHomebrew: () => false,
-            showImportDialog: () => (reopened += 1),
         });
 
         const started = await writer.start(
@@ -204,7 +201,6 @@ describe('BrowserImportWriter', () => {
         assert.equal(finished.status, 'cancelled');
         assert.equal(sessions, 0);
         assert.equal(queue.snapshot().items.length, 1);
-        assert.ok(reopened >= 1);
     });
 
     it('preserves completed-item evidence and the queue after a partial transfer failure', async () => {
@@ -212,7 +208,6 @@ describe('BrowserImportWriter', () => {
         const queue = new ImportQueue();
         const added = addTracks(queue, 2);
         let uploadCount = 0;
-        const presentationErrors: string[] = [];
         const writer = new BrowserImportWriter({
             getApplication: () =>
                 makeApplication(async (_title, _fullWidthTitle, data, _format, onProgress) => {
@@ -223,8 +218,6 @@ describe('BrowserImportWriter', () => {
             getAudioExportService: async () => makeAudioExporter(),
             getUseFullWidthTitles: () => false,
             localFiles: new BrowserLocalFileGateway(),
-            showImportDialog() {},
-            reportError: (message) => presentationErrors.push(message),
         });
 
         const started = await writer.start(
@@ -242,7 +235,11 @@ describe('BrowserImportWriter', () => {
         assert.equal(finished.error?.completedItems, 1);
         assert.equal(finished.error?.pendingItems, 1);
         assert.equal(queue.snapshot().items.length, 2);
-        assert.deepEqual(presentationErrors, ['The recording task stopped before all tracks were transferred.']);
+        assert.equal(finished.error?.message, 'USB transfer failed');
+        assert.match(
+            String(finished.error?.details?.displayMessage ?? ''),
+            /recording task stopped before all tracks were transferred/i
+        );
     });
 
     it('does not turn a successful write into an error when the UI removes a queued item during transfer', async () => {
@@ -270,7 +267,6 @@ describe('BrowserImportWriter', () => {
             getAudioExportService: async () => makeAudioExporter(),
             getUseFullWidthTitles: () => false,
             localFiles: new BrowserLocalFileGateway(),
-            showImportDialog: () => assert.fail('the import dialog should stay closed after success'),
         });
 
         const started = await writer.start(
@@ -320,7 +316,6 @@ describe('BrowserImportWriter', () => {
             getAudioExportService: async () => exporter,
             getUseFullWidthTitles: () => false,
             localFiles: new BrowserLocalFileGateway(),
-            showImportDialog() {},
         });
 
         const started = await writer.start(

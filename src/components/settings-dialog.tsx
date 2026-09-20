@@ -26,6 +26,7 @@ import { SettingInterface } from '../bridge-types';
 import { LibraryServices } from '../services/library-services';
 import { useApplicationSettings, useUpdateApplicationSettings } from './use-application-client';
 import type { UserSettingsUpdate } from '../application/settings-store';
+import { useI18n } from './use-i18n';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
@@ -172,6 +173,7 @@ const NativeFields = ({ section, classes }: { section: string; classes: any }) =
 };
 
 export const SettingsDialog = () => {
+    const { t } = useI18n();
     const dispatch = useDispatch();
     const { classes } = useStyles();
 
@@ -181,6 +183,7 @@ export const SettingsDialog = () => {
     const updateSettings = useUpdateApplicationSettings();
     const {
         colorTheme,
+        uiLanguage,
         pageFullHeight,
         pageFullWidth,
         fullWidthSupport,
@@ -264,6 +267,12 @@ export const SettingsDialog = () => {
         },
         [applySetting]
     );
+    const handleLanguageChange = useCallback(
+        (event: any) => {
+            applySetting({ uiLanguage: event.target.value as 'system' | 'en' | 'zh-CN' });
+        },
+        [applySetting]
+    );
     const handlePageFullHeightChange = useCallback(() => {
         applySetting({ pageFullHeight: !pageFullHeight });
     }, [applySetting, pageFullHeight]);
@@ -343,14 +352,21 @@ export const SettingsDialog = () => {
             TransitionComponent={Transition as any}
             aria-labelledby="about-dialog-slide-title"
         >
-            <DialogTitle id="about-dialog-slide-title">Settings</DialogTitle>
+            <DialogTitle id="about-dialog-slide-title">{t('Settings')}</DialogTitle>
             <DialogContent>
-                <DialogContentText className={classes.header}>Appearance</DialogContentText>
-                <SimpleField name="Color theme" classes={classes}>
+                <DialogContentText className={classes.header}>{t('APPEARANCE')}</DialogContentText>
+                <SimpleField name={t('Language')} classes={classes}>
+                    <Select className={classes.wider} value={uiLanguage} onChange={handleLanguageChange}>
+                        <MenuItem value="system">{t('Follow browser language')}</MenuItem>
+                        <MenuItem value="zh-CN">{t('Chinese (Simplified)')}</MenuItem>
+                        <MenuItem value="en">{t('English')}</MenuItem>
+                    </Select>
+                </SimpleField>
+                <SimpleField name={t('Color theme')} classes={classes}>
                     <Select className={classes.wider} value={colorTheme} onChange={handleThemeChange}>
-                        <MenuItem value="light">Light</MenuItem>
-                        <MenuItem value="dark">Dark</MenuItem>
-                        <MenuItem value="system">Device Theme</MenuItem>
+                        <MenuItem value="light">{t('Light')}</MenuItem>
+                        <MenuItem value="dark">{t('Dark')}</MenuItem>
+                        <MenuItem value="system">{t('Use system theme')}</MenuItem>
                     </Select>
                 </SimpleField>
                 <SimpleField name="Stretch MiniDisc Workspace to fill the screen vertically" classes={classes} formControl={true}>

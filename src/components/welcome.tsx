@@ -38,6 +38,7 @@ import { actions as appActions } from '../redux/app-feature';
 import { actions as errorDialogActions } from '../redux/error-dialog-feature';
 import { initializeParameters } from '../custom-parameters';
 import { useApplicationClient, useApplicationWorkspace } from './use-application-client';
+import { useI18n } from './use-i18n';
 
 const useStyles = makeStyles()((theme) => ({
     main: {
@@ -99,6 +100,7 @@ const useStyles = makeStyles()((theme) => ({
 }));
 
 export const Welcome = () => {
+    const { t } = useI18n();
     const { classes } = useStyles();
     const dispatch = useDispatch();
     const applicationClient = useApplicationClient();
@@ -169,7 +171,7 @@ export const Welcome = () => {
     const firstService = Services.find((n) => n.customParameters);
     if (firstService) {
         options.push({
-            name: 'Add Custom Device',
+            name: t('Add Custom Device'),
             switchTo: false,
             handler: () =>
                 dispatch(
@@ -186,14 +188,14 @@ export const Welcome = () => {
     const mapToEntry = (option: OptionType) => {
         return option.id >= simpleServicesLength ? (
             <React.Fragment>
-                <IconButton aria-label={`Remove custom device ${option.name}`} className={classes.deleteButton} size="small" onClick={(e) => deleteCustom(e, option.id)}>
+                <IconButton aria-label={`${t('Remove custom device')} ${option.name}`} className={classes.deleteButton} size="small" onClick={(e) => deleteCustom(e, option.id)}>
                     <DeleteIcon />
                 </IconButton>
                 {option.name}
             </React.Fragment>
         ) : option.customAddIcon ? (
             <React.Fragment>
-                <IconButton aria-label="add custom device" className={classes.deleteButton} size="small">
+                <IconButton aria-label={t('add custom device')} className={classes.deleteButton} size="small">
                     <AddIcon />
                 </IconButton>
                 {option.name}
@@ -207,19 +209,19 @@ export const Welcome = () => {
         <React.Fragment>
             <Box className={classes.headBox}>
                 <Typography component="h1" variant="h4">
-                    MiniDisc Workspace
+                    {t('MiniDisc Workspace')}
                 </Typography>
                 <TopMenu />
             </Box>
             <Typography component="h2" variant="body2">
-                Brings NetMD Devices to the Web
+                {t('Brings NetMD Devices to the Web')}
             </Typography>
             <Box className={classes.main}>
                 {browserSupported ? (
                     <React.Fragment>
                         <div className={classes.connectContainer}>
                             <Typography component="h2" variant="subtitle1" align="center" className={classes.spacing}>
-                                Press the button to connect to a NetMD device
+                                {t('Press the button to connect to a NetMD device')}
                             </Typography>
 
                             <SplitButton
@@ -261,7 +263,7 @@ export const Welcome = () => {
                         <div>
                             <Typography component="h2" variant="subtitle1" align="center" className={classes.spacing}>
                                 <Link rel="noopener noreferrer" target="_blank" href="https://www.minidisc.wiki/guides/webminidisc">
-                                    <span style={{ verticalAlign: 'middle' }}>First time here? Read the guide</span>{' '}
+                                    <span style={{ verticalAlign: 'middle' }}>{t('First time here? Read the guide')}</span>{' '}
                                     <OpenInNewIcon style={{ verticalAlign: 'middle' }} fontSize="inherit" />
                                 </Link>
                             </Typography>
@@ -270,9 +272,9 @@ export const Welcome = () => {
                 ) : (
                     <React.Fragment>
                         <Typography component="h2" variant="subtitle1" align="center" className={classes.spacing}>
-                            This Web browser is not supported.&nbsp;
+                            {t('This Web browser is not supported.')}&nbsp;
                             <Link rel="noopener noreferrer" href="#" onClick={handleLearnWhy}>
-                                Learn Why
+                                {t('Learn Why')}
                             </Link>
                         </Typography>
 
@@ -281,37 +283,37 @@ export const Welcome = () => {
                         </Link>
 
                         <Typography component="h2" variant="subtitle1" align="center" className={classes.spacing}>
-                            Try using{' '}
+                            {t('Try using')}{' '}
                             <Link rel="noopener noreferrer" target="_blank" href="https://www.google.com/chrome/">
                                 Chrome
                             </Link>{' '}
-                            instead
+                            {t('instead')}
                         </Typography>
 
                         <Typography component="p" variant="subtitle1" align="center" className={classes.spacing}>
-                            If you want to connect to a remote device, click{' '}
+                            {t('If you want to connect to a remote device, click')}{' '}
                             <Link rel="noopener noreferrer" href="#" onClick={forceContinue}>
-                                here
+                                {t('here')}
                             </Link>{' '}
-                            to load the app anyway.
+                            {t('to load the app anyway.')}
                         </Typography>
 
                         {showWhyUnsupported ? (
                             <>
                                 <Typography component="p" variant="body2" className={classes.why}>
-                                    MiniDisc Workspace requires a browser that supports both{' '}
+                                    {t('MiniDisc Workspace requires a browser that supports both')}{' '}
                                     <Link rel="noopener noreferrer" target="_blank" href="https://wicg.github.io/webusb/">
                                         WebUSB
                                     </Link>{' '}
-                                    and{' '}
+                                    {t('and')}{' '}
                                     <Link rel="noopener noreferrer" target="_blank" href="https://webassembly.org/">
                                         WebAssembly
                                     </Link>
                                     .
                                 </Typography>
                                 <ul>
-                                    <li>WebUSB is needed to control the NetMD device via the USB connection to your computer.</li>
-                                    <li>WebAssembly is used to convert the music to a MiniDisc compatible format</li>
+                                    <li>{t('WebUSB is needed to control the NetMD device via the USB connection to your computer.')}</li>
+                                    <li>{t('WebAssembly is used to convert the music to a MiniDisc compatible format')}</li>
                                 </ul>
                             </>
                         ) : null}

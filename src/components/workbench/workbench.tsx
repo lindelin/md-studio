@@ -77,6 +77,7 @@ import { WorkbenchTrackTransfer } from './workbench-track-transfer';
 import { WorkbenchTrackRecognition } from './workbench-track-recognition';
 import { WorkbenchTools } from './workbench-tools';
 import { WorkbenchBadSectorPrompt } from './workbench-bad-sector-prompt';
+import { useI18n } from '../use-i18n';
 import type {
     AdvancedBadSectorChoice,
     AdvancedBadSectorPrompt,
@@ -129,6 +130,7 @@ function formatTaskTimestamp(timestamp?: string) {
 }
 
 export const Workbench = () => {
+    const { language, t } = useI18n();
     const dispatch = useDispatch();
     const client = useApplicationClient();
     const workspace = useApplicationWorkspace();
@@ -898,9 +900,9 @@ export const Workbench = () => {
                 <span><i className="workbench__mode-pill">{codecLabel(encoding)}</i></span>
                 <span>{formatDuration(row.item.duration)}</span>
                 <span className="workbench__row-actions">
-                    {row.kind === 'track' && canPlayback ? <button aria-label={playing ? 'Pause track' : 'Play track'} onClick={(event) => { event.stopPropagation(); togglePlayback(row.item); }}>{playing ? <StopRoundedIcon /> : <PlayArrowRoundedIcon />}</button> : null}
-                    {row.kind === 'import' && selectedImportIds.length <= 1 ? <><button aria-label="Move track up" disabled={row.index === 0} onClick={(event) => { event.stopPropagation(); moveImport(row.item.id, row.index - 1); }}><KeyboardArrowUpRoundedIcon /></button><button aria-label="Move track down" disabled={row.index === imports.length - 1} onClick={(event) => { event.stopPropagation(); moveImport(row.item.id, row.index + 1); }}><KeyboardArrowDownRoundedIcon /></button></> : null}
-                    {row.kind === 'track' && canMoveTrack && selectedTrackIndexes.length <= 1 ? <><button aria-label="Move track up" disabled={row.item.index === 0} onClick={(event) => { event.stopPropagation(); moveDiscTrack(row.item.index, row.item.index - 1); }}><KeyboardArrowUpRoundedIcon /></button><button aria-label="Move track down" disabled={row.item.index === tracks.length - 1} onClick={(event) => { event.stopPropagation(); moveDiscTrack(row.item.index, row.item.index + 1); }}><KeyboardArrowDownRoundedIcon /></button></> : null}
+                    {row.kind === 'track' && canPlayback ? <button aria-label={t(playing ? 'Pause track' : 'Play track')} onClick={(event) => { event.stopPropagation(); togglePlayback(row.item); }}>{playing ? <StopRoundedIcon /> : <PlayArrowRoundedIcon />}</button> : null}
+                    {row.kind === 'import' && selectedImportIds.length <= 1 ? <><button aria-label={t('Move track up')} disabled={row.index === 0} onClick={(event) => { event.stopPropagation(); moveImport(row.item.id, row.index - 1); }}><KeyboardArrowUpRoundedIcon /></button><button aria-label={t('Move track down')} disabled={row.index === imports.length - 1} onClick={(event) => { event.stopPropagation(); moveImport(row.item.id, row.index + 1); }}><KeyboardArrowDownRoundedIcon /></button></> : null}
+                    {row.kind === 'track' && canMoveTrack && selectedTrackIndexes.length <= 1 ? <><button aria-label={t('Move track up')} disabled={row.item.index === 0} onClick={(event) => { event.stopPropagation(); moveDiscTrack(row.item.index, row.item.index - 1); }}><KeyboardArrowUpRoundedIcon /></button><button aria-label={t('Move track down')} disabled={row.item.index === tracks.length - 1} onClick={(event) => { event.stopPropagation(); moveDiscTrack(row.item.index, row.item.index + 1); }}><KeyboardArrowDownRoundedIcon /></button></> : null}
                 </span>
             </div>
         );
@@ -912,32 +914,32 @@ export const Workbench = () => {
             <aside className="workbench__sidebar">
                 <div className="workbench__brand">
                     <span className="workbench__brand-mark"><AlbumIcon /></span>
-                    <span><strong>Studio Workbench</strong><small>MiniDisc Management</small></span>
+                    <span><strong>{t('Studio Workbench')}</strong><small>{t('MiniDisc Management')}</small></span>
                 </div>
 
-                <nav className="workbench__nav" aria-label="Workspace">
-                    <button aria-label="Device" aria-current={section === 'device' ? 'page' : undefined} className={section === 'device' ? 'is-active' : ''} onClick={() => setSection('device')}>
-                        <UsbRoundedIcon /><span>Device</span><i className={device ? 'is-online' : ''} />
+                <nav className="workbench__nav" aria-label={t('Workspace')}>
+                    <button aria-label={t('Device')} aria-current={section === 'device' ? 'page' : undefined} className={section === 'device' ? 'is-active' : ''} onClick={() => setSection('device')}>
+                        <UsbRoundedIcon /><span>{t('Device')}</span><i className={device ? 'is-online' : ''} />
                     </button>
-                    <button aria-label="Library" aria-current={section === 'library' ? 'page' : undefined} className={section === 'library' ? 'is-active' : ''} onClick={() => setSection('library')}>
-                        <LibraryMusicIcon /><span>Library</span>
+                    <button aria-label={t('Library')} aria-current={section === 'library' ? 'page' : undefined} className={section === 'library' ? 'is-active' : ''} onClick={() => setSection('library')}>
+                        <LibraryMusicIcon /><span>{t('Library')}</span>
                     </button>
-                    <button aria-label="Import audio" onClick={open} disabled={!canUpload}><AddRoundedIcon /><span>Import Audio</span></button>
-                    <button aria-label="Settings" aria-current={section === 'settings' ? 'page' : undefined} className={section === 'settings' ? 'is-active' : ''} onClick={() => setSection('settings')}><SettingsRoundedIcon /><span>Settings</span></button>
-                    <button aria-label="Tools" aria-current={section === 'tools' ? 'page' : undefined} className={`workbench__mobile-only ${section === 'tools' ? 'is-active' : ''}`} onClick={() => setSection('tools')}><TuneRoundedIcon /><span>Tools</span></button>
+                    <button aria-label={t('Import audio')} onClick={open} disabled={!canUpload}><AddRoundedIcon /><span>{t('Import audio')}</span></button>
+                    <button aria-label={t('Settings')} aria-current={section === 'settings' ? 'page' : undefined} className={section === 'settings' ? 'is-active' : ''} onClick={() => setSection('settings')}><SettingsRoundedIcon /><span>{t('Settings')}</span></button>
+                    <button aria-label={t('Tools')} aria-current={section === 'tools' ? 'page' : undefined} className={`workbench__mobile-only ${section === 'tools' ? 'is-active' : ''}`} onClick={() => setSection('tools')}><TuneRoundedIcon /><span>{t('Tools')}</span></button>
                 </nav>
 
-                <div className="workbench__sidebar-label">WORKSPACE</div>
-                <nav className="workbench__nav" aria-label="Workspace tools">
-                    <button aria-label="Automation" aria-current={section === 'automation' ? 'page' : undefined} className={section === 'automation' ? 'is-active' : ''} onClick={() => setSection('automation')}>
-                        <AutoAwesomeIcon /><span>Automation</span><em>API</em>
+                <div className="workbench__sidebar-label">{t('WORKSPACE')}</div>
+                <nav className="workbench__nav" aria-label={t('Workspace tools')}>
+                    <button aria-label={t('Automation')} aria-current={section === 'automation' ? 'page' : undefined} className={section === 'automation' ? 'is-active' : ''} onClick={() => setSection('automation')}>
+                        <AutoAwesomeIcon /><span>{t('Automation')}</span><em>API</em>
                     </button>
-                    <button aria-label="Tools" aria-current={section === 'tools' ? 'page' : undefined} className={section === 'tools' ? 'is-active' : ''} onClick={() => setSection('tools')}><TuneRoundedIcon /><span>Tools</span></button>
+                    <button aria-label={t('Tools')} aria-current={section === 'tools' ? 'page' : undefined} className={section === 'tools' ? 'is-active' : ''} onClick={() => setSection('tools')}><TuneRoundedIcon /><span>{t('Tools')}</span></button>
                 </nav>
 
-                <nav className="workbench__nav workbench__support-nav" aria-label="Help">
-                    <a href="https://www.minidisc.wiki/guides/start" target="_blank" rel="noreferrer"><HelpOutlineRoundedIcon /><span>Help &amp; Support</span></a>
-                    <button aria-label="About" onClick={() => dispatch(appActions.showAboutDialog(true))}><InfoOutlinedIcon /><span>About</span></button>
+                <nav className="workbench__nav workbench__support-nav" aria-label={t('Help')}>
+                    <a href="https://www.minidisc.wiki/guides/start" target="_blank" rel="noreferrer"><HelpOutlineRoundedIcon /><span>{t('Help & Support')}</span></a>
+                    <button aria-label={t('About')} onClick={() => dispatch(appActions.showAboutDialog(true))}><InfoOutlinedIcon /><span>{t('About')}</span></button>
                 </nav>
 
                 <div className="workbench__sidebar-footer">
@@ -948,42 +950,33 @@ export const Workbench = () => {
             <main className="workbench__main">
                 <header className="workbench__header">
                     <div>
-                        <span className="workbench__eyebrow">CONNECTED DEVICE</span>
+                        <span className="workbench__eyebrow">{t('CONNECTED DEVICE')}</span>
                         <h1>{device?.deviceName || 'MiniDisc Workspace'}</h1>
-                        <small className="workbench__header-subtitle">{device ? `${device.recording.specName} Mode · ${workspace.connection.method === 'cached' ? 'USB' : workspace.connection.method || 'USB'}` : 'Connect a device to begin'}</small>
+                        <small className="workbench__header-subtitle">{device ? `${device.recording.specName} Mode · ${workspace.connection.method === 'cached' ? 'USB' : workspace.connection.method || 'USB'}` : t('Connect a device to begin')}</small>
                     </div>
                     <div className="workbench__header-actions">
-                        <span className={`workbench__status ${device ? 'is-online' : ''}`}><i />{device ? 'Connected' : 'Disconnected'}</span>
-                        <button className="icon-button" aria-label="Refresh disc" onClick={refresh} disabled={!disc || busy}><RefreshRoundedIcon /></button>
-                        <button className="workbench__eject-button" aria-label="Eject disc" onClick={eject} disabled={!disc || !canEject || busy}><EjectIcon /><span>Eject</span></button>
-                        <TopMenu
-                            tracksSelected={selectedTrackIndexes}
-                            onRecognizeTracks={() => setTrackRecognitionOpen(true)}
-                            onRenameDisc={openDiscEditor}
-                            onShowSettings={() => setSection('settings')}
-                            onOpenSelfTest={() => {
-                                setSection('tools');
-                                setMessage('Review the destructive device self-test in Tools before starting it.');
-                            }}
-                        />
+                        <span className={`workbench__status ${device ? 'is-online' : ''}`}><i />{t(device ? 'Connected' : 'Disconnected')}</span>
+                        <button className="icon-button" aria-label={t('Refresh disc')} onClick={refresh} disabled={!disc || busy}><RefreshRoundedIcon /></button>
+                        <button className="workbench__eject-button" aria-label={t('Eject disc')} onClick={eject} disabled={!disc || !canEject || busy}><EjectIcon /><span>{t('Eject')}</span></button>
+                        <TopMenu onShowSettings={() => setSection('settings')} />
                     </div>
                 </header>
 
                 <section className="workbench__disc-overview">
                     <div className="workbench__disc-icon"><AlbumIcon /></div>
                     <div className="workbench__disc-copy">
-                        <span className="workbench__eyebrow">CURRENT MINIDISC</span>
+                        <span className="workbench__eyebrow">{t('CURRENT MINIDISC')}</span>
                         <div className="workbench__disc-title-row">
                             <h2>{discLabel}</h2>
-                            {canRenameDisc ? <button className="icon-button" aria-label="Edit MiniDisc title" onClick={openDiscEditor} disabled={!disc || busy}><EditRoundedIcon /></button> : null}
+                            {canRenameDisc ? <button className="icon-button" aria-label={t('Edit MiniDisc title')} onClick={openDiscEditor} disabled={!disc || busy}><EditRoundedIcon /></button> : null}
                         </div>
-                        <p>{disc ? `${disc.trackCount} tracks on disc · ${formatDuration(tracks.reduce((sum, track) => sum + track.duration, 0))}` : 'Insert a disc to begin'}</p>
+                        <p>{disc ? (language === 'zh-CN' ? `碟片中有 ${disc.trackCount} 首曲目 · ${formatDuration(tracks.reduce((sum, track) => sum + track.duration, 0))}` : `${disc.trackCount} tracks on disc · ${formatDuration(tracks.reduce((sum, track) => sum + track.duration, 0))}`) : t('Insert a disc to begin')}</p>
                     </div>
                     <div className="workbench__capacity">
-                        <div><span>USED</span><strong>{capacityUsed}</strong></div>
-                        <div><span>CAPACITY</span><strong>{capacityTotal}</strong></div>
-                        <div className="workbench__capacity-meter" role="progressbar" aria-label="Disc capacity used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(usedPercent)}><i style={{ width: `${usedPercent}%` }} /></div>
-                        <small>{Math.round(usedPercent)}% used · {disc ? `${measurementIsBytes ? bytesToHumanReadable(disc.left) : formatTimeFromSeconds(disc.left)} available` : 'No media'}</small>
+                        <div><span>{t('USED')}</span><strong>{capacityUsed}</strong></div>
+                        <div><span>{t('CAPACITY')}</span><strong>{capacityTotal}</strong></div>
+                        <div className="workbench__capacity-meter" role="progressbar" aria-label={t('Disc capacity used')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(usedPercent)}><i style={{ width: `${usedPercent}%` }} /></div>
+                        <small>{language === 'zh-CN' ? `已用 ${Math.round(usedPercent)}% · ` : `${Math.round(usedPercent)}% used · `}{disc ? (language === 'zh-CN' ? `剩余 ${measurementIsBytes ? bytesToHumanReadable(disc.left) : formatTimeFromSeconds(disc.left)}` : `${measurementIsBytes ? bytesToHumanReadable(disc.left) : formatTimeFromSeconds(disc.left)} available`) : t('No media')}</small>
                     </div>
                     <dl className="workbench__device-facts">
                         <div><dt>Device</dt><dd>{device?.deviceName || '—'}</dd></div>
@@ -1033,21 +1026,21 @@ export const Workbench = () => {
                     >
                         <div className="workbench__section-heading">
                             <div>
-                                <span className="workbench__eyebrow">{contentView === 'plan' && imports.length ? 'READY TO TRANSFER' : 'DISC CONTENTS'}</span>
-                                <h2>{contentView === 'plan' && imports.length ? 'Recording Plan' : 'Tracks on MiniDisc'}</h2>
+                                <span className="workbench__eyebrow">{t(contentView === 'plan' && imports.length ? 'READY TO TRANSFER' : 'DISC CONTENTS')}</span>
+                                <h2>{t(contentView === 'plan' && imports.length ? 'Recording Plan' : 'Tracks on MiniDisc')}</h2>
                                 {imports.length > 0 ? (
-                                    <div className="workbench__view-switch" role="tablist" aria-label="Workspace content">
-                                        <button id="workbench-plan-tab" aria-controls="workbench-content-panel" aria-selected={contentView === 'plan'} tabIndex={contentView === 'plan' ? 0 : -1} className={contentView === 'plan' ? 'is-active' : ''} onClick={() => setContentView('plan')} onKeyDown={selectContentViewFromKeyboard} role="tab">Recording plan <span>{imports.length}</span></button>
-                                        <button id="workbench-disc-tab" aria-controls="workbench-content-panel" aria-selected={contentView === 'disc'} tabIndex={contentView === 'disc' ? 0 : -1} className={contentView === 'disc' ? 'is-active' : ''} onClick={() => setContentView('disc')} onKeyDown={selectContentViewFromKeyboard} role="tab">On disc <span>{tracks.length}</span></button>
+                                    <div className="workbench__view-switch" role="tablist" aria-label={t('Workspace content')}>
+                                        <button id="workbench-plan-tab" aria-controls="workbench-content-panel" aria-selected={contentView === 'plan'} tabIndex={contentView === 'plan' ? 0 : -1} className={contentView === 'plan' ? 'is-active' : ''} onClick={() => setContentView('plan')} onKeyDown={selectContentViewFromKeyboard} role="tab">{t('Recording plan')} <span>{imports.length}</span></button>
+                                        <button id="workbench-disc-tab" aria-controls="workbench-content-panel" aria-selected={contentView === 'disc'} tabIndex={contentView === 'disc' ? 0 : -1} className={contentView === 'disc' ? 'is-active' : ''} onClick={() => setContentView('disc')} onKeyDown={selectContentViewFromKeyboard} role="tab">{t('On disc')} <span>{tracks.length}</span></button>
                                     </div>
                                 ) : null}
                             </div>
                             <div className="workbench__plan-actions">
                                 <span>{planItems.length} tracks · {formatDuration(contentView === 'plan' && imports.length ? queuedDuration : tracks.reduce((sum, track) => sum + track.duration, 0))}</span>
-                                {contentView === 'disc' && tracks.length > 0 ? <button className="secondary-button workbench__compact-button" onClick={toggleSelectAllTracks}><SelectAllRoundedIcon /> {selectedTrackIndexes.length === tracks.length ? 'Clear' : 'Select all'}</button> : null}
-                                {contentView === 'plan' && imports.length > 0 ? <button className="secondary-button workbench__compact-button" onClick={toggleSelectAllImports}><SelectAllRoundedIcon /> {selectedImportIds.length === imports.length ? 'Clear' : 'Select all'}</button> : null}
-                                <button className="secondary-button" onClick={open} disabled={!canUpload}><AddRoundedIcon /> Add audio</button>
-                                <button className="primary-button" onClick={openWriter} disabled={!canUpload || imports.length === 0 || !selectedFormat || busy}><AlbumIcon /> Write to MiniDisc</button>
+                                {contentView === 'disc' && tracks.length > 0 ? <button className="secondary-button workbench__compact-button" onClick={toggleSelectAllTracks}><SelectAllRoundedIcon /> {t(selectedTrackIndexes.length === tracks.length ? 'Clear' : 'Select all')}</button> : null}
+                                {contentView === 'plan' && imports.length > 0 ? <button className="secondary-button workbench__compact-button" onClick={toggleSelectAllImports}><SelectAllRoundedIcon /> {t(selectedImportIds.length === imports.length ? 'Clear' : 'Select all')}</button> : null}
+                                <button className="secondary-button" onClick={open} disabled={!canUpload}><AddRoundedIcon /> {t('Add audio')}</button>
+                                <button className="primary-button" onClick={openWriter} disabled={!canUpload || imports.length === 0 || !selectedFormat || busy}><AlbumIcon /> {t('Write to MiniDisc')}</button>
                             </div>
                         </div>
 
@@ -1074,9 +1067,9 @@ export const Workbench = () => {
                             </div>
                         ) : null}
 
-                        <div className="workbench__table" role="table" aria-rowcount={planItems.length + 1} aria-label={contentView === 'plan' && imports.length ? 'Recording plan' : 'Disc tracks'}>
+                        <div className="workbench__table" role="table" aria-rowcount={planItems.length + 1} aria-label={t(contentView === 'plan' && imports.length ? 'Recording plan' : 'Disc tracks')}>
                             <div className="workbench__table-head" role="row" aria-rowindex={1}>
-                                <span>#</span><span>Title</span><span>Artist</span><span>Mode</span><span>Duration</span><span />
+                                <span>#</span><span>{t('Title')}</span><span>{t('Artist')}</span><span>{t('Mode')}</span><span>{t('Duration')}</span><span />
                             </div>
                             <div
                                 className="workbench__table-body"
@@ -1089,7 +1082,7 @@ export const Workbench = () => {
                                 }
                             >
                                 {planItems.length === 0 ? (
-                                    <div className="workbench__empty"><QueueMusicIcon /><h3>{contentView === 'plan' ? 'Your recording plan is empty' : 'This MiniDisc is empty'}</h3><p>{contentView === 'plan' ? 'Import audio to prepare titles, order and recording modes before writing the disc.' : 'Add audio to begin building this disc.'}</p><button className="primary-button" onClick={open} disabled={!canUpload}><FolderOpenIcon /> Choose audio files</button></div>
+                                    <div className="workbench__empty"><QueueMusicIcon /><h3>{t(contentView === 'plan' ? 'Your recording plan is empty' : 'This MiniDisc is empty')}</h3><p>{t(contentView === 'plan' ? 'Import audio to prepare titles, order and recording modes before writing the disc.' : 'Add audio to begin building this disc.')}</p><button className="primary-button" onClick={open} disabled={!canUpload}><FolderOpenIcon /> {t('Choose audio files')}</button></div>
                                 ) : planWindow.virtualized ? (
                                     <div className="workbench__virtual-list" style={{ height: planWindow.totalHeight }}>
                                         <div className="workbench__virtual-list-window" style={{ transform: `translateY(${planWindow.offset}px)` }}>
@@ -1102,23 +1095,23 @@ export const Workbench = () => {
                     </section>
 
                     <aside className="workbench__inspector">
-                        <div className="workbench__inspector-heading"><div><span className="workbench__eyebrow">INSPECTOR</span><h2>{selected ? (activeSelectionCount > 1 ? `${activeSelectionCount} tracks selected` : `Track ${selected.index + 1}`) : 'No selection'}</h2></div><MoreHorizIcon /></div>
-                        <label>Title<input value={draft.title} disabled={!selected} onChange={(event) => updateDraftField('title', event.target.value)} /></label>
-                        <label>Artist<input value={draft.artist} disabled={!selected || !supportsSharedMetadata} onChange={(event) => updateDraftField('artist', event.target.value)} /></label>
-                        <label>Album<input value={draft.album} disabled={!selected || !supportsSharedMetadata} onChange={(event) => updateDraftField('album', event.target.value)} /></label>
-                        {device?.recording.titleStorage === 'netmd-toc' ? <label>Full-width title<input value={draft.fullWidthTitle} disabled={!selected} onChange={(event) => updateDraftField('fullWidthTitle', event.target.value)} /></label> : null}
+                        <div className="workbench__inspector-heading"><div><span className="workbench__eyebrow">{t('INSPECTOR')}</span><h2>{selected ? (activeSelectionCount > 1 ? (language === 'zh-CN' ? `已选择 ${activeSelectionCount} 首曲目` : `${activeSelectionCount} tracks selected`) : (language === 'zh-CN' ? `曲目 ${selected.index + 1}` : `Track ${selected.index + 1}`)) : t('No selection')}</h2></div><MoreHorizIcon /></div>
+                        <label>{t('Title')}<input value={draft.title} disabled={!selected} onChange={(event) => updateDraftField('title', event.target.value)} /></label>
+                        <label>{t('Artist')}<input value={draft.artist} disabled={!selected || !supportsSharedMetadata} onChange={(event) => updateDraftField('artist', event.target.value)} /></label>
+                        <label>{t('Album')}<input value={draft.album} disabled={!selected || !supportsSharedMetadata} onChange={(event) => updateDraftField('album', event.target.value)} /></label>
+                        {device?.recording.titleStorage === 'netmd-toc' ? <label>{t('Full-width title')}<input value={draft.fullWidthTitle} disabled={!selected} onChange={(event) => updateDraftField('fullWidthTitle', event.target.value)} /></label> : null}
                         {activeSelectionCount > 1 ? <p className="workbench__selection-note">{supportsSharedMetadata ? 'Title fields apply to the focused row. Artist and Album apply to all selected tracks.' : 'This device stores per-track titles. Metadata edits apply to the focused row.'}</p> : null}
-                        <button className="secondary-button workbench__save" onClick={saveInspector} disabled={!selected || busy || dirtyDraftFields.length === 0}><CheckCircleIcon /> {metadataApplyCount > 1 ? `Apply to ${metadataApplyCount} tracks` : 'Apply metadata'}</button>
+                        <button className="secondary-button workbench__save" onClick={saveInspector} disabled={!selected || busy || dirtyDraftFields.length === 0}><CheckCircleIcon /> {metadataApplyCount > 1 ? (language === 'zh-CN' ? `应用到 ${metadataApplyCount} 首曲目` : `Apply to ${metadataApplyCount} tracks`) : t('Apply metadata')}</button>
                         {selectedGroup ? (
                             <>
                                 <div className="workbench__divider" />
-                                <label>Group name<input value={groupDraft} onChange={(event) => setGroupDraft(event.target.value)} /></label>
-                                <button className="secondary-button workbench__save" onClick={renameSelectedGroup} disabled={!canRenameGroup || busy || groupDraft === (selectedGroup.title ?? '')}><CheckCircleIcon /> Apply group name</button>
+                                <label>{t('Group name')}<input value={groupDraft} onChange={(event) => setGroupDraft(event.target.value)} /></label>
+                                <button className="secondary-button workbench__save" onClick={renameSelectedGroup} disabled={!canRenameGroup || busy || groupDraft === (selectedGroup.title ?? '')}><CheckCircleIcon /> {t('Apply group name')}</button>
                             </>
                         ) : null}
                         <div className="workbench__divider" />
                         {contentView === 'plan' ? (
-                            <label>Recording mode
+                            <label>{t('Recording mode')}
                                 <select
                                     value={`${formatIndex[0]}:${formatIndex[1]}`}
                                     disabled={!device}
@@ -1135,11 +1128,11 @@ export const Workbench = () => {
                                 </select>
                             </label>
                         ) : (
-                            <label>Recorded mode<input value={codecLabel(selectedDiscTrack?.encoding)} disabled /></label>
+                            <label>{t('Recorded mode')}<input value={codecLabel(selectedDiscTrack?.encoding)} disabled /></label>
                         )}
-                        <div className="workbench__format-note"><BoltRoundedIcon /><span><strong>{selectedFormat?.codec || defaultFormat?.codec || 'Automatic'}</strong><small>{contentView === 'plan' ? (selectedFormat ? `${selectedFormat.bitrate} kbps for this device type` : 'Uses the device default') : 'Recorded mode is shown in the track list'}</small></span></div>
+                        <div className="workbench__format-note"><BoltRoundedIcon /><span><strong>{selectedFormat?.codec || defaultFormat?.codec || t('Automatic')}</strong><small>{contentView === 'plan' ? (selectedFormat ? `${selectedFormat.bitrate} kbps` : t('Uses the device default')) : t('Recorded mode is shown in the track list')}</small></span></div>
                         <div className="workbench__divider" />
-                        <button className="danger-button" onClick={removeSelected} disabled={!selected || busy}><DeleteOutlineIcon /> {selected?.kind === 'track' ? (selectedTrackIndexes.length > 1 ? `Delete ${selectedTrackIndexes.length} tracks` : 'Delete from disc') : (selectedImportIds.length > 1 ? `Remove ${selectedImportIds.length} tracks` : 'Remove from plan')}</button>
+                        <button className="danger-button" onClick={removeSelected} disabled={!selected || busy}><DeleteOutlineIcon /> {selected?.kind === 'track' ? (selectedTrackIndexes.length > 1 ? (language === 'zh-CN' ? `删除 ${selectedTrackIndexes.length} 首曲目` : `Delete ${selectedTrackIndexes.length} tracks`) : t('Delete from disc')) : (selectedImportIds.length > 1 ? (language === 'zh-CN' ? `移除 ${selectedImportIds.length} 首曲目` : `Remove ${selectedImportIds.length} tracks`) : t('Remove from plan'))}</button>
                     </aside>
                 </div>}
 
@@ -1147,17 +1140,17 @@ export const Workbench = () => {
                     <aside
                         id="workbench-task-center"
                         className="workbench__task-center"
-                        aria-label="Task center"
+                        aria-label={t('Task center')}
                     >
                         <header>
-                            <div><span className="workbench__eyebrow">TASK CENTER</span><h2>Transfers and background work</h2></div>
-                            <button aria-label="Close task center" onClick={() => setTaskCenterOpen(false)}>×</button>
+                            <div><span className="workbench__eyebrow">{t('TASK CENTER')}</span><h2>{t('Transfers and background work')}</h2></div>
+                            <button aria-label={t('Close task center')} onClick={() => setTaskCenterOpen(false)}>×</button>
                         </header>
                         {recentTasks.length === 0 ? (
-                            <div className="workbench__task-empty"><CheckCircleIcon /><strong>No task history yet</strong><span>Writes, exports, recordings and recognition jobs will appear here.</span></div>
+                            <div className="workbench__task-empty"><CheckCircleIcon /><strong>{t('No task history yet')}</strong><span>{t('Writes, exports, recordings and recognition jobs will appear here.')}</span></div>
                         ) : (
                             <div className="workbench__task-center-body">
-                                <nav aria-label="Recent tasks">
+                                <nav aria-label={t('Recent tasks')}>
                                     {recentTasks.map((task) => {
                                         const percent = taskProgressPercent(task);
                                         return (
@@ -1182,9 +1175,9 @@ export const Workbench = () => {
                                         </div>
                                         <div className="workbench__task-detail-meter" role="progressbar" aria-label={`${selectedTask.label} progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={taskProgressPercent(selectedTask)}><i style={{ width: `${taskProgressPercent(selectedTask)}%` }} /></div>
                                         <dl>
-                                            <div><dt>Phase</dt><dd>{selectedTask.phase}</dd></div>
-                                            <div><dt>Progress</dt><dd>{selectedTask.progress.completed} / {selectedTask.progress.total} {selectedTask.progress.unit}</dd></div>
-                                            <div><dt>Current item</dt><dd>{selectedTask.progress.currentLabel || '—'}</dd></div>
+                                            <div><dt>{t('Phase')}</dt><dd>{selectedTask.phase}</dd></div>
+                                            <div><dt>{t('Progress')}</dt><dd>{selectedTask.progress.completed} / {selectedTask.progress.total} {selectedTask.progress.unit}</dd></div>
+                                            <div><dt>{t('Current item')}</dt><dd>{selectedTask.progress.currentLabel || '—'}</dd></div>
                                         </dl>
                                         {selectedTaskResultLines.length > 0 ? (
                                             <div className="workbench__task-result">
@@ -1194,14 +1187,14 @@ export const Workbench = () => {
                                         {selectedTaskOutputs.total > 0 ? (
                                             <div className="workbench__task-outputs">
                                                 <div>
-                                                    <strong>Output files</strong>
-                                                    <span>{selectedTaskOutputs.total} completed</span>
+                                                    <strong>{t('Output files')}</strong>
+                                                    <span>{language === 'zh-CN' ? `已完成 ${selectedTaskOutputs.total}` : `${selectedTaskOutputs.total} completed`}</span>
                                                 </div>
                                                 <ul>
                                                     {selectedTaskOutputs.files.map((file, index) => (
                                                         <li key={`${file.value}:${index}`}>
                                                             <span title={file.value}><strong>{file.label}</strong>{file.value !== file.label ? <small>{file.value}</small> : null}</span>
-                                                            <button aria-label={`Copy ${file.label}`} onClick={() => void copyTaskOutput(file.value, file.label)}><ContentCopyRoundedIcon /> Copy</button>
+                                                            <button aria-label={`${t('Copy')} ${file.label}`} onClick={() => void copyTaskOutput(file.value, file.label)}><ContentCopyRoundedIcon /> {t('Copy')}</button>
                                                         </li>
                                                     ))}
                                                 </ul>
@@ -1218,7 +1211,7 @@ export const Workbench = () => {
                                         ) : null}
                                         {isActiveUninterruptibleWrite(selectedTask) ? (
                                             <div className="workbench__task-safety-note">
-                                                <strong>The current track cannot be interrupted safely.</strong>
+                                                <strong>{t('The current track cannot be interrupted safely.')}</strong>
                                                 <span>{getTaskCancellationPresentation(selectedTask).safetyNotice}</span>
                                             </div>
                                         ) : null}
@@ -1234,10 +1227,10 @@ export const Workbench = () => {
 
                 <footer className="workbench__footer">
                     <button className="workbench__task-status" onClick={() => setTaskCenterOpen((open) => !open)} aria-expanded={taskCenterOpen} aria-controls="workbench-task-center">
-                        {activeTask ? <><span className="workbench__task-spinner" /><div><strong>{activeTask.label}</strong><small>{activeTask.phase} · {Math.round(taskPercent)}%</small></div></> : <><CheckCircleIcon /><div><strong>Ready</strong><small>{imports.length ? `${imports.length} tracks prepared` : 'No pending transfer'}</small></div></>}
-                        <em>{activeTaskCount > 0 ? activeTaskCount : workspace.tasks.length} {activeTaskCount > 0 ? 'active' : 'tasks'}</em>
+                        {activeTask ? <><span className="workbench__task-spinner" /><div><strong>{activeTask.label}</strong><small>{activeTask.phase} · {Math.round(taskPercent)}%</small></div></> : <><CheckCircleIcon /><div><strong>{t('Ready')}</strong><small>{imports.length ? (language === 'zh-CN' ? `已准备 ${imports.length} 首曲目` : `${imports.length} tracks prepared`) : t('No pending transfer')}</small></div></>}
+                        <em>{activeTaskCount > 0 ? activeTaskCount : workspace.tasks.length} {language === 'zh-CN' ? (activeTaskCount > 0 ? '项进行中' : '项任务') : (activeTaskCount > 0 ? 'active' : 'tasks')}</em>
                     </button>
-                    <div className="workbench__footer-meter"><span><i style={{ width: `${activeTask ? taskPercent : usedPercent}%` }} /></span><small>{activeTask ? `${Math.round(taskPercent)}% complete` : `${capacityUsed} of ${capacityTotal} used`}</small></div>
+                    <div className="workbench__footer-meter"><span><i style={{ width: `${activeTask ? taskPercent : usedPercent}%` }} /></span><small>{activeTask ? (language === 'zh-CN' ? `已完成 ${Math.round(taskPercent)}%` : `${Math.round(taskPercent)}% complete`) : (language === 'zh-CN' ? `已用 ${capacityUsed} / ${capacityTotal}` : `${capacityUsed} of ${capacityTotal} used`)}</small></div>
                 </footer>
             </main>
 

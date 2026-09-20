@@ -35,6 +35,7 @@ import {
     type RawTocFileInspection,
 } from './workbench-raw-toc';
 import { WorkbenchTocEditor } from './workbench-toc-editor';
+import { useI18n } from '../use-i18n';
 
 function decodeBase64(data: string) {
     const binary = atob(data);
@@ -50,6 +51,7 @@ export const WorkbenchTools = ({
     onTaskStarted(id: string, message: string): void;
     onSessionEnded(): void;
 }) => {
+    const { t } = useI18n();
     const client = useApplicationClient();
     const workspace = useApplicationWorkspace();
     const device = workspace.device;
@@ -517,40 +519,40 @@ export const WorkbenchTools = ({
     return (
         <section className="workbench__tools">
             <header>
-                <div><span className="workbench__eyebrow">TOOLS</span><h2>Disc and device tools</h2><p>Back up metadata and low-level device information before making maintenance changes.</p></div>
+                <div><span className="workbench__eyebrow">{t('TOOLS')}</span><h2>{t('Disc and device tools')}</h2><p>{t('Back up metadata and low-level device information before making maintenance changes.')}</p></div>
             </header>
 
             <div className="workbench__tools-grid">
                 <article className="workbench__tool-card">
                     <DownloadRoundedIcon />
-                    <div><h3>Export metadata</h3><p>Save the disc title, track titles, full-width titles, Hi-MD fields, encoding details and group ranges.</p></div>
-                    <button className="secondary-button" onClick={() => void exportCsv()} disabled={!disc || busy}><DownloadRoundedIcon /> Export CSV</button>
+                    <div><h3>{t('Export metadata')}</h3><p>{t('Save the disc title, track titles, full-width titles, Hi-MD fields, encoding details and group ranges.')}</p></div>
+                    <button className="secondary-button" onClick={() => void exportCsv()} disabled={!disc || busy}><DownloadRoundedIcon /> {t('Export CSV')}</button>
                 </article>
                 <article className="workbench__tool-card">
                     <UploadFileRoundedIcon />
-                    <div><h3>Import metadata</h3><p>Choose a CSV to compare it with the inserted disc. Nothing is written until you review and apply the plan.</p></div>
-                    <button className="secondary-button" onClick={() => fileInput.current?.click()} disabled={!canImportMetadata || busy}><UploadFileRoundedIcon /> Choose CSV</button>
+                    <div><h3>{t('Import metadata')}</h3><p>{t('Choose a CSV to compare it with the inserted disc. Nothing is written until you review and apply the plan.')}</p></div>
+                    <button className="secondary-button" onClick={() => fileInput.current?.click()} disabled={!canImportMetadata || busy}><UploadFileRoundedIcon /> {t('Choose CSV')}</button>
                     <input ref={fileInput} type="file" accept=".csv,text/csv" hidden onChange={(event) => void chooseCsv(event)} />
                 </article>
                 <article className="workbench__tool-card">
                     <MemoryRoundedIcon />
-                    <div><h3>Device information</h3><p>Read the firmware version and supported Homebrew capabilities without changing disc content.</p></div>
-                    <button className="secondary-button" onClick={() => void inspectDevice()} disabled={!capabilities.includes('advanced.factory') || busy}><MemoryRoundedIcon /> Inspect device</button>
+                    <div><h3>{t('Device information')}</h3><p>{t('Read the firmware version and supported Homebrew capabilities without changing disc content.')}</p></div>
+                    <button className="secondary-button" onClick={() => void inspectDevice()} disabled={!capabilities.includes('advanced.factory') || busy}><MemoryRoundedIcon /> {t('Inspect device')}</button>
                 </article>
                 <article className="workbench__tool-card">
                     <DataObjectRoundedIcon />
-                    <div><h3>Raw TOC backup</h3><p>Save all six 2,352-byte TOC sectors with a SHA-256 checksum. This is read-only.</p>{tocSummary ? <small>{tocSummary.bytes.toLocaleString()} bytes · SHA-256 {tocSummary.sha256.slice(0, 16)}…</small> : null}</div>
-                    <button className="secondary-button" onClick={() => void exportRawToc()} disabled={!disc || !capabilities.includes('advanced.factory') || busy}><SaveAltRoundedIcon /> Export TOC</button>
+                    <div><h3>{t('Raw TOC backup')}</h3><p>{t('Save all six 2,352-byte TOC sectors with a SHA-256 checksum. This is read-only.')}</p>{tocSummary ? <small>{tocSummary.bytes.toLocaleString()} bytes · SHA-256 {tocSummary.sha256.slice(0, 16)}…</small> : null}</div>
+                    <button className="secondary-button" onClick={() => void exportRawToc()} disabled={!disc || !capabilities.includes('advanced.factory') || busy}><SaveAltRoundedIcon /> {t('Export TOC')}</button>
                 </article>
                 <article className="workbench__tool-card is-danger">
                     <UploadFileRoundedIcon />
-                    <div><h3>Restore raw TOC</h3><p>Compare a six-sector backup with the inserted disc before writing the four writable UTOC sectors.</p><small>{advancedInfo ? 'Requires the flushUTOC capability and a writable disc.' : 'Inspect the device before choosing a backup.'}</small></div>
-                    <button className="danger-button" onClick={() => tocFileInput.current?.click()} disabled={!canReviewRawTocWrite(disc, advancedInfo?.capabilities) || busy}><UploadFileRoundedIcon /> Choose TOC</button>
+                    <div><h3>{t('Restore raw TOC')}</h3><p>{t('Compare a six-sector backup with the inserted disc before writing the four writable UTOC sectors.')}</p><small>{t(advancedInfo ? 'Requires the flushUTOC capability and a writable disc.' : 'Inspect the device before choosing a backup.')}</small></div>
+                    <button className="danger-button" onClick={() => tocFileInput.current?.click()} disabled={!canReviewRawTocWrite(disc, advancedInfo?.capabilities) || busy}><UploadFileRoundedIcon /> {t('Choose TOC')}</button>
                     <input ref={tocFileInput} type="file" accept=".bin,application/octet-stream" hidden onChange={(event) => void chooseRawToc(event)} />
                 </article>
                 <article className="workbench__tool-card is-danger workbench__maintenance-card">
                     <TuneRoundedIcon />
-                    <div><h3>Track protection flags</h3><p>Preview targeted raw TOC changes for SCMS permissions or track writability.</p><small>{advancedInfo ? 'Requires the flushUTOC capability and a writable disc.' : 'Inspect the device before reviewing a change.'}</small></div>
+                    <div><h3>{t('Track protection flags')}</h3><p>{t('Preview targeted raw TOC changes for SCMS permissions or track writability.')}</p><small>{t(advancedInfo ? 'Requires the flushUTOC capability and a writable disc.' : 'Inspect the device before reviewing a change.')}</small></div>
                     <div className="workbench__maintenance-actions">
                         {rawTocPatchActions.map((action) => (
                             <button className="danger-button" key={action.kind} onClick={() => void previewRawTocPatch(action)} disabled={!canReviewRawTocWrite(disc, advancedInfo?.capabilities) || busy}>{action.label}</button>
@@ -559,20 +561,20 @@ export const WorkbenchTools = ({
                 </article>
                 <article className="workbench__tool-card is-danger">
                     <GridViewRoundedIcon />
-                    <div><h3>Visual TOC editor</h3><p>Inspect and edit all four writable UTOC maps, content tables, header fields and free-list pointers in a local draft.</p><small>{advancedInfo ? 'Requires the flushUTOC capability and a writable disc. Every write receives a checksum review.' : 'Inspect the device before opening the editor.'}</small></div>
-                    <button className="danger-button" onClick={() => setTocEditorOpen(true)} disabled={!canReviewRawTocWrite(disc, advancedInfo?.capabilities) || busy}><GridViewRoundedIcon /> Open editor</button>
+                    <div><h3>{t('Visual TOC editor')}</h3><p>{t('Inspect and edit all four writable UTOC maps, content tables, header fields and free-list pointers in a local draft.')}</p><small>{t(advancedInfo ? 'Requires the flushUTOC capability and a writable disc. Every write receives a checksum review.' : 'Inspect the device before opening the editor.')}</small></div>
+                    <button className="danger-button" onClick={() => setTocEditorOpen(true)} disabled={!canReviewRawTocWrite(disc, advancedInfo?.capabilities) || busy}><GridViewRoundedIcon /> {t('Open editor')}</button>
                 </article>
                 <article className="workbench__tool-card">
                     <SaveAltRoundedIcon />
-                    <div><h3>Device memory backup</h3><p>Export supported RAM and firmware regions through an observable background task.</p><small>{advancedInfo ? 'Availability is based on the inspected firmware.' : 'Inspect the device first to discover supported readers.'}</small></div>
+                    <div><h3>{t('Device memory backup')}</h3><p>{t('Export supported RAM and firmware regions through an observable background task.')}</p><small>{t(advancedInfo ? 'Availability is based on the inspected firmware.' : 'Inspect the device first to discover supported readers.')}</small></div>
                     <div className="workbench__tool-actions">
                         <button className="secondary-button" onClick={() => void exportAdvancedMemory('ram')} disabled={!advancedInfo?.capabilities.includes('readRam') || busy}>RAM</button>
-                        <button className="secondary-button" onClick={() => void exportAdvancedMemory('firmware')} disabled={!advancedInfo?.capabilities.includes('readFirmware') || busy}>Firmware</button>
+                        <button className="secondary-button" onClick={() => void exportAdvancedMemory('firmware')} disabled={!advancedInfo?.capabilities.includes('readFirmware') || busy}>{t('Firmware')}</button>
                     </div>
                 </article>
                 <article className="workbench__tool-card is-danger workbench__maintenance-card">
                     <TuneRoundedIcon />
-                    <div><h3>Advanced device modes</h3><p>Review browser-authorized Homebrew patches and session-ending device modes.</p><small>{advancedInfo ? 'Only actions supported by this firmware are enabled.' : 'Inspect the device before reviewing an action.'}</small></div>
+                    <div><h3>{t('Advanced device modes')}</h3><p>{t('Review browser-authorized Homebrew patches and session-ending device modes.')}</p><small>{t(advancedInfo ? 'Only actions supported by this firmware are enabled.' : 'Inspect the device before reviewing an action.')}</small></div>
                     <div className="workbench__maintenance-actions">
                         {advancedMaintenanceActions.map((action) => (
                             <button
@@ -588,8 +590,8 @@ export const WorkbenchTools = ({
                 </article>
                 <article className="workbench__tool-card is-danger">
                     <BugReportRoundedIcon />
-                    <div><h3>Destructive device self-test</h3><p>Verify titles, ordering, playback, deletion and erase behavior. The inserted disc will be emptied.</p><small>{selfTestReadiness.reason}</small></div>
-                    <button className="danger-button" onClick={() => setSelfTestOpen(true)} disabled={!selfTestReadiness.ready || busy}><BugReportRoundedIcon /> Review self-test</button>
+                    <div><h3>{t('Destructive device self-test')}</h3><p>{t('Verify titles, ordering, playback, deletion and erase behavior. The inserted disc will be emptied.')}</p><small>{selfTestReadiness.reason}</small></div>
+                    <button className="danger-button" onClick={() => setSelfTestOpen(true)} disabled={!selfTestReadiness.ready || busy}><BugReportRoundedIcon /> {t('Review self-test')}</button>
                 </article>
             </div>
 

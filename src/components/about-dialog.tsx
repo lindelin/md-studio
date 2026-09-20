@@ -13,12 +13,14 @@ import Slide, { SlideProps } from '@mui/material/Slide';
 import Button from '@mui/material/Button';
 import Link from '@mui/material/Link';
 import { GIT_DIFF, GIT_HASH, BUILD_DATE } from '../version-info';
+import { useI18n } from './use-i18n';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
 });
 
 export const AboutDialog = () => {
+    const { t } = useI18n();
     const dispatch = useDispatch();
 
     const visible = useShallowEqualSelector((state) => state.appState.aboutDialogVisible);
@@ -34,7 +36,7 @@ export const AboutDialog = () => {
             TransitionComponent={Transition as any}
             aria-labelledby="about-dialog-slide-title"
         >
-            <DialogTitle id="about-dialog-slide-title">About MiniDisc Workspace</DialogTitle>
+            <DialogTitle id="about-dialog-slide-title">{t('About MiniDisc Workspace')}</DialogTitle>
             <DialogContent>
                 <DialogContentText>
                     MiniDisc Workspace is derived from{' '}
@@ -97,7 +99,7 @@ export const AboutDialog = () => {
                         , to build the user interface.
                     </li>
                 </ul>
-                <DialogContentText>Attribution</DialogContentText>
+                <DialogContentText>{t('Attribution')}</DialogContentText>
                 <ul>
                     <li>
                         MiniDisc logo from{' '}
@@ -121,7 +123,7 @@ export const AboutDialog = () => {
                 </DialogContentText>
             </DialogContent>
             <DialogActions>
-                <Button onClick={handleClose}>Close</Button>
+                <Button onClick={handleClose}>{t('Close')}</Button>
             </DialogActions>
         </Dialog>
     );

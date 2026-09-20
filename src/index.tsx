@@ -10,9 +10,6 @@ import serviceRegistry from './services/registry';
 
 import { store } from './redux/store';
 import { actions as appActions } from './redux/app-feature';
-import { actions as convertDialogActions } from './redux/convert-dialog-feature';
-import { actions as errorDialogActions } from './redux/error-dialog-feature';
-import { batchActions } from './frontend-utils';
 
 import App from './components/app';
 
@@ -33,10 +30,8 @@ import { BrowserTrackRecognizer } from './application/browser-track-recognizer';
 import NotificationCompleteIconUrl from './images/record-complete-notification-icon.png';
 import { ApplicationClientProvider } from './frontend/application-client-provider';
 import { hasPendingWorkspaceWork } from './frontend/pending-work';
-import { usesLegacyTaskPresentation } from './frontend/task-presentation';
 const mediaRecorderService = new MediaRecorderService();
 const localFiles = new BrowserLocalFileGateway();
-const shouldUseLegacyTaskPresentation = () => usesLegacyTaskPresentation(store.getState().appState.mainView);
 serviceRegistry.localAudioInput = new BrowserAudioInput(mediaRecorderService);
 serviceRegistry.importWriter = new BrowserImportWriter({
     getApplication: () => serviceRegistry.application,
@@ -50,9 +45,6 @@ serviceRegistry.importWriter = new BrowserImportWriter({
         ].filter(Boolean);
         return window.confirm(`${modes.join(' and ')} requires Homebrew mode. Continue with advanced device access?`);
     },
-    showImportDialog: () => {
-        if (shouldUseLegacyTaskPresentation()) store.dispatch(convertDialogActions.setVisible(true));
-    },
     notifyCompleted: () => {
         const state = store.getState().appState;
         if (!state.hasNotificationSupport || !serviceRegistry.settingsStore.getSnapshot().values.notifyWhenFinished) return;
@@ -63,11 +55,6 @@ serviceRegistry.importWriter = new BrowserImportWriter({
             window.focus();
             this.close();
         };
-    },
-    reportError: (message) => {
-        if (shouldUseLegacyTaskPresentation()) {
-            store.dispatch(batchActions([errorDialogActions.setVisible(true), errorDialogActions.setErrorMessage(message)]));
-        }
     },
 });
 serviceRegistry.trackExporter = new BrowserTrackExporter(localFiles);

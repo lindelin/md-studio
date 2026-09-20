@@ -17,6 +17,7 @@ import {
     toggleVisibleLibraryTracks,
 } from './workbench-model';
 import { calculateVirtualListWindow, scrollOffsetForVirtualIndex } from './workbench-virtual-list';
+import { useI18n } from '../use-i18n';
 
 const PAGE_SIZE = 100;
 const LIBRARY_ROW_HEIGHT = 51;
@@ -36,6 +37,7 @@ export const WorkbenchLibrary = ({
     onImported(count: number): void;
     onOpenSettings(): void;
 }) => {
+    const { language, t } = useI18n();
     const client = useApplicationClient();
     const workspace = useApplicationWorkspace();
     const library = workspace.library;
@@ -349,40 +351,40 @@ export const WorkbenchLibrary = ({
     };
 
     return (
-        <section className="workbench__library" aria-label="Music library">
+        <section className="workbench__library" aria-label={t('Music library')}>
             <header>
                 <div>
-                    <span className="workbench__eyebrow">LOCAL LIBRARY</span>
-                    <h2>{searchQuery ? `Search: ${searchQuery}` : path.length ? path.at(-1) : 'Browse music'}</h2>
-                    <p>{library.status === 'ready' ? `${library.entryCount} indexed entries · ${total} in this view` : 'Connect a configured library service to browse audio.'}</p>
+                    <span className="workbench__eyebrow">{t('LOCAL LIBRARY')}</span>
+                    <h2>{searchQuery ? (language === 'zh-CN' ? `搜索：${searchQuery}` : `Search: ${searchQuery}`) : path.length ? path.at(-1) : t('Browse music')}</h2>
+                    <p>{library.status === 'ready' ? (language === 'zh-CN' ? `已索引 ${library.entryCount} 项 · 当前显示 ${total} 项` : `${library.entryCount} indexed entries · ${total} in this view`) : t('Connect a configured library service to browse audio.')}</p>
                 </div>
                 <div className="workbench__library-actions">
-                    <button className="secondary-button" onClick={() => void refreshLibrary()} disabled={busy}><RefreshRoundedIcon /> Refresh</button>
-                    <button className="primary-button" onClick={() => void importSelected()} disabled={busy || selectedTracks.length === 0}><AddRoundedIcon /> {selectedTracks.length ? `Add ${selectedTracks.length} to plan` : 'Add to plan'}</button>
+                    <button className="secondary-button" onClick={() => void refreshLibrary()} disabled={busy}><RefreshRoundedIcon /> {t('Refresh')}</button>
+                    <button className="primary-button" onClick={() => void importSelected()} disabled={busy || selectedTracks.length === 0}><AddRoundedIcon /> {selectedTracks.length ? (language === 'zh-CN' ? `添加 ${selectedTracks.length} 首到计划` : `Add ${selectedTracks.length} to plan`) : t('Add to plan')}</button>
                 </div>
             </header>
 
             <div className="workbench__library-toolbar">
-                <nav aria-label="Library path">
-                    <button onClick={() => { setPath([]); setSearchQuery(''); }} disabled={!searchQuery && path.length === 0}>Library</button>
+                <nav aria-label={t('Library path')}>
+                    <button onClick={() => { setPath([]); setSearchQuery(''); }} disabled={!searchQuery && path.length === 0}>{t('Library')}</button>
                     {!searchQuery && path.map((part, index) => <React.Fragment key={`${part}:${index}`}><span>/</span><button onClick={() => setPath(path.slice(0, index + 1))}>{part}</button></React.Fragment>)}
                 </nav>
                 <form onSubmit={submitSearch}>
                     <SearchRoundedIcon />
-                    <input aria-label="Search library" placeholder="Search title, artist, album or path" value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} />
-                    {searchQuery ? <button type="button" onClick={() => { setSearchDraft(''); setSearchQuery(''); }}>Clear</button> : <button type="submit">Search</button>}
+                    <input aria-label={t('Search library')} placeholder={t('Search title, artist, album or path')} value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} />
+                    {searchQuery ? <button type="button" onClick={() => { setSearchDraft(''); setSearchQuery(''); }}>{t('Clear')}</button> : <button type="submit">{t('Search')}</button>}
                 </form>
             </div>
 
-            {libraryMessage ? <div className={`workbench__library-message ${library.status === 'error' ? 'is-error' : ''}`}><span>{libraryMessage}</span>{library.status === 'error' ? <button onClick={onOpenSettings}>Open settings</button> : null}</div> : null}
+            {libraryMessage ? <div className={`workbench__library-message ${library.status === 'error' ? 'is-error' : ''}`}><span>{libraryMessage}</span>{library.status === 'error' ? <button onClick={onOpenSettings}>{t('Open settings')}</button> : null}</div> : null}
 
             <div className="workbench__library-content">
                 <div className="workbench__library-browser">
-                    <div className="workbench__library-list-head"><button aria-label={allVisibleSelected ? 'Clear visible track selection' : 'Select all visible tracks'} onClick={toggleVisibleTracks} disabled={visibleTracks.length === 0}>{allVisibleSelected ? <CheckBoxRoundedIcon /> : <CheckBoxOutlineBlankRoundedIcon />}</button><span>Name</span><span>Artist / Album</span><span>Duration</span></div>
+                    <div className="workbench__library-list-head"><button aria-label={t(allVisibleSelected ? 'Clear visible track selection' : 'Select all visible tracks')} onClick={toggleVisibleTracks} disabled={visibleTracks.length === 0}>{allVisibleSelected ? <CheckBoxRoundedIcon /> : <CheckBoxOutlineBlankRoundedIcon />}</button><span>{t('Name')}</span><span>{t('Artist / Album')}</span><span>{t('Duration')}</span></div>
                     <div
                         className="workbench__library-list"
                         role="listbox"
-                        aria-label="Library entries"
+                        aria-label={t('Library entries')}
                         aria-multiselectable="true"
                         ref={listRef}
                         onScroll={(event) =>
@@ -399,15 +401,15 @@ export const WorkbenchLibrary = ({
                                 </div>
                             </div>
                         ) : visibleBrowserRows.map(renderBrowserRow)}
-                        {!busy && items.length === 0 && library.status === 'ready' ? <div className="workbench__library-empty"><AudiotrackRoundedIcon /><strong>{searchQuery ? 'No matching tracks' : 'This folder is empty'}</strong><span>{searchQuery ? 'Try a different title, artist, album or path.' : 'Choose another folder or refresh the library.'}</span></div> : null}
+                        {!busy && items.length === 0 && library.status === 'ready' ? <div className="workbench__library-empty"><AudiotrackRoundedIcon /><strong>{t(searchQuery ? 'No matching tracks' : 'This folder is empty')}</strong><span>{t(searchQuery ? 'Try a different title, artist, album or path.' : 'Choose another folder or refresh the library.')}</span></div> : null}
                     </div>
                     {nextOffset !== undefined ? <button className="workbench__library-more" disabled={busy} onClick={() => void loadPage(nextOffset, true)}>Load more · {items.length} of {total}</button> : null}
                 </div>
 
                 <aside className="workbench__library-selection">
-                    <span className="workbench__eyebrow">RECORDING SELECTION</span>
-                    <h3>{selectedTracks.length ? `${selectedTracks.length} tracks selected` : 'Nothing selected'}</h3>
-                    <p>{selectedTracks.length ? 'These tracks will be added to the shared recording plan in this order.' : 'Select tracks from folders or search results.'}</p>
+                    <span className="workbench__eyebrow">{t('RECORDING SELECTION')}</span>
+                    <h3>{selectedTracks.length ? (language === 'zh-CN' ? `已选择 ${selectedTracks.length} 首曲目` : `${selectedTracks.length} tracks selected`) : t('Nothing selected')}</h3>
+                    <p>{t(selectedTracks.length ? 'These tracks will be added to the shared recording plan in this order.' : 'Select tracks from folders or search results.')}</p>
                     <div>
                         {selectedTracks.map((track, index) => <button key={libraryPathKey(track.path)} aria-label={`Remove ${track.title || track.name} from selection`} onClick={() => toggleTrack(track)}><em>{String(index + 1).padStart(2, '0')}</em><span><strong>{track.title || track.name}</strong><small>{track.artist || track.path.join('/')}</small></span><span>×</span></button>)}
                     </div>

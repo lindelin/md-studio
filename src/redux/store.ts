@@ -1,14 +1,8 @@
 import { configureStore, Middleware, combineReducers } from '@reduxjs/toolkit';
-import contextMenu from './context-menu-feature';
-import renameDialog from './rename-dialog-feature';
 import otherDeviceDialog from './other-device-feature';
 import errorDialog from './error-dialog-feature';
 import panicDialog, { actions as panicDialogActions } from './panic-dialog-feature';
-import convertDialog from './convert-dialog-feature';
-import dumpDialog from './dump-dialog-feature';
-import songRecognitionDialog from './song-recognition-dialog-feature';
 import appState, { actions as appActions, buildInitialState as buildInitialAppState } from './app-feature';
-import localLibrary from './local-library-feature';
 import factory from './factory/factory-feature';
 
 import factoryNoticeDialog from './factory/factory-notice-dialog-feature';
@@ -29,15 +23,9 @@ const errorCatcher: Middleware = () => (next) => async (action) => {
 };
 
 const reducer = combineReducers({
-    contextMenu,
-    localLibrary,
-    renameDialog,
     otherDeviceDialog,
     errorDialog,
     panicDialog,
-    convertDialog,
-    dumpDialog,
-    songRecognitionDialog,
     factory,
     factoryNoticeDialog,
     factoryBadSectorDialog,

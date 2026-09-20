@@ -1,4 +1,4 @@
-import React, { useMemo, lazy, Suspense } from 'react';
+import React, { useEffect, useMemo, lazy, Suspense } from 'react';
 import { belowDesktop, forAnyDesktop, forWideDesktop, useShallowEqualSelector, useThemeDetector } from '../frontend-utils';
 
 import CssBaseline from '@mui/material/CssBaseline';
@@ -12,6 +12,7 @@ import Typography from '@mui/material/Typography';
 import Link from '@mui/material/Link';
 import Box from '@mui/material/Box';
 import { useApplicationSettings, useApplicationWorkspace } from './use-application-client';
+import { resolveUiLanguage } from '../i18n';
 
 const Toc = lazy(() => import('./factory/factory'));
 const Controls = lazy(() => import('./controls'));
@@ -318,8 +319,12 @@ const InternalApp = () => {
 };
 
 const App = () => {
-    const { colorTheme } = useApplicationSettings();
+    const { colorTheme, uiLanguage } = useApplicationSettings();
     const systemIsDarkTheme = useThemeDetector();
+
+    useEffect(() => {
+        document.documentElement.lang = resolveUiLanguage(uiLanguage);
+    }, [uiLanguage]);
 
     const theme = useMemo(() => {
         switch (colorTheme) {

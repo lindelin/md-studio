@@ -41,6 +41,7 @@ describe('SettingsStore', () => {
         const updated = settings.update(
             {
                 colorTheme: 'dark',
+                uiLanguage: 'zh-CN',
                 fullWidthSupport: true,
                 audioEncoderId: 'remote-atrac',
                 audioExportService: 2,
@@ -59,6 +60,7 @@ describe('SettingsStore', () => {
 
         assert.equal(updated.revision, 1);
         assert.equal(reloaded.values.colorTheme, 'dark');
+        assert.equal(reloaded.values.uiLanguage, 'zh-CN');
         assert.equal(reloaded.values.fullWidthSupport, true);
         assert.equal(reloaded.values.audioEncoderId, 'remote-atrac');
         assert.equal(reloaded.values.audioExportService, 2);
@@ -97,6 +99,10 @@ describe('SettingsStore', () => {
         );
         assert.throws(
             () => settings.update({ colorTheme: 'purple' } as any),
+            (error: unknown) => (error as ApplicationError).code === 'INVALID_INPUT'
+        );
+        assert.throws(
+            () => settings.update({ uiLanguage: 'fr' } as any),
             (error: unknown) => (error as ApplicationError).code === 'INVALID_INPUT'
         );
         assert.throws(
