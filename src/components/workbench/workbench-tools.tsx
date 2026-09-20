@@ -3,6 +3,7 @@ import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import BugReportRoundedIcon from '@mui/icons-material/BugReportRounded';
 import DataObjectRoundedIcon from '@mui/icons-material/DataObjectRounded';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
+import GridViewRoundedIcon from '@mui/icons-material/GridViewRounded';
 import MemoryRoundedIcon from '@mui/icons-material/MemoryRounded';
 import SaveAltRoundedIcon from '@mui/icons-material/SaveAltRounded';
 import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
@@ -33,6 +34,7 @@ import {
     type RawTocPatchAction,
     type RawTocFileInspection,
 } from './workbench-raw-toc';
+import { WorkbenchTocEditor } from './workbench-toc-editor';
 
 function decodeBase64(data: string) {
     const binary = atob(data);
@@ -85,6 +87,7 @@ export const WorkbenchTools = ({
         expectedRevision: number;
     } | null>(null);
     const [rawTocPatchConfirmation, setRawTocPatchConfirmation] = useState('');
+    const [tocEditorOpen, setTocEditorOpen] = useState(false);
 
     const canImportMetadata =
         Boolean(disc?.writable) &&
@@ -106,6 +109,7 @@ export const WorkbenchTools = ({
         setRawTocConfirmation('');
         setRawTocPatchReview(null);
         setRawTocPatchConfirmation('');
+        setTocEditorOpen(false);
     }, [device?.sessionId]);
 
     useEffect(() => {
@@ -560,6 +564,11 @@ export const WorkbenchTools = ({
                         ))}
                     </div>
                 </article>
+                <article className="workbench__tool-card is-danger">
+                    <GridViewRoundedIcon />
+                    <div><h3>Visual TOC editor</h3><p>Inspect and edit all four writable UTOC maps, content tables, header fields and free-list pointers in a local draft.</p><small>{advancedInfo ? 'Requires the flushUTOC capability and a writable disc. Every write receives a checksum review.' : 'Inspect the device before opening the editor.'}</small></div>
+                    <button className="danger-button" onClick={() => setTocEditorOpen(true)} disabled={!canReviewRawTocWrite(disc, advancedInfo?.capabilities) || busy}><GridViewRoundedIcon /> Open editor</button>
+                </article>
                 <article className="workbench__tool-card">
                     <SaveAltRoundedIcon />
                     <div><h3>Device memory backup</h3><p>Export supported RAM and firmware regions through an observable background task.</p><small>{advancedInfo ? 'Availability is based on the inspected firmware.' : 'Inspect the device first to discover supported readers.'}</small></div>
@@ -765,6 +774,7 @@ export const WorkbenchTools = ({
                     </section>
                 </div>
             ) : null}
+            <WorkbenchTocEditor open={tocEditorOpen} onClose={() => setTocEditorOpen(false)} onMessage={onMessage} />
         </section>
     );
 };
