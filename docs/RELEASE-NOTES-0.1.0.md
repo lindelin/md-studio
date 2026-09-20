@@ -9,7 +9,9 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 - Browser UI, MCP, and CLI share revision-checked application commands, import queue state, device snapshots, and long-running tasks.
 - Local-path automation reads audio tags and duration before staging, while file bytes remain behind short-lived local handles until conversion starts.
 - Writing performs a capacity, title, codec, device-session, and revision preview before creating a task.
+- Homebrew SP Mono and ATRAC1 writes show their exact capability requirements in the bilingual write review before a task is created; automation cannot authorize these browser-only operations.
 - CSV metadata planning, normal and recovery export review, raw TOC review, protection flags, diagnostics, and capability-gated advanced tools are available from the workbench.
+- Device services return results and errors without opening browser-native alert, confirm, or prompt dialogs. Full-access HiMD uses a bilingual in-app review.
 - Windows development and production builds use cross-platform runtime preparation and version metadata.
 
 ## Reliability and safety
@@ -31,7 +33,7 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 
 ## Verification snapshot
 
-- 292 automated tests in 78 suites
+- 298 automated tests in 80 suites
 - Full TypeScript and TSX lint with zero warnings
 - Application and bridge type checks
 - Production Vite/PWA build

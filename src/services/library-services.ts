@@ -34,7 +34,7 @@ export const LibraryServices: LibraryServicePrototype[] = [
             },
         ],
         description:
-            'A remote library with an inbuilt encoder. Lets you cut down on bandwidth usage, by having the files sent to the local Web Minidisc instance preencoded.',
+            'A remote library with a built-in encoder. It sends pre-encoded audio to MiniDisc Workspace to reduce bandwidth use.',
     },
 ];
 

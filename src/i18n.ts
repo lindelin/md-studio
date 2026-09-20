@@ -634,7 +634,7 @@ const zhCN: Record<string, string> = {
     'The Sony encoder in a purpose-built Web VM': '在专用 Web 虚拟机中运行的 Sony 编码器。',
     'A local copy of the high-quality Sony encoder.': '在本机运行的高质量 Sony 编码器。',
     'This build does not include the At3RE JavaScript and WebAssembly runtime.': '当前版本不包含 At3RE JavaScript 和 WebAssembly 运行时。',
-    'A remote library with an inbuilt encoder. Lets you cut down on bandwidth usage, by having the files sent to the local Web Minidisc instance preencoded.': '带内置编码器的远程音乐库。文件会先编码再发送到本机 MiniDisc 应用，从而减少带宽占用。',
+    'A remote library with a built-in encoder. It sends pre-encoded audio to MiniDisc Workspace to reduce bandwidth use.': '带内置编码器的远程音乐库。它会把预编码音频发送到 MiniDisc 工作区，从而减少带宽占用。',
     'Server Address': '服务器地址',
     'FFMPEG Path': 'FFMPEG 路径',
     'psp_at3tool Path': 'psp_at3tool 路径',
