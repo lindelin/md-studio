@@ -3,7 +3,6 @@ import { useDropzone } from 'react-dropzone';
 import { useDispatch, useShallowEqualSelector } from '../../frontend-utils';
 import {
     acceptedTypes,
-    AdaptiveFile,
     bytesToHumanReadable,
     DisplayTrack,
     formatTimeFromSeconds,
@@ -11,13 +10,16 @@ import {
     isSequential,
 } from '../../utils';
 import { actions as appActions } from '../../redux/app-feature';
-import { actions as convertDialogActions } from '../../redux/convert-dialog-feature';
 import { actions as dumpDialogActions } from '../../redux/dump-dialog-feature';
 import { useApplicationClient, useApplicationWorkspace, useUpdateApplicationSettings } from '../use-application-client';
 import { getDefaultRecordingFormat, getRecordingCodec } from '../../application/device-profile';
 import type { ImportQueueItem } from '../../application/import-queue';
+import type { ImportPreview } from '../../application/import-preview';
+import { stageBrowserImports } from '../../application/browser-import-planner';
+import { INTERACTIVE_HOMEBREW_AUTHORIZATION } from '../../application/interactive-authorization';
 import {
     buildBatchMetadataUpdates,
+    canStartRecording,
     findTaskNeedingAttention,
     getTaskErrorDetail,
     resolveRowNavigationIndex,
@@ -59,7 +61,6 @@ import { TopMenu } from '../topmenu';
 import { DiscProtectedDialog } from '../disc-protected-dialog';
 import { RenameDialog } from '../rename-dialog';
 import { ErrorDialog } from '../error-dialog';
-import { ConvertDialog } from '../convert-dialog';
 import { FactoryModeBadSectorDialog } from '../factory/factory-bad-sector-dialog';
 import { DumpDialog } from '../dump-dialog';
 import { SongRecognitionDialog } from '../song-recognition-dialog';
@@ -81,6 +82,10 @@ type PlanItem =
 function formatDuration(seconds?: number | null) {
     if (seconds === undefined || seconds === null) return '—';
     return formatTimeFromSeconds(seconds);
+}
+
+function formatPreviewCapacity(preview: ImportPreview, value: number) {
+    return preview.measurementUnits === 'bytes' ? bytesToHumanReadable(value) : formatTimeFromSeconds(value);
 }
 
 function codecLabel(codec?: { codec: string; bitrate: number } | string | null) {
@@ -122,7 +127,6 @@ export const Workbench = () => {
     const tracks = useMemo(() => getSortedTracks(disc), [disc]);
     const [section, setSection] = useState<NavigationSection>('device');
     const [contentView, setContentView] = useState<ContentView>(imports.length > 0 ? 'plan' : 'disc');
-    const [uploadedFiles, setUploadedFiles] = useState<(File | AdaptiveFile)[]>([]);
     const [selectedKey, setSelectedKey] = useState<string | null>(null);
     const [selectedTrackIndexes, setSelectedTrackIndexes] = useState<number[]>([]);
     const [lastSelectedTrackIndex, setLastSelectedTrackIndex] = useState<number | null>(null);
@@ -135,6 +139,11 @@ export const Workbench = () => {
     const [groupDialogOpen, setGroupDialogOpen] = useState(false);
     const [taskCenterOpen, setTaskCenterOpen] = useState(false);
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+    const [writeReviewOpen, setWriteReviewOpen] = useState(false);
+    const [writePreview, setWritePreview] = useState<ImportPreview | null>(null);
+    const [writePreviewPending, setWritePreviewPending] = useState(false);
+    const [enableReplayGain, setEnableReplayGain] = useState(false);
+    const [enableGapless, setEnableGapless] = useState(false);
     const [formatIndex, setFormatIndex] = useState<[number, number]>(device?.recording.defaultFormat ?? [0, 0]);
     const [message, setMessage] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
@@ -217,10 +226,33 @@ export const Workbench = () => {
         (acceptedFiles: File[]) => {
             const accepted = acceptedFiles.filter((file) => !['audio/mpegurl', 'audio/x-mpegurl'].includes(file.type));
             if (accepted.length === 0) return;
-            setUploadedFiles(accepted);
-            dispatch(convertDialogActions.setVisible(true));
+            if (!device) return;
+            setBusy(true);
+            setMessage(null);
+            void stageBrowserImports(client, accepted, {
+                recordingProfile: device.recording,
+                titleFormat: workspace.settings.values.trackTitleFormat,
+                fullWidthTitles: workspace.settings.values.fullWidthSupport,
+                supportsFullWidthTitles: device.capabilities.includes('metadata.fullWidth'),
+                usesHimdTitles: device.capabilities.includes('metadata.himd'),
+                expectedRevision: workspace.imports.revision,
+            })
+                .then((result) => {
+                    const added = result.addedCount;
+                    if (added > 0) setContentView('plan');
+                    if (result.failures.length > 0) {
+                        const first = result.failures[0];
+                        setMessage(
+                            `${added > 0 ? `${added} added. ` : ''}${result.failures.length} file${result.failures.length === 1 ? '' : 's'} skipped: ${first.name} — ${first.reason}`
+                        );
+                    } else {
+                        setMessage(`${added} audio file${added === 1 ? '' : 's'} added to the recording plan.`);
+                    }
+                })
+                .catch((error) => setMessage(errorMessage(error)))
+                .finally(() => setBusy(false));
         },
-        [dispatch]
+        [client, device, workspace.imports.revision, workspace.settings.values]
     );
     const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
         onDrop,
@@ -250,7 +282,13 @@ export const Workbench = () => {
         [client]
     );
 
-    const selectedFormat = device ? getRecordingCodec(device.recording, formatIndex) : null;
+    const selectedFormat = useMemo(
+        () => (device ? getRecordingCodec(device.recording, formatIndex) : null),
+        [device, formatIndex]
+    );
+    const selectedEncoderSupport = selectedFormat
+        ? (workspace.encoder.support[selectedFormat.codec] ?? { state: 'unsupported' as const, gapless: false })
+        : { state: 'unsupported' as const, gapless: false };
     const defaultFormat = device ? getDefaultRecordingFormat(device.recording) : null;
     const capabilities = device?.capabilities ?? [];
     const canUpload = capabilities.includes('track.upload');
@@ -274,6 +312,46 @@ export const Workbench = () => {
     const selectedTaskResultLines = selectedTask ? summarizeTaskResult(selectedTask.result) : [];
     const selectedTaskErrorDetail = getTaskErrorDetail(selectedTask?.error);
     const activeTaskCount = workspace.tasks.filter((task) => task.status === 'running' || task.status === 'queued').length;
+
+    useEffect(() => {
+        if (!selectedEncoderSupport.gapless) setEnableGapless(false);
+    }, [selectedEncoderSupport.gapless]);
+
+    useEffect(() => {
+        if (!writeReviewOpen || !device || !selectedFormat || imports.length === 0) {
+            setWritePreview(null);
+            setWritePreviewPending(false);
+            return;
+        }
+        let active = true;
+        setWritePreview(null);
+        setWritePreviewPending(true);
+        void client
+            .execute({
+                type: 'import.preview',
+                ids: imports.map((item) => item.id),
+                format: selectedFormat,
+                expectedImportRevision: workspace.imports.revision,
+                expectedDeviceRevision: device.revision,
+            })
+            .then((result) => {
+                if (!active) return;
+                setWritePreviewPending(false);
+                if (!result.ok) {
+                    setMessage(result.error.message);
+                    return;
+                }
+                setWritePreview(result.importPreview ?? null);
+            })
+            .catch((error) => {
+                if (!active) return;
+                setWritePreviewPending(false);
+                setMessage(errorMessage(error));
+            });
+        return () => {
+            active = false;
+        };
+    }, [client, device, imports, selectedFormat, workspace.imports.revision, writeReviewOpen]);
 
     useEffect(() => {
         if (!taskCenterOpen || recentTasks.length === 0) return;
@@ -587,8 +665,33 @@ export const Workbench = () => {
             open();
             return;
         }
-        dispatch(convertDialogActions.setVisible(true));
+        setWriteReviewOpen(true);
     };
+
+    const startWrite = () => {
+        if (!writePreview || !selectedFormat) return;
+        void run(async () => {
+            const result = await execute({
+                type: 'import.write',
+                ids: writePreview.selectedIds,
+                format: selectedFormat,
+                enableReplayGain,
+                enableGapless,
+                removeOnSuccess: true,
+                expectedRevision: writePreview.importRevision,
+                expectedDeviceSessionId: writePreview.deviceSessionId,
+                expectedDeviceRevision: writePreview.deviceRevision,
+                interactiveHomebrewAuthorization: INTERACTIVE_HOMEBREW_AUTHORIZATION,
+            });
+            if (!result.task) throw new Error('The recording task did not start.');
+            setWriteReviewOpen(false);
+            setSelectedTaskId(result.task.id);
+            setTaskCenterOpen(true);
+            setMessage('Recording started. Keep the USB cable connected until the task finishes.');
+        });
+    };
+
+    const writePreviewFits = canStartRecording(writePreview, selectedEncoderSupport.state);
 
     const discLabel = disc?.title || 'Untitled MiniDisc';
     const capacityUsed = disc
@@ -719,7 +822,7 @@ export const Workbench = () => {
                                 {contentView === 'disc' && tracks.length > 0 ? <button className="secondary-button workbench__compact-button" onClick={toggleSelectAllTracks}><SelectAllRoundedIcon /> {selectedTrackIndexes.length === tracks.length ? 'Clear' : 'Select all'}</button> : null}
                                 {contentView === 'plan' && imports.length > 0 ? <button className="secondary-button workbench__compact-button" onClick={toggleSelectAllImports}><SelectAllRoundedIcon /> {selectedImportIds.length === imports.length ? 'Clear' : 'Select all'}</button> : null}
                                 <button className="secondary-button" onClick={open} disabled={!canUpload}><AddRoundedIcon /> Add audio</button>
-                                <button className="primary-button" onClick={openWriter} disabled={!canUpload || imports.length === 0 || busy}><AlbumIcon /> Write to MiniDisc</button>
+                                <button className="primary-button" onClick={openWriter} disabled={!canUpload || imports.length === 0 || !selectedFormat || busy}><AlbumIcon /> Write to MiniDisc</button>
                             </div>
                         </div>
 
@@ -914,7 +1017,6 @@ export const Workbench = () => {
             <DiscProtectedDialog />
             <RenameDialog />
             <ErrorDialog />
-            <ConvertDialog files={uploadedFiles} />
             <FactoryModeBadSectorDialog />
             <DumpDialog trackIndexes={selectedTrackIndexes} isCapableOfDownload={canDownload || factoryModeRippingInMainUi} isExploitDownload={factoryModeRippingInMainUi} />
             <SongRecognitionDialog />
@@ -923,6 +1025,44 @@ export const Workbench = () => {
             <ChangelogDialog />
             <PanicDialog />
 
+            {writeReviewOpen ? (
+                <div className="workbench__modal-backdrop" role="presentation" onMouseDown={() => !busy && setWriteReviewOpen(false)}>
+                    <section className="workbench__modal workbench__write-modal" role="dialog" aria-modal="true" aria-labelledby="workbench-write-title" onMouseDown={(event) => event.stopPropagation()}>
+                        <span className="workbench__eyebrow">WRITE REVIEW</span>
+                        <h2 id="workbench-write-title">Record {imports.length} track{imports.length === 1 ? '' : 's'} to MiniDisc</h2>
+                        <p>Review the exact recording mode and capacity calculation before the device starts writing.</p>
+                        {writePreviewPending ? <div className="workbench__write-pending"><i />Validating the recording plan…</div> : null}
+                        {writePreview ? (
+                            <>
+                                <dl className="workbench__write-summary">
+                                    <div><dt>Recording mode</dt><dd>{codecLabel(selectedFormat)}</dd></div>
+                                    <div><dt>Tracks</dt><dd>{writePreview.selectedIds.length}</dd></div>
+                                    <div><dt>Required</dt><dd>{formatPreviewCapacity(writePreview, writePreview.capacity.required)}</dd></div>
+                                    <div><dt>Remaining</dt><dd>{formatPreviewCapacity(writePreview, writePreview.capacity.remaining)}</dd></div>
+                                    <div><dt>Half-width title space</dt><dd>{writePreview.titles.halfWidthRemaining}</dd></div>
+                                    <div><dt>Full-width title space</dt><dd>{writePreview.titles.fullWidthRemaining}</dd></div>
+                                </dl>
+                                {writePreview.issues.map((issue) => <div className="workbench__write-warning" key={`${issue.id}:${issue.code}`}>{issue.message}</div>)}
+                                {!writePreview.capacity.fits ? <div className="workbench__write-warning">The recording plan does not fit on this MiniDisc.</div> : null}
+                                {!writePreview.titles.fits ? <div className="workbench__write-warning">The track titles exceed the MiniDisc title capacity.</div> : null}
+                                {selectedEncoderSupport.state === 'unsupported' ? <div className="workbench__write-warning">The selected encoder cannot produce {codecLabel(selectedFormat)} audio in this build.</div> : null}
+                                <label className="workbench__write-option">
+                                    <input type="checkbox" checked={enableReplayGain} onChange={(event) => setEnableReplayGain(event.target.checked)} />
+                                    <span>Apply ReplayGain<small>Normalize perceived loudness while encoding compatible source audio.</small></span>
+                                </label>
+                                <label className={`workbench__write-option ${selectedEncoderSupport.gapless ? '' : 'is-disabled'}`}>
+                                    <input type="checkbox" checked={enableGapless} disabled={!selectedEncoderSupport.gapless} onChange={(event) => setEnableGapless(event.target.checked)} />
+                                    <span>Gapless encoding<small>{selectedEncoderSupport.gapless ? 'Preserve transitions between adjacent tracks.' : 'The selected encoder does not support gapless output.'}</small></span>
+                                </label>
+                            </>
+                        ) : null}
+                        <div className="workbench__modal-actions">
+                            <button className="secondary-button" onClick={() => setWriteReviewOpen(false)} disabled={busy}>Cancel</button>
+                            <button className="primary-button" onClick={startWrite} disabled={busy || writePreviewPending || !writePreviewFits}>Start recording</button>
+                        </div>
+                    </section>
+                </div>
+            ) : null}
             {groupDialogOpen ? (
                 <div className="workbench__modal-backdrop" role="presentation" onMouseDown={() => setGroupDialogOpen(false)}>
                     <section className="workbench__modal" role="dialog" aria-modal="true" aria-labelledby="workbench-group-title" onMouseDown={(event) => event.stopPropagation()}>
@@ -930,7 +1070,7 @@ export const Workbench = () => {
                         <h2 id="workbench-group-title">Create a group</h2>
                         <p>Tracks {(sortedSelectedTrackIndexes[0] ?? 0) + 1}–{(sortedSelectedTrackIndexes.at(-1) ?? 0) + 1} will stay in their current order.</p>
                         <label>Group name<input autoFocus value={groupDraft} onChange={(event) => setGroupDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && groupDraft.trim()) createGroup(); }} /></label>
-                        <div><button className="secondary-button" onClick={() => setGroupDialogOpen(false)}>Cancel</button><button className="primary-button" onClick={createGroup} disabled={!groupDraft.trim() || busy}>Create group</button></div>
+                        <div className="workbench__modal-actions"><button className="secondary-button" onClick={() => setGroupDialogOpen(false)}>Cancel</button><button className="primary-button" onClick={createGroup} disabled={!groupDraft.trim() || busy}>Create group</button></div>
                     </section>
                 </div>
             ) : null}

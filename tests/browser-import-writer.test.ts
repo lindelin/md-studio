@@ -290,4 +290,51 @@ describe('BrowserImportWriter', () => {
         assert.equal(finished.status, 'succeeded');
         assert.equal(queue.snapshot().items.length, 0);
     });
+
+    it('transcodes an MP3 import when the selected device format is not MP3', async () => {
+        const tasks = new TaskManager();
+        const queue = new ImportQueue();
+        const added = queue.add([
+            {
+                source: { kind: 'browser-file', name: 'source.mp3', reference: 'browser:mp3' },
+                metadata: {
+                    title: 'MP3 source',
+                    duration: 30,
+                    forcedEncoding: { codec: 'MP3', bitrate: 192 },
+                    bytesToSkip: 0,
+                },
+                payload: new File([Uint8Array.from([9, 8])], 'source.mp3'),
+            },
+        ]);
+        let prepareCount = 0;
+        let uploaded = new Uint8Array();
+        const exporter = makeAudioExporter();
+        exporter.prepare = async () => {
+            prepareCount += 1;
+        };
+        const writer = new BrowserImportWriter({
+            getApplication: () =>
+                makeApplication(async (_title, _fullWidthTitle, data) => {
+                    uploaded = new Uint8Array(data);
+                }),
+            getAudioExportService: async () => exporter,
+            getUseFullWidthTitles: () => false,
+            localFiles: new BrowserLocalFileGateway(),
+            showImportDialog() {},
+        });
+
+        const started = await writer.start(
+            {
+                format: { codec: 'AT3', bitrate: 132 },
+                expectedRevision: added.revision,
+            },
+            queue,
+            tasks
+        );
+        const finished = await waitForFinished(tasks, started.id);
+
+        assert.equal(finished.status, 'succeeded');
+        assert.equal(prepareCount, 1);
+        assert.deepEqual([...uploaded], [1, 2, 3, 4]);
+    });
 });

@@ -1,4 +1,5 @@
 import type { ConfigurableServiceDescriptor } from '../../application/service-catalog';
+import type { ImportPreview } from '../../application/import-preview';
 import type { CustomParameters } from '../../custom-parameters';
 
 export type WorkbenchDraftField = 'title' | 'album' | 'artist' | 'fullWidthTitle';
@@ -161,6 +162,16 @@ export function findTaskNeedingAttention<T extends { id: string; status: string 
 export function getTaskErrorDetail(error?: { message: string; details?: Record<string, unknown> }) {
     const detail = error?.details?.displayMessage;
     return typeof detail === 'string' && detail.trim() && detail !== error?.message ? detail : null;
+}
+
+export function canStartRecording(preview: ImportPreview | null, encoderState: string) {
+    return Boolean(
+        preview &&
+            preview.complete &&
+            preview.capacity.fits &&
+            preview.titles.fits &&
+            encoderState !== 'unsupported'
+    );
 }
 
 export function resolveRowNavigationIndex(currentIndex: number, rowCount: number, key: string, pageSize = 10) {

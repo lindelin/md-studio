@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
     areServiceParametersValid,
     buildBatchMetadataUpdates,
+    canStartRecording,
     createDefaultServiceParameters,
     findTaskNeedingAttention,
     getTaskErrorDetail,
@@ -161,6 +162,26 @@ describe('Studio Workbench task presentation', () => {
             'Reconnect and retry.'
         );
         assert.equal(getTaskErrorDetail({ message: 'Same', details: { displayMessage: 'Same' } }), null);
+    });
+});
+
+describe('Studio Workbench write review', () => {
+    const preview = {
+        complete: true,
+        capacity: { fits: true },
+        titles: { fits: true },
+    } as Parameters<typeof canStartRecording>[0];
+
+    it('starts only after a complete preview fits capacity and title storage', () => {
+        assert.equal(canStartRecording(preview, 'supported'), true);
+        assert.equal(canStartRecording(null, 'supported'), false);
+        assert.equal(canStartRecording({ ...preview!, complete: false }, 'supported'), false);
+        assert.equal(
+            canStartRecording({ ...preview!, capacity: { ...preview!.capacity, fits: false } }, 'supported'),
+            false
+        );
+        assert.equal(canStartRecording({ ...preview!, titles: { ...preview!.titles, fits: false } }, 'supported'), false);
+        assert.equal(canStartRecording(preview, 'unsupported'), false);
     });
 });
 

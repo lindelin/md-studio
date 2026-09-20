@@ -102,7 +102,7 @@ export class BrowserImportWriter implements ImportWriter {
         };
 
         try {
-            const files = await this.resolveFiles(selected);
+            const files = await this.resolveFiles(selected, format);
             const usesAtrac1Upload = files.some(({ forcedEncoding }) => forcedEncoding?.codec === 'SPS' || forcedEncoding?.codec === 'SPM');
             const usesMonoUploadExploit = format.codec === 'SPM' && !device.capabilities.includes('track.uploadMono');
             const requiredExploitCapabilities = [usesAtrac1Upload && 'uploadAtrac1', usesMonoUploadExploit && 'uploadMonoSP'].filter(
@@ -301,7 +301,7 @@ export class BrowserImportWriter implements ImportWriter {
         }
     }
 
-    private async resolveFiles(selected: ReturnType<ImportQueue['resolveSelection']>) {
+    private async resolveFiles(selected: ReturnType<ImportQueue['resolveSelection']>, selectedFormat: Codec) {
         const files: TitledFile[] = [];
         for (const { item, payload } of selected) {
             let resolvedPayload = payload;
@@ -319,8 +319,12 @@ export class BrowserImportWriter implements ImportWriter {
                 file: resolvedPayload,
                 title: item.title,
                 fullWidthTitle: item.fullWidthTitle ?? '',
-                forcedEncoding: (item.forcedEncoding as TitledFile['forcedEncoding']) ?? null,
-                bytesToSkip: item.bytesToSkip ?? 0,
+                forcedEncoding:
+                    item.forcedEncoding?.codec === 'MP3' && selectedFormat.codec !== 'MP3'
+                        ? null
+                        : ((item.forcedEncoding as TitledFile['forcedEncoding']) ?? null),
+                bytesToSkip:
+                    item.forcedEncoding?.codec === 'MP3' && selectedFormat.codec !== 'MP3' ? 0 : (item.bytesToSkip ?? 0),
                 artist: item.artist ?? '',
                 album: item.album ?? '',
             });
