@@ -2,7 +2,7 @@ import { ApplicationError } from './contracts';
 import type { SettingsStore } from './settings-store';
 
 export const ONLINE_SERVICE_DISABLED_MESSAGE =
-    'Online services are disabled. Enable them in Settings before using a remote encoder, remote library, or song recognition.';
+    'Online services are disabled. Enable them in Settings before using Remote NetMD, a remote encoder, remote library, or song recognition.';
 
 export type OnlineServiceGuard = () => void;
 

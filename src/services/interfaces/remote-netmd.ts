@@ -4,6 +4,7 @@ import { concatUint8Arrays } from 'netmd-js/dist/utils';
 import { asyncMutex } from '../../utils';
 import { Capability, NetMDService, Group, Disc, Track, convertDiscToNJS, convertTrackToNJS, Codec, WireformatDict } from './netmd';
 import { makeNetMDEncryptPacketIterator } from './netmd-encrypt-worker';
+import { assertOnlineServicesEnabled, type OnlineServiceGuard } from '../../application/online-service-policy';
 
 export class NetMDRemoteService extends NetMDService {
     private logger?: Logger;
@@ -11,17 +12,20 @@ export class NetMDRemoteService extends NetMDService {
     private capabilities: Capability[] | null = null;
     private friendlyName: string;
     private useChunkedTransfersForLP: boolean;
+    private readonly guardOnlineService: OnlineServiceGuard;
 
     constructor({
         debug = false,
         serverAddress,
         friendlyName,
         useChunkedTransfersForLP = false,
+        guardOnlineService = () => assertOnlineServicesEnabled(false),
     }: {
         debug: boolean;
         serverAddress: string;
         friendlyName: string;
         useChunkedTransfersForLP: boolean;
+        guardOnlineService?: OnlineServiceGuard;
     }) {
         super();
         if (debug) {
@@ -42,6 +46,7 @@ export class NetMDRemoteService extends NetMDService {
         this.server = serverAddress.endsWith('/') ? serverAddress.substring(0, serverAddress.length - 1) : serverAddress;
         this.friendlyName = friendlyName;
         this.useChunkedTransfersForLP = useChunkedTransfersForLP;
+        this.guardOnlineService = guardOnlineService;
     }
 
     getRemainingCharactersForTitles(disc: Disc) {
@@ -90,6 +95,7 @@ export class NetMDRemoteService extends NetMDService {
     }
 
     private async getFromServer(path: string, parameters?: { [key: string]: any }, method: string = 'GET') {
+        this.guardOnlineService();
         try {
             const url = new URL(`${this.server}/${path}`);
             let body = undefined;
@@ -210,6 +216,7 @@ export class NetMDRemoteService extends NetMDService {
         _format: Codec,
         progressCallback: (progress: { written: number; encrypted: number; total: number }) => void
     ) {
+        this.guardOnlineService();
         return new Promise<void>((resolve, reject) => {
             const format = _format.codec === 'AT3' ? { codec: _format.bitrate === 66 ? 'LP4' : 'LP2' } : _format;
             const servURL = new URL(this.server);

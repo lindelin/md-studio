@@ -8,7 +8,7 @@ import { BrowserAdvancedTrackExporter } from './advanced-track-export';
 import type { AdaptiveFile } from '../utils';
 import { describeDeviceSessionFailure, DeviceSessionConnector } from './device-session';
 import type { MinidiscSpec, NetMDService } from '../services/interfaces/netmd';
-import { loadService } from '../services/interface-service-manager';
+import { doesServiceRequireOnlineServices, loadService } from '../services/interface-service-manager';
 import { assertOnlineServicesEnabled } from './online-service-policy';
 
 function connectDeviceSession(service: NetMDService, spec: MinidiscSpec) {
@@ -183,6 +183,11 @@ export function getApplicationClient() {
                         message: null,
                     });
                     try {
+                        if (doesServiceRequireOnlineServices(request)) {
+                            assertOnlineServicesEnabled(
+                                serviceRegistry.settingsStore.getSnapshot().values.onlineServicesEnabled
+                            );
+                        }
                         const loaded = await loadService(request);
                         if (!loaded) {
                             serviceRegistry.workspaceStore.setConnection(disconnectedDeviceConnection());

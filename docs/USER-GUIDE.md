@@ -36,7 +36,7 @@ Advanced controls are enabled only when the connected adapter advertises the req
 
 Normal MiniDisc work is local. File import, metadata editing, FFmpeg conversion, ATRAC encoding, queues, caches, exports, MCP/CLI traffic and USB communication stay on this computer. A hosted web version downloads static application files and does not send those jobs to a project server.
 
-**Settings → Online services** is off for a new installation. While it is off, the command layer and the request implementations block the remote ATRAC encoder, remote music library and song recognition. Turning it on only permits those features; each still runs after the user selects or starts it. Turning it off again returns a selected remote encoder to a bundled local encoder and clears the remote library selection.
+**Settings → Online services** is off for a new installation. While it is off, the connection screen and request implementations block Remote NetMD, the remote ATRAC encoder, remote music library and song recognition. Turning it on only permits those features; each still runs after the user selects or starts it. Turning it off again returns a selected remote encoder to a bundled local encoder, clears the remote library selection and blocks the next request from an existing Remote NetMD connection.
 
 ## Record audio to a disc
 

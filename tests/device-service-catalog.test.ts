@@ -7,6 +7,7 @@ const {
     filterOutCorrupted,
     getConnectButtonName,
     getSimpleServices,
+    doesServiceRequireOnlineServices,
 } = await import('../src/services/interface-service-manager.ts');
 
 describe('device service catalog', () => {
@@ -17,6 +18,8 @@ describe('device service catalog', () => {
             { id: 'himd-full', name: 'HiMD (secure full access)' },
         ]);
         assert.equal(getConnectButtonName({ id: 'usb-netmd', name: 'Renamed display label' }), 'Connect');
+        assert.equal(doesServiceRequireOnlineServices({ id: 'usb-netmd', name: 'USB NetMD' }), false);
+        assert.equal(doesServiceRequireOnlineServices({ id: 'remote-netmd', name: 'Remote NetMD' }), true);
     });
 
     it('migrates valid name-only custom devices to canonical ids', () => {

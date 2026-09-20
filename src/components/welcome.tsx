@@ -14,6 +14,7 @@ import { actions as errorDialogActions } from '../redux/error-dialog-feature';
 import { actions as otherDialogActions } from '../redux/other-device-feature';
 import {
     doesServiceRequireChrome,
+    doesServiceRequireOnlineServices,
     getSimpleServices,
     Services,
     type ServiceConstructionInfo,
@@ -22,7 +23,7 @@ import ChromeIconPath from '../images/chrome-icon.svg';
 import { AboutDialog } from './about-dialog';
 import { OtherDeviceDialog } from './other-device-dialog';
 import { TopMenu } from './topmenu';
-import { useApplicationClient, useApplicationWorkspace } from './use-application-client';
+import { useApplicationClient, useApplicationSettings, useApplicationWorkspace } from './use-application-client';
 import { useI18n } from './use-i18n';
 import { WorkbenchSettingsDialog } from './workbench/workbench-settings-dialog';
 import { AppDialog } from './app-dialog';
@@ -32,6 +33,7 @@ export const Welcome = () => {
     const { t } = useI18n();
     const dispatch = useDispatch();
     const applicationClient = useApplicationClient();
+    const settings = useApplicationSettings();
     const { connection } = useApplicationWorkspace();
     const { browserSupported, runningChrome, availableServices, lastSelectedService } = useShallowEqualSelector(
         (state) => state.appState
@@ -50,6 +52,9 @@ export const Welcome = () => {
     const connectionFailed = connection.phase === 'error';
     const selectedServiceUnavailable = Boolean(
         selectedService && doesServiceRequireChrome(selectedService) && !runningChrome
+    );
+    const selectedServiceOnlineDisabled = Boolean(
+        selectedService && doesServiceRequireOnlineServices(selectedService) && !settings.onlineServicesEnabled
     );
 
     const connectToService = async (service = selectedService, serviceIndex = selectedIndex) => {
@@ -141,15 +146,16 @@ export const Welcome = () => {
                             <label className="welcome-workspace__field">
                                 <span>{t('Connection method')}</span>
                                 <select value={selectedIndex} disabled={connecting} onChange={(event) => selectService(Number(event.target.value))}>
-                                    {availableServices.map((service, index) => <option value={index} key={`${service.name}:${index}`}>{service.name}</option>)}
+                                    {availableServices.map((service, index) => <option value={index} key={`${service.name}:${index}`}>{service.name}{doesServiceRequireOnlineServices(service) && !settings.onlineServicesEnabled ? ` · ${t('online access disabled')}` : ''}</option>)}
                                 </select>
                             </label>
                             <div className="welcome-workspace__actions">
-                                <button className="welcome-workspace__primary" disabled={connecting || selectedServiceUnavailable || !selectedService} onClick={requestConnection}><UsbRoundedIcon />{connecting ? t('Connecting…') : t('Connect device')}</button>
+                                <button className="welcome-workspace__primary" disabled={connecting || selectedServiceUnavailable || selectedServiceOnlineDisabled || !selectedService} onClick={requestConnection}><UsbRoundedIcon />{connecting ? t('Connecting…') : t('Connect device')}</button>
                                 <button className="welcome-workspace__secondary" disabled={connecting} onClick={addCustomDevice}><AddRoundedIcon />{t('Add custom device')}</button>
                                 {selectedServiceIsCustom ? <button className="welcome-workspace__danger" disabled={connecting} onClick={removeSelectedCustomDevice}><DeleteOutlineRoundedIcon />{t('Remove')}</button> : null}
                             </div>
                             {selectedServiceUnavailable ? <div className="welcome-workspace__notice">{t('The selected connection needs a Chromium browser with WebUSB.')}</div> : null}
+                            {selectedServiceOnlineDisabled ? <div className="welcome-workspace__notice">{t('Remote NetMD uses a network server. Enable online services in Settings before connecting.')}</div> : null}
                             {preferenceError ? <div className="welcome-workspace__error" role="alert"><strong>{t('Could not save this preference.')}</strong><span>{preferenceError}</span></div> : null}
                             {connectionFailed ? <div className="welcome-workspace__error" role="alert"><strong>{t('Connection failed')}</strong><span>{connection.message}</span></div> : null}
                             {!window.native?.interface && navigator.userAgent.includes('Vivaldi') ? <div className="welcome-workspace__notice"><strong>{t('Notice for users of the Vivaldi web browser')}</strong><span>{t("Vivaldi's implementation of WebUSB is broken.")} {t('Please switch to a different Chromium-based browser.')}</span></div> : null}
