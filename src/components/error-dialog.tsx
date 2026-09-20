@@ -18,7 +18,7 @@ export const ErrorDialog = () => {
             onClose={handleClose}
             actions={<button className="app-dialog__button--primary" onClick={handleClose}>{t('Close')}</button>}
         >
-            <p role="alert">{error}</p>
+            <p role="alert">{t(error)}</p>
         </AppDialog>
     );
 };

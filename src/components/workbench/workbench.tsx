@@ -1275,7 +1275,7 @@ export const Workbench = () => {
             </main>
 
             {isDragActive ? <div className="workbench__drop-overlay"><FolderOpenIcon /><strong>{t('Drop audio to add it to the recording plan')}</strong></div> : null}
-            {message ? <button className="workbench__toast" aria-live="polite" aria-atomic="true" onClick={() => setMessage(null)}>{message}</button> : null}
+            {message ? <button className="workbench__toast" aria-live="polite" aria-atomic="true" onClick={() => setMessage(null)}>{t(message)}</button> : null}
 
             <DiscProtectedDialog />
             <ErrorDialog />

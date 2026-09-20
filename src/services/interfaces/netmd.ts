@@ -64,7 +64,6 @@ import type { HiMDCodecName } from '../../domain/himd-codec';
 import { makeNetMDEncryptPacketIterator } from './netmd-encrypt-worker';
 import { createNetMDTransferGuard } from './netmd-transfer-guard';
 import { Capability, ExploitCapability } from './capabilities';
-import { runtimeTranslate } from '../../runtime-i18n';
 export { Capability, ExploitCapability } from './capabilities';
 
 export type CodecFamily = 'SPS' | 'SPM' | HiMDCodecName;
@@ -913,7 +912,7 @@ class NetMDFactoryUSBService implements NetMDFactoryService {
     @asyncMutex
     async prepareDownload(useSlowerExploit: boolean): Promise<void> {
         if (useSlowerExploit && !isCompatible(CachedSectorControlDownload, this.exploitStateManager.device)) {
-            alert(runtimeTranslate('The slower recovery method is not compatible with this device. The default method will be used.'));
+            console.warn('The slower recovery method is not compatible with this device. Using the default recovery method.');
             useSlowerExploit = false;
         }
         const exploitConstructor = useSlowerExploit

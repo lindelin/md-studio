@@ -3,7 +3,6 @@ import { Capability, Codec, DeviceStatus, Disc, Group, NetMDService, TitleParame
 import { resolvePathFromGlobalIndex, TrackMetadata, DeviceDefinition, decryptMP3, initializeIfNeeded } from 'networkwm-js';
 import { FSAHiMDFilesystem, HiMDKBPSToFrameSize, generateCodecInfo } from "himd-js";
 import { AbstractedTrack, DatabaseAbstraction } from "networkwm-js";
-import { runtimeTranslate } from '../../runtime-i18n';
 
 const CHUNK_SIZE = 524288;
 
@@ -318,18 +317,19 @@ export class NetworkWMService extends NetMDService {
         return Promise.resolve();
     }
 
-    // Can't be implemented
-    notAvailableInThisMode = () => window.alert(runtimeTranslate('This action is not available in the current mode.'));
+    // Capability gating keeps these methods out of the UI. Throw if a caller
+    // bypasses that boundary instead of reporting a false success.
+    notAvailableInThisMode = (): never => { throw new Error('This action is not available for Network Walkman devices.'); };
     async play(): Promise<void> { this.notAvailableInThisMode(); }
     async pause(): Promise<void> { this.notAvailableInThisMode(); }
-    async stop(): Promise<void> {}
+    async stop(): Promise<void> { this.notAvailableInThisMode(); }
     async next(): Promise<void> { this.notAvailableInThisMode(); }
     async prev(): Promise<void> { this.notAvailableInThisMode(); }
     async gotoTrack(_index: number): Promise<void> { this.notAvailableInThisMode(); }
     async gotoTime(_index: number, _hour: number, _minute: number, _second: number, _frame: number): Promise<void> { this.notAvailableInThisMode(); }
-    async getPosition(): Promise<number[]> { throw new Error("Not implemented!"); }
-    ejectDisc(): Promise<void> { throw new Error("Not implemented!"); }
-    wipeDiscTitleInfo(): Promise<void> { throw new Error("Not implemented!"); }
+    async getPosition(): Promise<number[]> { return this.notAvailableInThisMode(); }
+    async ejectDisc(): Promise<void> { this.notAvailableInThisMode(); }
+    async wipeDiscTitleInfo(): Promise<void> { this.notAvailableInThisMode(); }
     renameDisc(_newName: string, _newFullWidthName?: string): Promise<void> {
         return Promise.reject(new Error('Renaming the Network Walkman volume is not supported.'));
     } // TODO: Volume label support...

@@ -12,7 +12,12 @@ import { deleteService } from '../redux/actions';
 import { actions as appActions } from '../redux/app-feature';
 import { actions as errorDialogActions } from '../redux/error-dialog-feature';
 import { actions as otherDialogActions } from '../redux/other-device-feature';
-import { doesServiceRequireChrome, getSimpleServices, Services } from '../services/interface-service-manager';
+import {
+    doesServiceRequireChrome,
+    getSimpleServices,
+    Services,
+    type ServiceConstructionInfo,
+} from '../services/interface-service-manager';
 import ChromeIconPath from '../images/chrome-icon.svg';
 import { AboutDialog } from './about-dialog';
 import { OtherDeviceDialog } from './other-device-dialog';
@@ -20,6 +25,7 @@ import { TopMenu } from './topmenu';
 import { useApplicationClient, useApplicationWorkspace } from './use-application-client';
 import { useI18n } from './use-i18n';
 import { WorkbenchSettingsDialog } from './workbench/workbench-settings-dialog';
+import { AppDialog } from './app-dialog';
 import './welcome.css';
 
 export const Welcome = () => {
@@ -32,6 +38,7 @@ export const Welcome = () => {
     );
     const [showWhyUnsupported, setWhyUnsupported] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const [fullHimdReview, setFullHimdReview] = useState<{ service: ServiceConstructionInfo; index: number } | null>(null);
     const openSettings = useCallback(() => setSettingsOpen(true), []);
     const closeSettings = useCallback(() => setSettingsOpen(false), []);
     const simpleServicesLength = getSimpleServices().length;
@@ -44,11 +51,11 @@ export const Welcome = () => {
         selectedService && doesServiceRequireChrome(selectedService) && !runningChrome
     );
 
-    const connectToService = async () => {
-        if (!selectedService) return;
-        dispatch(appActions.setLastSelectedService(selectedIndex));
+    const connectToService = async (service = selectedService, serviceIndex = selectedIndex) => {
+        if (!service) return;
+        dispatch(appActions.setLastSelectedService(serviceIndex));
         try {
-            const result = await applicationClient.connectLocalDevice(selectedService);
+            const result = await applicationClient.connectLocalDevice(service);
             if (result.connected) {
                 dispatch(
                     batchActions([
@@ -61,6 +68,15 @@ export const Welcome = () => {
         } catch (error) {
             console.error(error);
         }
+    };
+
+    const requestConnection = () => {
+        if (!selectedService) return;
+        if (selectedService.id === 'himd-full' && !window.native?.himdFullInterface) {
+            setFullHimdReview({ service: selectedService, index: selectedIndex });
+            return;
+        }
+        void connectToService();
     };
 
     const addCustomDevice = () => {
@@ -115,7 +131,7 @@ export const Welcome = () => {
                                 </select>
                             </label>
                             <div className="welcome-workspace__actions">
-                                <button className="welcome-workspace__primary" disabled={connecting || selectedServiceUnavailable || !selectedService} onClick={() => void connectToService()}><UsbRoundedIcon />{connecting ? t('Connecting…') : t('Connect device')}</button>
+                                <button className="welcome-workspace__primary" disabled={connecting || selectedServiceUnavailable || !selectedService} onClick={requestConnection}><UsbRoundedIcon />{connecting ? t('Connecting…') : t('Connect device')}</button>
                                 <button className="welcome-workspace__secondary" disabled={connecting} onClick={addCustomDevice}><AddRoundedIcon />{t('Add custom device')}</button>
                                 {selectedServiceIsCustom ? <button className="welcome-workspace__danger" disabled={connecting} onClick={removeSelectedCustomDevice}><DeleteOutlineRoundedIcon />{t('Remove')}</button> : null}
                             </div>
@@ -155,6 +171,30 @@ export const Welcome = () => {
             <WorkbenchSettingsDialog open={settingsOpen} onClose={closeSettings} />
             <AboutDialog />
             <OtherDeviceDialog />
+            <AppDialog
+                open={fullHimdReview !== null}
+                size="small"
+                title={t('Secure HiMD full access')}
+                onClose={() => setFullHimdReview(null)}
+                actions={
+                    <>
+                        <button onClick={() => setFullHimdReview(null)}>{t('Cancel')}</button>
+                        <button
+                            className="app-dialog__button--primary"
+                            onClick={() => {
+                                const reviewed = fullHimdReview;
+                                setFullHimdReview(null);
+                                if (reviewed) void connectToService(reviewed.service, reviewed.index);
+                            }}
+                        >
+                            {t('Continue with browser access')}
+                        </button>
+                    </>
+                }
+            >
+                <p>{t('Browser HiMD full-access mode is experimental. ElectronWMD is recommended for this workflow.')}</p>
+                <p>{t('Continue only if you understand that this mode requests advanced access to the connected HiMD device.')}</p>
+            </AppDialog>
         </div>
     );
 };

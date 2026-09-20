@@ -29,6 +29,14 @@ describe('UI language', () => {
     it('localizes non-React browser prompts with the same language rules', () => {
         assert.equal(getCurrentUiLanguage('zh-CN'), 'zh-CN');
         assert.equal(runtimeTranslate('MiniDisc recording completed', 'zh-CN'), 'MiniDisc 录制完成');
+        assert.equal(
+            runtimeTranslate('This HiMD has pending changes. Apply them before refreshing the device.', 'zh-CN'),
+            '这张 HiMD 还有尚未应用的更改。请先应用更改，再刷新设备。'
+        );
+        assert.equal(
+            runtimeTranslate('This action is not available for Network Walkman devices.', 'zh-CN'),
+            'Network Walkman 设备不支持此操作。'
+        );
         assert.equal(runtimeTranslate('MiniDisc recording completed', 'en-US'), 'MiniDisc recording completed');
     });
 });

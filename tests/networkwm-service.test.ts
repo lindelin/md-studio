@@ -60,6 +60,14 @@ describe('NetworkWMService status contract', () => {
         assert.equal((await service.getDeviceStatus()).canBeFlushed, false);
     });
 
+    it('fails unsupported playback and eject calls instead of reporting a browser-side success', async () => {
+        const service = createService();
+
+        await assert.rejects(() => service.play(), /not available for Network Walkman/);
+        await assert.rejects(() => service.stop(), /not available for Network Walkman/);
+        await assert.rejects(() => service.ejectDisc(), /not available for Network Walkman/);
+    });
+
     it('reads the final partial download chunk, reports completion, and closes the file', async () => {
         const service = createService();
         const source = Uint8Array.from({ length: 5_000 }, (_, index) => index % 251);

@@ -5,7 +5,6 @@ import type { Codec, MinidiscSpec, NetMDService, RecordingCodec } from './interf
 // dependencies. The connection catalog only needs this small static device list;
 // the full implementation remains behind the dynamic NetworkWMService import.
 import { DeviceIds } from 'networkwm-js/dist/devices.js';
-import { runtimeTranslate } from '../runtime-i18n';
 
 export interface LoadedService {
     service: NetMDService;
@@ -64,9 +63,6 @@ export const Services: ServicePrototype[] = [
             if (window.native?.himdFullInterface) {
                 const { HiMDSpec } = await import('./interfaces/himd');
                 return { service: window.native.himdFullInterface, spec: new HiMDSpec() };
-            }
-            if (!confirm(runtimeTranslate('Warning: For Full HiMD mode, it is recommended to use ElectronWMD instead. Continue?'))) {
-                return null;
             }
             const { HiMDFullService, HiMDSpec } = await import('./interfaces/himd');
             return { service: new HiMDFullService({ debug: true }), spec: new HiMDSpec() };

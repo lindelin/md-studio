@@ -4,7 +4,6 @@ import { concatUint8Arrays } from 'netmd-js/dist/utils';
 import { asyncMutex } from '../../utils';
 import { Capability, NetMDService, Group, Disc, Track, convertDiscToNJS, convertTrackToNJS, Codec, WireformatDict } from './netmd';
 import { makeNetMDEncryptPacketIterator } from './netmd-encrypt-worker';
-import { runtimeTranslate } from '../../runtime-i18n';
 
 export class NetMDRemoteService extends NetMDService {
     private logger?: Logger;
@@ -187,7 +186,7 @@ export class NetMDRemoteService extends NetMDService {
 
     @asyncMutex
     async wipeDiscTitleInfo() {
-        window.alert(runtimeTranslate('This feature is not available yet.'));
+        throw new Error('Clearing disc title information is not supported by Remote NetMD.');
     }
 
     @asyncMutex
