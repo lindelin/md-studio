@@ -3,8 +3,8 @@ import type { AdvancedTrackReader } from './contracts';
 import { ffmpegTranscode, timeToSeekArgs } from '../utils';
 import type { TaskManager, TaskSnapshot, TaskStageProgress } from './task-manager';
 
-export const RECOGNITION_SAMPLE_SECONDS = 12;
-export const RECOGNITION_ATTEMPTS = 3;
+const RECOGNITION_SAMPLE_SECONDS = 12;
+const RECOGNITION_ATTEMPTS = 3;
 
 export type TrackRecognitionMode = 'exploits' | 'line-in';
 export type TrackRecognitionPhase = 'reading' | 'calculating' | 'identifying';
@@ -271,7 +271,7 @@ export class BrowserTrackRecognizer implements TrackRecognizer {
     }
 }
 
-export async function createShazamRecognitionService(): Promise<AudioRecognitionService> {
+async function createShazamRecognitionService(): Promise<AudioRecognitionService> {
     const { s16LEToSamplesArray, Shazam } = await import('shazam-api');
     const shazam = new Shazam();
     const unrestrictedFetch = window.native?.unrestrictedFetchJSON;

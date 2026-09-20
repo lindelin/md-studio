@@ -5,7 +5,7 @@ import {  useEffect, useState } from 'react';
 import type { AppDispatch, RootState } from './redux/store';
 import { UnknownAction } from '@reduxjs/toolkit';
 
-export function themeSpacing(theme: Theme, number: number){
+function themeSpacing(theme: Theme, number: number){
     return parseInt(theme.spacing(number).slice(0, -2));
 }
 

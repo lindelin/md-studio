@@ -10,11 +10,11 @@ import { describeDeviceSessionFailure, DeviceSessionConnector } from './device-s
 import type { MinidiscSpec, NetMDService } from '../services/interfaces/netmd';
 import { loadService } from '../services/interface-service-manager';
 
-export function connectDeviceSession(service: NetMDService, spec: MinidiscSpec) {
+function connectDeviceSession(service: NetMDService, spec: MinidiscSpec) {
     return new DeviceSessionConnector(serviceRegistry, bindApplicationRuntime).connect(service, spec);
 }
 
-export function bindApplicationRuntime() {
+function bindApplicationRuntime() {
     if (!serviceRegistry.netmdService || !serviceRegistry.netmdSpec) {
         throw new Error('Cannot bind the application runtime before a device and MiniDisc specification are selected.');
     }
@@ -261,7 +261,7 @@ function disconnectedDeviceConnection() {
     };
 }
 
-export function getApplicationRuntime() {
+function getApplicationRuntime() {
     return serviceRegistry.application ?? bindApplicationRuntime();
 }
 

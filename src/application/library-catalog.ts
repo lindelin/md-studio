@@ -54,7 +54,7 @@ const MAX_LIBRARY_DEPTH = 64;
 const MAX_LIBRARY_ENTRIES = 100_000;
 const MAX_LIBRARY_TEXT_LENGTH = 1024;
 const MAX_LIBRARY_SEARCH_LENGTH = 256;
-export const MAX_LIBRARY_PAGE_SIZE = 200;
+const MAX_LIBRARY_PAGE_SIZE = 200;
 const MAX_LIBRARY_IMPORT_ITEMS = 500;
 
 function isTrackMetadata(value: unknown): value is LocalTrackMetadata {
