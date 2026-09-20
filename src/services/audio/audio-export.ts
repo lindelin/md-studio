@@ -28,7 +28,13 @@ export function getFfmpegInputExtension(fileName: string) {
     return match?.[1].toLowerCase() ?? 'bin';
 }
 
-export abstract class DefaultFfmpegAudioExportService implements AudioExportService {
+/**
+ * Shared browser-side FFmpeg lifecycle and PCM/MP3 conversion.
+ *
+ * Library services use this class directly because ATRAC conversion is handled by
+ * their own server. Full audio encoders extend DefaultFfmpegAudioExportService.
+ */
+export class FfmpegPcmMp3Transcoder {
     public ffmpegProcess?: FfmpegWorker;
     public loglines: { action: string; message: string }[] = [];
     public inFileName: string = ``;
@@ -126,14 +132,12 @@ export abstract class DefaultFfmpegAudioExportService implements AudioExportServ
         return `${additionalCommands} ${commonFormatting} ${moreParams ?? ''} -f ${outputFormat}`;
     }
 
-    async export(parameters: ExportParams, callback?: (obj: { state: number; total: number }) => void) {
+    async exportPcmOrMp3(parameters: ExportParams): Promise<ArrayBuffer> {
         try {
             const { format } = parameters;
             if (format.codec === `PCM`) return await this.encodePCM(parameters);
-            if (format.codec === 'AT3') return await this.encodeATRAC3(parameters, callback);
             if (format.codec === 'MP3') return await this.encodeMP3(parameters);
-            if (format.codec === 'A3+') return await this.encodeATRAC3Plus(parameters, callback);
-            throw new Error('Invalid format');
+            throw new Error(`Browser FFmpeg conversion does not support ${format.codec}.`);
         } finally {
             this.releaseFfmpegProcess();
         }
@@ -167,6 +171,20 @@ export abstract class DefaultFfmpegAudioExportService implements AudioExportServ
         await this.ffmpegProcess.transcode(this.inFileName, outFileName, ffmpegCommand);
         const { data } = await this.ffmpegProcess.read(outFileName);
         return data.buffer;
+    }
+}
+
+export abstract class DefaultFfmpegAudioExportService extends FfmpegPcmMp3Transcoder implements AudioExportService {
+    async export(parameters: ExportParams, callback?: (obj: { state: number; total: number }) => void) {
+        const { format } = parameters;
+        if (format.codec === `PCM` || format.codec === 'MP3') return this.exportPcmOrMp3(parameters);
+        try {
+            if (format.codec === 'AT3') return await this.encodeATRAC3(parameters, callback);
+            if (format.codec === 'A3+') return await this.encodeATRAC3Plus(parameters, callback);
+            throw new Error('Invalid format');
+        } finally {
+            this.releaseFfmpegProcess();
+        }
     }
 
     abstract encodeATRAC3(parameters: ExportParams, callback?: (obj: { state: number; total: number }) => void): Promise<ArrayBuffer>;

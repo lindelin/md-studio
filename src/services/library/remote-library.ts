@@ -1,36 +1,19 @@
 import { CustomParameters } from '../../custom-parameters';
 import { getATRACWAVEncoding } from '../../utils';
-import { CodecFamily } from '../interfaces/netmd';
-import { DefaultFfmpegAudioExportService, ExportParams } from '../audio/audio-export';
+import { ExportParams, FfmpegPcmMp3Transcoder } from '../audio/audio-export';
 import { retryRemoteRequest } from '../remote-request';
 import { LibraryService, LocalDatabase } from './library';
 
 const DATABASE_TIMEOUT_MS = 30_000;
 const AUDIO_TIMEOUT_MS = 120_000;
 
-export class RemoteLibraryService extends DefaultFfmpegAudioExportService implements LibraryService {
-    // These methods are required by the DefaultFFMPEGAudioExport service, but since
-    // this is a library, they won't be used
-    encodeATRAC3(parameters: ExportParams): Promise<ArrayBuffer> {
-        void parameters;
-        throw new Error('Method not implemented.');
-    }
-    encodeATRAC3Plus(parameters: ExportParams): Promise<ArrayBuffer> {
-        void parameters;
-        throw new Error('Method not implemented.');
-    }
-
+export class RemoteLibraryService extends FfmpegPcmMp3Transcoder implements LibraryService {
     public address: string;
     public originalFileName: string = '';
 
     constructor(parameters: CustomParameters) {
         super();
         this.address = parameters.address as string;
-    }
-
-    getSupport(codec: CodecFamily) {
-        void codec;
-        return { state: 'perfect' as const, gapless: false };
     }
 
     async getDatabase(): Promise<LocalDatabase> {
@@ -69,7 +52,7 @@ export class RemoteLibraryService extends DefaultFfmpegAudioExportService implem
             const fileName = fileTokens[fileTokens.length - 1];
             const asFile = new File([audio], fileName);
             await this.prepare(asFile);
-            return this.export(params);
+            return this.exportPcmOrMp3(params);
         } else {
             const { format, enableReplayGain } = params;
             const encodingURL = new URL(this.address);

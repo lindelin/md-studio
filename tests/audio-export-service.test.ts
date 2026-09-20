@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import type { CodecFamily } from '../src/services/interfaces/netmd.ts';
 import {
     DefaultFfmpegAudioExportService,
+    FfmpegPcmMp3Transcoder,
     getFfmpegInputExtension,
     type ExportParams,
 } from '../src/services/audio/audio-export.ts';
@@ -37,6 +38,18 @@ const params: ExportParams = {
 };
 
 describe('DefaultFfmpegAudioExportService cleanup', () => {
+    it('keeps the library transcoder limited to PCM and MP3', async () => {
+        let terminated = 0;
+        const service = new FfmpegPcmMp3Transcoder();
+        service.ffmpegProcess = {
+            worker: { terminate: () => { terminated += 1; } },
+        } as unknown as FfmpegProcess;
+
+        await assert.rejects(service.exportPcmOrMp3(params), /does not support AT3/);
+        assert.equal(terminated, 1);
+        assert.equal(service.ffmpegProcess, undefined);
+    });
+
     it('uses a bounded safe extension for the FFmpeg virtual input file', async () => {
         assert.equal(getFfmpegInputExtension('track.FLAC'), 'flac');
         assert.equal(getFfmpegInputExtension('track'), 'bin');
