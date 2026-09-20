@@ -30,6 +30,7 @@ import {
     updateOrderedSelection,
     type WorkbenchDraftField,
 } from './workbench-model';
+import { calculateVirtualListWindow, scrollOffsetForVirtualIndex } from './workbench-virtual-list';
 
 import AlbumIcon from '@mui/icons-material/Album';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
@@ -84,6 +85,7 @@ import './workbench.css';
 
 type NavigationSection = 'device' | 'library' | 'settings' | 'automation' | 'tools';
 type ContentView = 'plan' | 'disc';
+const PLAN_ROW_HEIGHT = 49;
 type PlanItem =
     | { kind: 'import'; key: string; index: number; item: ImportQueueItem }
     | { kind: 'track'; key: string; index: number; item: DisplayTrack };
@@ -159,6 +161,9 @@ export const Workbench = () => {
     const [message, setMessage] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
     const [badSectorPrompt, setBadSectorPrompt] = useState<AdvancedBadSectorPrompt | null>(null);
+    const [planViewport, setPlanViewport] = useState({ scrollTop: 0, height: 0 });
+    const [pendingPlanFocusIndex, setPendingPlanFocusIndex] = useState<number | null>(null);
+    const planBodyRef = useRef<HTMLDivElement>(null);
     const badSectorResolver = useRef<((choice: AdvancedBadSectorChoice) => void) | null>(null);
     const sessionBadSectorDecision = useRef<AdvancedBadSectorDecision | null>(null);
     const previousImportCount = useRef(imports.length);
@@ -177,6 +182,49 @@ export const Workbench = () => {
                 : tracks.map((item, index) => ({ kind: 'track' as const, key: `track:${item.index}`, index, item })),
         [contentView, imports, tracks]
     );
+    const planWindow = useMemo(
+        () =>
+            calculateVirtualListWindow({
+                itemCount: planItems.length,
+                rowHeight: PLAN_ROW_HEIGHT,
+                scrollTop: planViewport.scrollTop,
+                viewportHeight: planViewport.height,
+            }),
+        [planItems.length, planViewport]
+    );
+    const visiblePlanItems = planItems.slice(planWindow.start, planWindow.end);
+
+    useEffect(() => {
+        if (section !== 'device') return;
+        const element = planBodyRef.current;
+        if (!element) return;
+        const update = () => {
+            const next = { scrollTop: element.scrollTop, height: element.clientHeight };
+            setPlanViewport((current) =>
+                current.scrollTop === next.scrollTop && current.height === next.height ? current : next
+            );
+        };
+        update();
+        const observer = new ResizeObserver(update);
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, [section]);
+
+    useEffect(() => {
+        const element = planBodyRef.current;
+        if (!element) return;
+        element.scrollTop = 0;
+        setPlanViewport({ scrollTop: 0, height: element.clientHeight });
+        setPendingPlanFocusIndex(null);
+    }, [contentView]);
+
+    useEffect(() => {
+        if (pendingPlanFocusIndex === null) return;
+        const row = planBodyRef.current?.querySelector<HTMLElement>(`[data-row-index="${pendingPlanFocusIndex}"]`);
+        if (!row) return;
+        row.focus();
+        setPendingPlanFocusIndex(null);
+    }, [pendingPlanFocusIndex, planWindow.end, planWindow.start]);
 
     useEffect(() => {
         if (imports.length === 0) setContentView('disc');
@@ -582,6 +630,21 @@ export const Workbench = () => {
         setLastSelectedTrackIndex(next.anchor);
     };
 
+    const focusPlanRow = (index: number) => {
+        const element = planBodyRef.current;
+        if (!element) return;
+        const scrollTop = scrollOffsetForVirtualIndex({
+            index,
+            itemCount: planItems.length,
+            rowHeight: PLAN_ROW_HEIGHT,
+            scrollTop: element.scrollTop,
+            viewportHeight: element.clientHeight,
+        });
+        element.scrollTop = scrollTop;
+        setPlanViewport({ scrollTop, height: element.clientHeight });
+        setPendingPlanFocusIndex(index);
+    };
+
     const selectRowFromKeyboard = (event: React.KeyboardEvent<HTMLDivElement>, row: PlanItem) => {
         if (event.target !== event.currentTarget) return;
         if (event.key === 'Enter' || event.key === ' ') {
@@ -595,8 +658,7 @@ export const Workbench = () => {
         const next = planItems[nextIndex];
         if (!next) return;
         selectRow(event, next);
-        const target = event.currentTarget.parentElement?.children.item(nextIndex) as HTMLElement | null;
-        target?.focus();
+        focusPlanRow(nextIndex);
     };
 
     const toggleSelectAllTracks = () => {
@@ -753,6 +815,48 @@ export const Workbench = () => {
             : formatTimeFromSeconds(disc.total)
         : '—';
 
+    const renderPlanRow = (row: PlanItem) => {
+        const isSelected =
+            row.kind === 'track'
+                ? selectedTrackIndexes.includes(row.item.index) ||
+                  (selectedTrackIndexes.length === 0 && row.key === selectedKey)
+                : selectedImportIds.includes(row.item.id) ||
+                  (selectedImportIds.length === 0 && row.key === selectedKey);
+        const playing = row.kind === 'track' && device?.status.track === row.item.index && device?.status.state === 'playing';
+        const encoding = row.kind === 'import' ? row.item.forcedEncoding ?? selectedFormat : row.item.encoding;
+        return (
+            <div
+                className={`workbench__table-row ${isSelected ? 'is-selected' : ''}`}
+                key={row.key}
+                role="row"
+                aria-rowindex={row.index + 2}
+                aria-selected={isSelected}
+                data-row-index={row.index}
+                tabIndex={row.key === selectedKey ? 0 : -1}
+                draggable={row.kind === 'import'}
+                onDragStart={() => row.kind === 'import' && setDraggedId(row.item.id)}
+                onDragOver={(event) => row.kind === 'import' && event.preventDefault()}
+                onDrop={() => {
+                    if (row.kind === 'import' && draggedId && draggedId !== row.item.id) moveImport(draggedId, row.index);
+                    setDraggedId(null);
+                }}
+                onClick={(event) => selectRow(event, row)}
+                onKeyDown={(event) => selectRowFromKeyboard(event, row)}
+            >
+                <span className="workbench__track-number"><DragIndicatorIcon />{String(row.index + 1).padStart(2, '0')}</span>
+                <span className="workbench__track-title"><strong>{row.item.title || 'Untitled track'}</strong><small>{row.kind === 'import' ? row.item.name : row.item.group || row.item.fullWidthTitle || discLabel}</small></span>
+                <span>{row.item.artist || '—'}</span>
+                <span><i className="workbench__mode-pill">{codecLabel(encoding)}</i></span>
+                <span>{formatDuration(row.item.duration)}</span>
+                <span className="workbench__row-actions">
+                    {row.kind === 'track' && canPlayback ? <button aria-label={playing ? 'Pause track' : 'Play track'} onClick={(event) => { event.stopPropagation(); togglePlayback(row.item); }}>{playing ? <StopRoundedIcon /> : <PlayArrowRoundedIcon />}</button> : null}
+                    {row.kind === 'import' && selectedImportIds.length <= 1 ? <><button aria-label="Move track up" disabled={row.index === 0} onClick={(event) => { event.stopPropagation(); moveImport(row.item.id, row.index - 1); }}><KeyboardArrowUpRoundedIcon /></button><button aria-label="Move track down" disabled={row.index === imports.length - 1} onClick={(event) => { event.stopPropagation(); moveImport(row.item.id, row.index + 1); }}><KeyboardArrowDownRoundedIcon /></button></> : null}
+                    {row.kind === 'track' && canMoveTrack && selectedTrackIndexes.length <= 1 ? <><button aria-label="Move track up" disabled={row.item.index === 0} onClick={(event) => { event.stopPropagation(); moveDiscTrack(row.item.index, row.item.index - 1); }}><KeyboardArrowUpRoundedIcon /></button><button aria-label="Move track down" disabled={row.item.index === tracks.length - 1} onClick={(event) => { event.stopPropagation(); moveDiscTrack(row.item.index, row.item.index + 1); }}><KeyboardArrowDownRoundedIcon /></button></> : null}
+                </span>
+            </div>
+        );
+    };
+
     return (
         <div className="workbench" {...getRootProps()}>
             <input {...getInputProps()} />
@@ -902,49 +1006,29 @@ export const Workbench = () => {
                             </div>
                         ) : null}
 
-                        <div className="workbench__table" role="table" aria-label={contentView === 'plan' && imports.length ? 'Recording plan' : 'Disc tracks'}>
-                            <div className="workbench__table-head" role="row">
+                        <div className="workbench__table" role="table" aria-rowcount={planItems.length + 1} aria-label={contentView === 'plan' && imports.length ? 'Recording plan' : 'Disc tracks'}>
+                            <div className="workbench__table-head" role="row" aria-rowindex={1}>
                                 <span>#</span><span>Title</span><span>Artist</span><span>Mode</span><span>Duration</span><span />
                             </div>
-                            <div className="workbench__table-body">
+                            <div
+                                className="workbench__table-body"
+                                ref={planBodyRef}
+                                onScroll={(event) =>
+                                    setPlanViewport({
+                                        scrollTop: event.currentTarget.scrollTop,
+                                        height: event.currentTarget.clientHeight,
+                                    })
+                                }
+                            >
                                 {planItems.length === 0 ? (
                                     <div className="workbench__empty"><QueueMusicIcon /><h3>{contentView === 'plan' ? 'Your recording plan is empty' : 'This MiniDisc is empty'}</h3><p>{contentView === 'plan' ? 'Import audio to prepare titles, order and recording modes before writing the disc.' : 'Add audio to begin building this disc.'}</p><button className="primary-button" onClick={open} disabled={!canUpload}><FolderOpenIcon /> Choose audio files</button></div>
-                                ) : planItems.map((row) => {
-                                    const isSelected =
-                                        row.kind === 'track'
-                                            ? selectedTrackIndexes.includes(row.item.index) ||
-                                              (selectedTrackIndexes.length === 0 && row.key === selectedKey)
-                                            : selectedImportIds.includes(row.item.id) ||
-                                              (selectedImportIds.length === 0 && row.key === selectedKey);
-                                    const playing = row.kind === 'track' && device?.status.track === row.item.index && device?.status.state === 'playing';
-                                    const encoding = row.kind === 'import' ? row.item.forcedEncoding ?? selectedFormat : row.item.encoding;
-                                    return (
-                                        <div
-                                            className={`workbench__table-row ${isSelected ? 'is-selected' : ''}`}
-                                            key={row.key}
-                                            role="row"
-                                            aria-selected={isSelected}
-                                            tabIndex={row.key === selectedKey ? 0 : -1}
-                                            draggable={row.kind === 'import'}
-                                            onDragStart={() => row.kind === 'import' && setDraggedId(row.item.id)}
-                                            onDragOver={(event) => row.kind === 'import' && event.preventDefault()}
-                                            onDrop={() => { if (row.kind === 'import' && draggedId && draggedId !== row.item.id) moveImport(draggedId, row.index); setDraggedId(null); }}
-                                            onClick={(event) => selectRow(event, row)}
-                                            onKeyDown={(event) => selectRowFromKeyboard(event, row)}
-                                        >
-                                            <span className="workbench__track-number"><DragIndicatorIcon />{String(row.index + 1).padStart(2, '0')}</span>
-                                            <span className="workbench__track-title"><strong>{row.item.title || 'Untitled track'}</strong><small>{row.kind === 'import' ? row.item.name : row.item.group || row.item.fullWidthTitle || discLabel}</small></span>
-                                            <span>{row.item.artist || '—'}</span>
-                                            <span><i className="workbench__mode-pill">{codecLabel(encoding)}</i></span>
-                                            <span>{formatDuration(row.item.duration)}</span>
-                                            <span className="workbench__row-actions">
-                                                {row.kind === 'track' && canPlayback ? <button aria-label={playing ? 'Pause track' : 'Play track'} onClick={(event) => { event.stopPropagation(); togglePlayback(row.item); }}>{playing ? <StopRoundedIcon /> : <PlayArrowRoundedIcon />}</button> : null}
-                                                {row.kind === 'import' && selectedImportIds.length <= 1 ? <><button aria-label="Move track up" disabled={row.index === 0} onClick={(event) => { event.stopPropagation(); moveImport(row.item.id, row.index - 1); }}><KeyboardArrowUpRoundedIcon /></button><button aria-label="Move track down" disabled={row.index === imports.length - 1} onClick={(event) => { event.stopPropagation(); moveImport(row.item.id, row.index + 1); }}><KeyboardArrowDownRoundedIcon /></button></> : null}
-                                                {row.kind === 'track' && canMoveTrack && selectedTrackIndexes.length <= 1 ? <><button aria-label="Move track up" disabled={row.item.index === 0} onClick={(event) => { event.stopPropagation(); moveDiscTrack(row.item.index, row.item.index - 1); }}><KeyboardArrowUpRoundedIcon /></button><button aria-label="Move track down" disabled={row.item.index === tracks.length - 1} onClick={(event) => { event.stopPropagation(); moveDiscTrack(row.item.index, row.item.index + 1); }}><KeyboardArrowDownRoundedIcon /></button></> : null}
-                                            </span>
+                                ) : planWindow.virtualized ? (
+                                    <div className="workbench__virtual-list" style={{ height: planWindow.totalHeight }}>
+                                        <div className="workbench__virtual-list-window" style={{ transform: `translateY(${planWindow.offset}px)` }}>
+                                            {visiblePlanItems.map(renderPlanRow)}
                                         </div>
-                                    );
-                                })}
+                                    </div>
+                                ) : visiblePlanItems.map(renderPlanRow)}
                             </div>
                         </div>
                     </section>

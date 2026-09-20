@@ -12,16 +12,22 @@ import type { LibraryCatalogEntry, LibraryCatalogSearchItem } from '../../applic
 import { formatTimeFromSeconds } from '../../utils';
 import {
     libraryPathKey,
+    resolveRowNavigationIndex,
     toggleLibraryTrackSelection,
     toggleVisibleLibraryTracks,
 } from './workbench-model';
+import { calculateVirtualListWindow, scrollOffsetForVirtualIndex } from './workbench-virtual-list';
 
 const PAGE_SIZE = 100;
+const LIBRARY_ROW_HEIGHT = 51;
 
 type LibraryTrackItem = LibraryCatalogSearchItem;
 type LibraryDisplayItem =
     | { kind: 'directory'; name: string; path: string[] }
     | ({ kind: 'track' } & LibraryTrackItem);
+type LibraryBrowserRow =
+    | { kind: 'parent'; key: string; path: string[] }
+    | { kind: 'item'; key: string; item: LibraryDisplayItem };
 
 export const WorkbenchLibrary = ({
     onImported,
@@ -42,7 +48,11 @@ export const WorkbenchLibrary = ({
     const [total, setTotal] = useState(0);
     const [status, setStatus] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
+    const [listViewport, setListViewport] = useState({ scrollTop: 0, height: 0 });
+    const [focusedRowKey, setFocusedRowKey] = useState<string | null>(null);
+    const [pendingFocusIndex, setPendingFocusIndex] = useState<number | null>(null);
     const requestId = useRef(0);
+    const listRef = useRef<HTMLDivElement>(null);
 
     const refreshLibrary = useCallback(async () => {
         setBusy(true);
@@ -129,6 +139,69 @@ export const WorkbenchLibrary = ({
     const visibleTracks = items.filter((item): item is Extract<LibraryDisplayItem, { kind: 'track' }> => item.kind === 'track');
     const allVisibleSelected =
         visibleTracks.length > 0 && visibleTracks.every((track) => selectedKeys.has(libraryPathKey(track.path)));
+    const browserRows = useMemo<LibraryBrowserRow[]>(() => {
+        const rows: LibraryBrowserRow[] = items.map((item) => ({
+            kind: 'item',
+            key: `${item.kind}:${libraryPathKey(item.path)}`,
+            item,
+        }));
+        if (!searchQuery && path.length > 0) {
+            rows.unshift({ kind: 'parent', key: `parent:${libraryPathKey(path)}`, path: path.slice(0, -1) });
+        }
+        return rows;
+    }, [items, path, searchQuery]);
+    const listWindow = useMemo(
+        () =>
+            calculateVirtualListWindow({
+                itemCount: browserRows.length,
+                rowHeight: LIBRARY_ROW_HEIGHT,
+                scrollTop: listViewport.scrollTop,
+                viewportHeight: listViewport.height,
+            }),
+        [browserRows.length, listViewport]
+    );
+    const visibleBrowserRows = browserRows.slice(listWindow.start, listWindow.end);
+
+    useEffect(() => {
+        const element = listRef.current;
+        if (!element) return;
+        const update = () => {
+            const next = { scrollTop: element.scrollTop, height: element.clientHeight };
+            setListViewport((current) =>
+                current.scrollTop === next.scrollTop && current.height === next.height ? current : next
+            );
+        };
+        update();
+        const observer = new ResizeObserver(update);
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, []);
+
+    useEffect(() => {
+        const element = listRef.current;
+        if (element) element.scrollTop = 0;
+        setListViewport((current) => ({ scrollTop: 0, height: element?.clientHeight ?? current.height }));
+        setFocusedRowKey(null);
+        setPendingFocusIndex(null);
+    }, [library.revision, path, searchQuery]);
+
+    useEffect(() => {
+        if (browserRows.length === 0) {
+            setFocusedRowKey(null);
+            return;
+        }
+        if (!focusedRowKey || !browserRows.some((row) => row.key === focusedRowKey)) {
+            setFocusedRowKey(browserRows[0].key);
+        }
+    }, [browserRows, focusedRowKey]);
+
+    useEffect(() => {
+        if (pendingFocusIndex === null) return;
+        const row = listRef.current?.querySelector<HTMLElement>(`[data-library-row-index="${pendingFocusIndex}"]`);
+        if (!row) return;
+        row.focus();
+        setPendingFocusIndex(null);
+    }, [listWindow.end, listWindow.start, pendingFocusIndex]);
 
     const toggleTrack = (track: LibraryTrackItem) => {
         setSelectedTracks((current) => toggleLibraryTrackSelection(current, track));
@@ -172,6 +245,109 @@ export const WorkbenchLibrary = ({
               ? library.error ?? 'The library could not be loaded.'
               : null);
 
+    const activateBrowserRow = (row: LibraryBrowserRow) => {
+        if (row.kind === 'parent') {
+            setPath(row.path);
+            return;
+        }
+        if (row.item.kind === 'directory') setPath(row.item.path);
+        else toggleTrack(row.item);
+    };
+
+    const focusBrowserRow = (index: number) => {
+        const element = listRef.current;
+        const row = browserRows[index];
+        if (!element || !row) return;
+        const scrollTop = scrollOffsetForVirtualIndex({
+            index,
+            itemCount: browserRows.length,
+            rowHeight: LIBRARY_ROW_HEIGHT,
+            scrollTop: element.scrollTop,
+            viewportHeight: element.clientHeight,
+        });
+        element.scrollTop = scrollTop;
+        setListViewport({ scrollTop, height: element.clientHeight });
+        setFocusedRowKey(row.key);
+        setPendingFocusIndex(index);
+    };
+
+    const handleBrowserRowKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+        const nextIndex = resolveRowNavigationIndex(index, browserRows.length, event.key);
+        if (nextIndex === null) return;
+        event.preventDefault();
+        focusBrowserRow(nextIndex);
+    };
+
+    const renderBrowserRow = (row: LibraryBrowserRow, visibleIndex: number) => {
+        const index = listWindow.start + visibleIndex;
+        if (row.kind === 'parent') {
+            return (
+                <button
+                    className="workbench__library-row is-directory"
+                    key={row.key}
+                    role="option"
+                    aria-selected="false"
+                    aria-posinset={index + 1}
+                    aria-setsize={browserRows.length}
+                    data-library-row-index={index}
+                    tabIndex={row.key === focusedRowKey ? 0 : -1}
+                    onFocus={() => setFocusedRowKey(row.key)}
+                    onKeyDown={(event) => handleBrowserRowKeyDown(event, index)}
+                    onClick={() => activateBrowserRow(row)}
+                >
+                    <ArrowBackRoundedIcon />
+                    <span><strong>Parent folder</strong><small>{row.path.join('/') || 'Library'}</small></span>
+                    <span />
+                    <span />
+                </button>
+            );
+        }
+        const item = row.item;
+        if (item.kind === 'directory') {
+            return (
+                <button
+                    className="workbench__library-row is-directory"
+                    key={row.key}
+                    role="option"
+                    aria-selected="false"
+                    aria-posinset={index + 1}
+                    aria-setsize={browserRows.length}
+                    data-library-row-index={index}
+                    tabIndex={row.key === focusedRowKey ? 0 : -1}
+                    onFocus={() => setFocusedRowKey(row.key)}
+                    onKeyDown={(event) => handleBrowserRowKeyDown(event, index)}
+                    onClick={() => activateBrowserRow(row)}
+                >
+                    <FolderRoundedIcon />
+                    <span><strong>{item.name}</strong><small>Folder</small></span>
+                    <span />
+                    <span />
+                </button>
+            );
+        }
+        const selected = selectedKeys.has(libraryPathKey(item.path));
+        return (
+            <button
+                className={`workbench__library-row ${selected ? 'is-selected' : ''}`}
+                key={row.key}
+                role="option"
+                aria-selected={selected}
+                aria-posinset={index + 1}
+                aria-setsize={browserRows.length}
+                data-library-row-index={index}
+                tabIndex={row.key === focusedRowKey ? 0 : -1}
+                onFocus={() => setFocusedRowKey(row.key)}
+                onKeyDown={(event) => handleBrowserRowKeyDown(event, index)}
+                onClick={() => activateBrowserRow(row)}
+            >
+                <span className="workbench__library-check">{selected ? <CheckBoxRoundedIcon /> : <CheckBoxOutlineBlankRoundedIcon />}</span>
+                <span><strong>{item.title || item.name}</strong><small>{item.path.join('/')}</small></span>
+                <span><strong>{item.artist || 'Unknown artist'}</strong><small>{item.album || 'Unknown album'}</small></span>
+                <span>{formatTimeFromSeconds(item.duration, false)}</span>
+            </button>
+        );
+    };
+
     return (
         <section className="workbench__library" aria-label="Music library">
             <header>
@@ -203,13 +379,26 @@ export const WorkbenchLibrary = ({
             <div className="workbench__library-content">
                 <div className="workbench__library-browser">
                     <div className="workbench__library-list-head"><button aria-label={allVisibleSelected ? 'Clear visible track selection' : 'Select all visible tracks'} onClick={toggleVisibleTracks} disabled={visibleTracks.length === 0}>{allVisibleSelected ? <CheckBoxRoundedIcon /> : <CheckBoxOutlineBlankRoundedIcon />}</button><span>Name</span><span>Artist / Album</span><span>Duration</span></div>
-                    <div className="workbench__library-list" role="list">
-                        {!searchQuery && path.length > 0 ? <button className="workbench__library-row is-directory" onClick={() => setPath(path.slice(0, -1))}><ArrowBackRoundedIcon /><span><strong>Parent folder</strong><small>{path.slice(0, -1).join('/') || 'Library'}</small></span><span /><span /></button> : null}
-                        {items.map((item) => {
-                            if (item.kind === 'directory') return <button className="workbench__library-row is-directory" key={libraryPathKey(item.path)} onClick={() => setPath(item.path)}><FolderRoundedIcon /><span><strong>{item.name}</strong><small>Folder</small></span><span /><span /></button>;
-                            const selected = selectedKeys.has(libraryPathKey(item.path));
-                            return <button className={`workbench__library-row ${selected ? 'is-selected' : ''}`} key={libraryPathKey(item.path)} onClick={() => toggleTrack(item)} aria-pressed={selected}><span className="workbench__library-check">{selected ? <CheckBoxRoundedIcon /> : <CheckBoxOutlineBlankRoundedIcon />}</span><span><strong>{item.title || item.name}</strong><small>{item.path.join('/')}</small></span><span><strong>{item.artist || 'Unknown artist'}</strong><small>{item.album || 'Unknown album'}</small></span><span>{formatTimeFromSeconds(item.duration, false)}</span></button>;
-                        })}
+                    <div
+                        className="workbench__library-list"
+                        role="listbox"
+                        aria-label="Library entries"
+                        aria-multiselectable="true"
+                        ref={listRef}
+                        onScroll={(event) =>
+                            setListViewport({
+                                scrollTop: event.currentTarget.scrollTop,
+                                height: event.currentTarget.clientHeight,
+                            })
+                        }
+                    >
+                        {listWindow.virtualized ? (
+                            <div className="workbench__virtual-list" style={{ height: listWindow.totalHeight }}>
+                                <div className="workbench__virtual-list-window" style={{ transform: `translateY(${listWindow.offset}px)` }}>
+                                    {visibleBrowserRows.map(renderBrowserRow)}
+                                </div>
+                            </div>
+                        ) : visibleBrowserRows.map(renderBrowserRow)}
                         {!busy && items.length === 0 && library.status === 'ready' ? <div className="workbench__library-empty"><AudiotrackRoundedIcon /><strong>{searchQuery ? 'No matching tracks' : 'This folder is empty'}</strong><span>{searchQuery ? 'Try a different title, artist, album or path.' : 'Choose another folder or refresh the library.'}</span></div> : null}
                     </div>
                     {nextOffset !== undefined ? <button className="workbench__library-more" disabled={busy} onClick={() => void loadPage(nextOffset, true)}>Load more · {items.length} of {total}</button> : null}

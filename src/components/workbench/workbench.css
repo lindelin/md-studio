@@ -129,8 +129,9 @@
 .workbench__library-list-head button:disabled { opacity: .35; }
 .workbench__library-list-head svg { font-size: 17px; }
 .workbench__library-list { min-height: 0; flex: 1; overflow: auto; }
-.workbench__library-row { width: 100%; min-height: 51px; border: 0; border-bottom: 1px solid var(--wb-border-soft); padding: 0 10px; color: #a7b8c1; background: transparent; text-align: left; cursor: pointer; }
+.workbench__library-row { width: 100%; height: 51px; min-height: 51px; border: 0; border-bottom: 1px solid var(--wb-border-soft); padding: 0 10px; color: #a7b8c1; background: transparent; text-align: left; cursor: pointer; }
 .workbench__library-row:hover { background: #172731; }
+.workbench__library-row:focus-visible { outline: 2px solid var(--wb-accent); outline-offset: -2px; }
 .workbench__library-row.is-selected { color: #e7f5fc; background: linear-gradient(90deg, rgba(21,140,212,.24), rgba(21,93,135,.1)); box-shadow: inset 3px 0 var(--wb-accent); }
 .workbench__library-row > svg, .workbench__library-check { color: #5c8498; font-size: 19px; }
 .workbench__library-row.is-directory > svg { color: #59bce8; }
@@ -213,7 +214,9 @@
 .workbench__table-head, .workbench__table-row { display: grid; grid-template-columns: 56px minmax(190px, 1.8fr) minmax(110px, 1fr) 105px 72px 78px; align-items: center; }
 .workbench__table-head { flex: 0 0 37px; border-bottom: 1px solid var(--wb-border); padding: 0 12px; color: #718694; background: #15232c; font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 .workbench__table-body { min-height: 0; overflow: auto; }
-.workbench__table-row { min-height: 49px; border-bottom: 1px solid var(--wb-border-soft); padding: 0 12px; color: #a6b5be; font-size: 11px; cursor: pointer; }
+.workbench__virtual-list { position: relative; width: 100%; }
+.workbench__virtual-list-window { position: absolute; top: 0; right: 0; left: 0; }
+.workbench__table-row { height: 49px; min-height: 49px; border-bottom: 1px solid var(--wb-border-soft); padding: 0 12px; color: #a6b5be; font-size: 11px; cursor: pointer; }
 .workbench__table-row:hover { background: #172630; }
 .workbench__table-row:focus-visible { outline: 2px solid var(--wb-accent); outline-offset: -2px; }
 .workbench__table-row.is-selected { color: #e7f5fc; background: linear-gradient(90deg, rgba(21,140,212,.26), rgba(21,93,135,.12)); box-shadow: inset 3px 0 var(--wb-accent); }
