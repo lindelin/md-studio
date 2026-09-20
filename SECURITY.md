@@ -15,6 +15,6 @@ After this project is published, use the repository host's private security-repo
 - Imported audio, metadata, playlists, and remote-service responses are untrusted input. Keep parsers bounded and avoid loading files outside paths explicitly selected by the user.
 - Factory and exploit features execute device-specific maintenance operations. They remain separate from normal editing and require an explicit user action in the application.
 
-## Known dependency exception
+## Exploit assembler expression evaluator
 
-`netmd-exploits` currently depends on `expr-eval`, for which npm reports high-severity advisories. The vulnerable parser is used by the bundled exploit assembler. MiniDisc Workspace does not expose assembly expressions through its MCP, CLI, import, or metadata interfaces. Downgrading to the audit tool's suggested `netmd-exploits` version would remove later device fixes, so the dependency remains temporarily pinned by `package-lock.json`. Replace or update it when a compatible upstream release removes `expr-eval`.
+`netmd-exploits@0.5.12` declares `expr-eval@^2.0.2`, whose published line has no patched release for two high-severity advisories. The lock file overrides that transitive package with the API-compatible `expr-eval-fork@3.0.1` release identified as patched by the GitHub advisory database. A regression test verifies both the arithmetic used by the exploit assembler and rejection of caller-supplied functions. CI and release builds run `npm run audit:production`; update or remove the override when a compatible `netmd-exploits` release adopts a maintained evaluator directly.

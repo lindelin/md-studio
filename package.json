@@ -23,6 +23,7 @@
         "runtime-assets:release-check": "npm run prepare-runtime && node scripts/generate-runtime-assets.mjs --check --release",
         "licenses:update": "node scripts/generate-third-party-notices.mjs",
         "licenses:check": "node scripts/generate-third-party-notices.mjs --check",
+        "audit:production": "npm audit --omit=dev",
         "update-version": "node scripts/prepare-runtime.mjs",
         "pretty": "prettier src/**/*.{ts,tsx} --write",
         "mcp": "tsx bridge/mcp-server.ts",
@@ -76,5 +77,8 @@
         "vite": "^6.3.5",
         "vite-plugin-pwa": "^0.21.1"
     },
-    "description": "A local-first MiniDisc workspace with a modern UI and shared automation API"
+    "description": "A local-first MiniDisc workspace with a modern UI and shared automation API",
+    "overrides": {
+        "expr-eval": "npm:expr-eval-fork@3.0.1"
+    }
 }

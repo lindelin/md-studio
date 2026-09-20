@@ -408,7 +408,7 @@ License identifiers come from the lockfile and installed package manifests. The 
 | esutils | 2.0.3 | BSD-2-Clause | development | npm lock metadata |
 | eta | 4.6.0 | MIT | development | npm registry |
 | events | 3.3.0 | MIT | direct runtime | npm registry |
-| expr-eval | 2.0.2 | MIT | runtime | npm lock metadata |
+| expr-eval | 3.0.1 | MIT | runtime | npm registry |
 | fast-deep-equal | 3.1.3 | MIT | development | npm lock metadata |
 | fast-glob | 3.3.2 | MIT | development | npm lock metadata |
 | fast-json-stable-stringify | 2.1.0 | MIT | development | npm lock metadata |
