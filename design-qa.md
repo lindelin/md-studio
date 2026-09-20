@@ -19,6 +19,8 @@ Runtime data intentionally replaces reference-only placeholders: device name, ca
 - Initial device connection publishes a complete device snapshot before the UI reports success.
 - Track selection updates the inspector.
 - Single, Ctrl/Command, Shift-range and select-all track selection feed the same action set and application menu.
+- Recording-plan rows use the same selection model, support batch removal, and apply Artist/Album edits across the selected items while keeping titles scoped to the focused row.
+- Enter/Space select a focused row; Up/Down move focus and selection through the current table.
 - Inspector metadata changes update the shared application state and row content.
 - MockMD verified group creation, group rename, ungrouping, track movement controls and batch export/record entry points.
 - Disc rows show their recorded format; only the recording-plan view exposes the writable recording format control.
@@ -38,6 +40,7 @@ Runtime data intentionally replaces reference-only placeholders: device name, ca
 - P2: queued imports previously replaced the disc table, making disc management unreachable until the queue was cleared. Fixed with explicit Recording plan and On disc views.
 - P2: the first recording-mode selector only changed local component state. Fixed by writing the device-specific format through the shared settings command used by the write preview.
 - P2: the first workbench pass exposed only one selected track and had no visible group/export controls. Fixed with multi-select, group lifecycle actions, move controls and the existing export/record dialog.
+- P2: the first recording-plan view still allowed only one selected item and mouse-only row navigation. Fixed with a shared ordered-selection model, keyboard focus, batch removal and tested shared metadata rules.
 - P3: the reference includes free-form notes. Notes remain a future queue feature because the shared contracts do not model them yet.
 
 ## Result

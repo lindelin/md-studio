@@ -17,6 +17,11 @@ import { openLocalLibrary } from '../../redux/actions';
 import { useApplicationClient, useApplicationWorkspace, useUpdateApplicationSettings } from '../use-application-client';
 import { getDefaultRecordingFormat, getRecordingCodec } from '../../application/device-profile';
 import type { ImportQueueItem } from '../../application/import-queue';
+import {
+    buildBatchMetadataUpdates,
+    updateOrderedSelection,
+    type WorkbenchDraftField,
+} from './workbench-model';
 
 import AlbumIcon from '@mui/icons-material/Album';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
@@ -111,8 +116,11 @@ export const Workbench = () => {
     const [selectedKey, setSelectedKey] = useState<string | null>(null);
     const [selectedTrackIndexes, setSelectedTrackIndexes] = useState<number[]>([]);
     const [lastSelectedTrackIndex, setLastSelectedTrackIndex] = useState<number | null>(null);
+    const [selectedImportIds, setSelectedImportIds] = useState<string[]>([]);
+    const [lastSelectedImportIndex, setLastSelectedImportIndex] = useState<number | null>(null);
     const [draggedId, setDraggedId] = useState<string | null>(null);
     const [draft, setDraft] = useState({ title: '', album: '', artist: '', fullWidthTitle: '' });
+    const [dirtyDraftFields, setDirtyDraftFields] = useState<WorkbenchDraftField[]>([]);
     const [groupDraft, setGroupDraft] = useState('');
     const [groupDialogOpen, setGroupDialogOpen] = useState(false);
     const [formatIndex, setFormatIndex] = useState<[number, number]>(device?.recording.defaultFormat ?? [0, 0]);
@@ -149,6 +157,7 @@ export const Workbench = () => {
     useEffect(() => {
         if (!hasSelectedItem) {
             setDraft({ title: '', album: '', artist: '', fullWidthTitle: '' });
+            setDirtyDraftFields([]);
             return;
         }
         setDraft({
@@ -157,6 +166,7 @@ export const Workbench = () => {
             artist: selectedArtist,
             fullWidthTitle: selectedFullWidthTitle,
         });
+        setDirtyDraftFields([]);
     }, [selectedKey, hasSelectedItem, selectedTitle, selectedAlbum, selectedArtist, selectedFullWidthTitle]);
 
     useEffect(() => {
@@ -165,15 +175,24 @@ export const Workbench = () => {
     }, [device, workspace.settings.values.uploadFormat]);
 
     useEffect(() => {
-        if (contentView === 'disc') return;
-        setSelectedTrackIndexes([]);
-        setLastSelectedTrackIndex(null);
+        if (contentView === 'disc') {
+            setSelectedImportIds([]);
+            setLastSelectedImportIndex(null);
+        } else {
+            setSelectedTrackIndexes([]);
+            setLastSelectedTrackIndex(null);
+        }
     }, [contentView]);
 
     useEffect(() => {
         const availableIndexes = new Set(tracks.map((track) => track.index));
         setSelectedTrackIndexes((current) => current.filter((index) => availableIndexes.has(index)));
     }, [tracks]);
+
+    useEffect(() => {
+        const availableIds = new Set(imports.map((item) => item.id));
+        setSelectedImportIds((current) => current.filter((id) => availableIds.has(id)));
+    }, [imports]);
 
     const onDrop = useCallback(
         (acceptedFiles: File[]) => {
@@ -235,6 +254,11 @@ export const Workbench = () => {
         () => [...selectedTrackIndexes].sort((left, right) => left - right),
         [selectedTrackIndexes]
     );
+    const selectedImportCount = selectedImportIds.length;
+    const selectedTrackCount = selectedTrackIndexes.length;
+    const activeSelectionCount = selected?.kind === 'import' ? selectedImportCount : selectedTrackCount;
+    const supportsSharedMetadata = selected?.kind === 'import' || capabilities.includes('metadata.himd');
+    const metadataApplyCount = supportsSharedMetadata ? Math.max(activeSelectionCount, 1) : 1;
     const selectedDiscTrack = selected?.kind === 'track' ? selected.item : null;
     const selectedGroup = useMemo(
         () =>
@@ -262,25 +286,42 @@ export const Workbench = () => {
         setGroupDraft(selectedGroup?.title ?? '');
     }, [selectedGroup?.index, selectedGroup?.title]);
 
+    const updateDraftField = (field: WorkbenchDraftField, value: string) => {
+        setDraft((current) => ({ ...current, [field]: value }));
+        setDirtyDraftFields((current) => (current.includes(field) ? current : [...current, field]));
+    };
+
     const saveInspector = () => {
-        if (!selected || !device) return;
+        if (!selected || !device || dirtyDraftFields.length === 0) return;
         void run(async () => {
+            let appliedCount = 1;
             if (selected.kind === 'import') {
+                const ids = selectedImportIds.length > 0
+                    ? Array.from(new Set([selected.item.id, ...selectedImportIds]))
+                    : [selected.item.id];
+                const updates = buildBatchMetadataUpdates(ids, selected.item.id, dirtyDraftFields, draft).map(
+                    ({ target, changes }) => ({ id: target, changes })
+                );
+                appliedCount = updates.length;
                 await execute({
-                    type: 'import.update',
-                    id: selected.item.id,
-                    changes: {
-                        title: draft.title,
-                        album: draft.album,
-                        artist: draft.artist,
-                        fullWidthTitle: draft.fullWidthTitle,
-                    },
+                    type: 'import.updateMany',
+                    updates,
                     expectedRevision: workspace.imports.revision,
                 });
             } else if (capabilities.includes('metadata.himd')) {
+                const indexes = selectedTrackIndexes.length > 0
+                    ? Array.from(new Set([selected.item.index, ...selectedTrackIndexes]))
+                    : [selected.item.index];
+                const updates = buildBatchMetadataUpdates(
+                    indexes,
+                    selected.item.index,
+                    dirtyDraftFields.filter((field) => field !== 'fullWidthTitle'),
+                    draft
+                ).map(({ target, changes }) => ({ index: target, ...changes }));
+                appliedCount = updates.length;
                 await execute({
                     type: 'track.renameHimdMany',
-                    updates: [{ index: selected.item.index, title: draft.title, album: draft.album, artist: draft.artist }],
+                    updates,
                     expectedRevision: device.revision,
                 });
             } else {
@@ -290,7 +331,8 @@ export const Workbench = () => {
                     expectedRevision: device.revision,
                 });
             }
-            setMessage('Changes saved.');
+            setDirtyDraftFields([]);
+            setMessage(appliedCount > 1 ? `Changes saved to ${appliedCount} items.` : 'Changes saved.');
         });
     };
 
@@ -298,7 +340,10 @@ export const Workbench = () => {
         if (!selected) return;
         void run(async () => {
             if (selected.kind === 'import') {
-                await execute({ type: 'import.remove', ids: [selected.item.id], expectedRevision: workspace.imports.revision });
+                const ids = selectedImportIds.length > 0 ? selectedImportIds : [selected.item.id];
+                await execute({ type: 'import.remove', ids, expectedRevision: workspace.imports.revision });
+                setSelectedImportIds([]);
+                setLastSelectedImportIndex(null);
                 return;
             }
             const indexes = sortedSelectedTrackIndexes.length > 0 ? sortedSelectedTrackIndexes : [selected.item.index];
@@ -319,6 +364,9 @@ export const Workbench = () => {
         if (destinationIndex < 0 || destinationIndex >= imports.length) return;
         void run(async () => {
             await execute({ type: 'import.move', id, destinationIndex, expectedRevision: workspace.imports.revision });
+            setSelectedKey(`import:${id}`);
+            setSelectedImportIds([id]);
+            setLastSelectedImportIndex(destinationIndex);
         });
     };
 
@@ -332,27 +380,46 @@ export const Workbench = () => {
         });
     };
 
-    const selectRow = (event: React.MouseEvent, row: PlanItem) => {
-        setSelectedKey(row.key);
+    const selectRow = (
+        event: Pick<React.MouseEvent | React.KeyboardEvent, 'shiftKey' | 'ctrlKey' | 'metaKey'>,
+        row: PlanItem
+    ) => {
         if (row.kind === 'import') {
             setSelectedTrackIndexes([]);
             setLastSelectedTrackIndex(null);
+            const ids = imports.map((item) => item.id);
+            const anchorId = lastSelectedImportIndex === null ? null : imports[lastSelectedImportIndex]?.id ?? null;
+            const next = updateOrderedSelection(selectedImportIds, ids, row.item.id, anchorId, event);
+            setSelectedImportIds(next.selection);
+            setSelectedKey(`import:${next.primary}`);
+            setLastSelectedImportIndex(row.index);
             return;
         }
+        setSelectedImportIds([]);
+        setLastSelectedImportIndex(null);
         const index = row.item.index;
-        if (event.shiftKey && lastSelectedTrackIndex !== null) {
-            const start = Math.min(lastSelectedTrackIndex, index);
-            const end = Math.max(lastSelectedTrackIndex, index);
-            const range = tracks.map((track) => track.index).filter((trackIndex) => trackIndex >= start && trackIndex <= end);
-            setSelectedTrackIndexes((current) => Array.from(new Set([...current, ...range])));
-        } else if (event.ctrlKey || event.metaKey) {
-            setSelectedTrackIndexes((current) =>
-                current.includes(index) ? current.filter((trackIndex) => trackIndex !== index) : [...current, index]
-            );
-        } else {
-            setSelectedTrackIndexes([index]);
+        const indexes = tracks.map((track) => track.index);
+        const next = updateOrderedSelection(selectedTrackIndexes, indexes, index, lastSelectedTrackIndex, event);
+        setSelectedTrackIndexes(next.selection);
+        setSelectedKey(`track:${next.primary}`);
+        setLastSelectedTrackIndex(next.anchor);
+    };
+
+    const selectRowFromKeyboard = (event: React.KeyboardEvent<HTMLDivElement>, row: PlanItem) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            selectRow(event, row);
+            return;
         }
-        setLastSelectedTrackIndex(index);
+        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+        event.preventDefault();
+        const nextIndex = row.index + (event.key === 'ArrowUp' ? -1 : 1);
+        const next = planItems[nextIndex];
+        if (!next) return;
+        selectRow(event, next);
+        const target = event.currentTarget.parentElement?.children.item(nextIndex) as HTMLElement | null;
+        target?.focus();
     };
 
     const toggleSelectAllTracks = () => {
@@ -365,6 +432,18 @@ export const Workbench = () => {
         setSelectedTrackIndexes(indexes);
         setLastSelectedTrackIndex(indexes.at(-1) ?? null);
         if (tracks[0]) setSelectedKey(`track:${tracks[0].index}`);
+    };
+
+    const toggleSelectAllImports = () => {
+        if (selectedImportIds.length === imports.length) {
+            setSelectedImportIds([]);
+            setLastSelectedImportIndex(null);
+            return;
+        }
+        const ids = imports.map((item) => item.id);
+        setSelectedImportIds(ids);
+        setLastSelectedImportIndex(imports.length - 1);
+        if (ids[0]) setSelectedKey(`import:${ids[0]}`);
     };
 
     const createGroup = () => {
@@ -569,6 +648,7 @@ export const Workbench = () => {
                             <div className="workbench__plan-actions">
                                 <span>{planItems.length} tracks · {formatDuration(contentView === 'plan' && imports.length ? queuedDuration : tracks.reduce((sum, track) => sum + track.duration, 0))}</span>
                                 {contentView === 'disc' && tracks.length > 0 ? <button className="secondary-button workbench__compact-button" onClick={toggleSelectAllTracks}><SelectAllRoundedIcon /> {selectedTrackIndexes.length === tracks.length ? 'Clear' : 'Select all'}</button> : null}
+                                {contentView === 'plan' && imports.length > 0 ? <button className="secondary-button workbench__compact-button" onClick={toggleSelectAllImports}><SelectAllRoundedIcon /> {selectedImportIds.length === imports.length ? 'Clear' : 'Select all'}</button> : null}
                                 <button className="secondary-button" onClick={open} disabled={!canUpload}><AddRoundedIcon /> Add audio</button>
                                 <button className="primary-button" onClick={openWriter} disabled={!canUpload || imports.length === 0 || busy}><AlbumIcon /> Write to MiniDisc</button>
                             </div>
@@ -586,6 +666,16 @@ export const Workbench = () => {
                             </div>
                         ) : null}
 
+                        {contentView === 'plan' && selectedImportIds.length > 0 ? (
+                            <div className="workbench__selection-bar">
+                                <strong>{selectedImportIds.length} selected</strong>
+                                <span>Shared Artist and Album edits apply to every selected item</span>
+                                <div>
+                                    <button onClick={removeSelected}><DeleteOutlineIcon /> Remove from plan</button>
+                                </div>
+                            </div>
+                        ) : null}
+
                         <div className="workbench__table" role="table" aria-label={contentView === 'plan' && imports.length ? 'Recording plan' : 'Disc tracks'}>
                             <div className="workbench__table-head" role="row">
                                 <span>#</span><span>Title</span><span>Artist</span><span>Mode</span><span>Duration</span><span />
@@ -598,7 +688,8 @@ export const Workbench = () => {
                                         row.kind === 'track'
                                             ? selectedTrackIndexes.includes(row.item.index) ||
                                               (selectedTrackIndexes.length === 0 && row.key === selectedKey)
-                                            : row.key === selectedKey;
+                                            : selectedImportIds.includes(row.item.id) ||
+                                              (selectedImportIds.length === 0 && row.key === selectedKey);
                                     const playing = row.kind === 'track' && device?.status.track === row.item.index && device?.status.state === 'playing';
                                     const encoding = row.kind === 'import' ? row.item.forcedEncoding ?? selectedFormat : row.item.encoding;
                                     return (
@@ -607,11 +698,13 @@ export const Workbench = () => {
                                             key={row.key}
                                             role="row"
                                             aria-selected={isSelected}
+                                            tabIndex={0}
                                             draggable={row.kind === 'import'}
                                             onDragStart={() => row.kind === 'import' && setDraggedId(row.item.id)}
                                             onDragOver={(event) => row.kind === 'import' && event.preventDefault()}
                                             onDrop={() => { if (row.kind === 'import' && draggedId && draggedId !== row.item.id) moveImport(draggedId, row.index); setDraggedId(null); }}
                                             onClick={(event) => selectRow(event, row)}
+                                            onKeyDown={(event) => selectRowFromKeyboard(event, row)}
                                         >
                                             <span className="workbench__track-number"><DragIndicatorIcon />{String(row.index + 1).padStart(2, '0')}</span>
                                             <span className="workbench__track-title"><strong>{row.item.title || 'Untitled track'}</strong><small>{row.kind === 'import' ? row.item.name : row.item.group || row.item.fullWidthTitle || discLabel}</small></span>
@@ -620,7 +713,7 @@ export const Workbench = () => {
                                             <span>{formatDuration(row.item.duration)}</span>
                                             <span className="workbench__row-actions">
                                                 {row.kind === 'track' && canPlayback ? <button aria-label={playing ? 'Pause track' : 'Play track'} onClick={(event) => { event.stopPropagation(); togglePlayback(row.item); }}>{playing ? <StopRoundedIcon /> : <PlayArrowRoundedIcon />}</button> : null}
-                                                {row.kind === 'import' ? <><button aria-label="Move track up" onClick={(event) => { event.stopPropagation(); moveImport(row.item.id, row.index - 1); }}><KeyboardArrowUpRoundedIcon /></button><button aria-label="Move track down" onClick={(event) => { event.stopPropagation(); moveImport(row.item.id, row.index + 1); }}><KeyboardArrowDownRoundedIcon /></button></> : null}
+                                                {row.kind === 'import' && selectedImportIds.length <= 1 ? <><button aria-label="Move track up" disabled={row.index === 0} onClick={(event) => { event.stopPropagation(); moveImport(row.item.id, row.index - 1); }}><KeyboardArrowUpRoundedIcon /></button><button aria-label="Move track down" disabled={row.index === imports.length - 1} onClick={(event) => { event.stopPropagation(); moveImport(row.item.id, row.index + 1); }}><KeyboardArrowDownRoundedIcon /></button></> : null}
                                                 {row.kind === 'track' && canMoveTrack && selectedTrackIndexes.length <= 1 ? <><button aria-label="Move track up" disabled={row.item.index === 0} onClick={(event) => { event.stopPropagation(); moveDiscTrack(row.item.index, row.item.index - 1); }}><KeyboardArrowUpRoundedIcon /></button><button aria-label="Move track down" disabled={row.item.index === tracks.length - 1} onClick={(event) => { event.stopPropagation(); moveDiscTrack(row.item.index, row.item.index + 1); }}><KeyboardArrowDownRoundedIcon /></button></> : null}
                                             </span>
                                         </div>
@@ -631,12 +724,13 @@ export const Workbench = () => {
                     </section>
 
                     <aside className="workbench__inspector">
-                        <div className="workbench__inspector-heading"><div><span className="workbench__eyebrow">INSPECTOR</span><h2>{selected ? `Track ${selected.index + 1}` : 'No selection'}</h2></div><MoreHorizIcon /></div>
-                        <label>Title<input value={draft.title} disabled={!selected} onChange={(event) => setDraft((value) => ({ ...value, title: event.target.value }))} /></label>
-                        <label>Artist<input value={draft.artist} disabled={!selected} onChange={(event) => setDraft((value) => ({ ...value, artist: event.target.value }))} /></label>
-                        <label>Album<input value={draft.album} disabled={!selected} onChange={(event) => setDraft((value) => ({ ...value, album: event.target.value }))} /></label>
-                        {device?.recording.titleStorage === 'netmd-toc' ? <label>Full-width title<input value={draft.fullWidthTitle} disabled={!selected} onChange={(event) => setDraft((value) => ({ ...value, fullWidthTitle: event.target.value }))} /></label> : null}
-                        <button className="secondary-button workbench__save" onClick={saveInspector} disabled={!selected || busy}><CheckCircleIcon /> Apply metadata</button>
+                        <div className="workbench__inspector-heading"><div><span className="workbench__eyebrow">INSPECTOR</span><h2>{selected ? (activeSelectionCount > 1 ? `${activeSelectionCount} tracks selected` : `Track ${selected.index + 1}`) : 'No selection'}</h2></div><MoreHorizIcon /></div>
+                        <label>Title<input value={draft.title} disabled={!selected} onChange={(event) => updateDraftField('title', event.target.value)} /></label>
+                        <label>Artist<input value={draft.artist} disabled={!selected || !supportsSharedMetadata} onChange={(event) => updateDraftField('artist', event.target.value)} /></label>
+                        <label>Album<input value={draft.album} disabled={!selected || !supportsSharedMetadata} onChange={(event) => updateDraftField('album', event.target.value)} /></label>
+                        {device?.recording.titleStorage === 'netmd-toc' ? <label>Full-width title<input value={draft.fullWidthTitle} disabled={!selected} onChange={(event) => updateDraftField('fullWidthTitle', event.target.value)} /></label> : null}
+                        {activeSelectionCount > 1 ? <p className="workbench__selection-note">{supportsSharedMetadata ? 'Title fields apply to the focused row. Artist and Album apply to all selected tracks.' : 'This device stores per-track titles. Metadata edits apply to the focused row.'}</p> : null}
+                        <button className="secondary-button workbench__save" onClick={saveInspector} disabled={!selected || busy || dirtyDraftFields.length === 0}><CheckCircleIcon /> {metadataApplyCount > 1 ? `Apply to ${metadataApplyCount} tracks` : 'Apply metadata'}</button>
                         {selectedGroup ? (
                             <>
                                 <div className="workbench__divider" />
@@ -667,7 +761,7 @@ export const Workbench = () => {
                         )}
                         <div className="workbench__format-note"><BoltRoundedIcon /><span><strong>{selectedFormat?.codec || defaultFormat?.codec || 'Automatic'}</strong><small>{contentView === 'plan' ? (selectedFormat ? `${selectedFormat.bitrate} kbps for this device type` : 'Uses the device default') : 'Recorded mode is shown in the track list'}</small></span></div>
                         <div className="workbench__divider" />
-                        <button className="danger-button" onClick={removeSelected} disabled={!selected || busy}><DeleteOutlineIcon /> {selected?.kind === 'track' ? (selectedTrackIndexes.length > 1 ? `Delete ${selectedTrackIndexes.length} tracks` : 'Delete from disc') : 'Remove from plan'}</button>
+                        <button className="danger-button" onClick={removeSelected} disabled={!selected || busy}><DeleteOutlineIcon /> {selected?.kind === 'track' ? (selectedTrackIndexes.length > 1 ? `Delete ${selectedTrackIndexes.length} tracks` : 'Delete from disc') : (selectedImportIds.length > 1 ? `Remove ${selectedImportIds.length} tracks` : 'Remove from plan')}</button>
                     </aside>
                 </div>
 
