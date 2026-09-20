@@ -42,6 +42,17 @@ describe('independent project identity', () => {
         );
     });
 
+    it('keeps product help inside the independent application', async () => {
+        for (const path of [
+            '../src/components/topmenu.tsx',
+            '../src/components/welcome.tsx',
+            '../src/components/workbench/workbench.tsx',
+        ]) {
+            const source = await readFile(new URL(path, import.meta.url), 'utf8');
+            assert.doesNotMatch(source, /minidisc\.wiki\/guides/i);
+        }
+    });
+
     it('offers only the local folder library in the local-only product catalog', () => {
         assert.deepEqual(LibraryServices.map((service) => service.id), ['browser-folder']);
         assert.deepEqual(LibraryServices[0].customParameters, undefined);

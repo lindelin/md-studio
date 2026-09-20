@@ -66,6 +66,7 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded';
 
 import { TopMenu } from '../topmenu';
 import { AboutDialog } from '../about-dialog';
+import { HelpDialog } from '../help-dialog';
 import { WorkbenchLibrary } from './workbench-library';
 import { WorkbenchSettings } from './workbench-settings';
 import { WorkbenchTrackTransfer } from './workbench-track-transfer';
@@ -146,6 +147,7 @@ export const Workbench = () => {
     const [groupDialogOpen, setGroupDialogOpen] = useState(false);
     const [trackTransferMode, setTrackTransferMode] = useState<'export' | 'record' | 'recovery' | null>(null);
     const [aboutOpen, setAboutOpen] = useState(false);
+    const [helpOpen, setHelpOpen] = useState(false);
     const [taskCenterOpen, setTaskCenterOpen] = useState(false);
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [writeReviewOpen, setWriteReviewOpen] = useState(false);
@@ -969,7 +971,7 @@ export const Workbench = () => {
                 </nav>
 
                 <nav className="workbench__nav workbench__support-nav" aria-label={t('Help')}>
-                    <a href="https://www.minidisc.wiki/guides/start" target="_blank" rel="noreferrer"><HelpOutlineRoundedIcon /><span>{t('Help & Support')}</span></a>
+                    <button aria-label={t('Help & Support')} onClick={() => setHelpOpen(true)}><HelpOutlineRoundedIcon /><span>{t('Help & Support')}</span></button>
                     <button aria-label={t('About')} onClick={() => setAboutOpen(true)}><InfoOutlinedIcon /><span>{t('About')}</span></button>
                 </nav>
 
@@ -989,7 +991,7 @@ export const Workbench = () => {
                         <span className={`workbench__status ${device ? 'is-online' : ''}`}><i />{t(device ? 'Connected' : 'Disconnected')}</span>
                         <button className="icon-button" aria-label={t('Refresh disc')} onClick={refresh} disabled={!disc || busy}><RefreshRoundedIcon /></button>
                         <button className="workbench__eject-button" aria-label={t('Eject disc')} onClick={eject} disabled={!disc || !canEject || busy}><EjectIcon /><span>{t('Eject')}</span></button>
-                        <TopMenu onShowAbout={() => setAboutOpen(true)} onShowSettings={() => setSection('settings')} />
+                        <TopMenu onShowAbout={() => setAboutOpen(true)} onShowHelp={() => setHelpOpen(true)} onShowSettings={() => setSection('settings')} />
                     </div>
                 </header>
 
@@ -1268,6 +1270,7 @@ export const Workbench = () => {
             {message ? <button className="workbench__toast" aria-live="polite" aria-atomic="true" onClick={() => setMessage(null)}>{t(message)}</button> : null}
 
             <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
+            <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
 
             {trackTransferMode && device ? (
                 <WorkbenchTrackTransfer

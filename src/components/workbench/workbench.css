@@ -52,9 +52,6 @@
 .workbench__nav button i.is-online, .workbench__device-card-title span.is-online { background: #35da91; box-shadow: 0 0 9px rgba(53,218,145,.5); }
 .workbench__nav button em { padding: 2px 6px; color: var(--wb-accent); border: 1px solid #245b78; border-radius: 10px; font-size: 9px; font-style: normal; letter-spacing: .08em; }
 .workbench__mobile-only { display: none !important; }
-.workbench__nav a { display: grid; grid-template-columns: 30px 1fr; align-items: center; min-height: 44px; border-radius: 7px; padding: 0 12px; color: #9fb0bc; text-decoration: none; }
-.workbench__nav a:hover { color: var(--wb-text); background: #182630; }
-.workbench__nav a svg { font-size: 20px; }
 .workbench__sidebar-label { margin: 28px 12px 10px; color: #637681; font-size: 10px; font-weight: 700; letter-spacing: .16em; }
 
 .workbench__device-card { margin-top: auto; padding: 14px; border: 1px solid var(--wb-border); border-radius: 8px; background: #14212a; }

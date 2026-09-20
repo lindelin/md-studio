@@ -15,6 +15,7 @@ Status meanings:
 |---|---|---|---|
 | Studio Workbench shell | Ready | React + `ApplicationClient` | Desktop and narrow viewport browser QA; device, disc, recording plan, inspector, tasks, library, settings, automation and tools are reachable. |
 | Simplified Chinese and English | Ready | Shared i18n model | Static translation coverage plus live language switching and reload persistence. |
+| In-app help and troubleshooting | Ready | Shared `HelpDialog` | Welcome, Workbench sidebar and application menu open the same bilingual first-use, recording-stop, USB and local-processing guidance. |
 | Shared application commands | Ready | `ApplicationCommandBus` | UI, MCP and CLI use the same validation, revisions, errors and task state. |
 | Shared workspace state | Ready | `WorkspaceStore` | Device, imports, tasks, settings, encoder and library summaries use one observable snapshot. |
 | Local long-running tasks | Ready | `TaskManager` | Queued/running/terminal states, progress, partial results and cooperative cancellation are shared. |

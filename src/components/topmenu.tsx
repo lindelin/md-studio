@@ -5,16 +5,14 @@ import InfoIcon from '@mui/icons-material/Info';
 import HelpIcon from '@mui/icons-material/Help';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
-import Link from '@mui/material/Link';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { useI18n } from './use-i18n';
 
-export const TopMenu = function ({ onShowAbout, onShowSettings }: { onShowAbout: () => void; onShowSettings: () => void }) {
+export const TopMenu = function ({ onShowAbout, onShowHelp, onShowSettings }: { onShowAbout: () => void; onShowHelp: () => void; onShowSettings: () => void }) {
     const { t } = useI18n();
-    const helpLinkRef = React.useRef<null | HTMLAnchorElement>(null);
     const [menuAnchorEl, setMenuAnchorEl] = React.useState<null | HTMLElement>(null);
     const menuOpen = Boolean(menuAnchorEl);
 
@@ -32,14 +30,10 @@ export const TopMenu = function ({ onShowAbout, onShowSettings }: { onShowAbout:
         handleMenuClose();
     }, [handleMenuClose, onShowAbout]);
 
-    const handleHelpLink = useCallback(
-        (event: React.MouseEvent<HTMLElement>) => {
-            event.stopPropagation();
-            if (event.target !== helpLinkRef.current) helpLinkRef.current?.click();
-            handleMenuClose();
-        },
-        [handleMenuClose]
-    );
+    const handleShowHelp = useCallback(() => {
+        onShowHelp();
+        handleMenuClose();
+    }, [handleMenuClose, onShowHelp]);
 
     return (
         <>
@@ -56,19 +50,9 @@ export const TopMenu = function ({ onShowAbout, onShowSettings }: { onShowAbout:
                     <ListItemIcon sx={{ minWidth: 40 }}><InfoIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>{t('About')}</ListItemText>
                 </MenuItem>
-                <MenuItem onClick={handleHelpLink}>
+                <MenuItem onClick={handleShowHelp}>
                     <ListItemIcon sx={{ minWidth: 40 }}><HelpIcon fontSize="small" /></ListItemIcon>
-                    <ListItemText>
-                        <Link
-                            rel="noopener noreferrer"
-                            href="https://www.minidisc.wiki/guides/start"
-                            target="_blank"
-                            ref={helpLinkRef}
-                            onClick={handleHelpLink}
-                        >
-                            {t('Support and FAQ')}
-                        </Link>
-                    </ListItemText>
+                    <ListItemText>{t('Support and FAQ')}</ListItemText>
                 </MenuItem>
             </Menu>
         </>

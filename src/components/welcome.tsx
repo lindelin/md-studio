@@ -14,6 +14,7 @@ import {
 } from '../services/interface-service-manager';
 import ChromeIconPath from '../images/chrome-icon.svg';
 import { AboutDialog } from './about-dialog';
+import { HelpDialog } from './help-dialog';
 import { OtherDeviceDialog } from './other-device-dialog';
 import { TopMenu } from './topmenu';
 import { useApplicationClient, useApplicationWorkspace } from './use-application-client';
@@ -34,6 +35,7 @@ export const Welcome = () => {
     const [showWhyUnsupported, setWhyUnsupported] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [aboutOpen, setAboutOpen] = useState(false);
+    const [helpOpen, setHelpOpen] = useState(false);
     const [customDeviceOpen, setCustomDeviceOpen] = useState(false);
     const [preferenceError, setPreferenceError] = useState<string | null>(null);
     const [fullHimdReview, setFullHimdReview] = useState<{ service: ServiceConstructionInfo; index: number } | null>(null);
@@ -98,7 +100,7 @@ export const Welcome = () => {
                     <span className="welcome-workspace__brand-mark" aria-hidden="true"><UsbRoundedIcon /></span>
                     <span><strong>{t('MiniDisc Workspace')}</strong><small>{t('Local first · Open source')}</small></span>
                 </div>
-                <TopMenu onShowAbout={() => setAboutOpen(true)} onShowSettings={openSettings} />
+                <TopMenu onShowAbout={() => setAboutOpen(true)} onShowHelp={() => setHelpOpen(true)} onShowSettings={openSettings} />
             </header>
 
             <main className="welcome-workspace__main">
@@ -134,7 +136,7 @@ export const Welcome = () => {
                             {preferenceError ? <div className="welcome-workspace__error" role="alert"><strong>{t('Could not save this preference.')}</strong><span>{preferenceError}</span></div> : null}
                             {connectionFailed ? <div className="welcome-workspace__error" role="alert"><strong>{t('Connection failed')}</strong><span>{connection.message}</span></div> : null}
                             {!window.native?.interface && navigator.userAgent.includes('Vivaldi') ? <div className="welcome-workspace__notice"><strong>{t('Notice for users of the Vivaldi web browser')}</strong><span>{t("Vivaldi's implementation of WebUSB is broken.")} {t('Please switch to a different Chromium-based browser.')}</span></div> : null}
-                            <a className="welcome-workspace__guide" rel="noopener noreferrer" target="_blank" href="https://www.minidisc.wiki/guides/webminidisc">{t('First time here? Read the guide')}<LaunchRoundedIcon /></a>
+                            <button className="welcome-workspace__guide" onClick={() => setHelpOpen(true)}>{t('First time here? Read the guide')}<LaunchRoundedIcon /></button>
                         </>
                     ) : (
                         <>
@@ -165,6 +167,7 @@ export const Welcome = () => {
 
             <WorkbenchSettingsDialog open={settingsOpen} onClose={closeSettings} />
             <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
+            <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
             <OtherDeviceDialog
                 open={customDeviceOpen}
                 onClose={() => setCustomDeviceOpen(false)}

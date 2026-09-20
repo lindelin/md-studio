@@ -15,6 +15,7 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 - Homebrew SP Mono and ATRAC1 writes show their exact capability requirements in the bilingual write review before a task is created; automation cannot authorize these browser-only operations.
 - CSV metadata planning, normal and recovery export review, raw TOC review, protection flags, diagnostics, and capability-gated advanced tools are available from the workbench.
 - Device services return results and errors without opening browser-native alert, confirm, or prompt dialogs. Full-access HiMD uses a bilingual in-app review.
+- Product help is built into the bilingual interface, including first-use steps, recording-stop behavior, USB troubleshooting, and the local-processing boundary.
 - Windows development and production builds use cross-platform runtime preparation and version metadata.
 - A tracked development fallback keeps tests and type checks runnable immediately after checkout; Vite injects real build metadata without rewriting source files.
 - The bundled open-source Atracdenc runtime is rebuilt from pinned source and toolchain revisions with a checksum-enforced Windows script.
@@ -47,7 +48,7 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 
 ## Verification snapshot
 
-- 314 automated tests in 82 suites
+- 315 automated tests in 82 suites
 - Full TypeScript and TSX lint with zero warnings
 - Application and bridge type checks
 - Production Vite/PWA build
