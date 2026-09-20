@@ -75,9 +75,32 @@ test('app reset preserves storage owned by other code', () => {
     storage.setItem('colorTheme', JSON.stringify('dark'));
     storage.setItem('unrelated', 'keep me');
 
-    clearAppPreferences(storage);
+    assert.deepEqual(clearAppPreferences(storage), { ok: true });
 
     assert.equal(storage.getItem('colorTheme'), null);
+    assert.equal(storage.getItem('unrelated'), 'keep me');
+});
+
+test('app reset restores every preference when browser storage rejects a removal', () => {
+    const storage = new MemoryStorage();
+    storage.setItem('version', '0.1.0');
+    storage.setItem('colorTheme', JSON.stringify('dark'));
+    storage.setItem('unrelated', 'keep me');
+    const removeItem = storage.removeItem.bind(storage);
+    let removeCount = 0;
+    storage.removeItem = (key: string) => {
+        removeCount += 1;
+        if (removeCount === 2) throw new Error('storage is locked');
+        removeItem(key);
+    };
+
+    assert.deepEqual(clearAppPreferences(storage), {
+        ok: false,
+        cause: 'storage is locked',
+        rollbackFailed: false,
+    });
+    assert.equal(storage.getItem('version'), '0.1.0');
+    assert.equal(storage.getItem('colorTheme'), JSON.stringify('dark'));
     assert.equal(storage.getItem('unrelated'), 'keep me');
 });
 

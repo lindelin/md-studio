@@ -144,14 +144,29 @@ export function loadPreference<T>(
     }
 }
 
-export function clearAppPreferences(storage: Storage | null = defaultStorage()): void {
-    if (!storage) return;
-    for (const key of APP_PREFERENCE_KEYS) {
-        try {
-            storage.removeItem(key);
-        } catch (error) {
-            console.warn(`Could not remove preference "${key}"`, error);
+export function clearAppPreferences(storage: Storage | null = defaultStorage()): PreferenceWriteResult | null {
+    if (!storage) return null;
+
+    const previous = new Map<string, string | null>();
+    try {
+        for (const key of APP_PREFERENCE_KEYS) previous.set(key, storage.getItem(key));
+        for (const key of APP_PREFERENCE_KEYS) storage.removeItem(key);
+        return { ok: true };
+    } catch (cause) {
+        let rollbackFailed = false;
+        for (const [key, serialized] of previous) {
+            try {
+                if (serialized === null) storage.removeItem(key);
+                else storage.setItem(key, serialized);
+            } catch {
+                rollbackFailed = true;
+            }
         }
+        return {
+            ok: false,
+            cause: cause instanceof Error ? cause.message : String(cause),
+            rollbackFailed,
+        };
     }
 }
 
