@@ -96,4 +96,21 @@ describe('NetMD encryption worker adapter', () => {
         await assert.rejects(malformedNext, /invalid key/);
         assert.equal(malformedWorker.terminated, true);
     });
+
+    it('terminates a pending worker request when the upload is cancelled', async () => {
+        const worker = new FakeWorker();
+        const controller = new AbortController();
+        const iterator = makeNetMDEncryptPacketIterator(
+            worker as unknown as Worker,
+            undefined,
+            { init: 1_000, chunk: 1_000 },
+            controller.signal
+        )(input());
+
+        const pending = iterator.next();
+        controller.abort(new DOMException('cancelled by user', 'AbortError'));
+
+        await assert.rejects(pending, /cancelled by user/);
+        assert.equal(worker.terminated, true);
+    });
 });

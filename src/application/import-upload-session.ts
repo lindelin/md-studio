@@ -37,6 +37,7 @@ export interface ImportUploadSessionOptions {
     useFullWidthTitles: boolean;
     disableMonoUploadOnFinish?: boolean;
     isCancelled?: () => boolean;
+    signal?: AbortSignal;
     hooks?: ImportUploadHooks;
 }
 
@@ -71,6 +72,10 @@ export async function runImportUploadSession(options: ImportUploadSessionOptions
     let writtenTracks = 0;
     let primaryError: ImportUploadSessionError | undefined;
     let titleBudget = options.service.getRemainingCharactersForTitles(options.disc);
+
+    if (options.signal?.aborted || options.isCancelled?.()) {
+        return { writtenTracks: 0, cancelled: true };
+    }
 
     try {
         try {
@@ -139,10 +144,12 @@ export async function runImportUploadSession(options: ImportUploadSessionOptions
                             fullWidthTitle,
                             data,
                             format,
-                            reportProgress
+                            reportProgress,
+                            options.signal
                         );
                     }
                 } catch (error) {
+                    if (options.signal?.aborted || options.isCancelled?.()) break;
                     throw failure(
                         'transfer',
                         error,
@@ -213,7 +220,7 @@ export async function runImportUploadSession(options: ImportUploadSessionOptions
     }
 
     if (primaryError) throw primaryError;
-    return { writtenTracks, cancelled: options.isCancelled?.() ?? false };
+    return { writtenTracks, cancelled: options.signal?.aborted || (options.isCancelled?.() ?? false) };
 }
 
 function failure(

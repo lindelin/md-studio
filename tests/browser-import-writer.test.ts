@@ -290,4 +290,46 @@ describe('BrowserImportWriter', () => {
         assert.equal(finished.status, 'succeeded');
         assert.equal(queue.snapshot().items.length, 0);
     });
+
+    it('aborts an active device upload when task cancellation is requested', async () => {
+        const tasks = new TaskManager();
+        const queue = new ImportQueue();
+        const added = addTracks(queue, 1);
+        let uploadStarted!: () => void;
+        const startedUpload = new Promise<void>((resolve) => {
+            uploadStarted = resolve;
+        });
+        let reopened = 0;
+        const writer = new BrowserImportWriter({
+            getApplication: () =>
+                makeApplication(async (_title, _fullWidthTitle, _data, _format, _onProgress, signal) => {
+                    uploadStarted();
+                    await new Promise<void>((_resolve, reject) => {
+                        signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+                    });
+                }),
+            getAudioExportService: async () => makeAudioExporter(),
+            getUseFullWidthTitles: () => false,
+            localFiles: new BrowserLocalFileGateway(),
+            showImportDialog: () => (reopened += 1),
+        });
+
+        const started = await writer.start(
+            {
+                format: { codec: 'AT3', bitrate: 132 },
+                expectedRevision: added.revision,
+                removeOnSuccess: true,
+            },
+            queue,
+            tasks
+        );
+        await startedUpload;
+        tasks.requestCancellation(started.id);
+        const finished = await waitForFinished(tasks, started.id);
+
+        assert.equal(finished.status, 'cancelled');
+        assert.deepEqual(finished.result, { writtenTracks: 0 });
+        assert.equal(queue.snapshot().items.length, 1);
+        assert.ok(reopened >= 1);
+    });
 });

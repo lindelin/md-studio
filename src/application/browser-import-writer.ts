@@ -94,11 +94,17 @@ export class BrowserImportWriter implements ImportWriter {
         let errorMessage: string | undefined;
         let writtenTracks = 0;
         let cancelled = false;
+        const cancellation = new AbortController();
+        const unsubscribeFromCancellation = tasks.subscribe((task) => {
+            if (task.id === taskId && task.cancellationRequested && !cancellation.signal.aborted) {
+                cancellation.abort(new DOMException('The recording task was cancelled.', 'AbortError'));
+            }
+        });
 
         const isRunning = () => tasks.get(taskId).status === 'running';
         const isCancelled = () => {
             const task = tasks.get(taskId);
-            return task.cancellationRequested || task.status === 'cancelled' || task.status === 'interrupted';
+            return cancellation.signal.aborted || task.cancellationRequested || task.status === 'cancelled' || task.status === 'interrupted';
         };
 
         try {
@@ -203,6 +209,7 @@ export class BrowserImportWriter implements ImportWriter {
                         useFullWidthTitles: this.dependencies.getUseFullWidthTitles(),
                         disableMonoUploadOnFinish: usesMonoUploadExploit,
                         isCancelled,
+                        signal: cancellation.signal,
                         hooks: {
                             onPhase: (phase) => {
                                 if (isRunning() && tasks.get(taskId).phase !== phase) tasks.setPhase(taskId, phase);
@@ -261,6 +268,7 @@ export class BrowserImportWriter implements ImportWriter {
                 errorMessage = 'The recording task stopped before all tracks were transferred.';
             }
         } finally {
+            unsubscribeFromCancellation();
             if (typeof document !== 'undefined') document.title = originalTitle;
             if (wakeLock) {
                 try {

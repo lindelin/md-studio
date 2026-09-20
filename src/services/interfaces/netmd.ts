@@ -220,7 +220,8 @@ export abstract class NetMDService {
         fullWidthTitle: string,
         data: ArrayBuffer,
         format: Codec,
-        progressCallback: (progress: { written: number; encrypted: number; total: number }) => void
+        progressCallback: (progress: { written: number; encrypted: number; total: number }) => void,
+        signal?: AbortSignal
     ): Promise<void>;
     abstract download(
         index: number,
@@ -712,7 +713,8 @@ export class NetMDUSBService extends NetMDService {
         fullWidthTitle: string,
         data: ArrayBuffer,
         _format: Codec,
-        progressCallback: (progress: { written: number; encrypted: number; total: number }) => void
+        progressCallback: (progress: { written: number; encrypted: number; total: number }) => void,
+        signal?: AbortSignal
     ) {
         // This is NetMD - only 4 options supported.
         let format;
@@ -733,10 +735,15 @@ export class NetMDUSBService extends NetMDService {
 
         const [w, creator] = this.getWorkerForUpload();
 
-        const webWorkerAsyncPacketIterator = creator(w, ({ encryptedBytes }: { encryptedBytes: number }) => {
-            encrypted = encryptedBytes;
-            updateProgress();
-        });
+        const webWorkerAsyncPacketIterator = creator(
+            w,
+            ({ encryptedBytes }: { encryptedBytes: number }) => {
+                encrypted = encryptedBytes;
+                updateProgress();
+            },
+            undefined,
+            signal
+        );
 
         const halfWidthTitle = sanitizeHalfWidthTitle(title);
         fullWidthTitle = sanitizeFullWidthTitle(fullWidthTitle);
