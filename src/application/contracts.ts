@@ -144,8 +144,7 @@ export interface DeviceUploadService {
         fullWidthTitle: string,
         data: ArrayBuffer,
         format: Codec,
-        onProgress: (progress: { written: number; encrypted: number; total: number }) => void,
-        signal?: AbortSignal
+        onProgress: (progress: { written: number; encrypted: number; total: number }) => void
     ): Promise<void>;
     getRemainingCharactersForTitles(disc: Disc): { halfWidth: number; fullWidth: number };
     sanitizeHalfWidthTitle(title: string): string;

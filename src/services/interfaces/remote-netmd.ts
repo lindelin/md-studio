@@ -208,8 +208,7 @@ export class NetMDRemoteService extends NetMDService {
         fullWidthTitle: string,
         data: ArrayBuffer,
         _format: Codec,
-        progressCallback: (progress: { written: number; encrypted: number; total: number }) => void,
-        signal?: AbortSignal
+        progressCallback: (progress: { written: number; encrypted: number; total: number }) => void
     ) {
         return new Promise<void>((resolve, reject) => {
             const format = _format.codec === 'AT3' ? { codec: _format.bitrate === 66 ? 'LP4' : 'LP2' } : _format;
@@ -230,15 +229,10 @@ export class NetMDRemoteService extends NetMDService {
 
             const w = new Worker(new URL('./netmd-encrypt-worker-runtime.ts', import.meta.url), { type: 'module' });
 
-            const webWorkerAsyncPacketIterator = makeNetMDEncryptPacketIterator(
-                w,
-                ({ encryptedBytes }) => {
-                    encrypted = encryptedBytes;
-                    updateProgress();
-                },
-                undefined,
-                signal
-            );
+            const webWorkerAsyncPacketIterator = makeNetMDEncryptPacketIterator(w, ({ encryptedBytes }) => {
+                encrypted = encryptedBytes;
+                updateProgress();
+            });
 
             // A dud track used for the encryption
             const track = new MDTrack('', WireformatDict[format.codec], data, 0x400, '', webWorkerAsyncPacketIterator);
@@ -257,7 +251,6 @@ export class NetMDRemoteService extends NetMDService {
             const succeed = () => {
                 if (settled) return;
                 settled = true;
-                signal?.removeEventListener('abort', abort);
                 w.terminate();
                 resolve();
             };
@@ -265,17 +258,9 @@ export class NetMDRemoteService extends NetMDService {
             const fail = (reason: unknown) => {
                 if (settled) return;
                 settled = true;
-                signal?.removeEventListener('abort', abort);
                 w.terminate();
                 reject(reason instanceof Error ? reason : new Error(String(reason)));
             };
-
-            const abort = () => {
-                fail(signal?.reason ?? new DOMException('The upload was cancelled.', 'AbortError'));
-                ws.close();
-            };
-            signal?.addEventListener('abort', abort, { once: true });
-            if (signal?.aborted) abort();
 
             ws.addEventListener('message', async (event) => {
                 try {

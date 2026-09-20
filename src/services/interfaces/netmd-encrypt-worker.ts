@@ -14,8 +14,7 @@ const DEFAULT_TIMEOUTS: EncryptWorkerTimeouts = { init: 15_000, chunk: 60_000 };
 export function makeNetMDEncryptPacketIterator(
     worker: Worker,
     progressCallback?: (progress: { totalBytes: number; encryptedBytes: number }) => void,
-    timeouts: EncryptWorkerTimeouts = DEFAULT_TIMEOUTS,
-    signal?: AbortSignal
+    timeouts: EncryptWorkerTimeouts = DEFAULT_TIMEOUTS
 ) {
     return async function* ({
         data,
@@ -35,20 +34,17 @@ export function makeNetMDEncryptPacketIterator(
         const totalBytes = data.byteLength;
         let encryptedBytes = 0;
         try {
-            throwIfAborted(signal);
             const ready = await requestWorker(
                 worker,
                 { action: 'init', data, frameSize, kek, chunkSize },
                 [data],
                 timeouts.init,
-                'initialization',
-                signal
+                'initialization'
             );
             if (ready.type !== 'ready') throw new Error('The NetMD encryption worker returned an unexpected initialization response.');
 
             while (true) {
-                throwIfAborted(signal);
-                const response = await requestWorker(worker, { action: 'getChunk' }, [], timeouts.chunk, 'chunk', signal);
+                const response = await requestWorker(worker, { action: 'getChunk' }, [], timeouts.chunk, 'chunk');
                 if (response.type === 'done') return;
                 if (response.type !== 'chunk') throw new Error('The NetMD encryption worker returned an unexpected chunk response.');
                 assertByteArray(response.key, 'key');
@@ -69,17 +65,14 @@ function requestWorker(
     message: object,
     transfer: Transferable[],
     timeoutMs: number,
-    phase: string,
-    signal?: AbortSignal
+    phase: string
 ): Promise<EncryptWorkerResponse> {
     return new Promise((resolve, reject) => {
         let settled = false;
-        let abort: () => void = () => undefined;
         const finish = (callback: () => void) => {
             if (settled) return;
             settled = true;
             clearTimeout(timeout);
-            signal?.removeEventListener('abort', abort);
             worker.onmessage = null;
             worker.onerror = null;
             worker.onmessageerror = null;
@@ -89,12 +82,6 @@ function requestWorker(
             () => finish(() => reject(new Error(`NetMD encryption worker ${phase} timed out after ${timeoutMs / 1000} seconds.`))),
             timeoutMs
         );
-        abort = () => finish(() => reject(abortError(signal)));
-        signal?.addEventListener('abort', abort, { once: true });
-        if (signal?.aborted) {
-            abort();
-            return;
-        }
         worker.onmessage = (event) =>
             finish(() => {
                 const response = event.data as EncryptWorkerResponse;
@@ -111,14 +98,6 @@ function requestWorker(
             finish(() => reject(error instanceof Error ? error : new Error(String(error))));
         }
     });
-}
-
-function throwIfAborted(signal?: AbortSignal) {
-    if (signal?.aborted) throw abortError(signal);
-}
-
-function abortError(signal?: AbortSignal) {
-    return signal?.reason instanceof Error ? signal.reason : new DOMException('The NetMD upload was cancelled.', 'AbortError');
 }
 
 function assertByteArray(value: unknown, label: string): asserts value is Uint8Array<ArrayBuffer> {
