@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
     assertDiscWritableForImport,
     assertImportDeviceVersion,
+    getImportHomebrewRequirements,
     assertImportPreviewWritable,
     assertImportWritePolicy,
 } from '../src/application/import-write-policy.ts';
@@ -25,6 +26,18 @@ function selected(codec: string | null): ResolvedImportQueueItem[] {
 }
 
 describe('import write policy', () => {
+    it('describes every Homebrew capability that the native write review must authorize', () => {
+        assert.deepEqual(
+            getImportHomebrewRequirements(
+                selected('SPM').map(({ item }) => item),
+                { codec: 'SPM', bitrate: 146 },
+                false
+            ),
+            ['uploadAtrac1', 'uploadMonoSP']
+        );
+        assert.deepEqual(getImportHomebrewRequirements(selected(null).map(({ item }) => item), { codec: 'SPM', bitrate: 146 }, true), []);
+    });
+
     it('allows ordinary LP writes through UI, MCP, and CLI', () => {
         assert.doesNotThrow(() =>
             assertImportWritePolicy({
@@ -130,8 +143,9 @@ describe('import write policy', () => {
         assert.doesNotThrow(() =>
             assertImportPreviewWritable({
                 ...base,
-                complete: false,
-                issues: [{ id: 'track-1', code: 'MISSING_DURATION', message: 'Missing duration.' }],
+            complete: false,
+            issues: [{ id: 'track-1', code: 'MISSING_DURATION', message: 'Missing duration.' }],
+            homebrew: { requiredCapabilities: [] },
                 capacity: { ...base.capacity, fits: false },
             })
         );
@@ -141,6 +155,7 @@ describe('import write policy', () => {
                     ...base,
                     complete: true,
                     issues: [],
+                    homebrew: { requiredCapabilities: [] },
                     capacity: { ...base.capacity, remaining: -1, remainingInSelectedFormat: -2, fits: false },
                 }),
             /do not fit/
@@ -151,6 +166,7 @@ describe('import write policy', () => {
                     ...base,
                     complete: true,
                     issues: [],
+                    homebrew: { requiredCapabilities: [] },
                     titles: { ...base.titles, halfWidthRemaining: -1, fits: false },
                 }),
             /title capacity/

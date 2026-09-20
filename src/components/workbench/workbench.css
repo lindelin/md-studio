@@ -419,6 +419,8 @@
 .workbench__write-summary dt { color: #718793; font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }
 .workbench__write-summary dd { overflow: hidden; margin: 4px 0 0; color: #e0edf3; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .workbench__write-warning { margin: 7px 0; border: 1px solid #70434a; border-radius: 5px; padding: 9px 11px; color: #efa3a7; background: #2a1d22; font-size: 9px; line-height: 1.45; }
+.workbench__write-warning strong, .workbench__write-warning span { display: block; }
+.workbench__write-warning strong + span, .workbench__write-warning span + span { margin-top: 4px; }
 .workbench__write-option { display: grid !important; grid-template-columns: 18px minmax(0, 1fr); align-items: start; gap: 9px; margin-top: 13px; border: 1px solid #2f4653; border-radius: 5px; padding: 10px 11px; color: #d5e4eb !important; background: #111e26; font-size: 10px !important; font-weight: 500 !important; letter-spacing: 0 !important; text-transform: none !important; cursor: pointer; }
 .workbench__write-option input { width: 14px; height: 14px; margin: 1px 0 0; accent-color: var(--wb-accent); }
 .workbench__write-option span, .workbench__write-option small { display: block; }

@@ -22,7 +22,6 @@ export interface BrowserImportWriterDependencies {
     getAudioExportService(): Promise<AudioExportService>;
     getUseFullWidthTitles(): boolean;
     localFiles: BrowserLocalFileGateway;
-    confirmHomebrew?(requiredCapabilities: string[]): boolean | Promise<boolean>;
     notifyCompleted?(): void;
 }
 
@@ -106,14 +105,6 @@ export class BrowserImportWriter implements ImportWriter {
             const requiredExploitCapabilities = [usesAtrac1Upload && 'uploadAtrac1', usesMonoUploadExploit && 'uploadMonoSP'].filter(
                 (value): value is string => Boolean(value)
             );
-
-            if (requiredExploitCapabilities.length > 0) {
-                const confirmed = await this.dependencies.confirmHomebrew?.(requiredExploitCapabilities);
-                if (!confirmed) {
-                    tasks.cancel(taskId, { writtenTracks: 0 });
-                    return;
-                }
-            }
 
             const stages: Record<string, TaskStageProgress> = {
                 conversion: { completed: 0, total: files.length, currentLabel: '' },

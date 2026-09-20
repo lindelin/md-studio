@@ -196,7 +196,15 @@ describe('MiniDiscApplication', () => {
         assert.equal(preview.deviceRevision, initial.revision);
         assert.equal(preview.importRevision, 4);
         assert.deepEqual(preview.selectedFormat, { codec: 'SPS', bitrate: 292 });
+        assert.deepEqual(preview.homebrew.requiredCapabilities, []);
         assert.equal(preview.capacity.remaining, 60);
+        const homebrewPreview = await application.previewImports(
+            [{ id: 'atrac1', title: 'ATRAC1', duration: 30, forcedEncoding: { codec: 'SPS', bitrate: 292 } }],
+            4,
+            undefined,
+            initial.revision
+        );
+        assert.deepEqual(homebrewPreview.homebrew.requiredCapabilities, ['uploadAtrac1']);
         await assert.rejects(
             () => application.previewImports([{ id: 'queued', title: 'Queued track', duration: 30 }], 4, undefined, 99),
             (error: unknown) => error instanceof ApplicationError && error.code === 'STALE_REVISION'

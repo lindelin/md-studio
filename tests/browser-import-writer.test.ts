@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { AudioExportService } from '../src/services/audio/audio-export.ts';
-import type { DeviceSnapshot, DeviceUploadService } from '../src/application/contracts.ts';
+import type { AdvancedUploadService, DeviceSnapshot, DeviceUploadService } from '../src/application/contracts.ts';
 import { BrowserImportWriter } from '../src/application/browser-import-writer.ts';
 import { BrowserLocalFileGateway } from '../src/application/browser-local-file-gateway.ts';
 import { ImportQueue } from '../src/application/import-queue.ts';
@@ -45,6 +45,7 @@ function makePreview(format = { codec: 'AT3', bitrate: 132 }) {
         measurementUnits: 'frames' as const,
         complete: true,
         issues: [],
+        homebrew: { requiredCapabilities: [] },
         capacity: {
             availableBefore: 10_000,
             required: 100,
@@ -79,6 +80,13 @@ function makeApplication(
     options: { format?: { codec: string; bitrate: number }; onSession?: (capabilities: string[]) => void } = {}
 ) {
     const service = makeUploadService(upload);
+    const advancedService: AdvancedUploadService = {
+        async uploadSP(_title, _fullWidthTitle, _mono, data, onProgress) {
+            onProgress({ written: data.byteLength, encrypted: data.byteLength, total: data.byteLength });
+            return 1;
+        },
+        async enableMonoUpload() {},
+    };
     return {
         readSnapshot: () => structuredClone(snapshot),
         refresh: async () => structuredClone(snapshot),
@@ -86,10 +94,10 @@ function makeApplication(
         runDeviceUploadSession: async (
             capabilities: string[],
             _authorization: unknown,
-            operation: (uploadService: DeviceUploadService) => Promise<unknown>
+            operation: (uploadService: DeviceUploadService, advancedUploadService?: AdvancedUploadService) => Promise<unknown>
         ) => {
             options.onSession?.(capabilities);
-            const value = await operation(service);
+            const value = await operation(service, advancedService);
             return { value, snapshot: structuredClone(snapshot) };
         },
     } as unknown as MiniDiscApplication;
@@ -170,7 +178,7 @@ describe('BrowserImportWriter', () => {
         assert.equal(finished.progress.stages?.transfer.buffered, 4);
     });
 
-    it('cancels a confirmed-browser Homebrew write when the local confirmation is declined', async () => {
+    it('uses the native reviewed browser authorization without a second confirmation prompt', async () => {
         const tasks = new TaskManager();
         const queue = new ImportQueue();
         const added = addTracks(queue, 1, { codec: 'SPS', bitrate: 292 });
@@ -184,7 +192,6 @@ describe('BrowserImportWriter', () => {
             getAudioExportService: async () => makeAudioExporter(),
             getUseFullWidthTitles: () => false,
             localFiles: new BrowserLocalFileGateway(),
-            confirmHomebrew: () => false,
         });
 
         const started = await writer.start(
@@ -198,9 +205,8 @@ describe('BrowserImportWriter', () => {
         );
         const finished = await waitForFinished(tasks, started.id);
 
-        assert.equal(finished.status, 'cancelled');
-        assert.equal(sessions, 0);
-        assert.equal(queue.snapshot().items.length, 1);
+        assert.equal(finished.status, 'succeeded');
+        assert.equal(sessions, 1);
     });
 
     it('preserves completed-item evidence and the queue after a partial transfer failure', async () => {

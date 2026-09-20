@@ -36,6 +36,7 @@ import { sleep } from '../utils';
 import { INTERACTIVE_ADVANCED_AUTHORIZATION } from './interactive-authorization';
 import { ImportPreviewError, type ImportPreview, type ImportPreviewTrack } from './import-preview';
 import { getRecordingCodec } from './device-profile';
+import { getImportHomebrewRequirements } from './import-write-policy';
 import {
     isRawTocPatchKind,
     RAW_TOC_BYTE_LENGTH,
@@ -150,6 +151,13 @@ export class MiniDiscApplication {
             }
             return {
                 ...preview,
+                homebrew: {
+                    requiredCapabilities: getImportHomebrewRequirements(
+                        tracks,
+                        preview.selectedFormat,
+                        snapshot.capabilities.includes('track.uploadMono')
+                    ),
+                },
                 deviceSessionId: snapshot.sessionId,
                 deviceRevision: snapshot.revision,
                 importRevision,

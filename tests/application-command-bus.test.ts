@@ -350,6 +350,7 @@ describe('ApplicationCommandBus import writing', () => {
                     measurementUnits: 'frames',
                     complete: true,
                     issues: [],
+                    homebrew: { requiredCapabilities: [] },
                     capacity: {
                         availableBefore: 600,
                         required: 60,

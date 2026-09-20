@@ -23,6 +23,9 @@ export interface ImportPreview {
         code: 'MISSING_DURATION' | 'UNSUPPORTED_FORCED_FORMAT';
         message: string;
     }>;
+    homebrew: {
+        requiredCapabilities: Array<'uploadAtrac1' | 'uploadMonoSP'>;
+    };
     items: Array<{
         id: string;
         format: Codec | null;
@@ -57,7 +60,10 @@ export interface ImportPreview {
     };
 }
 
-export type ImportPreviewCalculation = Omit<ImportPreview, 'deviceSessionId' | 'deviceRevision' | 'importRevision'>;
+export type ImportPreviewCalculation = Omit<
+    ImportPreview,
+    'deviceSessionId' | 'deviceRevision' | 'importRevision' | 'homebrew'
+>;
 
 export class ImportPreviewError extends Error {}
 

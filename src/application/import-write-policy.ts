@@ -3,6 +3,21 @@ import type { ResolvedImportQueueItem } from './import-queue';
 import type { Disc } from '../services/interfaces/netmd';
 import type { ImportPreview } from './import-preview';
 
+export type ImportHomebrewCapability = 'uploadAtrac1' | 'uploadMonoSP';
+
+export function getImportHomebrewRequirements(
+    tracks: readonly { forcedEncoding?: { codec: string; bitrate: number } | null }[],
+    format: { codec: string; bitrate: number },
+    nativeMonoUpload: boolean
+): ImportHomebrewCapability[] {
+    const requirements: ImportHomebrewCapability[] = [];
+    if (tracks.some((track) => track.forcedEncoding?.codec === 'SPS' || track.forcedEncoding?.codec === 'SPM')) {
+        requirements.push('uploadAtrac1');
+    }
+    if (format.codec === 'SPM' && !nativeMonoUpload) requirements.push('uploadMonoSP');
+    return requirements;
+}
+
 export interface ImportWritePolicyInput {
     selected: ResolvedImportQueueItem[];
     format: { codec: string; bitrate: number };
@@ -11,17 +26,21 @@ export interface ImportWritePolicyInput {
 }
 
 export function assertImportWritePolicy(input: ImportWritePolicyInput) {
-    const preencodedAtrac1 = input.selected.filter(
-        ({ item }) => item.forcedEncoding?.codec === 'SPS' || item.forcedEncoding?.codec === 'SPM'
+    const requiredCapabilities = getImportHomebrewRequirements(
+        input.selected.map(({ item }) => item),
+        input.format,
+        input.nativeMonoUpload
     );
-    const monoExploitRequired = input.format.codec === 'SPM' && !input.nativeMonoUpload;
-    if ((preencodedAtrac1.length > 0 || monoExploitRequired) && !input.allowInteractiveHomebrew) {
+    if (requiredCapabilities.length > 0 && !input.allowInteractiveHomebrew) {
         throw new ApplicationError(
             'CAPABILITY_REQUIRED',
             'This write requires Homebrew mode and an interactive confirmation in the browser. MCP and CLI writes cannot enter it automatically.',
             {
-                preencodedAtrac1Items: preencodedAtrac1.map(({ item }) => item.id),
-                monoExploitRequired,
+                preencodedAtrac1Items: input.selected
+                    .filter(({ item }) => item.forcedEncoding?.codec === 'SPS' || item.forcedEncoding?.codec === 'SPM')
+                    .map(({ item }) => item.id),
+                monoExploitRequired: requiredCapabilities.includes('uploadMonoSP'),
+                requiredCapabilities,
             }
         );
     }

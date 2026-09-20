@@ -30,7 +30,7 @@ import { BrowserTrackRecognizer } from './application/browser-track-recognizer';
 import NotificationCompleteIconUrl from './images/record-complete-notification-icon.png';
 import { ApplicationClientProvider } from './frontend/application-client-provider';
 import { hasPendingWorkspaceWork } from './frontend/pending-work';
-import { getCurrentUiLanguage, runtimeTranslate } from './runtime-i18n';
+import { runtimeTranslate } from './runtime-i18n';
 const mediaRecorderService = new MediaRecorderService();
 const localFiles = new BrowserLocalFileGateway();
 serviceRegistry.localAudioInput = new BrowserAudioInput(mediaRecorderService);
@@ -39,18 +39,6 @@ serviceRegistry.importWriter = new BrowserImportWriter({
     getAudioExportService: () => serviceRegistry.audioEncoderManager.getService(),
     getUseFullWidthTitles: () => serviceRegistry.settingsStore.getSnapshot().values.fullWidthSupport,
     localFiles,
-    confirmHomebrew: (requiredCapabilities) => {
-        const modes = [
-            requiredCapabilities.includes('uploadAtrac1') && runtimeTranslate('ATRAC1 restore'),
-            requiredCapabilities.includes('uploadMonoSP') && runtimeTranslate('SP Mono recording'),
-        ].filter(Boolean);
-        const capabilityNames = modes.join(runtimeTranslate(' and '));
-        return window.confirm(
-            getCurrentUiLanguage() === 'zh-CN'
-                ? `${capabilityNames} 需要 Homebrew 模式。是否继续并授予高级设备访问权限？`
-                : `${capabilityNames} requires Homebrew mode. Continue with advanced device access?`
-        );
-    },
     notifyCompleted: () => {
         const state = store.getState().appState;
         if (!state.hasNotificationSupport || !serviceRegistry.settingsStore.getSnapshot().values.notifyWhenFinished) return;

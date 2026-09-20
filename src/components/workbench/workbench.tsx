@@ -1343,6 +1343,13 @@ export const Workbench = () => {
                                 {writePreview.issues.map((issue) => <div className="workbench__write-warning" key={`${issue.id}:${issue.code}`}>{issue.message}</div>)}
                                 {!writePreview.capacity.fits ? <div className="workbench__write-warning">{t('The recording plan does not fit on this MiniDisc.')}</div> : null}
                                 {!writePreview.titles.fits ? <div className="workbench__write-warning">{t('The track titles exceed the MiniDisc title capacity.')}</div> : null}
+                                {writePreview.homebrew.requiredCapabilities.length > 0 ? (
+                                    <div className="workbench__write-warning">
+                                        <strong>{t('Advanced device access required')}</strong>
+                                        <span>{t('This recording uses the Homebrew upload path. Starting the task authorizes the listed capabilities for this write only. Keep USB and device power stable until it finishes.')}</span>
+                                        <span>{writePreview.homebrew.requiredCapabilities.map((capability) => t(capability === 'uploadAtrac1' ? 'ATRAC1 restore upload' : 'SP Mono upload')).join(' · ')}</span>
+                                    </div>
+                                ) : null}
                                 {selectedEncoderSupport.state === 'unsupported' ? <div className="workbench__write-warning">{language === 'zh-CN' ? `当前版本中的所选编码器无法生成 ${codecLabel(selectedFormat)} 音频。` : `The selected encoder cannot produce ${codecLabel(selectedFormat)} audio in this build.`}</div> : null}
                                 <label className="workbench__write-option">
                                     <input type="checkbox" checked={enableReplayGain} onChange={(event) => setEnableReplayGain(event.target.checked)} />
@@ -1356,7 +1363,7 @@ export const Workbench = () => {
                         ) : null}
                         <div className="workbench__modal-actions">
                             <button className="secondary-button" onClick={() => setWriteReviewOpen(false)} disabled={busy}>{t('Cancel')}</button>
-                            <button className="primary-button" onClick={startWrite} disabled={busy || writePreviewPending || !writePreviewFits}>{t('Start recording')}</button>
+                            <button className="primary-button" onClick={startWrite} disabled={busy || writePreviewPending || !writePreviewFits}>{t(writePreview?.homebrew.requiredCapabilities.length ? 'Authorize and start recording' : 'Start recording')}</button>
                         </div>
                     </section>
                 </div>
