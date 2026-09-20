@@ -961,6 +961,11 @@ export const Workbench = () => {
                             tracksSelected={selectedTrackIndexes}
                             onRecognizeTracks={() => setTrackRecognitionOpen(true)}
                             onRenameDisc={openDiscEditor}
+                            onShowSettings={() => setSection('settings')}
+                            onOpenSelfTest={() => {
+                                setSection('tools');
+                                setMessage('Review the destructive device self-test in Tools before starting it.');
+                            }}
                         />
                     </div>
                 </header>

@@ -74,8 +74,10 @@ export const TopMenu = function (props: {
     onClick?: () => void;
     onRecognizeTracks?: () => void;
     onRenameDisc?: () => void;
+    onShowSettings?: () => void;
+    onOpenSelfTest?: () => void;
 }) {
-    const { tracksSelected, onClick, onRecognizeTracks, onRenameDisc } = props;
+    const { tracksSelected, onClick, onRecognizeTracks, onRenameDisc, onShowSettings, onOpenSelfTest } = props;
     const { classes } = useStyles();
     const dispatch = useDispatch();
 
@@ -149,9 +151,10 @@ export const TopMenu = function (props: {
     }, [setMenuAnchorEl, handleShortcutsClose]);
 
     const handleShowSettings = useCallback(() => {
-        dispatch(appActions.showSettingsDialog(true));
+        if (onShowSettings) onShowSettings();
+        else dispatch(appActions.showSettingsDialog(true));
         handleMenuClose();
-    }, [dispatch, handleMenuClose]);
+    }, [dispatch, handleMenuClose, onShowSettings]);
 
     const handleWipeDisc = useCallback(() => {
         dispatch(wipeDisc());
@@ -188,8 +191,9 @@ export const TopMenu = function (props: {
 
     const handleSelfTest = useCallback(() => {
         handleMenuClose();
-        dispatch(selfTest());
-    }, [dispatch, handleMenuClose]);
+        if (onOpenSelfTest) onOpenSelfTest();
+        else dispatch(selfTest());
+    }, [dispatch, handleMenuClose, onOpenSelfTest]);
 
     const handleExit = useCallback(() => {
         dispatch(disconnectDevice());
