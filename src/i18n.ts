@@ -1,6 +1,8 @@
 export type UiLanguagePreference = 'system' | 'en' | 'zh-CN';
 export type ResolvedUiLanguage = Exclude<UiLanguagePreference, 'system'>;
 
+export const DEFAULT_UI_LANGUAGE_PREFERENCE: UiLanguagePreference = 'zh-CN';
+
 const zhCN: Record<string, string> = {
     'Settings': '设置',
     'DESKTOP': '桌面版',

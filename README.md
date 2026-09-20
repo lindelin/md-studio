@@ -12,7 +12,7 @@ The project is under active reconstruction. The stable NetMD and HiMD protocol i
 -   Audio import, browser-side transcoding, NetMD upload, supported-device download, recording, and factory tools inherited from Web MiniDisc Pro
 -   Revision-checked application commands and observable long-running tasks
 -   Local MCP tools and a scriptable CLI over a loopback-only browser bridge
--   Simplified Chinese and English interfaces with an immediate, persisted language switch
+-   Simplified Chinese by default, with complete English support and an immediate, persisted language switch
 -   Safe preference loading that isolates a damaged setting instead of clearing the complete browser store
 
 ## Requirements

@@ -492,7 +492,7 @@ describe('ApplicationCommandBus import writing', () => {
 
         const result = await bus.execute({
             type: 'settings.update',
-            changes: { uiLanguage: 'zh-CN' },
+            changes: { uiLanguage: 'en' },
             expectedRevision: 0,
         });
 
@@ -500,6 +500,6 @@ describe('ApplicationCommandBus import writing', () => {
         assert.equal(!result.ok && result.error.code, 'PERSISTENCE_FAILED');
         assert.equal(!result.ok && result.error.details?.cause, 'quota exceeded');
         assert.equal(settings.getSnapshot().revision, 0);
-        assert.equal(settings.getSnapshot().values.uiLanguage, 'system');
+        assert.equal(settings.getSnapshot().values.uiLanguage, 'zh-CN');
     });
 });

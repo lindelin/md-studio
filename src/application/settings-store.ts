@@ -2,6 +2,7 @@ import { isBoolean, isOneOf, isPrimitiveRecord, isUploadFormat, loadPreference, 
 import { ApplicationError } from './contracts';
 import type { CustomParameters } from '../custom-parameters';
 import type { ImportTitleFormat } from './import-title';
+import { DEFAULT_UI_LANGUAGE_PREFERENCE } from '../i18n';
 
 export interface UserSettings {
     colorTheme: 'dark' | 'light' | 'system';
@@ -31,7 +32,7 @@ export type UserSettingsUpdate = Partial<UserSettings>;
 
 const defaults: UserSettings = {
     colorTheme: 'system',
-    uiLanguage: 'system',
+    uiLanguage: DEFAULT_UI_LANGUAGE_PREFERENCE,
     discProtectedDialogDisabled: false,
     notifyWhenFinished: false,
     fullWidthSupport: false,

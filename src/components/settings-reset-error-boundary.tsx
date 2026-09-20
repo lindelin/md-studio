@@ -1,5 +1,6 @@
 import React from 'react';
 import { clearAppPreferences, loadPreference } from '../preferences';
+import { DEFAULT_UI_LANGUAGE_PREFERENCE } from '../i18n';
 
 export class SettingsResetErrorBoundary extends React.Component<
     {
@@ -23,7 +24,7 @@ export class SettingsResetErrorBoundary extends React.Component<
         if (!this.state.error) return <>{this.props.children}</>;
 
         const message = (this.state.error.stack ?? this.state.error.message).substring(0, 500);
-        const preference = loadPreference<'system' | 'en' | 'zh-CN'>('uiLanguage', 'system');
+        const preference = loadPreference<'system' | 'en' | 'zh-CN'>('uiLanguage', DEFAULT_UI_LANGUAGE_PREFERENCE);
         const isChinese = preference === 'zh-CN' || (preference === 'system' && navigator.language.toLowerCase().startsWith('zh'));
         return (
             <main

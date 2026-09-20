@@ -1,9 +1,15 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { resolveUiLanguage, translate } from '../src/i18n.ts';
+import { DEFAULT_UI_LANGUAGE_PREFERENCE, resolveUiLanguage, translate } from '../src/i18n.ts';
 import { getCurrentUiLanguage, runtimeTranslate } from '../src/runtime-i18n.ts';
 
 describe('UI language', () => {
+    it('starts new installations in Simplified Chinese while keeping explicit English available', () => {
+        assert.equal(DEFAULT_UI_LANGUAGE_PREFERENCE, 'zh-CN');
+        assert.equal(resolveUiLanguage(DEFAULT_UI_LANGUAGE_PREFERENCE, 'en-US'), 'zh-CN');
+        assert.equal(resolveUiLanguage('en', 'zh-CN'), 'en');
+    });
+
     it('follows Chinese browser locales and otherwise keeps English', () => {
         assert.equal(resolveUiLanguage('system', 'zh-CN'), 'zh-CN');
         assert.equal(resolveUiLanguage('system', 'zh-TW'), 'zh-CN');
@@ -33,7 +39,7 @@ describe('UI language', () => {
         assert.equal(translate('zh-CN', 'WRITE TOC'), 'WRITE TOC');
     });
 
-    it('localizes non-React browser prompts with the same language rules', () => {
+    it('defaults non-React browser prompts to Chinese on new installations', () => {
         assert.equal(getCurrentUiLanguage('zh-CN'), 'zh-CN');
         assert.equal(runtimeTranslate('MiniDisc recording completed', 'zh-CN'), 'MiniDisc 录制完成');
         assert.equal(
@@ -44,6 +50,6 @@ describe('UI language', () => {
             runtimeTranslate('This action is not available for Network Walkman devices.', 'zh-CN'),
             'Network Walkman 设备不支持此操作。'
         );
-        assert.equal(runtimeTranslate('MiniDisc recording completed', 'en-US'), 'MiniDisc recording completed');
+        assert.equal(runtimeTranslate('MiniDisc recording completed', 'en-US'), 'MiniDisc 录制完成');
     });
 });

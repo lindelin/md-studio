@@ -5,7 +5,7 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 ## Highlights
 
 - Studio Workbench replaces the former main workspace with a device overview, disc and recording-plan tables, inspector, library, settings, tools, and one task center.
-- The interface supports Simplified Chinese and English, including runtime task states, validation, recovery guidance, and retained compatibility dialogs.
+- The interface starts in Simplified Chinese and retains complete English support, including runtime task states, validation, recovery guidance, and retained compatibility dialogs.
 - Browser UI, MCP, and CLI share revision-checked application commands, import queue state, device snapshots, and long-running tasks.
 - Local-path automation reads audio tags and duration before staging, while file bytes remain behind short-lived local handles until conversion starts.
 - Writing performs a capacity, title, codec, device-session, and revision preview before creating a task.
@@ -13,6 +13,7 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 - CSV metadata planning, normal and recovery export review, raw TOC review, protection flags, diagnostics, and capability-gated advanced tools are available from the workbench.
 - Device services return results and errors without opening browser-native alert, confirm, or prompt dialogs. Full-access HiMD uses a bilingual in-app review.
 - Windows development and production builds use cross-platform runtime preparation and version metadata.
+- The bundled open-source Atracdenc runtime is rebuilt from pinned source and toolchain revisions with a checksum-enforced Windows script.
 
 ## Reliability and safety
 
@@ -25,6 +26,7 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 - Local bridge messages, file chunks, output paths, origins, and tokens are bounded and validated.
 - Raw TOC writes require a preview, exact checksums, current session/revision, and browser-only authorization; MCP and CLI can preview but cannot apply them.
 - NetMD cancellation stops at a track boundary. It does not claim to interrupt the track already recording.
+- CLI recording-mode aliases such as LP2 and LP4 are normalized to the same canonical formats used by the browser application.
 
 ## Compatibility notes
 
@@ -36,7 +38,7 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 
 ## Verification snapshot
 
-- 310 automated tests in 83 suites
+- 313 automated tests in 84 suites
 - Full TypeScript and TSX lint with zero warnings
 - Application and bridge type checks
 - Production Vite/PWA build

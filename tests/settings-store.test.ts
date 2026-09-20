@@ -209,7 +209,7 @@ describe('SettingsStore', () => {
         storage.failOnWrite = 1;
 
         assert.throws(
-            () => settings.update({ uiLanguage: 'zh-CN' }),
+            () => settings.update({ uiLanguage: 'en' }),
             (error: unknown) =>
                 error instanceof ApplicationError &&
                 error.code === 'PERSISTENCE_FAILED' &&
@@ -217,7 +217,7 @@ describe('SettingsStore', () => {
         );
 
         assert.equal(settings.getSnapshot().revision, 0);
-        assert.equal(settings.getSnapshot().values.uiLanguage, 'system');
+        assert.equal(settings.getSnapshot().values.uiLanguage, 'zh-CN');
         assert.equal(storage.getItem('uiLanguage'), null);
         assert.deepEqual(revisions, []);
     });
