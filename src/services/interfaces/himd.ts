@@ -243,7 +243,6 @@ export class HiMDRestrictedService extends NetMDService {
         if (!this.himd || dropCache) {
             await this.initHiMD();
         }
-        (window as any).himd = this.himd;
         if (dropCache) this.cachedDisc = undefined;
         await this.reloadCache();
         return JSON.parse(JSON.stringify(this.cachedDisc!));

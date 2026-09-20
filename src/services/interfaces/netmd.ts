@@ -22,16 +22,11 @@ import {
     getDescriptiveDeviceCode,
     cleanRead,
     MemoryType,
-    formatQuery,
-    scanQuery,
-    unpatch,
-    patch,
     Track as NetMDTrack,
     Encoding,
     TrackFlag,
     getRemainingCharactersForTitles,
     getCellsForTitle,
-    readPatch,
     formatToHiMD,
 } from 'netmd-js';
 import { Logger } from 'netmd-js/dist/logger';
@@ -44,7 +39,6 @@ import {
     ExploitStateManager,
     FirmwareDumper,
     ForceTOCEdit,
-    Tetris,
     getBestSuited,
     isCompatible,
     PCMFasterUpload,
@@ -58,8 +52,6 @@ import {
     DisableDiscDetection,
     EnterServiceMode,
 } from 'netmd-exploits';
-import netmdExploits from 'netmd-exploits';
-import netmdTocmanip from 'netmd-tocmanip';
 import type { HiMDCodecName } from '../../domain/himd-codec';
 import { makeNetMDEncryptPacketIterator } from './netmd-encrypt-worker';
 import { createNetMDTransferGuard } from './netmd-transfer-guard';
@@ -262,7 +254,6 @@ export interface NetMDFactoryService {
 
     // depend on netmd-exploits:
     flushUTOCCacheToDisc(): Promise<void>;
-    runTetris(): Promise<void>;
     readFirmware(
         callback: (progress: { type: 'RAM' | 'ROM' | 'DRAM'; readBytes: number; totalBytes: number }) => void
     ): Promise<{ rom: Uint8Array<ArrayBuffer>; ram: Uint8Array<ArrayBuffer>; dram?: Uint8Array<ArrayBuffer> }>;
@@ -371,33 +362,6 @@ export class NetMDUSBService extends NetMDService {
             };
         }
 
-        Object.defineProperty(window, 'exposeAPIToConsole', {
-            writable: true,
-            configurable: true,
-            value: () => {
-                console.log('%cThe following features have been exposed:', 'font-size: 20px; color: cyan;');
-                console.log('%c- formatQuery() - a function which formats given hex data with parameters', 'font-size: 15px; color: cyan;');
-                console.log(
-                    '%c- scanQuery() - a function which parses data with the help of a given hex format with parameters',
-                    'font-size: 15px; color: cyan;'
-                );
-                console.log('%c- patch() - a function which patches the device', 'font-size: 15px; color: cyan;');
-                console.log('%c- readPatch() - a function which reads a patch from the device', 'font-size: 15px; color: cyan;');
-                console.log('%c- unpatch() - a function which removes a patch', 'font-size: 15px; color: cyan;');
-                console.log("%c- interface - an instance of netmd-js's NetMDInterface", 'font-size: 15px; color: cyan;');
-                Object.defineProperty(window, 'formatQuery', { value: formatQuery, configurable: true });
-                Object.defineProperty(window, 'scanQuery', { value: scanQuery, configurable: true });
-                Object.defineProperty(window, 'readPatch', { value: readPatch, configurable: true });
-                Object.defineProperty(window, 'patch', { value: patch, configurable: true });
-                Object.defineProperty(window, 'unpatch', { value: unpatch, configurable: true });
-                Object.defineProperty(window, 'interface', { value: this.netmdInterface, configurable: true });
-            },
-        });
-
-        console.log(
-            '%cIf you would like to experiment with NetMD features in the console, please run exposeAPIToConsole()',
-            'font-size: 25px; color: cyan;'
-        );
     }
 
     @asyncMutex
@@ -834,7 +798,6 @@ class NetMDFactoryUSBService implements NetMDFactoryService {
 
         bind(FirmwareDumper, ExploitCapability.readFirmware);
         bind(AtracRecovery, ExploitCapability.downloadAtrac);
-        bind(Tetris, ExploitCapability.runTetris);
         bind(ForceTOCEdit, ExploitCapability.flushUTOC);
         bind(PCMFasterUpload, ExploitCapability.spUploadSpeedup);
         bind(SPUpload, ExploitCapability.uploadAtrac1);
@@ -845,21 +808,6 @@ class NetMDFactoryUSBService implements NetMDFactoryService {
         if (!this.exploitStateManager.device.isHimd) {
             // Non-HiMD devices can read the RAM using normal commands
             capabilities.push(ExploitCapability.readRam);
-        }
-
-        if ((window as any).interface) {
-            Object.defineProperty(window, 'exploitStateManager', { value: this.exploitStateManager, configurable: true });
-            Object.defineProperty(window, 'exploits', { value: netmdExploits, configurable: true });
-            Object.defineProperty(window, 'tocmanip', { value: netmdTocmanip, configurable: true });
-            Object.defineProperty(window, 'getToC', {
-                value: async () => {
-                    const sector0 = await this.readUTOCSector(0);
-                    const sector1 = await this.readUTOCSector(1);
-                    const sector2 = await this.readUTOCSector(2);
-                    return netmdTocmanip.parseTOC(sector0, sector1, sector2);
-                },
-                configurable: true,
-            });
         }
 
         return capabilities;
@@ -878,11 +826,6 @@ class NetMDFactoryUSBService implements NetMDFactoryService {
     @asyncMutex
     async flushUTOCCacheToDisc() {
         await (await this.exploitStateManager.require(ForceTOCEdit)).forceTOCEdit();
-    }
-
-    @asyncMutex
-    async runTetris() {
-        await (await this.exploitStateManager.require(Tetris)).playTetris();
     }
 
     @asyncMutex

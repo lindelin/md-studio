@@ -248,11 +248,6 @@ export class NetMDAdvancedDeviceGateway implements AdvancedDeviceGateway {
         await factory.flushUTOCCacheToDisc();
     }
 
-    async runTetris() {
-        const factory = await this.getFactoryService();
-        await factory.runTetris();
-    }
-
     async setSpUploadSpeedup(enabled: boolean) {
         const factory = await this.getFactoryService();
         await factory.setSPSpeedupActive(enabled);

@@ -26,7 +26,7 @@ describe('executeSessionEndingCommand', () => {
         };
 
         const transition = executeSessionEndingCommand(client, {
-            type: 'advanced.runTetris',
+            type: 'advanced.enableHimdFullMode',
             confirmation: { confirmed: true },
         });
         await Promise.resolve();

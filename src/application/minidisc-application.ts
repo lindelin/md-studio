@@ -357,19 +357,6 @@ export class MiniDiscApplication {
         }
     }
 
-    runTetris(
-        confirmation?: DestructiveConfirmation,
-        interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION
-    ) {
-        return this.advancedAction(
-            'runTetris',
-            (gateway) => gateway.runTetris(),
-            interactiveAuthorization,
-            confirmation,
-            'Running device-side homebrew code requires explicit confirmation.'
-        );
-    }
-
     setSpUploadSpeedup(enabled: boolean, interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION) {
         return this.advancedAction(
             'spUploadSpeedup',

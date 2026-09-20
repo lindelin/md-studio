@@ -22,4 +22,14 @@ describe('device service UI boundary', () => {
 
         assert.deepEqual(violations, []);
     });
+
+    it('does not expose raw device or exploit objects on the browser global', () => {
+        const source = sourceFiles(path.resolve('src/services/interfaces'))
+            .map((filePath) => readFileSync(filePath, 'utf8'))
+            .join('\n');
+
+        assert.doesNotMatch(source, /exposeAPIToConsole/);
+        assert.doesNotMatch(source, /Object\.defineProperty\(window,\s*['"](?:interface|exploits|exploitStateManager|tocmanip|getToC)['"]/);
+        assert.doesNotMatch(source, /\(window\s+as\s+any\)\.himd\s*=/);
+    });
 });

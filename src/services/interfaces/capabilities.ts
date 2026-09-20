@@ -30,7 +30,6 @@ export enum Capability {
 }
 
 export enum ExploitCapability {
-    runTetris,
     flushUTOC,
     downloadAtrac,
     readFirmware,

@@ -505,8 +505,6 @@ class NetMDFactoryMockService implements NetMDFactoryService {
         this.utoc[index] = new Uint8Array(data);
     }
 
-    async runTetris(): Promise<void> {}
-
     async flushUTOCCacheToDisc() {}
 
     async readFirmware(_callback: (progress: { type: 'RAM' | 'ROM'; readBytes: number; totalBytes: number }) => void) {

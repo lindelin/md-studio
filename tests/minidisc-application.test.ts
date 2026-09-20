@@ -553,7 +553,6 @@ describe('MiniDiscApplication', () => {
             },
             async writeTocSector() {},
             async flushToc() {},
-            async runTetris() {},
             async setSpUploadSpeedup() {},
             async setDiscSwapDetectionDisabled() {},
             async enableHimdFullMode() {},
@@ -601,7 +600,6 @@ describe('MiniDiscApplication', () => {
             async flushToc() {
                 flushed += 1;
             },
-            async runTetris() {},
             async setSpUploadSpeedup() {},
             async setDiscSwapDetectionDisabled() {},
             async enableHimdFullMode() {},
@@ -694,7 +692,6 @@ describe('MiniDiscApplication', () => {
                 writes += 1;
             },
             async flushToc() {},
-            async runTetris() {},
             async setSpUploadSpeedup() {},
             async setDiscSwapDetectionDisabled() {},
             async enableHimdFullMode() {},
@@ -743,7 +740,6 @@ describe('MiniDiscApplication', () => {
             async flushToc() {
                 flushed += 1;
             },
-            async runTetris() {},
             async setSpUploadSpeedup() {},
             async setDiscSwapDetectionDisabled() {},
             async enableHimdFullMode() {},
@@ -797,7 +793,6 @@ describe('MiniDiscApplication', () => {
                 return {
                     firmwareVersion: 'S1.600',
                     capabilities: [
-                        'runTetris',
                         'spUploadSpeedup',
                         'disableDiscSwapDetection',
                         'himdFullMode',
@@ -810,9 +805,6 @@ describe('MiniDiscApplication', () => {
             },
             async writeTocSector() {},
             async flushToc() {},
-            async runTetris() {
-                actions.push('tetris');
-            },
             async setSpUploadSpeedup(enabled) {
                 actions.push(`speedup:${enabled}`);
             },
@@ -834,11 +826,6 @@ describe('MiniDiscApplication', () => {
         });
         await application.refresh();
 
-        await assert.rejects(() => application.runTetris(), { code: 'INTERACTIVE_AUTHORIZATION_REQUIRED' });
-        await assert.rejects(() => application.runTetris(undefined, INTERACTIVE_ADVANCED_AUTHORIZATION), {
-            code: 'CONFIRMATION_REQUIRED',
-        });
-        await application.runTetris({ confirmed: true, reason: 'Confirmed in test.' }, INTERACTIVE_ADVANCED_AUTHORIZATION);
         await application.setSpUploadSpeedup(true, INTERACTIVE_ADVANCED_AUTHORIZATION);
         await application.setDiscSwapDetectionDisabled(true, INTERACTIVE_ADVANCED_AUTHORIZATION);
         await application.enableHimdFullMode(
@@ -850,7 +837,7 @@ describe('MiniDiscApplication', () => {
             INTERACTIVE_ADVANCED_AUTHORIZATION
         );
 
-        assert.deepEqual(actions, ['tetris', 'speedup:true', 'disc-swap-disabled:true', 'himd-full', 'service-mode']);
+        assert.deepEqual(actions, ['speedup:true', 'disc-swap-disabled:true', 'himd-full', 'service-mode']);
     });
 
     it('exports advanced memory through the serialized browser-authorized application path', async () => {
@@ -865,7 +852,6 @@ describe('MiniDiscApplication', () => {
             },
             async writeTocSector() {},
             async flushToc() {},
-            async runTetris() {},
             async setSpUploadSpeedup() {},
             async setDiscSwapDetectionDisabled() {},
             async enableHimdFullMode() {},
@@ -915,7 +901,6 @@ describe('MiniDiscApplication', () => {
             async readTocSector() { return new Uint8Array(2352); },
             async writeTocSector() {},
             async flushToc() {},
-            async runTetris() {},
             async setSpUploadSpeedup() {},
             async setDiscSwapDetectionDisabled() {},
             async enableHimdFullMode() {},
@@ -1004,7 +989,6 @@ describe('MiniDiscApplication', () => {
             async readTocSector() { return new Uint8Array(2352); },
             async writeTocSector() {},
             async flushToc() {},
-            async runTetris() {},
             async setSpUploadSpeedup() {},
             async setDiscSwapDetectionDisabled() {},
             async enableHimdFullMode() {},

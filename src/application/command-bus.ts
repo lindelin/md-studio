@@ -77,11 +77,6 @@ export type ApplicationCommand =
           interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION;
       }
     | {
-          type: 'advanced.runTetris';
-          confirmation?: DestructiveConfirmation;
-          interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION;
-      }
-    | {
           type: 'advanced.setSpUploadSpeedup';
           enabled: boolean;
           interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION;
@@ -463,10 +458,6 @@ export class ApplicationCommandBus {
             }
             if (command.type === 'advanced.previewTocPatch') {
                 return { ok: true, advancedTocPatch: await application.previewRawTocPatch(command.kind) };
-            }
-            if (command.type === 'advanced.runTetris') {
-                await application.runTetris(command.confirmation, command.interactiveAuthorization);
-                return { ok: true };
             }
             if (command.type === 'advanced.setSpUploadSpeedup') {
                 await application.setSpUploadSpeedup(command.enabled, command.interactiveAuthorization);
