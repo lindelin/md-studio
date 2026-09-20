@@ -577,12 +577,14 @@ describe('MiniDiscApplication', () => {
     it('validates and serializes destructive raw TOC writes before refreshing the disc', async () => {
         const { gateway, calls } = makeGateway();
         const written: { index: number; firstByte: number }[] = [];
+        const sectorsRead: number[] = [];
         let flushed = 0;
         const application = new MiniDiscApplication(gateway, undefined, {
             async readInfo() {
                 return { firmwareVersion: 'S1.600', capabilities: ['flushUTOC'] };
             },
-            async readTocSector() {
+            async readTocSector(index) {
+                sectorsRead.push(index);
                 return new Uint8Array(2352);
             },
             async writeTocSector(index, data) {
@@ -606,6 +608,7 @@ describe('MiniDiscApplication', () => {
         await application.refresh();
         const data = new Uint8Array(2352 * 6);
         for (let index = 0; index < 6; index += 1) data.fill(index + 1, index * 2352, (index + 1) * 2352);
+        const currentSha256 = createHash('sha256').update(new Uint8Array(2352 * 6)).digest('hex');
 
         await assert.rejects(() => application.writeRawToc(Buffer.from(data).toString('base64')), {
             code: 'INTERACTIVE_AUTHORIZATION_REQUIRED',
@@ -622,11 +625,24 @@ describe('MiniDiscApplication', () => {
             code: 'CONFIRMATION_REQUIRED',
             }
         );
+        await assert.rejects(
+            () =>
+                application.writeRawToc(
+                    Buffer.from(data).toString('base64'),
+                    { confirmed: true, reason: 'Confirmed in the advanced maintenance UI.' },
+                    0,
+                    INTERACTIVE_ADVANCED_AUTHORIZATION,
+                    'f'.repeat(64)
+                ),
+            { code: 'STALE_REVISION' }
+        );
+        assert.deepEqual(written, []);
         const snapshot = await application.writeRawToc(
             Buffer.from(data).toString('base64'),
             { confirmed: true, reason: 'Confirmed in the advanced maintenance UI.' },
             0,
-            INTERACTIVE_ADVANCED_AUTHORIZATION
+            INTERACTIVE_ADVANCED_AUTHORIZATION,
+            currentSha256
         );
 
         assert.deepEqual(written, [
@@ -636,6 +652,7 @@ describe('MiniDiscApplication', () => {
             { index: 3, firstByte: 4 },
         ]);
         assert.equal(flushed, 1);
+        assert.deepEqual(sectorsRead, [0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5]);
         assert.equal(snapshot.revision, 1);
         assert.deepEqual(calls, ['read', 'read']);
     });

@@ -22,6 +22,14 @@ import {
     isAdvancedMaintenanceConfirmationValid,
     type AdvancedMaintenanceAction,
 } from './workbench-advanced-maintenance';
+import {
+    canReviewRawTocWrite,
+    inspectRawTocData,
+    isRawTocConfirmationValid,
+    RAW_TOC_CONFIRMATION,
+    RAW_TOC_WRITABLE_SECTOR_COUNT,
+    type RawTocFileInspection,
+} from './workbench-raw-toc';
 
 function decodeBase64(data: string) {
     const binary = atob(data);
@@ -43,6 +51,7 @@ export const WorkbenchTools = ({
     const disc = device?.disc;
     const capabilities = device?.capabilities ?? [];
     const fileInput = useRef<HTMLInputElement>(null);
+    const tocFileInput = useRef<HTMLInputElement>(null);
     const [busy, setBusy] = useState(false);
     const [status, setStatus] = useState<string | null>(null);
     const [sourceName, setSourceName] = useState('');
@@ -58,6 +67,14 @@ export const WorkbenchTools = ({
     const [maintenanceConfirmation, setMaintenanceConfirmation] = useState('');
     const [spUploadSpeedupEnabled, setSpUploadSpeedupEnabled] = useState(false);
     const [discSwapDetectionDisabled, setDiscSwapDetectionDisabled] = useState(false);
+    const [rawTocReview, setRawTocReview] = useState<{
+        sourceName: string;
+        source: RawTocFileInspection;
+        current: RawTocFileInspection;
+        expectedSessionId: string;
+        expectedRevision: number;
+    } | null>(null);
+    const [rawTocConfirmation, setRawTocConfirmation] = useState('');
 
     const canImportMetadata =
         Boolean(disc?.writable) &&
@@ -75,7 +92,14 @@ export const WorkbenchTools = ({
         setMaintenanceConfirmation('');
         setSpUploadSpeedupEnabled(false);
         setDiscSwapDetectionDisabled(false);
+        setRawTocReview(null);
+        setRawTocConfirmation('');
     }, [device?.sessionId]);
+
+    useEffect(() => {
+        setRawTocReview(null);
+        setRawTocConfirmation('');
+    }, [device?.revision]);
 
     const closeSelfTest = () => {
         if (busy) return;
@@ -87,6 +111,12 @@ export const WorkbenchTools = ({
         if (busy) return;
         setMaintenanceAction(null);
         setMaintenanceConfirmation('');
+    };
+
+    const closeRawTocReview = () => {
+        if (busy) return;
+        setRawTocReview(null);
+        setRawTocConfirmation('');
     };
 
     const exportCsv = async () => {
@@ -234,6 +264,75 @@ export const WorkbenchTools = ({
         }
     };
 
+    const chooseRawToc = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file || !device || !disc) return;
+        const expectedSessionId = device.sessionId;
+        const expectedRevision = device.revision;
+        setBusy(true);
+        setStatus(`Checking ${file.name} against the inserted disc…`);
+        setRawTocReview(null);
+        setRawTocConfirmation('');
+        try {
+            const source = await inspectRawTocData(new Uint8Array(await file.arrayBuffer()));
+            const result = await client.execute({ type: 'advanced.readToc' });
+            if (!result.ok) throw new Error(result.error.message);
+            if (!result.advancedToc) throw new Error('The device did not return its current raw TOC.');
+            const current = await inspectRawTocData(decodeBase64(result.advancedToc.dataBase64));
+            const latest = client.getWorkspaceSnapshot().device;
+            if (latest?.sessionId !== expectedSessionId || latest.revision !== expectedRevision) {
+                throw new Error('The connected device or disc changed while the TOC file was being checked. Choose it again.');
+            }
+            setRawTocReview({ sourceName: file.name, source, current, expectedSessionId, expectedRevision });
+            setStatus(null);
+        } catch (error) {
+            setStatus(error instanceof Error ? error.message : 'Could not review the raw TOC backup.');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const writeRawToc = async () => {
+        if (!rawTocReview || !isRawTocConfirmationValid(rawTocConfirmation)) return;
+        const latest = client.getWorkspaceSnapshot().device;
+        if (
+            latest?.sessionId !== rawTocReview.expectedSessionId ||
+            latest.revision !== rawTocReview.expectedRevision
+        ) {
+            setStatus('The connected device or disc changed after this TOC was reviewed. Choose the file again.');
+            setRawTocReview(null);
+            setRawTocConfirmation('');
+            return;
+        }
+        setBusy(true);
+        setStatus('Writing the reviewed raw TOC…');
+        try {
+            const result = await client.execute({
+                type: 'advanced.writeToc',
+                dataBase64: rawTocReview.source.dataBase64,
+                confirmation: {
+                    confirmed: true,
+                    reason: 'Confirmed in Studio Workbench after comparing the source and current raw TOC checksums.',
+                },
+                expectedRevision: rawTocReview.expectedRevision,
+                expectedCurrentTocSha256: rawTocReview.current.sha256,
+                interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
+            });
+            if (!result.ok) throw new Error(result.error.message);
+            if (!result.snapshot) throw new Error('Writing the raw TOC did not return the refreshed device state.');
+            const sourceName = rawTocReview.sourceName;
+            setRawTocReview(null);
+            setRawTocConfirmation('');
+            setStatus(null);
+            onMessage(`Wrote the reviewed sectors from ${sourceName} and refreshed the disc.`);
+        } catch (error) {
+            setStatus(error instanceof Error ? error.message : 'Could not write the raw TOC.');
+        } finally {
+            setBusy(false);
+        }
+    };
+
     const exportAdvancedMemory = async (kind: 'ram' | 'firmware') => {
         if (!device) return;
         setBusy(true);
@@ -355,6 +454,12 @@ export const WorkbenchTools = ({
                     <DataObjectRoundedIcon />
                     <div><h3>Raw TOC backup</h3><p>Save all six 2,352-byte TOC sectors with a SHA-256 checksum. This is read-only.</p>{tocSummary ? <small>{tocSummary.bytes.toLocaleString()} bytes · SHA-256 {tocSummary.sha256.slice(0, 16)}…</small> : null}</div>
                     <button className="secondary-button" onClick={() => void exportRawToc()} disabled={!disc || !capabilities.includes('advanced.factory') || busy}><SaveAltRoundedIcon /> Export TOC</button>
+                </article>
+                <article className="workbench__tool-card is-danger">
+                    <UploadFileRoundedIcon />
+                    <div><h3>Restore raw TOC</h3><p>Compare a six-sector backup with the inserted disc before writing the four writable UTOC sectors.</p><small>{advancedInfo ? 'Requires the flushUTOC capability and a writable disc.' : 'Inspect the device before choosing a backup.'}</small></div>
+                    <button className="danger-button" onClick={() => tocFileInput.current?.click()} disabled={!canReviewRawTocWrite(disc, advancedInfo?.capabilities) || busy}><UploadFileRoundedIcon /> Choose TOC</button>
+                    <input ref={tocFileInput} type="file" accept=".bin,application/octet-stream" hidden onChange={(event) => void chooseRawToc(event)} />
                 </article>
                 <article className="workbench__tool-card">
                     <SaveAltRoundedIcon />
@@ -478,6 +583,43 @@ export const WorkbenchTools = ({
                                 disabled={busy || !isAdvancedMaintenanceConfirmationValid(maintenanceAction, maintenanceConfirmation)}
                             >
                                 {busy ? 'Applying…' : 'Apply device mode'}
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            ) : null}
+
+            {rawTocReview ? (
+                <div className="workbench__modal-backdrop" role="presentation" onMouseDown={closeRawTocReview}>
+                    <section className="workbench__modal workbench__maintenance-modal" role="dialog" aria-modal="true" aria-labelledby="workbench-raw-toc-title" onMouseDown={(event) => event.stopPropagation()}>
+                        <span className="workbench__eyebrow">RAW TOC RESTORE</span>
+                        <h2 id="workbench-raw-toc-title">Write {rawTocReview.sourceName}?</h2>
+                        <p>The file is exactly {rawTocReview.source.byteLength.toLocaleString()} bytes. The device will write sectors 0–{RAW_TOC_WRITABLE_SECTOR_COUNT - 1}; sectors 4–5 remain reference data.</p>
+                        <dl className="workbench__review-grid">
+                            <div><dt>Current disc SHA-256</dt><dd>{rawTocReview.current.sha256}</dd></div>
+                            <div><dt>Backup SHA-256</dt><dd>{rawTocReview.source.sha256}</dd></div>
+                            <div><dt>Current writable sectors</dt><dd>{rawTocReview.current.writableSha256}</dd></div>
+                            <div><dt>Backup writable sectors</dt><dd>{rawTocReview.source.writableSha256}</dd></div>
+                        </dl>
+                        <div className="workbench__write-warning">
+                            A malformed or wrong-disc TOC can make every track unreadable. Keep USB and device power stable until the disc refresh completes.
+                        </div>
+                        {rawTocReview.current.writableSha256 === rawTocReview.source.writableSha256 ? (
+                            <div className="workbench__tools-empty"><CheckCircleRoundedIcon /> The writable sectors already match. No write is needed.</div>
+                        ) : (
+                            <label>
+                                Type {RAW_TOC_CONFIRMATION} to continue
+                                <input autoFocus value={rawTocConfirmation} onChange={(event) => setRawTocConfirmation(event.target.value)} />
+                            </label>
+                        )}
+                        <div className="workbench__modal-actions">
+                            <button className="secondary-button" onClick={closeRawTocReview} disabled={busy}>Cancel</button>
+                            <button
+                                className="danger-button"
+                                onClick={() => void writeRawToc()}
+                                disabled={busy || rawTocReview.current.writableSha256 === rawTocReview.source.writableSha256 || !isRawTocConfirmationValid(rawTocConfirmation)}
+                            >
+                                {busy ? 'Writing…' : 'Write reviewed TOC'}
                             </button>
                         </div>
                     </section>

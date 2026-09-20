@@ -191,9 +191,17 @@ describe('ApplicationCommandBus import writing', () => {
 
     it('routes confirmed raw TOC writes through the application boundary', async () => {
         let receivedBytes = '';
+        let receivedExpectedHash: string | undefined;
         const application = {
-            async writeRawToc(dataBase64: string) {
+            async writeRawToc(
+                dataBase64: string,
+                _confirmation: unknown,
+                _expectedRevision: unknown,
+                _interactiveAuthorization: unknown,
+                expectedCurrentTocSha256?: string
+            ) {
                 receivedBytes = dataBase64;
+                receivedExpectedHash = expectedCurrentTocSha256;
                 return { revision: 8 };
             },
         } as unknown as MiniDiscApplication;
@@ -204,9 +212,11 @@ describe('ApplicationCommandBus import writing', () => {
             dataBase64: 'dG9j',
             confirmation: { confirmed: true, reason: 'Confirmed in test.' },
             expectedRevision: 7,
+            expectedCurrentTocSha256: 'a'.repeat(64),
         });
 
         assert.equal(receivedBytes, 'dG9j');
+        assert.equal(receivedExpectedHash, 'a'.repeat(64));
         assert.equal(result.ok && result.snapshot?.revision, 8);
     });
 

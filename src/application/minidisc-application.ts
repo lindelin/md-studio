@@ -157,31 +157,7 @@ export class MiniDiscApplication {
         return this.serial(async () => {
             this.requireCapability('advanced.factory');
             this.requireDisc();
-            const gateway = this.requireAdvancedGateway();
-            const sectorSize = 2352;
-            const sectorCount = 6;
-            const sectors: Uint8Array[] = [];
-            for (let index = 0; index < sectorCount; index += 1) {
-                const sector = await gateway.readTocSector(index);
-                if (sector.byteLength !== sectorSize) {
-                    throw new ApplicationError('INVALID_INPUT', `The device returned an invalid TOC sector ${index}.`, {
-                        index,
-                        expectedBytes: sectorSize,
-                        actualBytes: sector.byteLength,
-                    });
-                }
-                sectors.push(sector);
-            }
-            const data = new Uint8Array(sectorSize * sectorCount);
-            sectors.forEach((sector, index) => data.set(sector, index * sectorSize));
-            const digest = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', data));
-            return {
-                sectorSize,
-                sectorCount,
-                byteLength: data.byteLength,
-                sha256: Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join(''),
-                dataBase64: encodeBase64(data),
-            };
+            return this.readRawTocFromGateway(this.requireAdvancedGateway());
         });
     }
 
@@ -189,7 +165,8 @@ export class MiniDiscApplication {
         dataBase64: string,
         confirmation?: DestructiveConfirmation,
         expectedRevision?: number,
-        interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION
+        interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION,
+        expectedCurrentTocSha256?: string
     ) {
         return this.mutate('advanced.factory', expectedRevision, async () => {
             this.requireInteractiveAdvancedAuthorization(interactiveAuthorization);
@@ -209,11 +186,51 @@ export class MiniDiscApplication {
             }
             const gateway = this.requireAdvancedGateway();
             await this.requireExploitCapability(gateway, 'flushUTOC');
+            if (expectedCurrentTocSha256 !== undefined) {
+                if (!/^[a-f0-9]{64}$/i.test(expectedCurrentTocSha256)) {
+                    throw new ApplicationError('INVALID_INPUT', 'The expected raw TOC checksum is invalid.');
+                }
+                const current = await this.readRawTocFromGateway(gateway);
+                if (current.sha256 !== expectedCurrentTocSha256.toLowerCase()) {
+                    throw new ApplicationError(
+                        'STALE_REVISION',
+                        'The raw TOC changed after this write was reviewed. Export and review it again before writing.',
+                        { expectedSha256: expectedCurrentTocSha256.toLowerCase(), actualSha256: current.sha256 }
+                    );
+                }
+            }
             for (let index = 0; index < writableSectorCount; index += 1) {
                 await gateway.writeTocSector(index, data.slice(index * sectorSize, (index + 1) * sectorSize));
             }
             await gateway.flushToc();
         });
+    }
+
+    private async readRawTocFromGateway(gateway: AdvancedDeviceGateway): Promise<AdvancedTocDump> {
+        const sectorSize = 2352;
+        const sectorCount = 6;
+        const sectors: Uint8Array[] = [];
+        for (let index = 0; index < sectorCount; index += 1) {
+            const sector = await gateway.readTocSector(index);
+            if (sector.byteLength !== sectorSize) {
+                throw new ApplicationError('INVALID_INPUT', `The device returned an invalid TOC sector ${index}.`, {
+                    index,
+                    expectedBytes: sectorSize,
+                    actualBytes: sector.byteLength,
+                });
+            }
+            sectors.push(sector);
+        }
+        const data = new Uint8Array(sectorSize * sectorCount);
+        sectors.forEach((sector, index) => data.set(sector, index * sectorSize));
+        const digest = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', data));
+        return {
+            sectorSize,
+            sectorCount,
+            byteLength: data.byteLength,
+            sha256: Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join(''),
+            dataBase64: encodeBase64(data),
+        };
     }
 
     runTetris(

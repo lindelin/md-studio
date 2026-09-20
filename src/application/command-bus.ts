@@ -61,6 +61,7 @@ export type ApplicationCommand =
           confirmation?: DestructiveConfirmation;
           expectedRevision?: number;
           interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION;
+          expectedCurrentTocSha256?: string;
       }
     | {
           type: 'advanced.runTetris';
@@ -466,7 +467,8 @@ export class ApplicationCommandBus {
                         command.dataBase64,
                         command.confirmation,
                         command.expectedRevision,
-                        command.interactiveAuthorization
+                        command.interactiveAuthorization,
+                        command.expectedCurrentTocSha256
                     );
                     break;
                 case 'track.renameMany':
