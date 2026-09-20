@@ -57,7 +57,7 @@ export const W95UploadDialog = (props: {
                         ) : null}
                         <div style={{ flex: '1 1 auto' }}></div>
                         <Button disabled={props.cancelled} onClick={props.handleCancelUpload}>
-                            {props.cancelled ? `Stopping after current track...` : `Cancel Recording`}
+                            {props.cancelled ? `Stop requested after current track...` : `Stop after current track`}
                         </Button>
                     </DialogFooter>
                 </DialogWindowContent>

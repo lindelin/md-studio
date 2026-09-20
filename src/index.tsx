@@ -22,6 +22,7 @@ import { disconnectDevice } from './redux/actions';
 import { sleep } from './utils';
 import { SettingsResetErrorBoundary } from './components/settings-reset-error-boundary';
 import { startLocalApplicationBridge } from './application/browser-bridge';
+import { releaseActiveLocalApplicationBridge, type LocalBridgeHost } from './application/local-bridge-lifecycle';
 import { readRawPreference } from './preferences';
 import { BrowserImportWriter } from './application/browser-import-writer';
 import { BrowserTrackExporter } from './application/browser-track-exporter';
@@ -76,7 +77,12 @@ serviceRegistry.trackRecorder = new BrowserTrackRecorder(mediaRecorderService);
 const applicationClient = getApplicationClient();
 serviceRegistry.mediaSessionService = new BrowserMediaSessionService(applicationClient);
 serviceRegistry.trackRecognizer = new BrowserTrackRecognizer(applicationClient);
-startLocalApplicationBridge(localFiles);
+const localApplicationBridge = startLocalApplicationBridge(localFiles);
+if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+        releaseActiveLocalApplicationBridge(window as unknown as LocalBridgeHost, localApplicationBridge);
+    });
+}
 
 Object.defineProperty(window, 'wmdVersion', {
     value: '0.1.0',

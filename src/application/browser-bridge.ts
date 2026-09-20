@@ -12,6 +12,7 @@ import {
 import { ensureApplicationCommandBus } from './runtime';
 import { isBoolean, loadPreference, readRawPreference } from '../preferences';
 import type { BrowserLocalFileGateway } from './browser-local-file-gateway';
+import { replaceActiveLocalApplicationBridge, type LocalBridgeHost } from './local-bridge-lifecycle';
 
 const DEFAULT_BRIDGE_URL = 'ws://127.0.0.1:47123';
 
@@ -250,6 +251,8 @@ export class BrowserApplicationBridge {
 }
 
 export function startLocalApplicationBridge(localFiles: BrowserLocalFileGateway) {
+    const host = window as unknown as LocalBridgeHost;
+    replaceActiveLocalApplicationBridge(host);
     const explicitlyEnabled = loadPreference('minidiscLocalBridgeEnabled', false, isBoolean);
     if (!explicitlyEnabled) return undefined;
 
@@ -268,6 +271,7 @@ export function startLocalApplicationBridge(localFiles: BrowserLocalFileGateway)
     const bridge = new BrowserApplicationBridge(url.toString());
     localFiles.attach(bridge);
     bridge.start();
+    replaceActiveLocalApplicationBridge(host, bridge);
     return bridge;
 }
 
