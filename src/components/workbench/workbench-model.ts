@@ -2,6 +2,7 @@ import type { ConfigurableServiceDescriptor } from '../../application/service-ca
 import type { ImportPreview } from '../../application/import-preview';
 import type { CustomParameters } from '../../custom-parameters';
 import type { MetadataImportPlan } from '../../domain/metadata-import';
+import type { DeviceSnapshot } from '../../application/contracts';
 
 export type WorkbenchDraftField = 'title' | 'album' | 'artist' | 'fullWidthTitle';
 
@@ -157,6 +158,30 @@ export function defaultMetadataTrackSelection(plan: MetadataImportPlan) {
     return plan.tracks
         .filter((track) => Boolean(track.actual) && track.matchesDisc)
         .map((track) => track.trackIndex);
+}
+
+export function getSelfTestReadiness(device?: Pick<DeviceSnapshot, 'capabilities' | 'disc'>) {
+    if (!device?.disc) return { ready: false, reason: 'Connect a device with an inserted test disc.' };
+    if (!device.disc.writable || device.disc.writeProtected) {
+        return { ready: false, reason: 'The inserted disc is read-only or write-protected.' };
+    }
+    if (device.disc.trackCount < 2) {
+        return { ready: false, reason: 'The self-test needs a disposable disc containing at least two tracks.' };
+    }
+    const required = [
+        'disc.rename',
+        'track.rename',
+        'track.move',
+        'track.delete',
+        'disc.erase',
+        'metadata.fullWidth',
+        'playback.control',
+    ] as const;
+    const missing = required.filter((capability) => !device.capabilities.includes(capability));
+    if (missing.length > 0) {
+        return { ready: false, reason: `The connected device is missing: ${missing.join(', ')}.` };
+    }
+    return { ready: true, reason: 'This disc can run the complete 14-step destructive self-test.' };
 }
 
 export function summarizeTaskResult(result: unknown) {

@@ -325,6 +325,9 @@
 .workbench__tool-card > svg { color: var(--wb-accent); font-size: 28px; }
 .workbench__tool-card h3 { margin: 0 0 4px; font-size: 13px; }
 .workbench__tool-card p { margin: 0; color: var(--wb-muted); font-size: 9px; line-height: 1.5; }
+.workbench__tool-card small { display: block; margin-top: 5px; color: #6f8793; font-size: 8px; line-height: 1.45; }
+.workbench__tool-card.is-danger { border-color: #543840; }
+.workbench__tool-card.is-danger > svg { color: #df7d82; }
 .workbench__tools-empty, .workbench__tools-warning { display: flex; align-items: center; gap: 9px; margin-top: 14px; border: 1px solid #315064; border-radius: 6px; padding: 12px 14px; color: #9ec6d9; background: #112733; font-size: 10px; }
 .workbench__tools-empty svg, .workbench__tools-warning svg { flex: 0 0 auto; font-size: 18px; }
 .workbench__tools-warning { border-color: #705f3e; color: #e7c486; background: #2c281d; }
@@ -356,6 +359,11 @@
 .workbench__metadata-row small { margin-top: 3px; color: var(--wb-muted); font-size: 8px; }
 .workbench__metadata-row > span:last-child { display: flex; align-items: center; gap: 4px; }
 .workbench__metadata-review > footer { display: flex; justify-content: flex-end; gap: 8px; padding: 14px; }
+.workbench__device-inspection { display: grid; grid-template-columns: minmax(180px, .45fr) 1fr; align-items: center; gap: 18px; margin-top: 14px; border: 1px solid #315064; border-radius: 7px; padding: 14px 16px; background: #112733; }
+.workbench__device-inspection h3 { margin: 4px 0 0; font-size: 14px; }
+.workbench__device-inspection > div:last-child { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
+.workbench__device-inspection > div:last-child span { border: 1px solid #315064; border-radius: 999px; padding: 4px 7px; color: #9ec6d9; font-size: 8px; }
+.workbench__self-test-modal { width: min(540px, 100%); }
 .workbench__drop-overlay { position: fixed; z-index: 1500; inset: 22px; display: grid; place-items: center; align-content: center; gap: 18px; border: 2px dashed var(--wb-accent); border-radius: 14px; color: #dff6ff; background: rgba(7,18,26,.92); }
 .workbench__drop-overlay svg { color: var(--wb-accent); font-size: 64px; }
 .workbench__toast { position: fixed; z-index: 1600; right: 28px; bottom: 88px; max-width: 420px; border: 1px solid #365365; border-radius: 6px; padding: 12px 16px; color: #e8f4fa; background: #182a35; box-shadow: 0 12px 30px rgba(0,0,0,.32); cursor: pointer; }

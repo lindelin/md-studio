@@ -9,6 +9,7 @@ import {
     defaultMetadataTrackSelection,
     findTaskNeedingAttention,
     getTaskErrorDetail,
+    getSelfTestReadiness,
     isActiveUninterruptibleWrite,
     libraryPathKey,
     resolveRowNavigationIndex,
@@ -195,6 +196,33 @@ describe('Studio Workbench metadata import review', () => {
             ],
         } as unknown as Parameters<typeof defaultMetadataTrackSelection>[0];
         assert.deepEqual(defaultMetadataTrackSelection(plan), [0, 3]);
+    });
+});
+
+describe('Studio Workbench device diagnostics', () => {
+    const capabilities = [
+        'disc.rename',
+        'track.rename',
+        'track.move',
+        'track.delete',
+        'disc.erase',
+        'metadata.fullWidth',
+        'playback.control',
+    ] as Parameters<typeof getSelfTestReadiness>[0] extends infer T
+        ? NonNullable<T>['capabilities']
+        : never;
+
+    it('requires a writable disposable disc and every exercised capability', () => {
+        const device = {
+            capabilities,
+            disc: { writable: true, writeProtected: false, trackCount: 2 },
+        } as unknown as NonNullable<Parameters<typeof getSelfTestReadiness>[0]>;
+        assert.deepEqual(getSelfTestReadiness(device), {
+            ready: true,
+            reason: 'This disc can run the complete 14-step destructive self-test.',
+        });
+        assert.equal(getSelfTestReadiness({ ...device, disc: { ...device.disc!, trackCount: 1 } }).ready, false);
+        assert.equal(getSelfTestReadiness({ ...device, capabilities: capabilities.slice(1) }).ready, false);
     });
 });
 

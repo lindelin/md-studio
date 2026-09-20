@@ -813,7 +813,14 @@ export const Workbench = () => {
                 ) : section === 'settings' ? (
                     <WorkbenchSettings onMessage={setMessage} />
                 ) : section === 'tools' ? (
-                    <WorkbenchTools onMessage={setMessage} />
+                    <WorkbenchTools
+                        onMessage={setMessage}
+                        onTaskStarted={(id, nextMessage) => {
+                            setSelectedTaskId(id);
+                            setTaskCenterOpen(true);
+                            setMessage(nextMessage);
+                        }}
+                    />
                 ) : <div className="workbench__workspace-grid">
                     <section className="workbench__plan">
                         <div className="workbench__section-heading">

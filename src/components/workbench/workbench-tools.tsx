@@ -1,15 +1,24 @@
 import React, { useRef, useState } from 'react';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
+import BugReportRoundedIcon from '@mui/icons-material/BugReportRounded';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
+import MemoryRoundedIcon from '@mui/icons-material/MemoryRounded';
 import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded';
 import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import type { MetadataImportPlan } from '../../domain/metadata-import';
+import type { AdvancedDeviceInfo } from '../../application/contracts';
 import { downloadBlob, formatTimeFromSeconds } from '../../utils';
 import { useApplicationClient, useApplicationWorkspace } from '../use-application-client';
-import { defaultMetadataTrackSelection } from './workbench-model';
+import { defaultMetadataTrackSelection, getSelfTestReadiness } from './workbench-model';
 
-export const WorkbenchTools = ({ onMessage }: { onMessage(message: string): void }) => {
+export const WorkbenchTools = ({
+    onMessage,
+    onTaskStarted,
+}: {
+    onMessage(message: string): void;
+    onTaskStarted(id: string, message: string): void;
+}) => {
     const client = useApplicationClient();
     const workspace = useApplicationWorkspace();
     const device = workspace.device;
@@ -23,6 +32,9 @@ export const WorkbenchTools = ({ onMessage }: { onMessage(message: string): void
     const [plan, setPlan] = useState<MetadataImportPlan | null>(null);
     const [plannedRevision, setPlannedRevision] = useState<number | undefined>();
     const [includedTrackIndexes, setIncludedTrackIndexes] = useState<number[]>([]);
+    const [advancedInfo, setAdvancedInfo] = useState<AdvancedDeviceInfo | null>(null);
+    const [selfTestOpen, setSelfTestOpen] = useState(false);
+    const [selfTestConfirmation, setSelfTestConfirmation] = useState('');
 
     const canImportMetadata =
         Boolean(disc?.writable) &&
@@ -31,6 +43,13 @@ export const WorkbenchTools = ({ onMessage }: { onMessage(message: string): void
         capabilities.includes('group.rename') &&
         capabilities.includes('group.create') &&
         capabilities.includes('group.delete');
+    const selfTestReadiness = getSelfTestReadiness(device ?? undefined);
+
+    const closeSelfTest = () => {
+        if (busy) return;
+        setSelfTestOpen(false);
+        setSelfTestConfirmation('');
+    };
 
     const exportCsv = async () => {
         setBusy(true);
@@ -114,6 +133,48 @@ export const WorkbenchTools = ({ onMessage }: { onMessage(message: string): void
         }
     };
 
+    const inspectDevice = async () => {
+        setBusy(true);
+        setStatus('Reading device firmware and advanced capabilities…');
+        try {
+            const result = await client.execute({ type: 'advanced.inspect' });
+            if (!result.ok) throw new Error(result.error.message);
+            if (!result.advancedInfo) throw new Error('The device did not return advanced information.');
+            setAdvancedInfo(result.advancedInfo);
+            setStatus(null);
+        } catch (error) {
+            setAdvancedInfo(null);
+            setStatus(error instanceof Error ? error.message : 'Could not inspect the device.');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const startSelfTest = async () => {
+        if (selfTestConfirmation !== 'ERASE') return;
+        setBusy(true);
+        setStatus('Starting the destructive device self-test…');
+        try {
+            const result = await client.execute({
+                type: 'diagnostics.selfTest',
+                confirmation: {
+                    confirmed: true,
+                    reason: 'Confirmed in Studio Workbench after reviewing that the self-test erases the entire disc.',
+                },
+            });
+            if (!result.ok) throw new Error(result.error.message);
+            if (!result.task) throw new Error('The device self-test did not return a task.');
+            setSelfTestOpen(false);
+            setSelfTestConfirmation('');
+            setStatus(null);
+            onTaskStarted(result.task.id, 'Device self-test started. The test disc will be erased if all steps complete.');
+        } catch (error) {
+            setStatus(error instanceof Error ? error.message : 'Could not start the device self-test.');
+        } finally {
+            setBusy(false);
+        }
+    };
+
     return (
         <section className="workbench__tools">
             <header>
@@ -132,7 +193,24 @@ export const WorkbenchTools = ({ onMessage }: { onMessage(message: string): void
                     <button className="secondary-button" onClick={() => fileInput.current?.click()} disabled={!canImportMetadata || busy}><UploadFileRoundedIcon /> Choose CSV</button>
                     <input ref={fileInput} type="file" accept=".csv,text/csv" hidden onChange={(event) => void chooseCsv(event)} />
                 </article>
+                <article className="workbench__tool-card">
+                    <MemoryRoundedIcon />
+                    <div><h3>Device information</h3><p>Read the firmware version and supported Homebrew capabilities without changing disc content.</p></div>
+                    <button className="secondary-button" onClick={() => void inspectDevice()} disabled={!capabilities.includes('advanced.factory') || busy}><MemoryRoundedIcon /> Inspect device</button>
+                </article>
+                <article className="workbench__tool-card is-danger">
+                    <BugReportRoundedIcon />
+                    <div><h3>Destructive device self-test</h3><p>Verify titles, ordering, playback, deletion and erase behavior. The inserted disc will be emptied.</p><small>{selfTestReadiness.reason}</small></div>
+                    <button className="danger-button" onClick={() => setSelfTestOpen(true)} disabled={!selfTestReadiness.ready || busy}><BugReportRoundedIcon /> Review self-test</button>
+                </article>
             </div>
+
+            {advancedInfo ? (
+                <section className="workbench__device-inspection">
+                    <div><span className="workbench__eyebrow">DEVICE INSPECTION</span><h3>{advancedInfo.firmwareVersion || 'Unknown firmware'}</h3></div>
+                    <div>{advancedInfo.capabilities.length > 0 ? advancedInfo.capabilities.map((capability) => <span key={capability}>{capability}</span>) : <span>No advanced capabilities reported</span>}</div>
+                </section>
+            ) : null}
 
             {!disc ? <div className="workbench__tools-empty"><TuneRoundedIcon /><strong>Connect a device and insert a disc to use metadata tools.</strong></div> : null}
             {disc && !canImportMetadata ? <div className="workbench__tools-warning"><WarningAmberRoundedIcon /><span>This disc or device does not support the complete title and group import workflow. Export remains available.</span></div> : null}
@@ -176,6 +254,22 @@ export const WorkbenchTools = ({ onMessage }: { onMessage(message: string): void
                         <button className="primary-button" onClick={() => void applyCsv()} disabled={busy || !canImportMetadata}>Apply reviewed metadata</button>
                     </footer>
                 </section>
+            ) : null}
+
+            {selfTestOpen ? (
+                <div className="workbench__modal-backdrop" role="presentation" onMouseDown={closeSelfTest}>
+                    <section className="workbench__modal workbench__self-test-modal" role="dialog" aria-modal="true" aria-labelledby="workbench-self-test-title" onMouseDown={(event) => event.stopPropagation()}>
+                        <span className="workbench__eyebrow">DESTRUCTIVE DIAGNOSTIC</span>
+                        <h2 id="workbench-self-test-title">Erase this disc and run 14 device checks?</h2>
+                        <p>The test renames the disc and its first two tracks, changes full-width titles, moves tracks, tests playback controls, deletes a track, then erases the entire disc.</p>
+                        <div className="workbench__write-warning">Every track currently on “{disc?.title || 'Untitled MiniDisc'}” will be permanently deleted. Use only a disposable test disc.</div>
+                        <label>Type ERASE to enable the test<input autoFocus value={selfTestConfirmation} onChange={(event) => setSelfTestConfirmation(event.target.value)} /></label>
+                        <div className="workbench__modal-actions">
+                            <button className="secondary-button" onClick={closeSelfTest} disabled={busy}>Cancel</button>
+                            <button className="danger-button" onClick={() => void startSelfTest()} disabled={busy || selfTestConfirmation !== 'ERASE'}>Erase disc and run test</button>
+                        </div>
+                    </section>
+                </div>
             ) : null}
         </section>
     );
