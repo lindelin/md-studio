@@ -6,6 +6,7 @@ import path from 'node:path';
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outputPath = path.join(repositoryRoot, 'RUNTIME_ASSETS.json');
 const checkOnly = process.argv.includes('--check');
+const releaseCheck = process.argv.includes('--release');
 
 const definitions = [
     {
@@ -59,11 +60,20 @@ const definitions = [
         source: {
             kind: 'repository-binary',
             repository: 'https://github.com/dcherednik/atracdenc',
-            revision: 'e16e9c6 (recorded by upstream build notes; exact object still requires verification)',
+            revision: 'e16e9c60a18e4b914f5cb16463ed781f09808a25',
+            dependencies: {
+                libsndfile: '4bdd7414602946a18799b514001b0570e8693a47',
+            },
+            toolchain: {
+                emsdk: '27b23d467d5b8beb73d4d325b9a32c8eb77e8f95',
+                emscripten: '1.39.18 (1914a1543f08cd8e41f44c2bb05f7a90d1920275)',
+                cmake: '3.29.6',
+                ninja: '1.12.1',
+            },
+            buildScript: 'scripts/rebuild-atracdenc.ps1',
             buildInstructions: 'extra/BUILD_ATRACDENC.md',
-            license: 'LGPL-2.1-or-later (upstream project)',
+            license: 'LGPL-2.1-or-later (Atracdenc and linked libsndfile)',
         },
-        reviewRequired: true,
     },
     {
         path: 'public/atrac3vm/libv86.js',
@@ -194,6 +204,11 @@ for (const definition of definitions) {
             throw new Error(`Build instructions are missing for ${definition.path}: ${source.buildInstructions}`);
         });
     }
+    if (source.buildScript) {
+        await access(path.join(repositoryRoot, ...source.buildScript.split('/'))).catch(() => {
+            throw new Error(`Build script is missing for ${definition.path}: ${source.buildScript}`);
+        });
+    }
     if (source.package) source.version = await packageVersion(source.package);
     if (source.kind === 'installed-package' && file) {
         const sourceFile = await hashFile(path.join(repositoryRoot, ...source.path.split('/')));
@@ -219,6 +234,13 @@ const manifest = {
     assets,
 };
 const serialized = `${JSON.stringify(manifest, null, 2)}\n`;
+
+if (releaseCheck) {
+    const unresolved = assets.filter((asset) => asset.present && asset.reviewRequired).map((asset) => asset.path);
+    if (unresolved.length > 0) {
+        throw new Error(`Release contains runtime assets that still require provenance or license review: ${unresolved.join(', ')}`);
+    }
+}
 
 if (checkOnly) {
     const current = await readFile(outputPath, 'utf8').catch(() => null);

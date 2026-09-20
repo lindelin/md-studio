@@ -73,16 +73,26 @@
       "path": "public/atracdenc.js",
       "role": "Open-source ATRAC encoder compiled as a single-file Emscripten module",
       "present": true,
-      "bytes": 1010420,
-      "sha256": "d3133571b5bd2194f53d7377d728e0c8eb5a50efb0b0ad76dfc57b3a7b432abe",
+      "bytes": 774460,
+      "sha256": "2fe122f4da021f84b3fa9c32b957f62c17e8da23b08d2d9ea602c74ab1f7c51b",
       "optional": false,
-      "reviewRequired": true,
+      "reviewRequired": false,
       "source": {
         "kind": "repository-binary",
         "repository": "https://github.com/dcherednik/atracdenc",
-        "revision": "e16e9c6 (recorded by upstream build notes; exact object still requires verification)",
+        "revision": "e16e9c60a18e4b914f5cb16463ed781f09808a25",
+        "dependencies": {
+          "libsndfile": "4bdd7414602946a18799b514001b0570e8693a47"
+        },
+        "toolchain": {
+          "emsdk": "27b23d467d5b8beb73d4d325b9a32c8eb77e8f95",
+          "emscripten": "1.39.18 (1914a1543f08cd8e41f44c2bb05f7a90d1920275)",
+          "cmake": "3.29.6",
+          "ninja": "1.12.1"
+        },
+        "buildScript": "scripts/rebuild-atracdenc.ps1",
         "buildInstructions": "extra/BUILD_ATRACDENC.md",
-        "license": "LGPL-2.1-or-later (upstream project)"
+        "license": "LGPL-2.1-or-later (Atracdenc and linked libsndfile)"
       }
     },
     {

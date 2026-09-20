@@ -11,6 +11,7 @@
 # production
 /build
 /dist
+/.runtime-build
 
 # misc
 .DS_Store
