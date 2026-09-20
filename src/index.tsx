@@ -23,7 +23,6 @@ import { sleep } from './utils';
 import { SettingsResetErrorBoundary } from './components/settings-reset-error-boundary';
 import { startLocalApplicationBridge } from './application/browser-bridge';
 import { releaseActiveLocalApplicationBridge, type LocalBridgeHost } from './application/local-bridge-lifecycle';
-import { readRawPreference } from './preferences';
 import { BrowserImportWriter } from './application/browser-import-writer';
 import { BrowserTrackExporter } from './application/browser-track-exporter';
 import { BrowserTrackRecorder } from './application/browser-track-recorder';
@@ -89,10 +88,6 @@ Object.defineProperty(window, 'wmdVersion', {
 });
 
 const originalApplicationTitle = document.title;
-
-if (readRawPreference('version') !== (window as any).wmdVersion) {
-    store.dispatch(appActions.showChangelogDialog(true));
-}
 
 (function setupEventHandlers() {
     window.addEventListener('beforeunload', (ev) => {

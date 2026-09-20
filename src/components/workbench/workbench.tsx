@@ -70,7 +70,6 @@ import { DiscProtectedDialog } from '../disc-protected-dialog';
 import { ErrorDialog } from '../error-dialog';
 import { FactoryModeNoticeDialog } from '../factory/factory-notice-dialog';
 import { AboutDialog } from '../about-dialog';
-import { ChangelogDialog } from '../changelog-dialog';
 import { PanicDialog } from '../panic-dialog';
 import { WorkbenchLibrary } from './workbench-library';
 import { WorkbenchSettings } from './workbench-settings';
@@ -1249,7 +1248,6 @@ export const Workbench = () => {
             <ErrorDialog />
             <FactoryModeNoticeDialog />
             <AboutDialog />
-            <ChangelogDialog />
             <PanicDialog />
 
             {trackTransferMode && device ? (

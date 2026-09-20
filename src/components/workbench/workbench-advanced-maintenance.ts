@@ -1,5 +1,4 @@
 export type AdvancedMaintenanceActionId =
-    | 'tetris'
     | 'sp-speedup'
     | 'disc-swap'
     | 'himd-full'
@@ -30,14 +29,6 @@ export const advancedMaintenanceActions: AdvancedMaintenanceAction[] = [
         endsSession: false,
     },
     {
-        id: 'tetris',
-        capability: 'runTetris',
-        label: 'Run Tetris',
-        description: 'Run Homebrew code on the device and end the current MiniDisc session.',
-        confirmationToken: 'TETRIS',
-        endsSession: true,
-    },
-    {
         id: 'himd-full',
         capability: 'himdFullMode',
         label: 'Enable Hi-MD unrestricted mode',
@@ -62,4 +53,3 @@ export function canRunAdvancedMaintenanceAction(action: AdvancedMaintenanceActio
 export function isAdvancedMaintenanceConfirmationValid(action: AdvancedMaintenanceAction, value: string) {
     return action.confirmationToken === undefined || value === action.confirmationToken;
 }
-

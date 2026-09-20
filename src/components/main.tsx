@@ -69,7 +69,6 @@ import { TopMenu } from './topmenu';
 import Checkbox from '@mui/material/Checkbox';
 import Button from '@mui/material/Button';
 import { useMemo } from 'react';
-import { ChangelogDialog } from './changelog-dialog';
 import { Track } from '../services/interfaces/netmd';
 import { FactoryModeNoticeDialog } from './factory/factory-notice-dialog';
 import { FactoryModeProgressDialog } from './factory/factory-progress-dialog';
@@ -833,7 +832,6 @@ export const Main = () => {
             <SongRecognitionProgressDialog />
             <FactoryModeNoticeDialog />
             <AboutDialog />
-            <ChangelogDialog />
             <SettingsDialog />
             <LocalLibraryDialog setUploadedFiles={setUploadedFiles} />
             <PanicDialog />

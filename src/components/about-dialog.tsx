@@ -116,14 +116,6 @@ export const AboutDialog = () => {
                         </Link>
                     </li>
                 </ul>
-                <Link
-                    target="_blank"
-                    href="https://ko-fi.com/asivery"
-                    aria-label="Support the Web MiniDisc Pro upstream maintainer"
-                    style={{ display: 'block', textAlign: 'center' }}
-                >
-                    <img src="kofi.png" style={{ width: '50%' }} />
-                </Link>
                 <DialogContentText style={{ textAlign: 'center', fontSize: 13 }}>
                     Version #{GIT_HASH} {(GIT_DIFF as any) === '0' ? '' : `(${GIT_DIFF} diff-lines ahead)`} built on {BUILD_DATE}
                 </DialogContentText>

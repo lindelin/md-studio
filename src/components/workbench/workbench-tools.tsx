@@ -467,13 +467,6 @@ export const WorkbenchTools = ({
                         interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
                     };
                     break;
-                case 'tetris':
-                    command = {
-                        type: 'advanced.runTetris',
-                        confirmation: { confirmed: true, reason: 'Confirmed in the Studio Workbench advanced maintenance review.' },
-                        interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
-                    };
-                    break;
                 case 'himd-full':
                     command = {
                         type: 'advanced.enableHimdFullMode',

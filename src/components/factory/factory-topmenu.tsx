@@ -11,7 +11,6 @@ import {
     downloadRam,
     downloadRom,
     downloadToc,
-    runTetris,
     applyTocFlagPatch,
     archiveDisc,
     toggleSPUploadSpeedup,
@@ -27,7 +26,6 @@ import ListItemText from '@mui/material/ListItemText';
 import Tooltip from '@mui/material/Tooltip';
 import { makeStyles } from 'tss-react/mui';
 
-import GitHubIcon from '@mui/icons-material/GitHub';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import ToggleOffIcon from '@mui/icons-material/ToggleOff';
 import ToggleOnIcon from '@mui/icons-material/ToggleOn';
@@ -35,7 +33,6 @@ import HelpIcon from '@mui/icons-material/Help';
 import MemoryIcon from '@mui/icons-material/Memory';
 import CodeIcon from '@mui/icons-material/Code';
 import GetAppIcon from '@mui/icons-material/GetApp';
-import GamesIcon from '@mui/icons-material/Games';
 import SecurityIcon from '@mui/icons-material/Security';
 import NoEncryptionIcon from '@mui/icons-material/NoEncryption';
 import ArchiveIcon from '@mui/icons-material/Archive';
@@ -63,7 +60,6 @@ export const FactoryTopMenu = function() {
     const { exploitCapabilities, spUploadSpeedupActive, deviceDiscSwapDetectionDisabled } = useShallowEqualSelector(state => state.factory);
     const canDownloadTracks = useApplicationWorkspace().device?.capabilities.includes('track.download') ?? false;
 
-    const githubLinkRef = React.useRef<null | HTMLAnchorElement>(null);
     const helpLinkRef = React.useRef<null | HTMLAnchorElement>(null);
     const [menuAnchorEl, setMenuAnchorEl] = React.useState<null | HTMLElement>(null);
     const [submenuAnchorEl, setSubmenuAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -103,18 +99,6 @@ export const FactoryTopMenu = function() {
         handleMenuClose();
     }, [dispatch, handleMenuClose]);
 
-    const handleGithubLink = useCallback(
-        (event: React.MouseEvent<HTMLElement>) => {
-            event.stopPropagation();
-            if (event.target !== githubLinkRef.current) {
-                // Prevent opening the link twice
-                githubLinkRef.current?.click();
-            }
-            handleMenuClose();
-        },
-        [handleMenuClose]
-    );
-
     const handleHelpLink = useCallback(
         (event: React.MouseEvent<HTMLElement>) => {
             event.stopPropagation();
@@ -139,11 +123,6 @@ export const FactoryTopMenu = function() {
 
     const handleDownloadTOC = useCallback(() => {
         dispatch(downloadToc());
-        handleMenuClose();
-    }, [dispatch, handleMenuClose]);
-
-    const handlePlayTetris = useCallback(() => {
-        dispatch(runTetris());
         handleMenuClose();
     }, [dispatch, handleMenuClose]);
 
@@ -252,14 +231,6 @@ export const FactoryTopMenu = function() {
             </ListItemText>
         </MenuItem>
     );
-    menuItems.push(
-        <MenuItem key="playTetris" onClick={handlePlayTetris} disabled={!exploitCapabilities.includes(ExploitCapability.runTetris)}>
-            <ListItemIcon className={classes.listItemIcon}>
-                <GamesIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>Play TETRIS!</ListItemText>
-        </MenuItem>
-    );
     menuItems.push(<Divider key="feature-divider-4" />);
     menuItems.push(
         <MenuItem key="settings" onClick={handleShowSettings}>
@@ -296,25 +267,6 @@ export const FactoryTopMenu = function() {
             </ListItemText>
         </MenuItem>
     );
-    menuItems.push(
-        <MenuItem key="github" onClick={handleGithubLink}>
-            <ListItemIcon className={classes.listItemIcon}>
-                <GitHubIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>
-                <Link
-                    rel="noopener noreferrer"
-                    href="https://github.com/asivery/webminidisc"
-                    target="_blank"
-                    ref={githubLinkRef}
-                    onClick={handleGithubLink}
-                >
-                    Web MiniDisc Pro upstream source
-                </Link>
-            </ListItemText>
-        </MenuItem>
-    );
-
     const submenuItems = [];
     submenuItems.push(
         <MenuItem key="kill-scms" onClick={handleStripSCMS}>

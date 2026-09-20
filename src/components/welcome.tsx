@@ -31,7 +31,6 @@ import {
 
 import { OtherDeviceDialog } from './other-device-dialog';
 import { SettingsDialog } from './settings-dialog';
-import { ChangelogDialog } from './changelog-dialog';
 import { AboutDialog } from './about-dialog';
 
 import { actions as otherDialogActions } from '../redux/other-device-feature';
@@ -321,7 +320,6 @@ export const Welcome = () => {
             </Box>
             <SettingsDialog />
             <AboutDialog />
-            <ChangelogDialog />
             <OtherDeviceDialog />
         </React.Fragment>
     );
