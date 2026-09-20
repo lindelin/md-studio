@@ -174,7 +174,7 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
             await updateSettings(changes);
             onMessage(messageLanguage ? translate(messageLanguage, successMessage) : t(successMessage));
         } catch (error) {
-            setStatus(error instanceof Error ? error.message : String(error));
+            setStatus(t(error instanceof Error ? error.message : String(error)));
         } finally {
             setBusy(false);
         }
@@ -214,7 +214,7 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
             if (bridgeEnabled !== localBridgeEnabled) dispatch(appActions.setLocalBridgeEnabled(bridgeEnabled));
             window.reload();
         } catch (error) {
-            setStatus(error instanceof Error ? error.message : String(error));
+            setStatus(t(error instanceof Error ? error.message : String(error)));
             setBusy(false);
         }
     };

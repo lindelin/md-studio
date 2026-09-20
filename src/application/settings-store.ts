@@ -1,4 +1,4 @@
-import { isBoolean, isOneOf, isPrimitiveRecord, isUploadFormat, loadPreference, savePreference } from '../preferences';
+import { isBoolean, isOneOf, isPrimitiveRecord, isUploadFormat, loadPreference } from '../preferences';
 import { ApplicationError } from './contracts';
 import type { CustomParameters } from '../custom-parameters';
 import type { ImportTitleFormat } from './import-title';
@@ -110,11 +110,39 @@ export class SettingsStore {
         for (const [key, value] of entries) this.validate(key, value);
 
         const values = { ...this.snapshot.values, ...structuredClone(changes) };
-        for (const [key] of entries) savePreference(key, values[key], this.storage);
+        this.persist(entries, values);
         this.snapshot = { revision: this.snapshot.revision + 1, values };
         const next = this.getSnapshot();
         for (const listener of this.listeners) listener(next);
         return next;
+    }
+
+    private persist(entries: [keyof UserSettings, unknown][], values: UserSettings) {
+        if (!this.storage) return;
+
+        const previous = new Map<keyof UserSettings, string | null>();
+        try {
+            for (const [key] of entries) previous.set(key, this.storage.getItem(key));
+            for (const [key] of entries) this.storage.setItem(key, JSON.stringify(values[key]));
+        } catch (cause) {
+            let rollbackFailed = false;
+            for (const [key, serialized] of previous) {
+                try {
+                    if (serialized === null) this.storage.removeItem(key);
+                    else this.storage.setItem(key, serialized);
+                } catch {
+                    rollbackFailed = true;
+                }
+            }
+            throw new ApplicationError(
+                'PERSISTENCE_FAILED',
+                'Settings could not be saved in this browser. Free some storage or reset the application, then try again.',
+                {
+                    cause: cause instanceof Error ? cause.message : String(cause),
+                    rollbackFailed,
+                }
+            );
+        }
     }
 
     private load(): UserSettings {

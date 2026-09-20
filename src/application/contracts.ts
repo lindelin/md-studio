@@ -252,7 +252,8 @@ export class ApplicationError extends Error {
         | 'CONFIRMATION_REQUIRED'
         | 'INTERACTIVE_AUTHORIZATION_REQUIRED'
         | 'DISC_READ_ONLY'
-        | 'DEVICE_NOT_CONNECTED';
+        | 'DEVICE_NOT_CONNECTED'
+        | 'PERSISTENCE_FAILED';
     public readonly details?: Record<string, unknown>;
 
     constructor(
@@ -264,7 +265,8 @@ export class ApplicationError extends Error {
             | 'CONFIRMATION_REQUIRED'
             | 'INTERACTIVE_AUTHORIZATION_REQUIRED'
             | 'DISC_READ_ONLY'
-            | 'DEVICE_NOT_CONNECTED',
+            | 'DEVICE_NOT_CONNECTED'
+            | 'PERSISTENCE_FAILED',
         message: string,
         details?: Record<string, unknown>
     ) {

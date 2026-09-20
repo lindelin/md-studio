@@ -91,6 +91,7 @@ const zhCN: Record<string, string> = {
     'Continue with browser access': '继续使用浏览器访问',
     'Saving…': '正在保存…',
     'Could not save this preference.': '无法保存此偏好设置。',
+    'Settings could not be saved in this browser. Free some storage or reset the application, then try again.': '无法在此浏览器中保存设置。请释放部分存储空间或重置应用，然后重试。',
     'This HiMD has pending changes. Apply them before refreshing the device.': '这张 HiMD 还有尚未应用的更改。请先应用更改，再刷新设备。',
     'This action is not available for Network Walkman devices.': 'Network Walkman 设备不支持此操作。',
     'Clearing disc title information is not supported by Remote NetMD.': 'Remote NetMD 不支持清除碟片标题信息。',

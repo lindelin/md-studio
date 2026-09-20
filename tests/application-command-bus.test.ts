@@ -470,4 +470,36 @@ describe('ApplicationCommandBus import writing', () => {
         assert.equal(unavailableEncoder.ok, false);
         assert.equal(!unavailableEncoder.ok && unavailableEncoder.error.code, 'INVALID_INPUT');
     });
+
+    it('reports browser persistence failures to UI and automation clients without advancing settings', async () => {
+        const storage = {
+            length: 0,
+            clear() {},
+            getItem() { return null; },
+            key() { return null; },
+            removeItem() {},
+            setItem() { throw new Error('quota exceeded'); },
+        } satisfies Storage;
+        const settings = new SettingsStore(storage);
+        const bus = new ApplicationCommandBus(
+            undefined,
+            new TaskManager(),
+            new ImportQueue(),
+            undefined,
+            undefined,
+            settings
+        );
+
+        const result = await bus.execute({
+            type: 'settings.update',
+            changes: { uiLanguage: 'zh-CN' },
+            expectedRevision: 0,
+        });
+
+        assert.equal(result.ok, false);
+        assert.equal(!result.ok && result.error.code, 'PERSISTENCE_FAILED');
+        assert.equal(!result.ok && result.error.details?.cause, 'quota exceeded');
+        assert.equal(settings.getSnapshot().revision, 0);
+        assert.equal(settings.getSnapshot().values.uiLanguage, 'system');
+    });
 });

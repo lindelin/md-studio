@@ -23,6 +23,13 @@ describe('UI language', () => {
         assert.equal(translate('zh-CN', 'VISUAL RAW TOC EDITOR'), '可视化原始 TOC 编辑器');
         assert.equal(translate('zh-CN', 'Disc maintenance'), '碟片维护');
         assert.equal(translate('zh-CN', 'Format as Hi-MD'), '格式化为 Hi-MD');
+        assert.equal(
+            translate(
+                'zh-CN',
+                'Settings could not be saved in this browser. Free some storage or reset the application, then try again.'
+            ),
+            '无法在此浏览器中保存设置。请释放部分存储空间或重置应用，然后重试。'
+        );
         assert.equal(translate('zh-CN', 'WRITE TOC'), 'WRITE TOC');
     });
 

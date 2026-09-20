@@ -31,6 +31,17 @@ class MemoryStorage implements Storage {
     }
 }
 
+class FailingStorage extends MemoryStorage {
+    writes = 0;
+    failOnWrite = Number.POSITIVE_INFINITY;
+
+    override setItem(key: string, value: string) {
+        this.writes += 1;
+        if (this.writes === this.failOnWrite) throw new Error('quota exceeded');
+        super.setItem(key, value);
+    }
+}
+
 describe('SettingsStore', () => {
     it('persists validated settings and publishes revisioned snapshots', () => {
         const storage = new MemoryStorage();
@@ -188,5 +199,45 @@ describe('SettingsStore', () => {
         const cleared = settings.update({ audioEncoderId: null });
 
         assert.equal(cleared.values.audioEncoderId, null);
+    });
+
+    it('rejects a failed browser write without publishing an in-memory success', () => {
+        const storage = new FailingStorage();
+        const settings = new SettingsStore(storage);
+        const revisions: number[] = [];
+        settings.subscribe((snapshot) => revisions.push(snapshot.revision));
+        storage.failOnWrite = 1;
+
+        assert.throws(
+            () => settings.update({ uiLanguage: 'zh-CN' }),
+            (error: unknown) =>
+                error instanceof ApplicationError &&
+                error.code === 'PERSISTENCE_FAILED' &&
+                error.details?.cause === 'quota exceeded'
+        );
+
+        assert.equal(settings.getSnapshot().revision, 0);
+        assert.equal(settings.getSnapshot().values.uiLanguage, 'system');
+        assert.equal(storage.getItem('uiLanguage'), null);
+        assert.deepEqual(revisions, []);
+    });
+
+    it('rolls back earlier fields when a later field cannot be persisted', () => {
+        const storage = new FailingStorage();
+        storage.setItem('colorTheme', JSON.stringify('light'));
+        storage.setItem('uiLanguage', JSON.stringify('en'));
+        const settings = new SettingsStore(storage);
+        storage.failOnWrite = storage.writes + 2;
+
+        assert.throws(
+            () => settings.update({ colorTheme: 'dark', uiLanguage: 'zh-CN' }),
+            (error: unknown) => error instanceof ApplicationError && error.code === 'PERSISTENCE_FAILED'
+        );
+
+        assert.equal(storage.getItem('colorTheme'), JSON.stringify('light'));
+        assert.equal(storage.getItem('uiLanguage'), JSON.stringify('en'));
+        assert.equal(settings.getSnapshot().revision, 0);
+        assert.equal(settings.getSnapshot().values.colorTheme, 'light');
+        assert.equal(settings.getSnapshot().values.uiLanguage, 'en');
     });
 });
