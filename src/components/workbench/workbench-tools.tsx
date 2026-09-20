@@ -51,7 +51,7 @@ export const WorkbenchTools = ({
     onTaskStarted(id: string, message: string): void;
     onSessionEnded(): void;
 }) => {
-    const { t } = useI18n();
+    const { language, t } = useI18n();
     const client = useApplicationClient();
     const workspace = useApplicationWorkspace();
     const device = workspace.device;
@@ -511,9 +511,9 @@ export const WorkbenchTools = ({
     };
 
     const maintenanceButtonLabel = (action: AdvancedMaintenanceAction) => {
-        if (action.id === 'sp-speedup') return spUploadSpeedupEnabled ? 'Disable speedup' : 'Enable speedup';
-        if (action.id === 'disc-swap') return discSwapDetectionDisabled ? 'Restore detection' : 'Disable detection';
-        return action.label;
+        if (action.id === 'sp-speedup') return t(spUploadSpeedupEnabled ? 'Disable speedup' : 'Enable speedup');
+        if (action.id === 'disc-swap') return t(discSwapDetectionDisabled ? 'Restore detection' : 'Disable detection');
+        return t(action.label);
     };
 
     return (
@@ -555,7 +555,7 @@ export const WorkbenchTools = ({
                     <div><h3>{t('Track protection flags')}</h3><p>{t('Preview targeted raw TOC changes for SCMS permissions or track writability.')}</p><small>{t(advancedInfo ? 'Requires the flushUTOC capability and a writable disc.' : 'Inspect the device before reviewing a change.')}</small></div>
                     <div className="workbench__maintenance-actions">
                         {rawTocPatchActions.map((action) => (
-                            <button className="danger-button" key={action.kind} onClick={() => void previewRawTocPatch(action)} disabled={!canReviewRawTocWrite(disc, advancedInfo?.capabilities) || busy}>{action.label}</button>
+                            <button className="danger-button" key={action.kind} onClick={() => void previewRawTocPatch(action)} disabled={!canReviewRawTocWrite(disc, advancedInfo?.capabilities) || busy}>{t(action.label)}</button>
                         ))}
                     </div>
                 </article>
@@ -590,58 +590,58 @@ export const WorkbenchTools = ({
                 </article>
                 <article className="workbench__tool-card is-danger">
                     <BugReportRoundedIcon />
-                    <div><h3>{t('Destructive device self-test')}</h3><p>{t('Verify titles, ordering, playback, deletion and erase behavior. The inserted disc will be emptied.')}</p><small>{selfTestReadiness.reason}</small></div>
+                    <div><h3>{t('Destructive device self-test')}</h3><p>{t('Verify titles, ordering, playback, deletion and erase behavior. The inserted disc will be emptied.')}</p><small>{t(selfTestReadiness.reason)}</small></div>
                     <button className="danger-button" onClick={() => setSelfTestOpen(true)} disabled={!selfTestReadiness.ready || busy}><BugReportRoundedIcon /> {t('Review self-test')}</button>
                 </article>
             </div>
 
             {advancedInfo ? (
                 <section className="workbench__device-inspection">
-                    <div><span className="workbench__eyebrow">DEVICE INSPECTION</span><h3>{advancedInfo.firmwareVersion || 'Unknown firmware'}</h3></div>
-                    <div>{advancedInfo.capabilities.length > 0 ? advancedInfo.capabilities.map((capability) => <span key={capability}>{capability}</span>) : <span>No advanced capabilities reported</span>}</div>
+                    <div><span className="workbench__eyebrow">{t('DEVICE INSPECTION')}</span><h3>{advancedInfo.firmwareVersion || t('Unknown firmware')}</h3></div>
+                    <div>{advancedInfo.capabilities.length > 0 ? advancedInfo.capabilities.map((capability) => <span key={capability}>{capability}</span>) : <span>{t('No advanced capabilities reported')}</span>}</div>
                 </section>
             ) : null}
 
-            {!disc ? <div className="workbench__tools-empty"><TuneRoundedIcon /><strong>Connect a device and insert a disc to use metadata tools.</strong></div> : null}
-            {disc && !canImportMetadata ? <div className="workbench__tools-warning"><WarningAmberRoundedIcon /><span>This disc or device does not support the complete title and group import workflow. Export remains available.</span></div> : null}
+            {!disc ? <div className="workbench__tools-empty"><TuneRoundedIcon /><strong>{t('Connect a device and insert a disc to use metadata tools.')}</strong></div> : null}
+            {disc && !canImportMetadata ? <div className="workbench__tools-warning"><WarningAmberRoundedIcon /><span>{t('This disc or device does not support the complete title and group import workflow. Export remains available.')}</span></div> : null}
             {status ? <div className="workbench__tools-warning"><WarningAmberRoundedIcon /><span>{status}</span></div> : null}
 
             {plan ? (
-                <section className="workbench__metadata-review" aria-label="Metadata import review">
+                <section className="workbench__metadata-review" aria-label={t('Metadata import review')}>
                     <header>
-                        <div><span className="workbench__eyebrow">IMPORT REVIEW</span><h3>{sourceName}</h3><p>The disc title is always applied. Select only tracks whose title and group information should be replaced.</p></div>
-                        <span className={plan.trackCountMatches ? 'is-compatible' : 'is-warning'}>{plan.trackCountMatches ? <CheckCircleRoundedIcon /> : <WarningAmberRoundedIcon />}{plan.expectedTrackCount} file tracks · {plan.disc.trackCount} disc tracks</span>
+                        <div><span className="workbench__eyebrow">{t('IMPORT REVIEW')}</span><h3>{sourceName}</h3><p>{t('The disc title is always applied. Select only tracks whose title and group information should be replaced.')}</p></div>
+                        <span className={plan.trackCountMatches ? 'is-compatible' : 'is-warning'}>{plan.trackCountMatches ? <CheckCircleRoundedIcon /> : <WarningAmberRoundedIcon />}{language === 'zh-CN' ? `文件 ${plan.expectedTrackCount} 首 · 碟片 ${plan.disc.trackCount} 首` : `${plan.expectedTrackCount} file tracks · ${plan.disc.trackCount} disc tracks`}</span>
                     </header>
                     <dl className="workbench__metadata-summary">
-                        <div><dt>Current disc title</dt><dd>{plan.disc.title || plan.disc.fullWidthTitle || 'Untitled'}</dd></div>
-                        <div><dt>New disc title</dt><dd>{plan.discTitle.title || plan.discTitle.fullWidthTitle || 'Untitled'}</dd></div>
-                        <div><dt>Compatible tracks</dt><dd>{plan.tracks.filter((track) => track.actual && track.matchesDisc).length}</dd></div>
-                        <div><dt>Needs review</dt><dd>{plan.tracks.filter((track) => track.actual && !track.matchesDisc).length}</dd></div>
+                        <div><dt>{t('Current disc title')}</dt><dd>{plan.disc.title || plan.disc.fullWidthTitle || t('Untitled')}</dd></div>
+                        <div><dt>{t('New disc title')}</dt><dd>{plan.discTitle.title || plan.discTitle.fullWidthTitle || t('Untitled')}</dd></div>
+                        <div><dt>{t('Compatible tracks')}</dt><dd>{plan.tracks.filter((track) => track.actual && track.matchesDisc).length}</dd></div>
+                        <div><dt>{t('Needs review')}</dt><dd>{plan.tracks.filter((track) => track.actual && !track.matchesDisc).length}</dd></div>
                     </dl>
-                    {!plan.trackCountMatches ? <div className="workbench__tools-warning"><WarningAmberRoundedIcon /><span>The file and current disc have different track counts. Missing tracks cannot be selected.</span></div> : null}
+                    {!plan.trackCountMatches ? <div className="workbench__tools-warning"><WarningAmberRoundedIcon /><span>{t('The file and current disc have different track counts. Missing tracks cannot be selected.')}</span></div> : null}
                     <div className="workbench__metadata-actions">
-                        <button className="secondary-button" onClick={() => setIncludedTrackIndexes(defaultMetadataTrackSelection(plan))}>Select compatible</button>
-                        <button className="secondary-button" onClick={() => setIncludedTrackIndexes([])}>Clear tracks</button>
-                        <span>{includedTrackIndexes.length} selected</span>
+                        <button className="secondary-button" onClick={() => setIncludedTrackIndexes(defaultMetadataTrackSelection(plan))}>{t('Select compatible')}</button>
+                        <button className="secondary-button" onClick={() => setIncludedTrackIndexes([])}>{t('Clear tracks')}</button>
+                        <span>{language === 'zh-CN' ? `已选 ${includedTrackIndexes.length} 首` : `${includedTrackIndexes.length} selected`}</span>
                     </div>
                     <div className="workbench__metadata-list">
-                        <div className="workbench__metadata-list-head"><span /><span>Track from file</span><span>Current disc</span><span>Result</span></div>
+                        <div className="workbench__metadata-list-head"><span /><span>{t('Track from file')}</span><span>{t('Current disc')}</span><span>{t('Result')}</span></div>
                         {plan.tracks.map((track) => {
                             const selected = includedTrackIndexes.includes(track.trackIndex);
                             const actual = track.actual;
                             return (
                                 <label className={`workbench__metadata-row ${!actual || !track.matchesDisc ? 'has-warning' : ''}`} key={`${track.line}:${track.trackIndex}`}>
                                     <input type="checkbox" checked={selected} disabled={!actual || busy} onChange={() => toggleTrack(track.trackIndex)} />
-                                    <span><b>{track.index}. {track.title || 'Untitled'}</b><small>{formatTimeFromSeconds(track.duration)} · {track.codec}{track.bitrate ? ` ${track.bitrate} kbps` : ''}{track.groupName ? ` · ${track.groupName}` : ''}</small></span>
-                                    <span>{actual ? <><b>{actual.index + 1}. {actual.title || 'Untitled'}</b><small>{formatTimeFromSeconds(actual.duration)} · {actual.encoding.codec}{actual.encoding.bitrate ? ` ${actual.encoding.bitrate} kbps` : ''}</small></> : <><b>Missing</b><small>No matching track on this disc</small></>}</span>
-                                    <span className={track.matchesDisc ? 'is-compatible' : 'is-warning'}>{track.matchesDisc ? <><CheckCircleRoundedIcon /> Compatible</> : <><WarningAmberRoundedIcon /> Review</>}</span>
+                                    <span><b>{track.index}. {track.title || t('Untitled')}</b><small>{formatTimeFromSeconds(track.duration)} · {track.codec}{track.bitrate ? ` ${track.bitrate} kbps` : ''}{track.groupName ? ` · ${track.groupName}` : ''}</small></span>
+                                    <span>{actual ? <><b>{actual.index + 1}. {actual.title || t('Untitled')}</b><small>{formatTimeFromSeconds(actual.duration)} · {actual.encoding.codec}{actual.encoding.bitrate ? ` ${actual.encoding.bitrate} kbps` : ''}</small></> : <><b>{t('Missing')}</b><small>{t('No matching track on this disc')}</small></>}</span>
+                                    <span className={track.matchesDisc ? 'is-compatible' : 'is-warning'}>{track.matchesDisc ? <><CheckCircleRoundedIcon /> {t('Compatible')}</> : <><WarningAmberRoundedIcon /> {t('Review')}</>}</span>
                                 </label>
                             );
                         })}
                     </div>
                     <footer>
-                        <button className="secondary-button" onClick={() => { setPlan(null); setSourceText(''); setSourceName(''); }} disabled={busy}>Discard</button>
-                        <button className="primary-button" onClick={() => void applyCsv()} disabled={busy || !canImportMetadata}>Apply reviewed metadata</button>
+                        <button className="secondary-button" onClick={() => { setPlan(null); setSourceText(''); setSourceName(''); }} disabled={busy}>{t('Discard')}</button>
+                        <button className="primary-button" onClick={() => void applyCsv()} disabled={busy || !canImportMetadata}>{t('Apply reviewed metadata')}</button>
                     </footer>
                 </section>
             ) : null}
@@ -649,14 +649,14 @@ export const WorkbenchTools = ({
             {selfTestOpen ? (
                 <div className="workbench__modal-backdrop" role="presentation" onMouseDown={closeSelfTest}>
                     <section className="workbench__modal workbench__self-test-modal" role="dialog" aria-modal="true" aria-labelledby="workbench-self-test-title" onMouseDown={(event) => event.stopPropagation()}>
-                        <span className="workbench__eyebrow">DESTRUCTIVE DIAGNOSTIC</span>
-                        <h2 id="workbench-self-test-title">Erase this disc and run 14 device checks?</h2>
-                        <p>The test renames the disc and its first two tracks, changes full-width titles, moves tracks, tests playback controls, deletes a track, then erases the entire disc.</p>
-                        <div className="workbench__write-warning">Every track currently on “{disc?.title || 'Untitled MiniDisc'}” will be permanently deleted. Use only a disposable test disc.</div>
-                        <label>Type ERASE to enable the test<input autoFocus value={selfTestConfirmation} onChange={(event) => setSelfTestConfirmation(event.target.value)} /></label>
+                        <span className="workbench__eyebrow">{t('DESTRUCTIVE DIAGNOSTIC')}</span>
+                        <h2 id="workbench-self-test-title">{t('Erase this disc and run 14 device checks?')}</h2>
+                        <p>{t('The test renames the disc and its first two tracks, changes full-width titles, moves tracks, tests playback controls, deletes a track, then erases the entire disc.')}</p>
+                        <div className="workbench__write-warning">{language === 'zh-CN' ? `“${disc?.title || '无标题 MiniDisc'}”上的所有曲目都将被永久删除。请只使用可随意擦除的测试碟。` : `Every track currently on “${disc?.title || 'Untitled MiniDisc'}” will be permanently deleted. Use only a disposable test disc.`}</div>
+                        <label>{t('Type ERASE to enable the test')}<input autoFocus value={selfTestConfirmation} onChange={(event) => setSelfTestConfirmation(event.target.value)} /></label>
                         <div className="workbench__modal-actions">
-                            <button className="secondary-button" onClick={closeSelfTest} disabled={busy}>Cancel</button>
-                            <button className="danger-button" onClick={() => void startSelfTest()} disabled={busy || selfTestConfirmation !== 'ERASE'}>Erase disc and run test</button>
+                            <button className="secondary-button" onClick={closeSelfTest} disabled={busy}>{t('Cancel')}</button>
+                            <button className="danger-button" onClick={() => void startSelfTest()} disabled={busy || selfTestConfirmation !== 'ERASE'}>{t('Erase disc and run test')}</button>
                         </div>
                     </section>
                 </div>
@@ -665,27 +665,27 @@ export const WorkbenchTools = ({
             {maintenanceAction ? (
                 <div className="workbench__modal-backdrop" role="presentation" onMouseDown={closeMaintenanceReview}>
                     <section className="workbench__modal workbench__maintenance-modal" role="dialog" aria-modal="true" aria-labelledby="workbench-maintenance-title" onMouseDown={(event) => event.stopPropagation()}>
-                        <span className="workbench__eyebrow">ADVANCED DEVICE MODE</span>
+                        <span className="workbench__eyebrow">{t('ADVANCED DEVICE MODE')}</span>
                         <h2 id="workbench-maintenance-title">{maintenanceButtonLabel(maintenanceAction)}?</h2>
-                        <p>{maintenanceAction.description}</p>
+                        <p>{t(maintenanceAction.description)}</p>
                         <div className="workbench__write-warning">
-                            This runs unsupported Homebrew code on the connected device. Keep USB and device power stable until the operation finishes.
-                            {maintenanceAction.endsSession ? ' The current MiniDisc session will disconnect afterward.' : ''}
+                            {t('This runs unsupported Homebrew code on the connected device. Keep USB and device power stable until the operation finishes.')}
+                            {maintenanceAction.endsSession ? ` ${t('The current MiniDisc session will disconnect afterward.')}` : ''}
                         </div>
                         {maintenanceAction.confirmationToken ? (
                             <label>
-                                Type {maintenanceAction.confirmationToken} to continue
+                                {language === 'zh-CN' ? `输入 ${maintenanceAction.confirmationToken} 以继续` : `Type ${maintenanceAction.confirmationToken} to continue`}
                                 <input autoFocus value={maintenanceConfirmation} onChange={(event) => setMaintenanceConfirmation(event.target.value)} />
                             </label>
                         ) : null}
                         <div className="workbench__modal-actions">
-                            <button className="secondary-button" onClick={closeMaintenanceReview} disabled={busy}>Cancel</button>
+                            <button className="secondary-button" onClick={closeMaintenanceReview} disabled={busy}>{t('Cancel')}</button>
                             <button
                                 className={maintenanceAction.endsSession ? 'danger-button' : 'primary-button'}
                                 onClick={() => void runAdvancedMaintenance()}
                                 disabled={busy || !isAdvancedMaintenanceConfirmationValid(maintenanceAction, maintenanceConfirmation)}
                             >
-                                {busy ? 'Applying…' : 'Apply device mode'}
+                                {t(busy ? 'Applying…' : 'Apply device mode')}
                             </button>
                         </div>
                     </section>
@@ -695,36 +695,36 @@ export const WorkbenchTools = ({
             {rawTocReview ? (
                 <div className="workbench__modal-backdrop" role="presentation" onMouseDown={closeRawTocReview}>
                     <section className="workbench__modal workbench__maintenance-modal" role="dialog" aria-modal="true" aria-labelledby="workbench-raw-toc-title" onMouseDown={(event) => event.stopPropagation()}>
-                        <span className="workbench__eyebrow">RAW TOC RESTORE</span>
-                        <h2 id="workbench-raw-toc-title">Write {rawTocReview.sourceName}?</h2>
-                        <p>The file is exactly {rawTocReview.source.byteLength.toLocaleString()} bytes. The device will write sectors 0–{RAW_TOC_WRITABLE_SECTOR_COUNT - 1}; sectors 4–5 remain reference data.</p>
+                        <span className="workbench__eyebrow">{t('RAW TOC RESTORE')}</span>
+                        <h2 id="workbench-raw-toc-title">{language === 'zh-CN' ? `写入 ${rawTocReview.sourceName}？` : `Write ${rawTocReview.sourceName}?`}</h2>
+                        <p>{language === 'zh-CN' ? `文件大小正好为 ${rawTocReview.source.byteLength.toLocaleString()} 字节。设备将写入扇区 0–${RAW_TOC_WRITABLE_SECTOR_COUNT - 1}；扇区 4–5 保留为参考数据。` : `The file is exactly ${rawTocReview.source.byteLength.toLocaleString()} bytes. The device will write sectors 0–${RAW_TOC_WRITABLE_SECTOR_COUNT - 1}; sectors 4–5 remain reference data.`}</p>
                         <dl className="workbench__review-grid">
-                            <div><dt>Current disc SHA-256</dt><dd>{rawTocReview.preview.currentSha256}</dd></div>
-                            <div><dt>Backup SHA-256</dt><dd>{rawTocReview.preview.proposedSha256}</dd></div>
-                            <div><dt>Current writable sectors</dt><dd>{rawTocReview.preview.currentWritableSha256}</dd></div>
-                            <div><dt>Backup writable sectors</dt><dd>{rawTocReview.preview.proposedWritableSha256}</dd></div>
-                            <div><dt>Writable bytes changed</dt><dd>{rawTocReview.preview.changedWritableBytes.toLocaleString()}</dd></div>
-                            <div><dt>Writable sectors changed</dt><dd>{rawTocReview.preview.changedWritableSectors.join(', ') || 'None'}</dd></div>
+                            <div><dt>{t('Current disc SHA-256')}</dt><dd>{rawTocReview.preview.currentSha256}</dd></div>
+                            <div><dt>{t('Backup SHA-256')}</dt><dd>{rawTocReview.preview.proposedSha256}</dd></div>
+                            <div><dt>{t('Current writable sectors')}</dt><dd>{rawTocReview.preview.currentWritableSha256}</dd></div>
+                            <div><dt>{t('Backup writable sectors')}</dt><dd>{rawTocReview.preview.proposedWritableSha256}</dd></div>
+                            <div><dt>{t('Writable bytes changed')}</dt><dd>{rawTocReview.preview.changedWritableBytes.toLocaleString()}</dd></div>
+                            <div><dt>{t('Writable sectors changed')}</dt><dd>{rawTocReview.preview.changedWritableSectors.join(', ') || t('None')}</dd></div>
                         </dl>
                         <div className="workbench__write-warning">
-                            A malformed or wrong-disc TOC can make every track unreadable. Keep USB and device power stable until the disc refresh completes.
+                            {t('A malformed or wrong-disc TOC can make every track unreadable. Keep USB and device power stable until the disc refresh completes.')}
                         </div>
                         {rawTocReview.preview.changedWritableBytes === 0 ? (
-                            <div className="workbench__tools-empty"><CheckCircleRoundedIcon /> The writable sectors already match. No write is needed.</div>
+                            <div className="workbench__tools-empty"><CheckCircleRoundedIcon /> {t('The writable sectors already match. No write is needed.')}</div>
                         ) : (
                             <label>
-                                Type {RAW_TOC_CONFIRMATION} to continue
+                                {language === 'zh-CN' ? `输入 ${RAW_TOC_CONFIRMATION} 以继续` : `Type ${RAW_TOC_CONFIRMATION} to continue`}
                                 <input autoFocus value={rawTocConfirmation} onChange={(event) => setRawTocConfirmation(event.target.value)} />
                             </label>
                         )}
                         <div className="workbench__modal-actions">
-                            <button className="secondary-button" onClick={closeRawTocReview} disabled={busy}>Cancel</button>
+                            <button className="secondary-button" onClick={closeRawTocReview} disabled={busy}>{t('Cancel')}</button>
                             <button
                                 className="danger-button"
                                 onClick={() => void writeRawToc()}
                                 disabled={busy || rawTocReview.preview.changedWritableBytes === 0 || !isRawTocConfirmationValid(rawTocConfirmation)}
                             >
-                                {busy ? 'Writing…' : 'Write reviewed TOC'}
+                                {t(busy ? 'Writing…' : 'Write reviewed TOC')}
                             </button>
                         </div>
                     </section>
@@ -734,36 +734,36 @@ export const WorkbenchTools = ({
             {rawTocPatchReview ? (
                 <div className="workbench__modal-backdrop" role="presentation" onMouseDown={closeRawTocPatchReview}>
                     <section className="workbench__modal workbench__maintenance-modal" role="dialog" aria-modal="true" aria-labelledby="workbench-toc-patch-title" onMouseDown={(event) => event.stopPropagation()}>
-                        <span className="workbench__eyebrow">RAW TOC FLAG CHANGE</span>
-                        <h2 id="workbench-toc-patch-title">{rawTocPatchReview.action.label}?</h2>
-                        <p>{rawTocPatchReview.action.description}</p>
+                        <span className="workbench__eyebrow">{t('RAW TOC FLAG CHANGE')}</span>
+                        <h2 id="workbench-toc-patch-title">{t(rawTocPatchReview.action.label)}?</h2>
+                        <p>{t(rawTocPatchReview.action.description)}</p>
                         <dl className="workbench__review-grid">
-                            <div><dt>Tracks on disc</dt><dd>{rawTocPatchReview.preview.totalTracks}</dd></div>
-                            <div><dt>Tracks changed</dt><dd>{rawTocPatchReview.preview.changedTracks}</dd></div>
-                            <div><dt>Fragments changed</dt><dd>{rawTocPatchReview.preview.changedFragments}</dd></div>
-                            <div><dt>Current TOC</dt><dd>{rawTocPatchReview.preview.currentSha256}</dd></div>
-                            <div><dt>Current writable sectors</dt><dd>{rawTocPatchReview.preview.currentWritableSha256}</dd></div>
-                            <div><dt>Proposed writable sectors</dt><dd>{rawTocPatchReview.preview.proposedWritableSha256}</dd></div>
+                            <div><dt>{t('Tracks on disc')}</dt><dd>{rawTocPatchReview.preview.totalTracks}</dd></div>
+                            <div><dt>{t('Tracks changed')}</dt><dd>{rawTocPatchReview.preview.changedTracks}</dd></div>
+                            <div><dt>{t('Fragments changed')}</dt><dd>{rawTocPatchReview.preview.changedFragments}</dd></div>
+                            <div><dt>{t('Current TOC')}</dt><dd>{rawTocPatchReview.preview.currentSha256}</dd></div>
+                            <div><dt>{t('Current writable sectors')}</dt><dd>{rawTocPatchReview.preview.currentWritableSha256}</dd></div>
+                            <div><dt>{t('Proposed writable sectors')}</dt><dd>{rawTocPatchReview.preview.proposedWritableSha256}</dd></div>
                         </dl>
                         <div className="workbench__write-warning">
-                            This writes raw TOC flag bits on the inserted disc. Keep USB and device power stable until the disc refresh completes.
+                            {t('This writes raw TOC flag bits on the inserted disc. Keep USB and device power stable until the disc refresh completes.')}
                         </div>
                         {rawTocPatchReview.preview.changedFragments === 0 ? (
-                            <div className="workbench__tools-empty"><CheckCircleRoundedIcon /> This change is already applied. No write is needed.</div>
+                            <div className="workbench__tools-empty"><CheckCircleRoundedIcon /> {t('This change is already applied. No write is needed.')}</div>
                         ) : (
                             <label>
-                                Type {rawTocPatchReview.action.confirmation} to continue
+                                {language === 'zh-CN' ? `输入 ${rawTocPatchReview.action.confirmation} 以继续` : `Type ${rawTocPatchReview.action.confirmation} to continue`}
                                 <input autoFocus value={rawTocPatchConfirmation} onChange={(event) => setRawTocPatchConfirmation(event.target.value)} />
                             </label>
                         )}
                         <div className="workbench__modal-actions">
-                            <button className="secondary-button" onClick={closeRawTocPatchReview} disabled={busy}>Cancel</button>
+                            <button className="secondary-button" onClick={closeRawTocPatchReview} disabled={busy}>{t('Cancel')}</button>
                             <button
                                 className="danger-button"
                                 onClick={() => void applyRawTocPatch()}
                                 disabled={busy || rawTocPatchReview.preview.changedFragments === 0 || !isRawTocPatchConfirmationValid(rawTocPatchReview.action, rawTocPatchConfirmation)}
                             >
-                                {busy ? 'Applying…' : 'Apply reviewed change'}
+                                {t(busy ? 'Applying…' : 'Apply reviewed change')}
                             </button>
                         </div>
                     </section>

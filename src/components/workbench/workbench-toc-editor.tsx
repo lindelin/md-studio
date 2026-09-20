@@ -15,6 +15,7 @@ import {
     type RawTocEditorTab,
 } from '../../domain/raw-toc-editor';
 import { useApplicationClient, useApplicationWorkspace } from '../use-application-client';
+import { useI18n } from '../use-i18n';
 import { inspectRawTocData } from './workbench-raw-toc';
 import './workbench.css';
 
@@ -62,6 +63,7 @@ export function WorkbenchTocEditor({
 }) {
     const client = useApplicationClient();
     const workspace = useApplicationWorkspace();
+    const { language, t } = useI18n();
     const [loaded, setLoaded] = useState<LoadedToc | null>(null);
     const [tab, setTab] = useState<RawTocEditorTab>('position');
     const [selection, setSelection] = useState<{ kind: 'map' | 'content'; index: number }>({ kind: 'map', index: 0 });
@@ -273,13 +275,13 @@ export function WorkbenchTocEditor({
             >
                 <header className="workbench__toc-editor-header">
                     <div>
-                        <span className="workbench__eyebrow">VISUAL RAW TOC EDITOR</span>
-                        <h2 id="workbench-toc-editor-title">{workspace.device?.disc?.title || 'Inserted MiniDisc'}</h2>
-                        <p>Edit a local draft of sectors 0–3. Reference sectors 4–5 are preserved byte for byte.</p>
+                        <span className="workbench__eyebrow">{t('VISUAL RAW TOC EDITOR')}</span>
+                        <h2 id="workbench-toc-editor-title">{workspace.device?.disc?.title || t('Inserted MiniDisc')}</h2>
+                        <p>{t('Edit a local draft of sectors 0–3. Reference sectors 4–5 are preserved byte for byte.')}</p>
                     </div>
                     <div className="workbench__toc-editor-actions">
                         <button className="secondary-button" onClick={() => backupInput.current?.click()} disabled={busy || !loaded}>
-                            Load backup
+                            {t('Load backup')}
                         </button>
                         <input
                             ref={backupInput}
@@ -289,10 +291,10 @@ export function WorkbenchTocEditor({
                             onChange={(event) => void loadBackup(event)}
                         />
                         <button className="secondary-button" onClick={requestReload} disabled={busy}>
-                            Reload disc
+                            {t('Reload disc')}
                         </button>
                         <button className="secondary-button" onClick={requestClose} disabled={busy}>
-                            Close
+                            {t('Close')}
                         </button>
                     </div>
                 </header>
@@ -304,14 +306,14 @@ export function WorkbenchTocEditor({
                 ) : null}
                 {busy && !draft ? (
                     <div className="workbench__write-pending">
-                        <i /> Reading raw TOC…
+                        <i /> {t('Reading raw TOC…')}
                     </div>
                 ) : null}
 
                 {draft ? (
                     <>
                         <TocHeaderEditor toc={draft} updateDraft={updateDraft} />
-                        <nav className="workbench__toc-tabs" aria-label="TOC sectors">
+                        <nav className="workbench__toc-tabs" aria-label={t('TOC sectors')}>
                             {rawTocEditorTabs.map((item) => (
                                 <button
                                     className={tab === item.id ? 'is-active' : ''}
@@ -321,7 +323,7 @@ export function WorkbenchTocEditor({
                                         setSelection({ kind: 'map', index: 0 });
                                     }}
                                 >
-                                    {item.label}
+                                    {t(item.label)}
                                 </button>
                             ))}
                         </nav>
@@ -329,14 +331,14 @@ export function WorkbenchTocEditor({
                         <div className="workbench__toc-editor-body">
                             <div className="workbench__toc-tables">
                                 <TocGrid
-                                    label={rawTocEditorTabs.find((item) => item.id === tab)?.mapLabel ?? 'Map'}
+                                    label={t(rawTocEditorTabs.find((item) => item.id === tab)?.mapLabel ?? 'Map')}
                                     selected={selection.kind === 'map' ? selection.index : -1}
                                     values={map}
                                     statusForIndex={(index) => (map[index] === 0 ? '·' : map[index].toString(16).padStart(2, '0'))}
                                     onSelect={(index) => setSelection({ kind: 'map', index })}
                                 />
                                 <TocGrid
-                                    label={rawTocEditorTabs.find((item) => item.id === tab)?.contentLabel ?? 'Contents'}
+                                    label={t(rawTocEditorTabs.find((item) => item.id === tab)?.contentLabel ?? 'Contents')}
                                     selected={selection.kind === 'content' ? selection.index : -1}
                                     highlighted={linked}
                                     values={Array.from({ length: 256 }, (_, index) => index)}
@@ -355,9 +357,9 @@ export function WorkbenchTocEditor({
                         </div>
 
                         <footer className="workbench__toc-editor-footer">
-                            <span>{!writeEnabled ? writeDisabledReason : modified ? 'Unsaved local draft' : 'Draft matches the loaded TOC'}</span>
+                            <span>{!writeEnabled ? writeDisabledReason : t(modified ? 'Unsaved local draft' : 'Draft matches the loaded TOC')}</span>
                             <button className="danger-button" onClick={() => void reviewChanges()} disabled={busy || !modified || !writeEnabled}>
-                                {busy ? 'Checking…' : 'Review write'}
+                                {t(busy ? 'Checking…' : 'Review write')}
                             </button>
                         </footer>
                     </>
@@ -377,15 +379,15 @@ export function WorkbenchTocEditor({
                         aria-labelledby="toc-discard-title"
                         onMouseDown={(event) => event.stopPropagation()}
                     >
-                        <span className="workbench__eyebrow">UNSAVED DRAFT</span>
-                        <h2 id="toc-discard-title">Discard the visual TOC edits?</h2>
-                        <p>The local draft has not been written. Discarding it does not change the disc.</p>
+                        <span className="workbench__eyebrow">{t('UNSAVED DRAFT')}</span>
+                        <h2 id="toc-discard-title">{t('Discard the visual TOC edits?')}</h2>
+                        <p>{t('The local draft has not been written. Discarding it does not change the disc.')}</p>
                         <div className="workbench__modal-actions">
                             <button className="secondary-button" onClick={() => setDiscardAction(null)}>
-                                Keep editing
+                                {t('Keep editing')}
                             </button>
                             <button className="danger-button" onClick={discard}>
-                                Discard draft
+                                {t('Discard draft')}
                             </button>
                         </div>
                     </section>
@@ -405,56 +407,55 @@ export function WorkbenchTocEditor({
                         aria-labelledby="toc-editor-review-title"
                         onMouseDown={(event) => event.stopPropagation()}
                     >
-                        <span className="workbench__eyebrow">VISUAL TOC WRITE REVIEW</span>
-                        <h2 id="toc-editor-review-title">Write this edited TOC?</h2>
+                        <span className="workbench__eyebrow">{t('VISUAL TOC WRITE REVIEW')}</span>
+                        <h2 id="toc-editor-review-title">{t('Write this edited TOC?')}</h2>
                         <dl className="workbench__review-grid">
                             <div>
-                                <dt>Current disc SHA-256</dt>
+                                <dt>{t('Current disc SHA-256')}</dt>
                                 <dd>{review.preview.currentSha256}</dd>
                             </div>
                             <div>
-                                <dt>Edited TOC SHA-256</dt>
+                                <dt>{t('Edited TOC SHA-256')}</dt>
                                 <dd>{review.preview.proposedSha256}</dd>
                             </div>
                             <div>
-                                <dt>Current writable sectors</dt>
+                                <dt>{t('Current writable sectors')}</dt>
                                 <dd>{review.preview.currentWritableSha256}</dd>
                             </div>
                             <div>
-                                <dt>Edited writable sectors</dt>
+                                <dt>{t('Edited writable sectors')}</dt>
                                 <dd>{review.preview.proposedWritableSha256}</dd>
                             </div>
                             <div>
-                                <dt>Writable bytes changed</dt>
+                                <dt>{t('Writable bytes changed')}</dt>
                                 <dd>{review.preview.changedWritableBytes.toLocaleString()}</dd>
                             </div>
                             <div>
-                                <dt>Writable sectors changed</dt>
-                                <dd>{review.preview.changedWritableSectors.join(', ') || 'None'}</dd>
+                                <dt>{t('Writable sectors changed')}</dt>
+                                <dd>{review.preview.changedWritableSectors.join(', ') || t('None')}</dd>
                             </div>
                         </dl>
                         <div className="workbench__write-warning">
-                            A malformed TOC can make every track unreadable. Keep USB and device power stable until the disc refresh
-                            finishes.
+                            {t('A malformed TOC can make every track unreadable. Keep USB and device power stable until the disc refresh finishes.')}
                         </div>
                         {review.preview.changedWritableBytes === 0 ? (
-                            <div className="workbench__tools-empty">The writable sectors already match. No write is needed.</div>
+                            <div className="workbench__tools-empty">{t('The writable sectors already match. No write is needed.')}</div>
                         ) : (
                             <label>
-                                Type {EDITED_TOC_CONFIRMATION} to continue
+                                {language === 'zh-CN' ? `输入 ${EDITED_TOC_CONFIRMATION} 以继续` : `Type ${EDITED_TOC_CONFIRMATION} to continue`}
                                 <input autoFocus value={confirmation} onChange={(event) => setConfirmation(event.target.value)} />
                             </label>
                         )}
                         <div className="workbench__modal-actions">
                             <button className="secondary-button" onClick={() => setReview(null)} disabled={busy}>
-                                Cancel
+                                {t('Cancel')}
                             </button>
                             <button
                                 className="danger-button"
                                 onClick={() => void writeChanges()}
                                 disabled={busy || review.preview.changedWritableBytes === 0 || confirmation !== EDITED_TOC_CONFIRMATION}
                             >
-                                {busy ? 'Writing…' : 'Write reviewed TOC'}
+                                {t(busy ? 'Writing…' : 'Write reviewed TOC')}
                             </button>
                         </div>
                     </section>
@@ -465,12 +466,13 @@ export function WorkbenchTocEditor({
 }
 
 function TocHeaderEditor({ toc, updateDraft }: { toc: ToC; updateDraft(update: (toc: ToC) => void): void }) {
+    const { t } = useI18n();
     return (
         <details className="workbench__toc-header-fields">
-            <summary>TOC header and free-list pointers</summary>
+            <summary>{t('TOC header and free-list pointers')}</summary>
             <div>
                 <NumberEditor
-                    label="Device signature"
+                    label={t('Device signature')}
                     value={toc.deviceSignature}
                     maximum={0xffff}
                     onCommit={(value) =>
@@ -480,7 +482,7 @@ function TocHeaderEditor({ toc, updateDraft }: { toc: ToC; updateDraft(update: (
                     }
                 />
                 <NumberEditor
-                    label="Track count"
+                    label={t('Track count')}
                     value={toc.nTracks}
                     maximum={0xff}
                     onCommit={(value) =>
@@ -490,7 +492,7 @@ function TocHeaderEditor({ toc, updateDraft }: { toc: ToC; updateDraft(update: (
                     }
                 />
                 <NumberEditor
-                    label="Disc non-empty"
+                    label={t('Disc non-empty')}
                     value={toc.discNonEmpty}
                     maximum={0xff}
                     onCommit={(value) =>
@@ -500,7 +502,7 @@ function TocHeaderEditor({ toc, updateDraft }: { toc: ToC; updateDraft(update: (
                     }
                 />
                 <NumberEditor
-                    label="Next fragment"
+                    label={t('Next fragment')}
                     value={toc.nextFreeTrackSlot}
                     maximum={0xff}
                     onCommit={(value) =>
@@ -510,7 +512,7 @@ function TocHeaderEditor({ toc, updateDraft }: { toc: ToC; updateDraft(update: (
                     }
                 />
                 <NumberEditor
-                    label="Next title cell"
+                    label={t('Next title cell')}
                     value={toc.nextFreeTitleSlot}
                     maximum={0xff}
                     onCommit={(value) =>
@@ -520,7 +522,7 @@ function TocHeaderEditor({ toc, updateDraft }: { toc: ToC; updateDraft(update: (
                     }
                 />
                 <NumberEditor
-                    label="Next timestamp"
+                    label={t('Next timestamp')}
                     value={toc.nextFreeTimestampSlot}
                     maximum={0xff}
                     onCommit={(value) =>
@@ -530,7 +532,7 @@ function TocHeaderEditor({ toc, updateDraft }: { toc: ToC; updateDraft(update: (
                     }
                 />
                 <NumberEditor
-                    label="Next full-width cell"
+                    label={t('Next full-width cell')}
                     value={toc.nextFreeFullWidthTitleSlot}
                     maximum={0xff}
                     onCommit={(value) =>
@@ -593,6 +595,7 @@ function TocSelectionEditor({
     linked: number[];
     updateDraft(update: (toc: ToC) => void): void;
 }) {
+    const { language, t } = useI18n();
     const index = selection.index;
     if (selection.kind === 'map') {
         const map = getRawTocMap(toc, tab);
@@ -601,13 +604,15 @@ function TocSelectionEditor({
         if (tab === 'full-width-title') preview = safeTrackTitle(toc, index, true);
         return (
             <aside className="workbench__toc-selection">
-                <span className="workbench__eyebrow">MAP ENTRY {index}</span>
+                <span className="workbench__eyebrow">{language === 'zh-CN' ? `映射条目 ${index}` : `MAP ENTRY ${index}`}</span>
                 <h3>
-                    {tab === 'position' ? (index === 0 ? 'Free list' : `Track ${index}`) : index === 0 ? 'Disc metadata' : `Track ${index}`}
+                    {tab === 'position'
+                        ? index === 0 ? t('Free list') : language === 'zh-CN' ? `曲目 ${index}` : `Track ${index}`
+                        : index === 0 ? t('Disc metadata') : language === 'zh-CN' ? `曲目 ${index}` : `Track ${index}`}
                 </h3>
                 {preview ? <p className="workbench__toc-title-preview">{preview}</p> : null}
                 <NumberEditor
-                    label="Linked content index"
+                    label={t('Linked content index')}
                     value={map[index]}
                     maximum={0xff}
                     onCommit={(value) =>
@@ -616,7 +621,7 @@ function TocSelectionEditor({
                         })
                     }
                 />
-                <p>{linked.length > 0 ? `Chain: ${linked.join(' → ')}` : 'This entry has no non-zero content chain.'}</p>
+                <p>{linked.length > 0 ? (language === 'zh-CN' ? `链：${linked.join(' → ')}` : `Chain: ${linked.join(' → ')}`) : t('This entry has no non-zero content chain.')}</p>
             </aside>
         );
     }
@@ -625,10 +630,10 @@ function TocSelectionEditor({
         const fragment = toc.trackFragmentList[index];
         return (
             <aside className="workbench__toc-selection">
-                <span className="workbench__eyebrow">FRAGMENT {index}</span>
-                <h3>{index === 0 ? 'Fragment free list' : `Fragment ${index}`}</h3>
+                <span className="workbench__eyebrow">{language === 'zh-CN' ? `片段 ${index}` : `FRAGMENT ${index}`}</span>
+                <h3>{index === 0 ? t('Fragment free list') : language === 'zh-CN' ? `片段 ${index}` : `Fragment ${index}`}</h3>
                 <AddressEditor
-                    label="Start"
+                    label={t('Start')}
                     value={fragment.start}
                     onCommit={(value) =>
                         updateDraft((draft) => {
@@ -637,7 +642,7 @@ function TocSelectionEditor({
                     }
                 />
                 <AddressEditor
-                    label="End"
+                    label={t('End')}
                     value={fragment.end}
                     onCommit={(value) =>
                         updateDraft((draft) => {
@@ -646,7 +651,7 @@ function TocSelectionEditor({
                     }
                 />
                 <NumberEditor
-                    label="Mode byte"
+                    label={t('Mode byte')}
                     value={fragment.mode}
                     maximum={0xff}
                     onCommit={(value) =>
@@ -669,12 +674,12 @@ function TocSelectionEditor({
                                     })
                                 }
                             />
-                            {label}
+                            {t(label)}
                         </label>
                     ))}
                 </div>
                 <NumberEditor
-                    label="Next fragment"
+                    label={t('Next fragment')}
                     value={fragment.link}
                     maximum={0xff}
                     onCommit={(value) =>
@@ -691,12 +696,12 @@ function TocSelectionEditor({
         const timestamp = toc.timestampList[index];
         return (
             <aside className="workbench__toc-selection">
-                <span className="workbench__eyebrow">TIMESTAMP {index}</span>
-                <h3>Timestamp {index}</h3>
+                <span className="workbench__eyebrow">{language === 'zh-CN' ? `时间戳 ${index}` : `TIMESTAMP ${index}`}</span>
+                <h3>{t('Timestamp')} {index}</h3>
                 {(['year', 'month', 'day', 'hour', 'minute', 'second'] as const).map((field) => (
                     <NumberEditor
                         key={field}
-                        label={field[0].toUpperCase() + field.slice(1)}
+                        label={t(field[0].toUpperCase() + field.slice(1))}
                         value={timestamp[field]}
                         maximum={0xff}
                         onCommit={(value) =>
@@ -707,7 +712,7 @@ function TocSelectionEditor({
                     />
                 ))}
                 <NumberEditor
-                    label="Signature"
+                    label={t('Signature')}
                     value={timestamp.signature}
                     maximum={0xffff}
                     onCommit={(value) =>
@@ -723,9 +728,9 @@ function TocSelectionEditor({
     const cells = tab === 'half-width-title' ? toc.titleCellList : toc.fullWidthTitleCellList;
     return (
         <aside className="workbench__toc-selection">
-            <span className="workbench__eyebrow">TITLE CELL {index}</span>
+            <span className="workbench__eyebrow">{language === 'zh-CN' ? `标题单元 ${index}` : `TITLE CELL ${index}`}</span>
             <h3>
-                {tab === 'half-width-title' ? 'Half-width' : 'Full-width'} cell {index}
+                {language === 'zh-CN' ? `${t(tab === 'half-width-title' ? 'Half-width' : 'Full-width')}单元 ${index}` : `${tab === 'half-width-title' ? 'Half-width' : 'Full-width'} cell ${index}`}
             </h3>
             <CellEditor
                 value={cells[index].title}
@@ -736,7 +741,7 @@ function TocSelectionEditor({
                 }
             />
             <NumberEditor
-                label="Next title cell"
+                label={t('Next title cell')}
                 value={cells[index].link}
                 maximum={0xff}
                 onCommit={(value) =>
@@ -794,25 +799,26 @@ function NumberEditor({
 }
 
 function AddressEditor({ label, value, onCommit }: { label: string; value: DiscAddress; onCommit(value: DiscAddress): void }) {
+    const { language, t } = useI18n();
     return (
         <fieldset className="workbench__toc-address">
-            <legend>{label} address · hexadecimal</legend>
+            <legend>{language === 'zh-CN' ? `${label}地址 · 十六进制` : `${label} address · hexadecimal`}</legend>
             <NumberEditor
-                label="Cluster"
+                label={t('Cluster')}
                 value={value.cluster}
                 maximum={0x3fff}
                 hexadecimal
                 onCommit={(cluster) => onCommit({ ...value, cluster })}
             />
             <NumberEditor
-                label="Sector"
+                label={t('Sector')}
                 value={value.sector}
                 maximum={0x3f}
                 hexadecimal
                 onCommit={(sector) => onCommit({ ...value, sector })}
             />
             <NumberEditor
-                label="Group"
+                label={t('Group')}
                 value={value.group}
                 maximum={0x0f}
                 hexadecimal
@@ -823,6 +829,7 @@ function AddressEditor({ label, value, onCommit }: { label: string; value: DiscA
 }
 
 function CellEditor({ value, onCommit }: { value: number[]; onCommit(value: number[]): void }) {
+    const { t } = useI18n();
     const [local, setLocal] = useState(escapeRawTocCell(value));
     const [error, setError] = useState('');
     useEffect(() => setLocal(escapeRawTocCell(value)), [value]);
@@ -838,9 +845,9 @@ function CellEditor({ value, onCommit }: { value: number[]; onCommit(value: numb
     };
     return (
         <label className="workbench__toc-field">
-            <span>Seven raw bytes</span>
+            <span>{t('Seven raw bytes')}</span>
             <input value={local} onChange={(event) => change(event.target.value)} spellCheck={false} />
-            <small className={error ? 'is-error' : ''}>{error || 'Use \\00 style hexadecimal escapes for non-printable bytes.'}</small>
+            <small className={error ? 'is-error' : ''}>{error || t('Use \\00 style hexadecimal escapes for non-printable bytes.')}</small>
         </label>
     );
 }

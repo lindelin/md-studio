@@ -6,6 +6,7 @@ import StopRoundedIcon from '@mui/icons-material/StopRounded';
 import { requestBrowserAudioDevices, type BrowserAudioDevice } from '../../application/browser-audio-devices';
 import { downloadBlob, type DisplayTrack } from '../../utils';
 import { useApplicationClient, useApplicationWorkspace } from '../use-application-client';
+import { useI18n } from '../use-i18n';
 import {
     createAdvancedBadSectorHandler,
     type AdvancedBadSectorPromptHandler,
@@ -34,6 +35,7 @@ export const WorkbenchTrackTransfer = ({
 }: WorkbenchTrackTransferProps) => {
     const client = useApplicationClient();
     const workspace = useApplicationWorkspace();
+    const { language, t } = useI18n();
     const [exportFormat, setExportFormat] = useState<'original' | 'wav' | 'neraw'>(
         mode === 'recovery' && workspace.settings.values.factoryModeNERAWDownload ? 'neraw' : 'original'
     );
@@ -53,10 +55,10 @@ export const WorkbenchTrackTransfer = ({
             .then((available) => {
                 if (!active) return;
                 setDevices(available);
-                if (available.length === 0) setError('No audio input is available.');
+                if (available.length === 0) setError(t('No audio input is available.'));
             })
             .catch((reason) => {
-                if (active) setError(`Audio input permission failed: ${errorMessage(reason)}`);
+                if (active) setError(language === 'zh-CN' ? `音频输入权限请求失败：${errorMessage(reason)}` : `Audio input permission failed: ${errorMessage(reason)}`);
             })
             .finally(() => {
                 if (active) setLoadingDevices(false);
@@ -64,7 +66,7 @@ export const WorkbenchTrackTransfer = ({
         return () => {
             active = false;
         };
-    }, [mode]);
+    }, [language, mode, t]);
 
     const stopLocalPreview = useCallback(async () => {
         setPreviewPending(false);
@@ -98,7 +100,7 @@ export const WorkbenchTrackTransfer = ({
         try {
             await client.startLocalAudioInputPreview(deviceId);
         } catch (reason) {
-            setError(`Could not monitor this input: ${errorMessage(reason)}`);
+            setError(language === 'zh-CN' ? `无法监听此输入：${errorMessage(reason)}` : `Could not monitor this input: ${errorMessage(reason)}`);
         } finally {
             setPreviewPending(false);
         }
@@ -163,18 +165,24 @@ export const WorkbenchTrackTransfer = ({
                           )
                           .then((result) => {
                               if (!result.ok) throw new Error(result.error.message);
-                              if (!result.task) throw new Error(`${mode === 'export' ? 'Export' : 'Recording'} did not start.`);
+                              if (!result.task) throw new Error(language === 'zh-CN' ? `${mode === 'export' ? '导出' : '录音'}未能启动。` : `${mode === 'export' ? 'Export' : 'Recording'} did not start.`);
                               return result.task;
                           });
             previewPlayback.current = false;
             onClose();
             onTaskStarted(
                 task.id,
-                mode === 'recovery'
-                    ? `Recovery export started for ${tracks.length} track${tracks.length === 1 ? '' : 's'}. Keep USB connected.`
-                    : mode === 'export'
-                      ? `Export started for ${tracks.length} track${tracks.length === 1 ? '' : 's'}.`
-                      : `Audio-input recording started for ${tracks.length} track${tracks.length === 1 ? '' : 's'}.`
+                language === 'zh-CN'
+                    ? mode === 'recovery'
+                        ? `已开始恢复导出 ${tracks.length} 首曲目。请保持 USB 连接。`
+                        : mode === 'export'
+                          ? `已开始导出 ${tracks.length} 首曲目。`
+                          : `已开始通过音频输入录制 ${tracks.length} 首曲目。`
+                    : mode === 'recovery'
+                      ? `Recovery export started for ${tracks.length} track${tracks.length === 1 ? '' : 's'}. Keep USB connected.`
+                      : mode === 'export'
+                        ? `Export started for ${tracks.length} track${tracks.length === 1 ? '' : 's'}.`
+                        : `Audio-input recording started for ${tracks.length} track${tracks.length === 1 ? '' : 's'}.`
             );
         } catch (reason) {
             setError(errorMessage(reason));
@@ -197,70 +205,72 @@ export const WorkbenchTrackTransfer = ({
                 onMouseDown={(event) => event.stopPropagation()}
             >
                 <span className="workbench__eyebrow">
-                    {mode === 'recovery' ? 'RECOVERY EXPORT' : mode === 'export' ? 'EXPORT TRACKS' : 'RECORD THROUGH AUDIO INPUT'}
+                    {t(mode === 'recovery' ? 'RECOVERY EXPORT' : mode === 'export' ? 'EXPORT TRACKS' : 'RECORD THROUGH AUDIO INPUT')}
                 </span>
                 <h2 id="workbench-transfer-title">
-                    {isExport ? 'Export' : 'Record'} {tracks.length} selected track{tracks.length === 1 ? '' : 's'}
+                    {language === 'zh-CN'
+                        ? `${isExport ? '导出' : '录制'} ${tracks.length} 首已选曲目`
+                        : `${isExport ? 'Export' : 'Record'} ${tracks.length} selected track${tracks.length === 1 ? '' : 's'}`}
                 </h2>
                 <p>
                     {mode === 'recovery'
-                        ? 'Read audio with the supported Homebrew recovery path. Keep USB connected; a damaged sector may require a decision.'
+                        ? t('Read audio with the supported Homebrew recovery path. Keep USB connected; a damaged sector may require a decision.')
                         : mode === 'export'
-                          ? 'Choose whether to keep the device audio format or create standard WAV files.'
-                        : 'Connect the MiniDisc line-out to a computer audio input, monitor it, then start the recording task.'}
+                          ? t('Choose whether to keep the device audio format or create standard WAV files.')
+                          : t('Connect the MiniDisc line-out to a computer audio input, monitor it, then start the recording task.')}
                 </p>
 
-                <div className="workbench__transfer-tracks" aria-label="Selected tracks">
+                <div className="workbench__transfer-tracks" aria-label={t('Selected tracks')}>
                     {tracks.slice(0, 4).map((track) => (
-                        <span key={track.index}><b>{String(track.index + 1).padStart(2, '0')}</b>{track.title || `Track ${track.index + 1}`}</span>
+                        <span key={track.index}><b>{String(track.index + 1).padStart(2, '0')}</b>{track.title || (language === 'zh-CN' ? `曲目 ${track.index + 1}` : `Track ${track.index + 1}`)}</span>
                     ))}
-                    {tracks.length > 4 ? <small>+ {tracks.length - 4} more tracks</small> : null}
+                    {tracks.length > 4 ? <small>{language === 'zh-CN' ? `另有 ${tracks.length - 4} 首曲目` : `+ ${tracks.length - 4} more tracks`}</small> : null}
                 </div>
 
                 {isExport ? (
-                    <div className="workbench__transfer-options" role="radiogroup" aria-label="Export format">
+                    <div className="workbench__transfer-options" role="radiogroup" aria-label={t('Export format')}>
                         <label className={exportFormat === 'original' ? 'is-selected' : ''}>
                             <input type="radio" name="export-format" checked={exportFormat === 'original'} onChange={() => setExportFormat('original')} />
-                            <span>Original device format<small>Fastest option and preserves the source codec.</small></span>
+                            <span>{t('Original device format')}<small>{t('Fastest option and preserves the source codec.')}</small></span>
                         </label>
                         <label className={exportFormat === 'wav' ? 'is-selected' : ''}>
                             <input type="radio" name="export-format" checked={exportFormat === 'wav'} onChange={() => setExportFormat('wav')} />
-                            <span>Convert to WAV<small>Creates broadly compatible uncompressed audio files.</small></span>
+                            <span>{t('Convert to WAV')}<small>{t('Creates broadly compatible uncompressed audio files.')}</small></span>
                         </label>
                         {mode === 'recovery' ? (
                             <label className={exportFormat === 'neraw' ? 'is-selected' : ''}>
                                 <input type="radio" name="export-format" checked={exportFormat === 'neraw'} onChange={() => setExportFormat('neraw')} />
-                                <span>Raw NERAW stream<small>Preserves sector layout for expert recovery; cannot be converted to WAV.</small></span>
+                                <span>{t('Raw NERAW stream')}<small>{t('Preserves sector layout for expert recovery; cannot be converted to WAV.')}</small></span>
                             </label>
                         ) : null}
                     </div>
                 ) : (
                     <>
                         <label className="workbench__transfer-select">
-                            Audio input
+                            {t('Audio input')}
                             <select
                                 value={inputDeviceId}
                                 disabled={loadingDevices || busy}
                                 onChange={(event) => void changeInput(event.target.value)}
                             >
-                                <option value="">{loadingDevices ? 'Requesting audio input permission…' : 'Choose an input'}</option>
+                                <option value="">{t(loadingDevices ? 'Requesting audio input permission…' : 'Choose an input')}</option>
                                 {devices.map((device) => <option key={device.deviceId} value={device.deviceId}>{device.label}</option>)}
                             </select>
                         </label>
                         <div className="workbench__transfer-monitor">
-                            <div><strong>Monitor the connection</strong><small>Selecting an input lets you hear the MiniDisc line-out through this computer.</small></div>
-                            <button className="secondary-button" onClick={() => void playSample()} disabled={busy || tracks.length === 0}><PlayArrowRoundedIcon /> Play first track</button>
-                            <button className="secondary-button" onClick={() => void stopSample()} disabled={busy || !previewPlayback.current}><StopRoundedIcon /> Stop</button>
+                            <div><strong>{t('Monitor the connection')}</strong><small>{t('Selecting an input lets you hear the MiniDisc line-out through this computer.')}</small></div>
+                            <button className="secondary-button" onClick={() => void playSample()} disabled={busy || tracks.length === 0}><PlayArrowRoundedIcon /> {t('Play first track')}</button>
+                            <button className="secondary-button" onClick={() => void stopSample()} disabled={busy || !previewPlayback.current}><StopRoundedIcon /> {t('Stop')}</button>
                         </div>
                     </>
                 )}
 
                 {error ? <div className="workbench__write-warning">{error}</div> : null}
                 <div className="workbench__modal-actions">
-                    <button className="secondary-button" onClick={close} disabled={busy}>Cancel</button>
+                    <button className="secondary-button" onClick={close} disabled={busy}>{t('Cancel')}</button>
                     <button className="primary-button" onClick={() => void start()} disabled={!canStart}>
                         {isExport ? <DownloadRoundedIcon /> : <MicRoundedIcon />}
-                        {busy ? 'Starting…' : mode === 'recovery' ? 'Start recovery export' : mode === 'export' ? 'Start export' : 'Start recording'}
+                        {t(busy ? 'Starting…' : mode === 'recovery' ? 'Start recovery export' : mode === 'export' ? 'Start export' : 'Start recording')}
                     </button>
                 </div>
             </section>

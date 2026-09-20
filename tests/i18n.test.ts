@@ -15,4 +15,11 @@ describe('UI language', () => {
         assert.equal(translate('zh-CN', 'Untranslated device name'), 'Untranslated device name');
         assert.equal(translate('en', 'Settings'), 'Settings');
     });
+
+    it('covers core transfer and maintenance workflows while preserving confirmation tokens', () => {
+        assert.equal(translate('zh-CN', 'Start recording'), '开始录音');
+        assert.equal(translate('zh-CN', 'SONG RECOGNITION'), '歌曲识别');
+        assert.equal(translate('zh-CN', 'VISUAL RAW TOC EDITOR'), '可视化原始 TOC 编辑器');
+        assert.equal(translate('zh-CN', 'WRITE TOC'), 'WRITE TOC');
+    });
 });

@@ -943,7 +943,7 @@ export const Workbench = () => {
                 </nav>
 
                 <div className="workbench__sidebar-footer">
-                    <CloudDoneIcon /><span>Studio Workbench v0.1.0<small>Local first · Open source</small></span>
+                    <CloudDoneIcon /><span>Studio Workbench v0.1.0<small>{t('Local first · Open source')}</small></span>
                 </div>
             </aside>
 
@@ -979,18 +979,18 @@ export const Workbench = () => {
                         <small>{language === 'zh-CN' ? `已用 ${Math.round(usedPercent)}% · ` : `${Math.round(usedPercent)}% used · `}{disc ? (language === 'zh-CN' ? `剩余 ${measurementIsBytes ? bytesToHumanReadable(disc.left) : formatTimeFromSeconds(disc.left)}` : `${measurementIsBytes ? bytesToHumanReadable(disc.left) : formatTimeFromSeconds(disc.left)} available`) : t('No media')}</small>
                     </div>
                     <dl className="workbench__device-facts">
-                        <div><dt>Device</dt><dd>{device?.deviceName || '—'}</dd></div>
-                        <div><dt>Connection</dt><dd>{workspace.connection.phase === 'connected' ? `USB (${workspace.connection.serviceName || 'MiniDisc'})` : '—'}</dd></div>
-                        <div><dt>Mode</dt><dd>{defaultFormat?.userFriendlyName || defaultFormat?.codec || '—'}</dd></div>
-                        <div><dt>Disc</dt><dd>{disc?.writable ? 'Writable' : disc ? 'Read only' : '—'}</dd></div>
+                        <div><dt>{t('Device')}</dt><dd>{device?.deviceName || '—'}</dd></div>
+                        <div><dt>{t('Connection')}</dt><dd>{workspace.connection.phase === 'connected' ? `USB (${workspace.connection.serviceName || 'MiniDisc'})` : '—'}</dd></div>
+                        <div><dt>{t('Mode')}</dt><dd>{defaultFormat?.userFriendlyName || defaultFormat?.codec || '—'}</dd></div>
+                        <div><dt>{t('Disc')}</dt><dd>{disc?.writable ? t('Writable') : disc ? t('Read only') : '—'}</dd></div>
                     </dl>
                 </section>
 
                 {section === 'automation' ? (
                     <section className="workbench__focus-panel">
                         <AutoAwesomeIcon />
-                        <div><span className="workbench__eyebrow">AUTOMATION</span><h2>Application commands are ready</h2><p>The same workspace powers this interface, the local MCP bridge and the CLI. Local bridge access remains off until you enable it in Settings.</p></div>
-                        <button className="secondary-button" onClick={() => setSection('settings')}>Open settings</button>
+                        <div><span className="workbench__eyebrow">{t('AUTOMATION')}</span><h2>{t('Application commands are ready')}</h2><p>{t('The same workspace powers this interface, the local MCP bridge and the CLI. Local bridge access remains off until you enable it in Settings.')}</p></div>
+                        <button className="secondary-button" onClick={() => setSection('settings')}>{t('Open settings')}</button>
                     </section>
                 ) : null}
 
@@ -999,7 +999,7 @@ export const Workbench = () => {
                         onImported={(count) => {
                             setContentView('plan');
                             setSection('device');
-                            setMessage(`${count} library track${count === 1 ? '' : 's'} added to the recording plan.`);
+                            setMessage(language === 'zh-CN' ? `已将 ${count} 首音乐库曲目加入录制计划。` : `${count} library track${count === 1 ? '' : 's'} added to the recording plan.`);
                         }}
                         onOpenSettings={() => setSection('settings')}
                     />
@@ -1036,7 +1036,7 @@ export const Workbench = () => {
                                 ) : null}
                             </div>
                             <div className="workbench__plan-actions">
-                                <span>{planItems.length} tracks · {formatDuration(contentView === 'plan' && imports.length ? queuedDuration : tracks.reduce((sum, track) => sum + track.duration, 0))}</span>
+                                <span>{language === 'zh-CN' ? `${planItems.length} 首曲目` : `${planItems.length} tracks`} · {formatDuration(contentView === 'plan' && imports.length ? queuedDuration : tracks.reduce((sum, track) => sum + track.duration, 0))}</span>
                                 {contentView === 'disc' && tracks.length > 0 ? <button className="secondary-button workbench__compact-button" onClick={toggleSelectAllTracks}><SelectAllRoundedIcon /> {t(selectedTrackIndexes.length === tracks.length ? 'Clear' : 'Select all')}</button> : null}
                                 {contentView === 'plan' && imports.length > 0 ? <button className="secondary-button workbench__compact-button" onClick={toggleSelectAllImports}><SelectAllRoundedIcon /> {t(selectedImportIds.length === imports.length ? 'Clear' : 'Select all')}</button> : null}
                                 <button className="secondary-button" onClick={open} disabled={!canUpload}><AddRoundedIcon /> {t('Add audio')}</button>
@@ -1046,23 +1046,23 @@ export const Workbench = () => {
 
                         {contentView === 'disc' && selectedTrackIndexes.length > 0 ? (
                             <div className="workbench__selection-bar">
-                                <strong>{selectedTrackIndexes.length} selected</strong>
-                                <span>Ctrl/⌘ click toggles · Shift click extends the selection</span>
+                                <strong>{language === 'zh-CN' ? `已选 ${selectedTrackIndexes.length} 首` : `${selectedTrackIndexes.length} selected`}</strong>
+                                <span>{t('Ctrl/⌘ click toggles · Shift click extends the selection')}</span>
                                 <div>
-                                    <button onClick={() => setTrackRecognitionOpen(true)} disabled={!canPlayback && !device?.capabilities.includes('advanced.factory')}><MusicNoteRoundedIcon /> Recognize</button>
-                                    <button onClick={openTrackTransfer}><DownloadRoundedIcon /> {canDownload || useRecoveryExport ? 'Export' : 'Record'}</button>
-                                    <button onClick={() => { setGroupDraft(''); setGroupDialogOpen(true); }} disabled={!canGroupSelection}><CreateNewFolderRoundedIcon /> Group</button>
-                                    <button onClick={ungroupSelected} disabled={!canDeleteGroup || selectedNamedGroups.length === 0}><FolderOffRoundedIcon /> Ungroup</button>
+                                    <button onClick={() => setTrackRecognitionOpen(true)} disabled={!canPlayback && !device?.capabilities.includes('advanced.factory')}><MusicNoteRoundedIcon /> {t('Recognize')}</button>
+                                    <button onClick={openTrackTransfer}><DownloadRoundedIcon /> {t(canDownload || useRecoveryExport ? 'Export' : 'Record')}</button>
+                                    <button onClick={() => { setGroupDraft(''); setGroupDialogOpen(true); }} disabled={!canGroupSelection}><CreateNewFolderRoundedIcon /> {t('Group')}</button>
+                                    <button onClick={ungroupSelected} disabled={!canDeleteGroup || selectedNamedGroups.length === 0}><FolderOffRoundedIcon /> {t('Ungroup')}</button>
                                 </div>
                             </div>
                         ) : null}
 
                         {contentView === 'plan' && selectedImportIds.length > 0 ? (
                             <div className="workbench__selection-bar">
-                                <strong>{selectedImportIds.length} selected</strong>
-                                <span>Shared Artist and Album edits apply to every selected item</span>
+                                <strong>{language === 'zh-CN' ? `已选 ${selectedImportIds.length} 首` : `${selectedImportIds.length} selected`}</strong>
+                                <span>{t('Shared Artist and Album edits apply to every selected item')}</span>
                                 <div>
-                                    <button onClick={removeSelected}><DeleteOutlineIcon /> Remove from plan</button>
+                                    <button onClick={removeSelected}><DeleteOutlineIcon /> {t('Remove from plan')}</button>
                                 </div>
                             </div>
                         ) : null}
@@ -1234,7 +1234,7 @@ export const Workbench = () => {
                 </footer>
             </main>
 
-            {isDragActive ? <div className="workbench__drop-overlay"><FolderOpenIcon /><strong>Drop audio to add it to the recording plan</strong></div> : null}
+            {isDragActive ? <div className="workbench__drop-overlay"><FolderOpenIcon /><strong>{t('Drop audio to add it to the recording plan')}</strong></div> : null}
             {message ? <button className="workbench__toast" aria-live="polite" aria-atomic="true" onClick={() => setMessage(null)}>{message}</button> : null}
 
             <DiscProtectedDialog />
@@ -1284,40 +1284,40 @@ export const Workbench = () => {
             {writeReviewOpen ? (
                 <div className="workbench__modal-backdrop" role="presentation" onMouseDown={() => !busy && setWriteReviewOpen(false)}>
                     <section className="workbench__modal workbench__write-modal" role="dialog" aria-modal="true" aria-labelledby="workbench-write-title" onMouseDown={(event) => event.stopPropagation()}>
-                        <span className="workbench__eyebrow">WRITE REVIEW</span>
-                        <h2 id="workbench-write-title">Record {imports.length} track{imports.length === 1 ? '' : 's'} to MiniDisc</h2>
-                        <p>Review the exact recording mode and capacity calculation before the device starts writing.</p>
+                        <span className="workbench__eyebrow">{t('WRITE REVIEW')}</span>
+                        <h2 id="workbench-write-title">{language === 'zh-CN' ? `将 ${imports.length} 首曲目录制到 MiniDisc` : `Record ${imports.length} track${imports.length === 1 ? '' : 's'} to MiniDisc`}</h2>
+                        <p>{t('Review the exact recording mode and capacity calculation before the device starts writing.')}</p>
                         <div className="workbench__write-warning">
-                            A track cannot be interrupted safely once transfer starts. Stopping only prevents the next track from starting; keep USB connected until the recording light stops flashing.
+                            {t('A track cannot be interrupted safely once transfer starts. Stopping only prevents the next track from starting; keep USB connected until the recording light stops flashing.')}
                         </div>
-                        {writePreviewPending ? <div className="workbench__write-pending"><i />Validating the recording plan…</div> : null}
+                        {writePreviewPending ? <div className="workbench__write-pending"><i />{t('Validating the recording plan…')}</div> : null}
                         {writePreview ? (
                             <>
                                 <dl className="workbench__write-summary">
-                                    <div><dt>Recording mode</dt><dd>{codecLabel(selectedFormat)}</dd></div>
-                                    <div><dt>Tracks</dt><dd>{writePreview.selectedIds.length}</dd></div>
-                                    <div><dt>Required</dt><dd>{formatPreviewCapacity(writePreview, writePreview.capacity.required)}</dd></div>
-                                    <div><dt>Remaining</dt><dd>{formatPreviewCapacity(writePreview, writePreview.capacity.remaining)}</dd></div>
-                                    <div><dt>Half-width title space</dt><dd>{writePreview.titles.halfWidthRemaining}</dd></div>
-                                    <div><dt>Full-width title space</dt><dd>{writePreview.titles.fullWidthRemaining}</dd></div>
+                                    <div><dt>{t('Recording mode')}</dt><dd>{codecLabel(selectedFormat)}</dd></div>
+                                    <div><dt>{t('Tracks')}</dt><dd>{writePreview.selectedIds.length}</dd></div>
+                                    <div><dt>{t('Required')}</dt><dd>{formatPreviewCapacity(writePreview, writePreview.capacity.required)}</dd></div>
+                                    <div><dt>{t('Remaining')}</dt><dd>{formatPreviewCapacity(writePreview, writePreview.capacity.remaining)}</dd></div>
+                                    <div><dt>{t('Half-width title space')}</dt><dd>{writePreview.titles.halfWidthRemaining}</dd></div>
+                                    <div><dt>{t('Full-width title space')}</dt><dd>{writePreview.titles.fullWidthRemaining}</dd></div>
                                 </dl>
                                 {writePreview.issues.map((issue) => <div className="workbench__write-warning" key={`${issue.id}:${issue.code}`}>{issue.message}</div>)}
-                                {!writePreview.capacity.fits ? <div className="workbench__write-warning">The recording plan does not fit on this MiniDisc.</div> : null}
-                                {!writePreview.titles.fits ? <div className="workbench__write-warning">The track titles exceed the MiniDisc title capacity.</div> : null}
-                                {selectedEncoderSupport.state === 'unsupported' ? <div className="workbench__write-warning">The selected encoder cannot produce {codecLabel(selectedFormat)} audio in this build.</div> : null}
+                                {!writePreview.capacity.fits ? <div className="workbench__write-warning">{t('The recording plan does not fit on this MiniDisc.')}</div> : null}
+                                {!writePreview.titles.fits ? <div className="workbench__write-warning">{t('The track titles exceed the MiniDisc title capacity.')}</div> : null}
+                                {selectedEncoderSupport.state === 'unsupported' ? <div className="workbench__write-warning">{language === 'zh-CN' ? `当前版本中的所选编码器无法生成 ${codecLabel(selectedFormat)} 音频。` : `The selected encoder cannot produce ${codecLabel(selectedFormat)} audio in this build.`}</div> : null}
                                 <label className="workbench__write-option">
                                     <input type="checkbox" checked={enableReplayGain} onChange={(event) => setEnableReplayGain(event.target.checked)} />
-                                    <span>Apply ReplayGain<small>Normalize perceived loudness while encoding compatible source audio.</small></span>
+                                    <span>{t('Apply ReplayGain')}<small>{t('Normalize perceived loudness while encoding compatible source audio.')}</small></span>
                                 </label>
                                 <label className={`workbench__write-option ${selectedEncoderSupport.gapless ? '' : 'is-disabled'}`}>
                                     <input type="checkbox" checked={enableGapless} disabled={!selectedEncoderSupport.gapless} onChange={(event) => setEnableGapless(event.target.checked)} />
-                                    <span>Gapless encoding<small>{selectedEncoderSupport.gapless ? 'Preserve transitions between adjacent tracks.' : 'The selected encoder does not support gapless output.'}</small></span>
+                                    <span>{t('Gapless encoding')}<small>{t(selectedEncoderSupport.gapless ? 'Preserve transitions between adjacent tracks.' : 'The selected encoder does not support gapless output.')}</small></span>
                                 </label>
                             </>
                         ) : null}
                         <div className="workbench__modal-actions">
-                            <button className="secondary-button" onClick={() => setWriteReviewOpen(false)} disabled={busy}>Cancel</button>
-                            <button className="primary-button" onClick={startWrite} disabled={busy || writePreviewPending || !writePreviewFits}>Start recording</button>
+                            <button className="secondary-button" onClick={() => setWriteReviewOpen(false)} disabled={busy}>{t('Cancel')}</button>
+                            <button className="primary-button" onClick={startWrite} disabled={busy || writePreviewPending || !writePreviewFits}>{t('Start recording')}</button>
                         </div>
                     </section>
                 </div>
@@ -1325,14 +1325,14 @@ export const Workbench = () => {
             {discEditorOpen && disc ? (
                 <div className="workbench__modal-backdrop" role="presentation" onMouseDown={() => !busy && setDiscEditorOpen(false)}>
                     <section className="workbench__modal" role="dialog" aria-modal="true" aria-labelledby="workbench-disc-title" onMouseDown={(event) => event.stopPropagation()}>
-                        <span className="workbench__eyebrow">DISC METADATA</span>
-                        <h2 id="workbench-disc-title">Edit MiniDisc title</h2>
-                        <p>The original device service applies the title using the connected recorder's character rules.</p>
-                        <label>Disc title<input autoFocus value={discTitleDraft} onChange={(event) => setDiscTitleDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !busy) saveDiscTitle(); }} /></label>
-                        {canRenameFullWidthDisc ? <label className="workbench__modal-field">Full-width title<input value={discFullWidthTitleDraft} onChange={(event) => setDiscFullWidthTitleDraft(event.target.value)} /></label> : null}
+                        <span className="workbench__eyebrow">{t('DISC METADATA')}</span>
+                        <h2 id="workbench-disc-title">{t('Edit MiniDisc title')}</h2>
+                        <p>{t("The original device service applies the title using the connected recorder's character rules.")}</p>
+                        <label>{t('Disc title')}<input autoFocus value={discTitleDraft} onChange={(event) => setDiscTitleDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !busy) saveDiscTitle(); }} /></label>
+                        {canRenameFullWidthDisc ? <label className="workbench__modal-field">{t('Full-width title')}<input value={discFullWidthTitleDraft} onChange={(event) => setDiscFullWidthTitleDraft(event.target.value)} /></label> : null}
                         <div className="workbench__modal-actions">
-                            <button className="secondary-button" onClick={() => setDiscEditorOpen(false)} disabled={busy}>Cancel</button>
-                            <button className="primary-button" onClick={saveDiscTitle} disabled={busy || (discTitleDraft === (disc.title ?? '') && (!canRenameFullWidthDisc || discFullWidthTitleDraft === (disc.fullWidthTitle ?? '')))}><CheckCircleIcon /> Save title</button>
+                            <button className="secondary-button" onClick={() => setDiscEditorOpen(false)} disabled={busy}>{t('Cancel')}</button>
+                            <button className="primary-button" onClick={saveDiscTitle} disabled={busy || (discTitleDraft === (disc.title ?? '') && (!canRenameFullWidthDisc || discFullWidthTitleDraft === (disc.fullWidthTitle ?? '')))}><CheckCircleIcon /> {t('Save title')}</button>
                         </div>
                     </section>
                 </div>
@@ -1340,11 +1340,11 @@ export const Workbench = () => {
             {groupDialogOpen ? (
                 <div className="workbench__modal-backdrop" role="presentation" onMouseDown={() => setGroupDialogOpen(false)}>
                     <section className="workbench__modal" role="dialog" aria-modal="true" aria-labelledby="workbench-group-title" onMouseDown={(event) => event.stopPropagation()}>
-                        <span className="workbench__eyebrow">ORGANIZE DISC</span>
-                        <h2 id="workbench-group-title">Create a group</h2>
-                        <p>Tracks {(sortedSelectedTrackIndexes[0] ?? 0) + 1}–{(sortedSelectedTrackIndexes.at(-1) ?? 0) + 1} will stay in their current order.</p>
-                        <label>Group name<input autoFocus value={groupDraft} onChange={(event) => setGroupDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && groupDraft.trim()) createGroup(); }} /></label>
-                        <div className="workbench__modal-actions"><button className="secondary-button" onClick={() => setGroupDialogOpen(false)}>Cancel</button><button className="primary-button" onClick={createGroup} disabled={!groupDraft.trim() || busy}>Create group</button></div>
+                        <span className="workbench__eyebrow">{t('ORGANIZE DISC')}</span>
+                        <h2 id="workbench-group-title">{t('Create a group')}</h2>
+                        <p>{language === 'zh-CN' ? `曲目 ${(sortedSelectedTrackIndexes[0] ?? 0) + 1}–${(sortedSelectedTrackIndexes.at(-1) ?? 0) + 1} 将保持当前顺序。` : `Tracks ${(sortedSelectedTrackIndexes[0] ?? 0) + 1}–${(sortedSelectedTrackIndexes.at(-1) ?? 0) + 1} will stay in their current order.`}</p>
+                        <label>{t('Group name')}<input autoFocus value={groupDraft} onChange={(event) => setGroupDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && groupDraft.trim()) createGroup(); }} /></label>
+                        <div className="workbench__modal-actions"><button className="secondary-button" onClick={() => setGroupDialogOpen(false)}>{t('Cancel')}</button><button className="primary-button" onClick={createGroup} disabled={!groupDraft.trim() || busy}>{t('Create group')}</button></div>
                     </section>
                 </div>
             ) : null}

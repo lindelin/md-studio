@@ -129,6 +129,7 @@ const SimpleField = ({
 };
 
 const NativeFields = ({ section, classes }: { section: string; classes: any }) => {
+    const { t } = useI18n();
     const [settings, setSettings] = useState<SettingInterface[]>([]);
     const [_state, _updateState] = useState({});
     useEffect(() => {
@@ -148,7 +149,7 @@ const NativeFields = ({ section, classes }: { section: string; classes: any }) =
         if (entry.type === 'action') {
             return (
                 <SimpleField name={entry.name} classes={classes} formControl={true} key={entry.family + entry.name}>
-                    <Button onClick={() => entry.update(true)}>Go</Button>
+                    <Button onClick={() => entry.update(true)}>{t('Go')}</Button>
                 </SimpleField>
             );
         } else if (entry.type === 'boolean') {
@@ -369,84 +370,84 @@ export const SettingsDialog = () => {
                         <MenuItem value="system">{t('Use system theme')}</MenuItem>
                     </Select>
                 </SimpleField>
-                <SimpleField name="Stretch MiniDisc Workspace to fill the screen vertically" classes={classes} formControl={true}>
+                <SimpleField name={t('Stretch MiniDisc Workspace to fill the screen vertically')} classes={classes} formControl={true}>
                     <Switch checked={pageFullHeight} onChange={handlePageFullHeightChange} />
                 </SimpleField>
-                <SimpleField name="Stretch MiniDisc Workspace to fill the screen horizontally" classes={classes} formControl={true}>
+                <SimpleField name={t('Stretch MiniDisc Workspace to fill the screen horizontally')} classes={classes} formControl={true}>
                     <Switch checked={pageFullWidth} onChange={handlePageFullWidthChange} />
                 </SimpleField>
                 <NativeFields classes={classes} section="Appearance" />
 
-                <DialogContentText className={classes.header}>Functionality</DialogContentText>
+                <DialogContentText className={classes.header}>{t('Functionality')}</DialogContentText>
                 <SimpleField
-                    name="Enable full width title editing"
+                    name={t('Enable full width title editing')}
                     classes={classes}
                     formControl={true}
-                    tooltip="This advanced feature enables the use of Hiragana and Kanji alphabets. More about this in Support and FAQ."
+                    tooltip={t('This advanced feature enables the use of Hiragana and Kanji alphabets. More about this in Support and FAQ.')}
                 >
                     <Switch checked={fullWidthSupport} onChange={handleToggleFullWidth} />
                 </SimpleField>
-                <SimpleField name="Enable disc-protected warning dialog" classes={classes} formControl={true}>
+                <SimpleField name={t('Enable disc-protected warning dialog')} classes={classes} formControl={true}>
                     <Switch checked={!discProtectedDialogDisabled} onChange={handleToggleDiscProtectedDialogDisabled} />
                 </SimpleField>
                 <SimpleField
-                    name="Enable local MCP and CLI bridge"
+                    name={t('Enable local MCP and CLI bridge')}
                     classes={classes}
                     formControl={true}
-                    tooltip="Allows a loopback-only process on this computer to control the connected device. The app reloads when this setting changes."
+                    tooltip={t('Allows a loopback-only process on this computer to control the connected device. The app reloads when this setting changes.')}
                 >
                     <Switch checked={localBridgeEnabled} onChange={handleToggleLocalBridge} />
                 </SimpleField>
                 <SimpleField
-                    name="Create a ZIP file when using 'Archive Disc'"
+                    name={t("Create a ZIP file when using 'Archive Disc'")}
                     classes={classes}
                     formControl={true}
-                    tooltip="Enabling it might increase memory usage when using the Homebrew mode's 'Archive Disc' feature"
+                    tooltip={t("Enabling it might increase memory usage when using the Homebrew mode's 'Archive Disc' feature")}
                 >
                     <Switch checked={archiveDiscCreateZip} onChange={handleToggleArchiveDiscCreateZip} />
                 </SimpleField>
                 <SimpleField
-                    name="Use the slower exploit for ATRAC ripping"
+                    name={t('Use the slower exploit for ATRAC ripping')}
                     classes={classes}
                     formControl={true}
-                    tooltip="This fixes a bug where the device would lock up on a small percentage of Apple ARM-based Macs"
+                    tooltip={t('This fixes a bug where the device would lock up on a small percentage of Apple ARM-based Macs')}
                 >
                     <Switch checked={factoryModeUseSlowerExploit} onChange={handleToggleFactoryModeUseSlowerExploits} />
                 </SimpleField>
                 <SimpleField
-                    name="Enable homebrew mode shortcuts"
+                    name={t('Enable homebrew mode shortcuts')}
                     classes={classes}
                     formControl={true}
-                    tooltip="This enables an additional section in the menu allowing you to easily access homebrew mode features from the main menu"
+                    tooltip={t('This enables an additional section in the menu allowing you to easily access homebrew mode features from the main menu')}
                 >
                     <Switch checked={factoryModeShortcuts} onChange={handleToggleFactoryModeShortcuts} />
                 </SimpleField>
                 <SimpleField
-                    name="Download raw streams from netmd-exploits (expert feature)"
+                    name={t('Download raw streams from netmd-exploits (expert feature)')}
                     classes={classes}
                     formControl={true}
-                    tooltip="This will cause netmd-exploits to download .NERAW files instead of .AEA or .WAV. These files can be used to reconstruct the sector layout in the player's DRAM and rebuild the track in case of a corruption"
+                    tooltip={t("This will cause netmd-exploits to download .NERAW files instead of .AEA or .WAV. These files can be used to reconstruct the sector layout in the player's DRAM and rebuild the track in case of a corruption")}
                 >
                     <Switch checked={factoryModeNERAWDownload} onChange={handleToggleFactoryModeNERAWDownload} />
                 </SimpleField>
                 <NativeFields classes={classes} section="Functionality" />
 
-                <DialogContentText className={classes.header}>Encoding</DialogContentText>
-                <SimpleField name="LP / HiMD encoder to use" classes={classes}>
+                <DialogContentText className={classes.header}>{t('ENCODING')}</DialogContentText>
+                <SimpleField name={t('LP / HiMD encoder to use')} classes={classes}>
                     <Select className={classes.wider} value={currentExportService} onChange={handleExportServiceChanges}>
                         {AudioServices.map((n, i) => (
                             <MenuItem value={i} key={n.id} disabled={!n.available}>
                                 {n.name}
-                                {n.available ? '' : ' (unavailable in this build)'}
+                                {n.available ? '' : t(' (unavailable in this build)')}
                             </MenuItem>
                         ))}
                     </Select>
                 </SimpleField>
-                <Typography className={classes.encoderDescription}>{currentService.description}</Typography>
+                <Typography className={classes.encoderDescription}>{currentService.description ? t(currentService.description) : ''}</Typography>
                 <Box className={classes.fieldMargin}>
                     {currentService.customParameters?.map((n) =>
                         renderCustomParameter(
-                            n,
+                            { ...n, userFriendlyName: t(n.userFriendlyName) },
                             currentExportServiceConfig![n.varName],
                             handleExportServiceParameterChange,
                             classes.noLeftMargin
@@ -454,11 +455,11 @@ export const SettingsDialog = () => {
                     )}
                 </Box>
 
-                <DialogContentText className={classes.header}>Library</DialogContentText>
-                <SimpleField name="Library to use" classes={classes}>
+                <DialogContentText className={classes.header}>{t('Library')}</DialogContentText>
+                <SimpleField name={t('Library to use')} classes={classes}>
                     <Select className={classes.wider} value={currentLibraryService} onChange={handleLibraryServiceChanges}>
                         <MenuItem value={-1} key="library-none">
-                            None
+                            {t('None')}
                         </MenuItem>
                         {LibraryServices.map((n, i) => (
                             <MenuItem value={i} key={`lib-${i}`}>
@@ -469,11 +470,11 @@ export const SettingsDialog = () => {
                 </SimpleField>
                 {currentLibrary && (
                     <>
-                        <Typography className={classes.encoderDescription}>{currentLibrary.description}</Typography>
+                        <Typography className={classes.encoderDescription}>{currentLibrary.description ? t(currentLibrary.description) : ''}</Typography>
                         <Box className={classes.fieldMargin}>
                             {currentLibrary.customParameters?.map((n) =>
                                 renderCustomParameter(
-                                    n,
+                                    { ...n, userFriendlyName: t(n.userFriendlyName) },
                                     currentLibraryServiceConfig![n.varName],
                                     handleLibraryServiceParameterChange,
                                     classes.noLeftMargin
@@ -486,7 +487,7 @@ export const SettingsDialog = () => {
             </DialogContent>
             <DialogActions>
                 <Button disabled={!verifyIfInputsValid()} onClick={handleClose}>
-                    {isRestartRequired() ? 'Save and Reload' : 'Close'}
+                    {t(isRestartRequired() ? 'Save and Reload' : 'Close')}
                 </Button>
             </DialogActions>
         </Dialog>

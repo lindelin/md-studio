@@ -3,6 +3,7 @@ import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import type { AdvancedBadSectorDecision } from '../../application/contracts';
 import { formatTimeFromSeconds } from '../../utils';
 import type { AdvancedBadSectorChoice, AdvancedBadSectorPrompt } from './workbench-advanced-recovery';
+import { useI18n } from '../use-i18n';
 
 export const WorkbenchBadSectorPrompt = ({
     prompt,
@@ -11,6 +12,7 @@ export const WorkbenchBadSectorPrompt = ({
     prompt: AdvancedBadSectorPrompt;
     onChoose(choice: AdvancedBadSectorChoice): void;
 }) => {
+    const { language, t } = useI18n();
     const [rememberForExport, setRememberForExport] = useState(false);
     const [rememberForSession, setRememberForSession] = useState(false);
 
@@ -28,11 +30,14 @@ export const WorkbenchBadSectorPrompt = ({
                 onMouseDown={(event) => event.stopPropagation()}
             >
                 <WarningAmberRoundedIcon className="workbench__bad-sector-icon" />
-                <span className="workbench__eyebrow">RECOVERY NEEDS INPUT</span>
-                <h2 id="workbench-bad-sector-title">A damaged sector could not be read</h2>
+                <span className="workbench__eyebrow">{t('RECOVERY NEEDS INPUT')}</span>
+                <h2 id="workbench-bad-sector-title">{t('A damaged sector could not be read')}</h2>
                 <p id="workbench-bad-sector-description">
-                    Address <strong>{prompt.address}</strong>, sector {prompt.count} of this block, around{' '}
-                    {formatTimeFromSeconds(prompt.seconds, false)}. Choose how the current recovery task should continue.
+                    {language === 'zh-CN' ? (
+                        <>地址 <strong>{prompt.address}</strong>，此数据块的第 {prompt.count} 个扇区，约在 {formatTimeFromSeconds(prompt.seconds, false)}。请选择当前恢复任务的后续处理方式。</>
+                    ) : (
+                        <>Address <strong>{prompt.address}</strong>, sector {prompt.count} of this block, around{' '}{formatTimeFromSeconds(prompt.seconds, false)}. Choose how the current recovery task should continue.</>
+                    )}
                 </p>
                 <div className="workbench__bad-sector-options">
                     <label>
@@ -44,7 +49,7 @@ export const WorkbenchBadSectorPrompt = ({
                                 if (!event.target.checked) setRememberForSession(false);
                             }}
                         />
-                        Apply this choice to later damaged sectors in this export
+                        {t('Apply this choice to later damaged sectors in this export')}
                     </label>
                     <label className={!rememberForExport ? 'is-disabled' : ''}>
                         <input
@@ -53,17 +58,16 @@ export const WorkbenchBadSectorPrompt = ({
                             disabled={!rememberForExport}
                             onChange={(event) => setRememberForSession(event.target.checked)}
                         />
-                        Keep the choice until this device disconnects
+                        {t('Keep the choice until this device disconnects')}
                     </label>
                 </div>
                 <div className="workbench__bad-sector-actions">
-                    <button className="danger-button" onClick={() => choose('abort')}>Stop export</button>
-                    <button className="secondary-button" onClick={() => choose('reload')}>Retry block</button>
-                    <button className="secondary-button" onClick={() => choose('skip')}>Skip sector</button>
-                    <button className="primary-button" onClick={() => choose('yieldanyway')}>Use damaged data</button>
+                    <button className="danger-button" onClick={() => choose('abort')}>{t('Stop export')}</button>
+                    <button className="secondary-button" onClick={() => choose('reload')}>{t('Retry block')}</button>
+                    <button className="secondary-button" onClick={() => choose('skip')}>{t('Skip sector')}</button>
+                    <button className="primary-button" onClick={() => choose('yieldanyway')}>{t('Use damaged data')}</button>
                 </div>
             </section>
         </div>
     );
 };
-

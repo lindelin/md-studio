@@ -298,7 +298,7 @@ export const WorkbenchLibrary = ({
                     onClick={() => activateBrowserRow(row)}
                 >
                     <ArrowBackRoundedIcon />
-                    <span><strong>Parent folder</strong><small>{row.path.join('/') || 'Library'}</small></span>
+                    <span><strong>{t('Parent folder')}</strong><small>{row.path.join('/') || t('Library')}</small></span>
                     <span />
                     <span />
                 </button>
@@ -321,7 +321,7 @@ export const WorkbenchLibrary = ({
                     onClick={() => activateBrowserRow(row)}
                 >
                     <FolderRoundedIcon />
-                    <span><strong>{item.name}</strong><small>Folder</small></span>
+                    <span><strong>{item.name}</strong><small>{t('Folder')}</small></span>
                     <span />
                     <span />
                 </button>

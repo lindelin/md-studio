@@ -246,16 +246,16 @@ export const Welcome = () => {
                                 <Tooltip
                                     title={
                                         <span>
-                                            Vivaldi's implementation of WebUSB is broken.
+                                            {t("Vivaldi's implementation of WebUSB is broken.")}
                                             <br />
-                                            If you are using Vivaldi, most of this app's features will be broken.
+                                            {t("If you are using Vivaldi, most of this app's features will be broken.")}
                                             <br />
-                                            Please switch to a different Chromium-based browser.
+                                            {t('Please switch to a different Chromium-based browser.')}
                                         </span>
                                     }
                                 >
                                     <Alert severity="info" className={classes.notice}>
-                                        <b>Notice for users of the Vivaldi web browser</b> <br />
+                                        <b>{t('Notice for users of the Vivaldi web browser')}</b> <br />
                                     </Alert>
                                 </Tooltip>
                             )}
