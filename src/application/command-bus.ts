@@ -253,6 +253,7 @@ export class ApplicationCommandBus {
             if (command.type === 'settings.get') return { ok: true, settings: this.settings.getSnapshot() };
             if (command.type === 'settings.update') {
                 const changes = { ...command.changes };
+                const currentSettings = this.settings.getSnapshot().values;
                 if (this.serviceCatalog && (changes.audioEncoderId !== undefined || changes.audioExportService !== undefined)) {
                     const index =
                         changes.audioEncoderId !== undefined
@@ -269,6 +270,37 @@ export class ApplicationCommandBus {
                     }
                     changes.audioEncoderId = encoder.id;
                     changes.audioExportService = index;
+                }
+                if (
+                    this.serviceCatalog &&
+                    (changes.onlineServicesEnabled !== undefined ||
+                        changes.audioEncoderId !== undefined ||
+                        changes.audioExportService !== undefined ||
+                        changes.libraryService !== undefined)
+                ) {
+                    const onlineServicesEnabled =
+                        changes.onlineServicesEnabled ?? currentSettings.onlineServicesEnabled;
+                    const encoderIndex = changes.audioExportService ?? currentSettings.audioExportService;
+                    const encoder = this.serviceCatalog.audioEncoders[encoderIndex];
+                    if (encoder?.requiresOnlineServices && !onlineServicesEnabled) {
+                        throw new ApplicationError(
+                            'ONLINE_SERVICE_DISABLED',
+                            'Enable online services before selecting a remote audio encoder.'
+                        );
+                    }
+                    const libraryIndex = changes.libraryService ?? currentSettings.libraryService;
+                    if (libraryIndex >= 0) {
+                        const library = this.serviceCatalog.libraries[libraryIndex];
+                        if (!library) {
+                            throw new ApplicationError('INVALID_INPUT', `Unknown library service index: ${libraryIndex}.`);
+                        }
+                        if (library.requiresOnlineServices && !onlineServicesEnabled) {
+                            throw new ApplicationError(
+                                'ONLINE_SERVICE_DISABLED',
+                                'Enable online services before selecting a remote library.'
+                            );
+                        }
+                    }
                 }
                 return { ok: true, settings: this.settings.update(changes, command.expectedRevision) };
             }

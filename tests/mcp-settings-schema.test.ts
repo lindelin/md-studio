@@ -15,6 +15,7 @@ const expectedKeys = [
     'libraryService',
     'libraryServiceConfig',
     'notifyWhenFinished',
+    'onlineServicesEnabled',
     'recognitionImportMethod',
     'recognitionTrackTitleFormat',
     'trackTitleFormat',
@@ -27,6 +28,7 @@ describe('MCP settings schema', () => {
         assert.deepEqual(mcpSettingKeys, [...expectedKeys].sort());
         assert.deepEqual(mcpSettingsChangesSchema.parse({ uiLanguage: 'zh-CN' }), { uiLanguage: 'zh-CN' });
         assert.deepEqual(mcpSettingsChangesSchema.parse({ audioEncoderId: null }), { audioEncoderId: null });
+        assert.deepEqual(mcpSettingsChangesSchema.parse({ onlineServicesEnabled: true }), { onlineServicesEnabled: true });
     });
 
     it('rejects retired and unknown preferences instead of silently stripping them', () => {

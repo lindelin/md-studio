@@ -86,9 +86,9 @@ The application layer owns validation, revisions, destructive confirmation, seri
 
 ## Local execution boundary
 
-Audio files, metadata editing, transcoding, task queues, caches, and device communication run on the user's computer. A hosted web build serves static application files only: it does not upload audio, proxy USB traffic, run encoding jobs, or store disc contents. The desktop build uses the same local application core.
+Audio files, metadata editing, transcoding, task queues, caches, and device communication run on the user's computer. A hosted web build serves static application files only: it does not upload audio, proxy USB traffic, run encoding jobs, or store disc contents. The desktop build uses the same local application core. **Online services** are disabled by default; this policy is enforced by the application command layer and again at each remote request boundary.
 
-Any future online metadata lookup or AI-assisted suggestion must be optional, disabled independently, and show the exact text fields that will leave the computer before the request is sent. Audio bytes and device data are excluded from those integrations by default.
+The existing remote encoder, remote library, and song-recognition integration require the user to enable **Settings → Online services** explicitly. Turning the permission off there switches a selected remote encoder back to an available local encoder and clears the remote library selection. Any future online metadata lookup or AI-assisted suggestion must be optional, disabled independently, and show the exact text fields that will leave the computer before the request is sent. Audio bytes and device data are excluded from those future integrations by default.
 
 ## Safety
 

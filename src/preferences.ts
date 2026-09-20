@@ -8,6 +8,7 @@ export const APP_PREFERENCE_KEYS = [
     'vintageMode',
     'discProtectedDialogDisabled',
     'notifyWhenFinished',
+    'onlineServicesEnabled',
     'fullWidthSupport',
     'customServices',
     'lastSelectedService',

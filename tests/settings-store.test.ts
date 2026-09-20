@@ -54,6 +54,7 @@ describe('SettingsStore', () => {
                 colorTheme: 'dark',
                 uiLanguage: 'zh-CN',
                 fullWidthSupport: true,
+                onlineServicesEnabled: true,
                 audioEncoderId: 'remote-atrac',
                 audioExportService: 2,
                 audioExportServiceConfig: { bitrate: 256, normalize: true },
@@ -72,6 +73,7 @@ describe('SettingsStore', () => {
         assert.equal(reloaded.values.colorTheme, 'dark');
         assert.equal(reloaded.values.uiLanguage, 'zh-CN');
         assert.equal(reloaded.values.fullWidthSupport, true);
+        assert.equal(reloaded.values.onlineServicesEnabled, true);
         assert.equal(reloaded.values.audioEncoderId, 'remote-atrac');
         assert.equal(reloaded.values.audioExportService, 2);
         assert.deepEqual(reloaded.values.audioExportServiceConfig, { bitrate: 256, normalize: true });
@@ -112,6 +114,10 @@ describe('SettingsStore', () => {
         );
         assert.throws(
             () => settings.update({ uiLanguage: 'fr' } as any),
+            (error: unknown) => (error as ApplicationError).code === 'INVALID_INPUT'
+        );
+        assert.throws(
+            () => settings.update({ onlineServicesEnabled: 'yes' } as any),
             (error: unknown) => (error as ApplicationError).code === 'INVALID_INPUT'
         );
         assert.throws(
@@ -161,6 +167,7 @@ describe('SettingsStore', () => {
         storage.setItem('trackTitleFormat', JSON.stringify('invalid-format'));
         storage.setItem('recognitionTrackTitleFormat', JSON.stringify('filename'));
         storage.setItem('recognitionImportMethod', JSON.stringify('microphone'));
+        storage.setItem('onlineServicesEnabled', JSON.stringify('yes'));
 
         const snapshot = new SettingsStore(storage).getSnapshot();
 
@@ -173,6 +180,7 @@ describe('SettingsStore', () => {
         assert.equal(snapshot.values.trackTitleFormat, 'filename');
         assert.equal(snapshot.values.recognitionTrackTitleFormat, 'title');
         assert.equal(snapshot.values.recognitionImportMethod, 'line-in');
+        assert.equal(snapshot.values.onlineServicesEnabled, false);
         assert.equal(storage.getItem('audioExportService'), null);
         assert.equal(storage.getItem('audioEncoderId'), null);
         assert.equal(storage.getItem('libraryServiceConfig'), null);
@@ -180,6 +188,7 @@ describe('SettingsStore', () => {
         assert.equal(storage.getItem('trackTitleFormat'), null);
         assert.equal(storage.getItem('recognitionTrackTitleFormat'), null);
         assert.equal(storage.getItem('recognitionImportMethod'), null);
+        assert.equal(storage.getItem('onlineServicesEnabled'), null);
     });
 
     it('preserves a legacy encoder index until a stable service id is saved', () => {

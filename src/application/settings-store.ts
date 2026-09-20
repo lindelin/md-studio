@@ -12,6 +12,7 @@ export interface UserSettings {
     fullWidthSupport: boolean;
     factoryModeUseSlowerExploit: boolean;
     factoryModeNERAWDownload: boolean;
+    onlineServicesEnabled: boolean;
     audioEncoderId: string | null;
     audioExportService: number;
     audioExportServiceConfig: CustomParameters;
@@ -38,6 +39,7 @@ const defaults: UserSettings = {
     fullWidthSupport: false,
     factoryModeUseSlowerExploit: false,
     factoryModeNERAWDownload: false,
+    onlineServicesEnabled: false,
     audioEncoderId: null,
     audioExportService: 1,
     audioExportServiceConfig: {},
@@ -154,6 +156,12 @@ export class SettingsStore {
             factoryModeNERAWDownload: loadPreference(
                 'factoryModeNERAWDownload',
                 defaults.factoryModeNERAWDownload,
+                isBoolean,
+                this.storage
+            ),
+            onlineServicesEnabled: loadPreference(
+                'onlineServicesEnabled',
+                defaults.onlineServicesEnabled,
                 isBoolean,
                 this.storage
             ),

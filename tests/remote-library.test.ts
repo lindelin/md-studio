@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
 import { RemoteLibraryService } from '../src/services/library/remote-library.ts';
 import type { ExportParams } from '../src/services/audio/audio-export.ts';
+import { SettingsStore } from '../src/application/settings-store.ts';
+import { createOnlineServiceGuard } from '../src/application/online-service-policy.ts';
 
 const originalFetch = globalThis.fetch;
 
@@ -33,6 +35,41 @@ afterEach(() => {
 });
 
 describe('RemoteLibraryService', () => {
+    it('blocks requests unless an online-service guard explicitly allows them', async () => {
+        let requests = 0;
+        globalThis.fetch = async () => {
+            requests += 1;
+            return new Response('{}', { status: 200 });
+        };
+        const service = new RemoteLibraryService({ address: 'http://localhost:8000/' });
+
+        await assert.rejects(
+            service.getDatabase(),
+            (error: any) => error.code === 'ONLINE_SERVICE_DISABLED'
+        );
+        assert.equal(requests, 0);
+    });
+
+    it('applies policy changes to an already-created remote service before every request', async () => {
+        let requests = 0;
+        globalThis.fetch = async () => {
+            requests += 1;
+            return new Response('{}', { status: 200 });
+        };
+        const settings = new SettingsStore(null);
+        const service = new RemoteLibraryService(
+            { address: 'http://localhost:8000/' },
+            createOnlineServiceGuard(settings)
+        );
+
+        await assert.rejects(service.getDatabase(), (error: any) => error.code === 'ONLINE_SERVICE_DISABLED');
+        settings.update({ onlineServicesEnabled: true });
+        assert.deepEqual(await service.getDatabase(), {});
+        settings.update({ onlineServicesEnabled: false });
+        await assert.rejects(service.getDatabase(), (error: any) => error.code === 'ONLINE_SERVICE_DISABLED');
+        assert.equal(requests, 1);
+    });
+
     it('validates and strips a matching server-side ATRAC result', async () => {
         const payload = Uint8Array.of(1, 2, 3, 4);
         let requestedUrl = '';
@@ -40,7 +77,7 @@ describe('RemoteLibraryService', () => {
             requestedUrl = String(input);
             return new Response(atracWav(384, payload), { status: 200 });
         };
-        const service = new RemoteLibraryService({ address: 'http://localhost:8000/music/' });
+        const service = new RemoteLibraryService({ address: 'http://localhost:8000/music/' }, () => {});
 
         const result = await service.processLocalLibraryFile('Album/Track.wav', lp2);
 
@@ -58,7 +95,7 @@ describe('RemoteLibraryService', () => {
             requests += 1;
             return new Response(atracWav(192, Uint8Array.of(1)), { status: 200 });
         };
-        const service = new RemoteLibraryService({ address: 'http://localhost:8000/' });
+        const service = new RemoteLibraryService({ address: 'http://localhost:8000/' }, () => {});
 
         await assert.rejects(
             service.processLocalLibraryFile('Track.wav', lp2),

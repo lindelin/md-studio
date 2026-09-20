@@ -173,8 +173,10 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
         try {
             await updateSettings(changes);
             onMessage(messageLanguage ? translate(messageLanguage, successMessage) : t(successMessage));
+            return true;
         } catch (error) {
             setStatus(t(error instanceof Error ? error.message : String(error)));
+            return false;
         } finally {
             setBusy(false);
         }
@@ -192,11 +194,49 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
         bridgeEnabled !== localBridgeEnabled;
     const serviceConfigurationValid =
         Boolean(selectedEncoder?.available) &&
+        (settings.onlineServicesEnabled || !selectedEncoder?.requiresOnlineServices) &&
         areServiceParametersValid(selectedEncoder, encoderParameters) &&
-        (libraryIndex === -1 || areServiceParametersValid(selectedLibrary, libraryParameters));
+        (libraryIndex === -1 ||
+            ((settings.onlineServicesEnabled || !selectedLibrary?.requiresOnlineServices) &&
+                areServiceParametersValid(selectedLibrary, libraryParameters)));
 
     const updateBoolean = (key: keyof UserSettings, checked: boolean, message: string) => {
         void apply({ [key]: checked }, message);
+    };
+
+    const updateOnlineServices = async (enabled: boolean) => {
+        const changes: UserSettingsUpdate = { onlineServicesEnabled: enabled };
+        let nextEncoder = selectedEncoder;
+        let nextLibraryIndex = libraryIndex;
+        if (!enabled) {
+            if (selectedEncoder?.requiresOnlineServices) {
+                nextEncoder = catalog?.audioEncoders.find(
+                    (service) => service.available && !service.requiresOnlineServices
+                );
+                if (!nextEncoder) {
+                    setStatus(t('No local audio encoder is available in this build.'));
+                    return;
+                }
+                changes.audioEncoderId = nextEncoder.id;
+                changes.audioExportService = nextEncoder.index;
+                changes.audioExportServiceConfig = createDefaultServiceParameters(nextEncoder);
+            }
+            if (selectedLibrary?.requiresOnlineServices) {
+                nextLibraryIndex = -1;
+                changes.libraryService = -1;
+                changes.libraryServiceConfig = {};
+            }
+        }
+        const saved = await apply(changes, 'Online service access updated.');
+        if (!saved) return;
+        if (nextEncoder && nextEncoder.id !== encoderId) {
+            setEncoderId(nextEncoder.id);
+            setEncoderParameters(createDefaultServiceParameters(nextEncoder));
+        }
+        if (nextLibraryIndex !== libraryIndex) {
+            setLibraryIndex(nextLibraryIndex);
+            setLibraryParameters({});
+        }
     };
 
     const saveServices = async () => {
@@ -241,8 +281,9 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
                     <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('METADATA')}</span><h3>{t('Default title rules')}</h3><label className="workbench__settings-field"><span>{t('Imported track title')}</span><select value={settings.trackTitleFormat} disabled={busy} onChange={(event) => void apply({ trackTitleFormat: event.target.value as UserSettings['trackTitleFormat'] }, 'Import title rule updated.')}>{titleFormats.map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}</select></label><label className="workbench__settings-field"><span>{t('Recognized track title')}</span><select value={settings.recognitionTrackTitleFormat} disabled={busy} onChange={(event) => void apply({ recognitionTrackTitleFormat: event.target.value as UserSettings['recognitionTrackTitleFormat'] }, 'Recognition title rule updated.')}>{titleFormats.filter(([value]) => value !== 'filename').map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}</select></label><label className="workbench__settings-field"><span>{t('Recognition input')}</span><select value={settings.recognitionImportMethod} disabled={busy} onChange={(event) => void apply({ recognitionImportMethod: event.target.value as UserSettings['recognitionImportMethod'] }, 'Recognition input updated.')}><option value="line-in">{t('Line input')}</option><option value="exploits">{t('Direct device read')}</option></select></label></section>
                 </div>
                 <div>
-                    <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('ENCODING')}</span><h3>{t('ATRAC encoder')}</h3><label className="workbench__settings-field"><span>{t('Encoder')}</span><select value={encoderId ?? ''} disabled={!catalog || busy} onChange={(event) => { const service = catalog?.audioEncoders.find((candidate) => candidate.id === event.target.value); setEncoderId(event.target.value); setEncoderParameters(createDefaultServiceParameters(service)); }}>{catalog?.audioEncoders.map((service) => <option key={service.id} value={service.id} disabled={!service.available}>{service.name}{service.available ? '' : ` · ${t('unavailable')}`}</option>)}</select></label>{selectedEncoder?.description ? <p className="workbench__settings-description">{t(selectedEncoder.description)}</p> : null}{selectedEncoder?.unavailableReason ? <div className="workbench__settings-message is-error">{t(selectedEncoder.unavailableReason)}</div> : null}{selectedEncoder?.parameters.map((parameter) => <ServiceParameter key={parameter.key} descriptor={parameter} value={encoderParameters[parameter.key]} onChange={(value) => setEncoderParameters((current) => ({ ...current, [parameter.key]: value }))} />)}</section>
-                    <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('LIBRARY')}</span><h3>{t('Music source')}</h3><label className="workbench__settings-field"><span>{t('Library service')}</span><select value={libraryIndex} disabled={!catalog || busy} onChange={(event) => { const index = Number(event.target.value); setLibraryIndex(index); if (index !== -1) setLibraryParameters(createDefaultServiceParameters(catalog?.libraries[index])); }}><option value={-1}>{t('None')}</option>{catalog?.libraries.map((service) => <option key={service.id} value={service.index} disabled={!service.available}>{service.name}</option>)}</select></label>{selectedLibrary?.description ? <p className="workbench__settings-description">{t(selectedLibrary.description)}</p> : null}{selectedLibrary?.parameters.map((parameter) => <ServiceParameter key={parameter.key} descriptor={parameter} value={libraryParameters[parameter.key]} onChange={(value) => setLibraryParameters((current) => ({ ...current, [parameter.key]: value }))} />)}</section>
+                    <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('ENCODING')}</span><h3>{t('ATRAC encoder')}</h3><label className="workbench__settings-field"><span>{t('Encoder')}</span><select value={encoderId ?? ''} disabled={!catalog || busy} onChange={(event) => { const service = catalog?.audioEncoders.find((candidate) => candidate.id === event.target.value); setEncoderId(event.target.value); setEncoderParameters(createDefaultServiceParameters(service)); }}>{catalog?.audioEncoders.map((service) => <option key={service.id} value={service.id} disabled={!service.available || (service.requiresOnlineServices && !settings.onlineServicesEnabled)}>{service.name}{service.available ? service.requiresOnlineServices && !settings.onlineServicesEnabled ? ` · ${t('online access disabled')}` : '' : ` · ${t('unavailable')}`}</option>)}</select></label>{selectedEncoder?.description ? <p className="workbench__settings-description">{t(selectedEncoder.description)}</p> : null}{selectedEncoder?.unavailableReason ? <div className="workbench__settings-message is-error">{t(selectedEncoder.unavailableReason)}</div> : null}{selectedEncoder?.parameters.map((parameter) => <ServiceParameter key={parameter.key} descriptor={parameter} value={encoderParameters[parameter.key]} onChange={(value) => setEncoderParameters((current) => ({ ...current, [parameter.key]: value }))} />)}</section>
+                    <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('LIBRARY')}</span><h3>{t('Music source')}</h3><label className="workbench__settings-field"><span>{t('Library service')}</span><select value={libraryIndex} disabled={!catalog || busy} onChange={(event) => { const index = Number(event.target.value); setLibraryIndex(index); if (index !== -1) setLibraryParameters(createDefaultServiceParameters(catalog?.libraries[index])); }}><option value={-1}>{t('None')}</option>{catalog?.libraries.map((service) => <option key={service.id} value={service.index} disabled={!service.available || (service.requiresOnlineServices && !settings.onlineServicesEnabled)}>{service.name}{service.requiresOnlineServices && !settings.onlineServicesEnabled ? ` · ${t('online access disabled')}` : ''}</option>)}</select></label>{selectedLibrary?.description ? <p className="workbench__settings-description">{t(selectedLibrary.description)}</p> : null}{selectedLibrary?.parameters.map((parameter) => <ServiceParameter key={parameter.key} descriptor={parameter} value={libraryParameters[parameter.key]} onChange={(value) => setLibraryParameters((current) => ({ ...current, [parameter.key]: value }))} />)}</section>
+                    <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('PRIVACY')}</span><h3>{t('Online services')}</h3><Toggle checked={settings.onlineServicesEnabled} disabled={busy || !catalog} label={t('Allow online services')} description={t('Keep this off to block remote encoding, remote libraries and song recognition. Local USB, files, transcoding, exports, MCP and CLI continue to work.')} onChange={(checked) => void updateOnlineServices(checked)} /><p className="workbench__settings-description">{t('Online services are optional and are never required for normal MiniDisc recording.')}</p></section>
                     <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('AUTOMATION')}</span><h3>{t('Local MCP and CLI')}</h3><Toggle checked={bridgeEnabled} label={t('Enable local bridge')} description={t('Allow the loopback-only MCP server and CLI to control this browser session.')} onChange={setBridgeEnabled} /><p className="workbench__settings-description">{t('The bridge listens only on this computer. Saving this option reloads the app so the browser endpoint can attach cleanly.')}</p></section>
                     <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('ADVANCED')}</span><h3>{t('Homebrew tools')}</h3><Toggle checked={settings.factoryModeUseSlowerExploit} disabled={busy} label={t('Use slower ATRAC ripping exploit')} description={t('Compatibility option for devices that lock up during fast ripping.')} onChange={(checked) => updateBoolean('factoryModeUseSlowerExploit', checked, 'Ripping preference updated.')} /><Toggle checked={settings.factoryModeNERAWDownload} disabled={busy} label={t('Download raw NERAW streams')} description={t('Preserve sector layout for expert recovery work.')} onChange={(checked) => updateBoolean('factoryModeNERAWDownload', checked, 'Raw stream preference updated.')} /></section>
                     <NativeSettings />

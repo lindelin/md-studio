@@ -3,6 +3,7 @@ import { validateAndStripAtracEncoderOutput } from '../audio/atrac-encoder-outpu
 import { ExportParams, FfmpegPcmMp3Transcoder } from '../audio/audio-export';
 import { retryRemoteRequest } from '../remote-request';
 import { LibraryService, LocalDatabase } from './library';
+import { assertOnlineServicesEnabled, type OnlineServiceGuard } from '../../application/online-service-policy';
 
 const DATABASE_TIMEOUT_MS = 30_000;
 const AUDIO_TIMEOUT_MS = 120_000;
@@ -11,12 +12,16 @@ export class RemoteLibraryService extends FfmpegPcmMp3Transcoder implements Libr
     public address: string;
     public originalFileName: string = '';
 
-    constructor(parameters: CustomParameters) {
+    constructor(
+        parameters: CustomParameters,
+        private readonly guardOnlineService: OnlineServiceGuard = () => assertOnlineServicesEnabled(false)
+    ) {
         super();
         this.address = parameters.address as string;
     }
 
     async getDatabase(): Promise<LocalDatabase> {
+        this.guardOnlineService();
         const dbPage = new URL(this.address);
         if (!dbPage.pathname.endsWith('/')) dbPage.pathname += '/';
         dbPage.pathname += 'database';
@@ -33,6 +38,7 @@ export class RemoteLibraryService extends FfmpegPcmMp3Transcoder implements Libr
     }
 
     async processLocalLibraryFile(filePath: string, params: ExportParams): Promise<ArrayBuffer> {
+        this.guardOnlineService();
         if (params.format.codec === 'PCM' || params.format.codec === 'MP3') {
             // Fetch the file normally, then transcode to PCM / MP3
             const rawURL = new URL(this.address);

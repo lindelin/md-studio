@@ -13,7 +13,7 @@ npm run dev
 
 Open the local address printed in the terminal. Use **Connect to MockMD** when learning the interface or testing changes without hardware.
 
-The interface follows the browser language by default and supports **简体中文** and **English** explicitly. Change it under **Settings → Language**; the choice takes effect immediately and is saved for later sessions. Device names, codec names, capability identifiers, and exact destructive confirmation phrases remain unchanged where translating them could make diagnostics or safety checks ambiguous.
+The interface starts in **简体中文** and retains complete **English** support. Change it under **Settings → Language**, where **Follow browser language** is also available; the choice takes effect immediately and is saved for later sessions. Device names, codec names, capability identifiers, and exact destructive confirmation phrases remain unchanged where translating them could make diagnostics or safety checks ambiguous.
 
 For a real recorder, install the WinUSB driver described by the [MiniDisc Wiki Windows guide](https://www.minidisc.wiki/guides/webminidisc/requirements#windows), connect the recorder, choose its matching adapter, and approve the browser's USB picker.
 
@@ -31,6 +31,12 @@ Only one tab or application can claim a USB interface. If connection fails with 
 - **Tools** contains CSV metadata, diagnostics, backups, raw TOC work, protection flags, and device-specific maintenance.
 
 Advanced controls are enabled only when the connected adapter advertises the required capability. A disabled action can be correct for that recorder.
+
+## Local and online execution
+
+Normal MiniDisc work is local. File import, metadata editing, FFmpeg conversion, ATRAC encoding, queues, caches, exports, MCP/CLI traffic and USB communication stay on this computer. A hosted web version downloads static application files and does not send those jobs to a project server.
+
+**Settings → Online services** is off for a new installation. While it is off, the command layer and the request implementations block the remote ATRAC encoder, remote music library and song recognition. Turning it on only permits those features; each still runs after the user selects or starts it. Turning it off again returns a selected remote encoder to a bundled local encoder and clears the remote library selection.
 
 ## Record audio to a disc
 

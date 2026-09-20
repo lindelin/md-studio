@@ -3,6 +3,7 @@ import type { CodecFamily } from '../interfaces/netmd';
 import { retryRemoteRequest } from '../remote-request';
 import { DefaultFfmpegAudioExportService, ExportParams } from './audio-export';
 import { validateAndStripAtracEncoderOutput } from './atrac-encoder-output';
+import { assertOnlineServicesEnabled, type OnlineServiceGuard } from '../../application/online-service-policy';
 
 const TRANSCODE_TIMEOUT_MS = 120_000;
 
@@ -10,7 +11,10 @@ export class RemoteAtracExportService extends DefaultFfmpegAudioExportService {
     public address: string;
     public originalFileName: string = '';
 
-    constructor(parameters: CustomParameters) {
+    constructor(
+        parameters: CustomParameters,
+        private readonly guardOnlineService: OnlineServiceGuard = () => assertOnlineServicesEnabled(false)
+    ) {
         super();
         this.address = parameters.address as string;
     }
@@ -21,6 +25,7 @@ export class RemoteAtracExportService extends DefaultFfmpegAudioExportService {
     }
 
     async encodeATRAC3({ format, enableReplayGain }: ExportParams): Promise<ArrayBuffer> {
+        this.guardOnlineService();
         const { data } = await this.ffmpegProcess.read(this.inFileName);
 
         const payload = new FormData();

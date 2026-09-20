@@ -87,7 +87,8 @@ export const WorkbenchTrackRecognition = ({
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const recognitionTask = taskId ? workspace.tasks.find((task) => task.id === taskId) : undefined;
-    const networkAvailable = window.native?.unrestrictedFetchJSON !== undefined;
+    const onlineServicesEnabled = settings.onlineServicesEnabled;
+    const networkAdapterAvailable = window.native?.unrestrictedFetchJSON !== undefined;
 
     const stopPreview = useCallback(() => client.stopLocalAudioInputPreview(), [client]);
 
@@ -136,7 +137,13 @@ export const WorkbenchTrackRecognition = ({
     const selectedRecognized = rows.filter((row) => row.selected && row.status === 'recognized');
     const activeTask = recognitionTask?.status === 'queued' || recognitionTask?.status === 'running';
     const modeReady = mode === 'exploits' ? supportsFactoryMode : supportsPlayback && inputDeviceId !== '';
-    const canRecognize = !busy && !activeTask && networkAvailable && modeReady && selectedPending.length > 0;
+    const canRecognize =
+        !busy &&
+        !activeTask &&
+        onlineServicesEnabled &&
+        networkAdapterAvailable &&
+        modeReady &&
+        selectedPending.length > 0;
 
     const loadAudioDevices = async () => {
         setAudioDevicesLoading(true);
@@ -326,7 +333,8 @@ export const WorkbenchTrackRecognition = ({
                     </div>
                 ) : null}
 
-                {!networkAvailable ? <div className="workbench__write-warning">{t('Recognition needs the local unrestricted network adapter. Enable it in the supported desktop host or userscript before starting.')}</div> : null}
+                {!onlineServicesEnabled ? <div className="workbench__write-warning">{t('Song recognition uses an online service. Enable online services in Settings before starting.')}</div> : null}
+                {onlineServicesEnabled && !networkAdapterAvailable ? <div className="workbench__write-warning">{t('Recognition needs the local unrestricted network adapter. Enable it in the supported desktop host or userscript before starting.')}</div> : null}
                 {mode === 'line-in' && !supportsPlayback ? <div className="workbench__write-warning">{t('This device does not provide the playback controls required for line-input recognition.')}</div> : null}
                 {error ? <div className="workbench__write-warning">{error}</div> : null}
                 {recognitionTask ? (

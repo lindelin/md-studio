@@ -9,6 +9,7 @@ import type { AdaptiveFile } from '../utils';
 import { describeDeviceSessionFailure, DeviceSessionConnector } from './device-session';
 import type { MinidiscSpec, NetMDService } from '../services/interfaces/netmd';
 import { loadService } from '../services/interface-service-manager';
+import { assertOnlineServicesEnabled } from './online-service-policy';
 
 function connectDeviceSession(service: NetMDService, spec: MinidiscSpec) {
     return new DeviceSessionConnector(serviceRegistry, bindApplicationRuntime).connect(service, spec);
@@ -245,6 +246,9 @@ export function getApplicationClient() {
                 if (!serviceRegistry.trackRecognizer) {
                     throw new Error('Song recognition is unavailable in this application environment.');
                 }
+                assertOnlineServicesEnabled(
+                    serviceRegistry.settingsStore.getSnapshot().values.onlineServicesEnabled
+                );
                 return serviceRegistry.trackRecognizer.start(request, serviceRegistry.taskManager);
             }
         );

@@ -1,8 +1,18 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { retryRemoteRequest } from '../src/services/remote-request.ts';
+import { RemoteAtracExportService } from '../src/services/audio/remote-atrac-export.ts';
 
 describe('bounded remote requests', () => {
+    it('blocks remote encoding before reading or uploading audio when online services are disabled', async () => {
+        const service = new RemoteAtracExportService({ address: 'https://example.test/' });
+
+        await assert.rejects(
+            service.encodeATRAC3({ format: { codec: 'AT3', bitrate: 132 }, writeGapless: false }),
+            (error: any) => error.code === 'ONLINE_SERVICE_DISABLED'
+        );
+    });
+
     it('retries transient failures and returns the successful result', async () => {
         let attempts = 0;
         const result = await retryRemoteRequest(

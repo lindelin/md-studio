@@ -23,7 +23,11 @@ function fakeService(onInit: () => void): AudioExportService {
 
 describe('AudioEncoderManager', () => {
     it('initializes one encoder per configuration and publishes stable workspace state', async () => {
-        let configuration: AudioEncoderConfiguration = { index: 0, parameters: { quality: 'standard' } };
+        let configuration: AudioEncoderConfiguration = {
+            index: 0,
+            parameters: { quality: 'standard' },
+            onlineServicesEnabled: false,
+        };
         let initialized = 0;
         const manager = new AudioEncoderManager(
             () => configuration,
@@ -66,6 +70,12 @@ describe('AudioEncoderManager', () => {
         assert.equal(initialized, 2);
         assert.equal(manager.getSnapshot().revision, 2);
         assert.equal(manager.getSnapshot().id, 'encoder-1');
+
+        configuration = { index: 1, parameters: {}, onlineServicesEnabled: true };
+        const policyReplacement = await manager.getService();
+
+        assert.notEqual(policyReplacement, replacement);
+        assert.equal(initialized, 3);
     });
 
     it('reports initialization failures without discarding the last working service', async () => {

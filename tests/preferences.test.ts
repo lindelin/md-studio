@@ -73,11 +73,13 @@ test('raw preferences are safely available for legacy and bridge settings', () =
 test('app reset preserves storage owned by other code', () => {
     const storage = new MemoryStorage();
     storage.setItem('colorTheme', JSON.stringify('dark'));
+    storage.setItem('onlineServicesEnabled', JSON.stringify(true));
     storage.setItem('unrelated', 'keep me');
 
     assert.deepEqual(clearAppPreferences(storage), { ok: true });
 
     assert.equal(storage.getItem('colorTheme'), null);
+    assert.equal(storage.getItem('onlineServicesEnabled'), null);
     assert.equal(storage.getItem('unrelated'), 'keep me');
 });
 

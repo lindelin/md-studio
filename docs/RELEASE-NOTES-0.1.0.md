@@ -9,6 +9,7 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 - Browser UI, MCP, and CLI share revision-checked application commands, import queue state, device snapshots, and long-running tasks.
 - Local-path automation reads audio tags and duration before staging, while file bytes remain behind short-lived local handles until conversion starts.
 - Audio, transcoding, caches, task queues, and device traffic stay on the user's computer; hosted builds serve static application files only.
+- Online services default to off. The command layer and each remote request boundary block the remote encoder, remote library, and song recognition until the user enables them in Settings.
 - Writing performs a capacity, title, codec, device-session, and revision preview before creating a task.
 - Homebrew SP Mono and ATRAC1 writes show their exact capability requirements in the bilingual write review before a task is created; automation cannot authorize these browser-only operations.
 - CSV metadata planning, normal and recovery export review, raw TOC review, protection flags, diagnostics, and capability-gated advanced tools are available from the workbench.

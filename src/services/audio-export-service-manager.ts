@@ -3,8 +3,9 @@ import { AT3RE_INCLUDED, ATRACOS_INCLUDED } from '../version-info';
 import type { AudioExportService } from './audio/audio-export';
 import { ApplicationError } from '../application/contracts';
 import type { AudioEncoderConfiguration, AudioEncoderDescriptor } from '../application/audio-encoder-manager';
+import type { OnlineServiceGuard } from '../application/online-service-policy';
 
-type AudioServiceConstructor = new (parameters: CustomParameters) => AudioExportService;
+type AudioServiceConstructor = new (parameters: CustomParameters, guardOnlineService?: OnlineServiceGuard) => AudioExportService;
 
 export const DEFAULT_AUDIO_SERVICE_ID = 'atracdenc';
 
@@ -16,6 +17,7 @@ export interface AudioServicePrototype {
     description?: string;
     available: boolean;
     unavailableReason?: string;
+    requiresOnlineServices?: boolean;
 }
 
 export const AudioServices: AudioServicePrototype[] = [
@@ -39,6 +41,7 @@ export const AudioServices: AudioServicePrototype[] = [
         name: 'Remote ATRAC Encoder',
         load: async () => (await import('./audio/remote-atrac-export')).RemoteAtracExportService,
         available: true,
+        requiresOnlineServices: true,
         customParameters: [
             {
                 userFriendlyName: 'Server Address',
@@ -108,7 +111,10 @@ export function resolveAudioServiceIndexById(preferredId: string | null | undefi
     return preferredIndex === -1 ? resolveAudioServiceIndex(legacyIndex) : preferredIndex;
 }
 
-export async function createAudioEncoder(configuration: AudioEncoderConfiguration): Promise<AudioEncoderDescriptor> {
+export async function createAudioEncoder(
+    configuration: AudioEncoderConfiguration,
+    guardOnlineService?: OnlineServiceGuard
+): Promise<AudioEncoderDescriptor> {
     const index = resolveAudioServiceIndex(configuration.index);
     const prototype = AudioServices[index];
     if (!isAllValid(prototype.customParameters, configuration.parameters)) {
@@ -119,6 +125,6 @@ export async function createAudioEncoder(configuration: AudioEncoderConfiguratio
         index,
         id: prototype.id,
         name: prototype.name,
-        service: new Constructor(configuration.parameters),
+        service: new Constructor(configuration.parameters, guardOnlineService),
     };
 }

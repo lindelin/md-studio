@@ -16,6 +16,7 @@ export interface ConfigurableServiceDescriptor {
     available: boolean;
     unavailableReason?: string;
     requiresBrowserUsb?: boolean;
+    requiresOnlineServices?: boolean;
     parameters: ServiceParameterDescriptor[];
 }
 
@@ -33,6 +34,7 @@ interface ServicePrototype {
     available?: boolean;
     unavailableReason?: string;
     requiresChrome?: boolean;
+    requiresOnlineServices?: boolean;
     customParameters?: CustomParameterInfo[];
 }
 
@@ -58,6 +60,7 @@ function toDescriptor(service: ServicePrototype, index: number): ConfigurableSer
         available: service.available ?? true,
         ...(service.unavailableReason ? { unavailableReason: service.unavailableReason } : {}),
         ...(service.requiresChrome !== undefined ? { requiresBrowserUsb: service.requiresChrome } : {}),
+        ...(service.requiresOnlineServices ? { requiresOnlineServices: true } : {}),
         parameters: (service.customParameters ?? []).map(toParameterDescriptor),
     };
 }

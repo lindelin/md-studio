@@ -1,8 +1,9 @@
 import { CustomParameterInfo, CustomParameters, isAllValid } from '../custom-parameters';
 import type { LibraryService } from './library/library';
 import { ApplicationError } from '../application/contracts';
+import type { OnlineServiceGuard } from '../application/online-service-policy';
 
-type LibraryServiceConstructor = new (parameters: CustomParameters) => LibraryService;
+type LibraryServiceConstructor = new (parameters: CustomParameters, guardOnlineService?: OnlineServiceGuard) => LibraryService;
 
 export interface LibraryServicePrototype {
     id: string;
@@ -10,6 +11,7 @@ export interface LibraryServicePrototype {
     customParameters?: CustomParameterInfo[];
     name: string;
     description?: string;
+    requiresOnlineServices?: boolean;
 }
 
 export const LibraryServices: LibraryServicePrototype[] = [
@@ -17,6 +19,7 @@ export const LibraryServices: LibraryServicePrototype[] = [
         id: 'remote-library',
         name: 'Remote Library',
         load: async () => (await import('./library/remote-library')).RemoteLibraryService,
+        requiresOnlineServices: true,
         customParameters: [
             {
                 userFriendlyName: 'Server Address',
@@ -38,7 +41,11 @@ export const LibraryServices: LibraryServicePrototype[] = [
     },
 ];
 
-export async function createLibraryService(index: number, parameters: CustomParameters): Promise<LibraryService> {
+export async function createLibraryService(
+    index: number,
+    parameters: CustomParameters,
+    guardOnlineService?: OnlineServiceGuard
+): Promise<LibraryService> {
     const prototype = LibraryServices[index];
     if (!prototype) {
         throw new ApplicationError(
@@ -50,5 +57,5 @@ export async function createLibraryService(index: number, parameters: CustomPara
         throw new ApplicationError('INVALID_INPUT', `The configuration for ${prototype.name} is invalid.`);
     }
     const Constructor = await prototype.load();
-    return new Constructor(parameters);
+    return new Constructor(parameters, guardOnlineService);
 }
