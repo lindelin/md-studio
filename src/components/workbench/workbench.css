@@ -90,6 +90,9 @@
 .workbench__disc-icon svg { font-size: 48px; opacity: .72; }
 .workbench__disc-copy h2 { margin: 7px 0 5px; font-size: 23px; font-weight: 600; }
 .workbench__disc-copy p { margin: 0; color: var(--wb-muted); font-size: 12px; }
+.workbench__disc-title-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.workbench__disc-title-row h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workbench__disc-title-row .icon-button { flex: 0 0 auto; width: 30px; height: 30px; }
 .workbench__capacity { display: grid; grid-template-columns: 1fr 1fr; column-gap: 30px; align-items: end; }
 .workbench__capacity > div span { display: block; color: #6d8492; font-size: 9px; letter-spacing: .12em; }
 .workbench__capacity > div strong { display: block; margin-top: 5px; font-size: 18px; font-weight: 500; }
@@ -397,6 +400,7 @@
 .workbench__modal h2 { margin: 7px 0 8px; font-size: 20px; }
 .workbench__modal p { margin: 0 0 20px; color: var(--wb-muted); font-size: 11px; line-height: 1.5; }
 .workbench__modal label { display: block; color: #8498a5; font-size: 9px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+.workbench__modal-field { margin-top: 15px; }
 .workbench__modal input:not([type="checkbox"]):not([type="radio"]) { width: 100%; height: 40px; margin-top: 7px; border: 1px solid #3a5361; border-radius: 5px; outline: 0; padding: 0 11px; color: #edf6fa; background: #0f1b22; text-transform: none; }
 .workbench__modal input:not([type="checkbox"]):not([type="radio"]):focus { border-color: var(--wb-accent); box-shadow: 0 0 0 2px rgba(32,174,243,.12); }
 .workbench__modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }

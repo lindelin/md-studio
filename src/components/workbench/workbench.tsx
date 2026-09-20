@@ -63,10 +63,10 @@ import FolderOffRoundedIcon from '@mui/icons-material/FolderOffRounded';
 import SelectAllRoundedIcon from '@mui/icons-material/SelectAllRounded';
 import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
+import EditRoundedIcon from '@mui/icons-material/EditRounded';
 
 import { TopMenu } from '../topmenu';
 import { DiscProtectedDialog } from '../disc-protected-dialog';
-import { RenameDialog } from '../rename-dialog';
 import { ErrorDialog } from '../error-dialog';
 import { FactoryModeNoticeDialog } from '../factory/factory-notice-dialog';
 import { AboutDialog } from '../about-dialog';
@@ -156,6 +156,9 @@ export const Workbench = () => {
     const [taskCenterOpen, setTaskCenterOpen] = useState(false);
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [writeReviewOpen, setWriteReviewOpen] = useState(false);
+    const [discEditorOpen, setDiscEditorOpen] = useState(false);
+    const [discTitleDraft, setDiscTitleDraft] = useState('');
+    const [discFullWidthTitleDraft, setDiscFullWidthTitleDraft] = useState('');
     const [writePreview, setWritePreview] = useState<ImportPreview | null>(null);
     const [writePreviewPending, setWritePreviewPending] = useState(false);
     const [enableReplayGain, setEnableReplayGain] = useState(false);
@@ -365,6 +368,8 @@ export const Workbench = () => {
     const canCreateGroup = capabilities.includes('group.create');
     const canDeleteGroup = capabilities.includes('group.delete');
     const canRenameGroup = capabilities.includes('group.rename');
+    const canRenameDisc = capabilities.includes('disc.rename');
+    const canRenameFullWidthDisc = capabilities.includes('metadata.fullWidth');
     const measurementIsBytes = device?.recording.measurementUnits === 'bytes';
     const usedPercent = disc?.total ? Math.min(100, Math.max(0, (disc.used / disc.total) * 100)) : 0;
     const queuedDuration = imports.reduce((total, item) => total + (item.duration ?? 0), 0);
@@ -505,6 +510,27 @@ export const Workbench = () => {
                 group.title !== null && group.tracks.some((track) => selectedTrackIndexes.includes(track.index))
         );
     }, [disc, selectedTrackIndexes]);
+
+    const openDiscEditor = () => {
+        if (!disc || !canRenameDisc) return;
+        setDiscTitleDraft(disc.title ?? '');
+        setDiscFullWidthTitleDraft(disc.fullWidthTitle ?? '');
+        setDiscEditorOpen(true);
+    };
+
+    const saveDiscTitle = () => {
+        if (!disc || !device || !canRenameDisc) return;
+        void run(async () => {
+            await execute({
+                type: 'disc.rename',
+                title: discTitleDraft,
+                fullWidthTitle: canRenameFullWidthDisc ? discFullWidthTitleDraft : undefined,
+                expectedRevision: device.revision,
+            });
+            setDiscEditorOpen(false);
+            setMessage('MiniDisc title updated.');
+        });
+    };
     const canGroupSelection =
         canCreateGroup &&
         sortedSelectedTrackIndexes.length > 0 &&
@@ -931,7 +957,11 @@ export const Workbench = () => {
                         <span className={`workbench__status ${device ? 'is-online' : ''}`}><i />{device ? 'Connected' : 'Disconnected'}</span>
                         <button className="icon-button" aria-label="Refresh disc" onClick={refresh} disabled={!disc || busy}><RefreshRoundedIcon /></button>
                         <button className="workbench__eject-button" aria-label="Eject disc" onClick={eject} disabled={!disc || !canEject || busy}><EjectIcon /><span>Eject</span></button>
-                        <TopMenu tracksSelected={selectedTrackIndexes} onRecognizeTracks={() => setTrackRecognitionOpen(true)} />
+                        <TopMenu
+                            tracksSelected={selectedTrackIndexes}
+                            onRecognizeTracks={() => setTrackRecognitionOpen(true)}
+                            onRenameDisc={openDiscEditor}
+                        />
                     </div>
                 </header>
 
@@ -939,7 +969,10 @@ export const Workbench = () => {
                     <div className="workbench__disc-icon"><AlbumIcon /></div>
                     <div className="workbench__disc-copy">
                         <span className="workbench__eyebrow">CURRENT MINIDISC</span>
-                        <h2>{discLabel}</h2>
+                        <div className="workbench__disc-title-row">
+                            <h2>{discLabel}</h2>
+                            {canRenameDisc ? <button className="icon-button" aria-label="Edit MiniDisc title" onClick={openDiscEditor} disabled={!disc || busy}><EditRoundedIcon /></button> : null}
+                        </div>
                         <p>{disc ? `${disc.trackCount} tracks on disc · ${formatDuration(tracks.reduce((sum, track) => sum + track.duration, 0))}` : 'Insert a disc to begin'}</p>
                     </div>
                     <div className="workbench__capacity">
@@ -1208,7 +1241,6 @@ export const Workbench = () => {
             {message ? <button className="workbench__toast" aria-live="polite" aria-atomic="true" onClick={() => setMessage(null)}>{message}</button> : null}
 
             <DiscProtectedDialog />
-            <RenameDialog />
             <ErrorDialog />
             <FactoryModeNoticeDialog />
             <AboutDialog />
@@ -1290,6 +1322,21 @@ export const Workbench = () => {
                         <div className="workbench__modal-actions">
                             <button className="secondary-button" onClick={() => setWriteReviewOpen(false)} disabled={busy}>Cancel</button>
                             <button className="primary-button" onClick={startWrite} disabled={busy || writePreviewPending || !writePreviewFits}>Start recording</button>
+                        </div>
+                    </section>
+                </div>
+            ) : null}
+            {discEditorOpen && disc ? (
+                <div className="workbench__modal-backdrop" role="presentation" onMouseDown={() => !busy && setDiscEditorOpen(false)}>
+                    <section className="workbench__modal" role="dialog" aria-modal="true" aria-labelledby="workbench-disc-title" onMouseDown={(event) => event.stopPropagation()}>
+                        <span className="workbench__eyebrow">DISC METADATA</span>
+                        <h2 id="workbench-disc-title">Edit MiniDisc title</h2>
+                        <p>The original device service applies the title using the connected recorder's character rules.</p>
+                        <label>Disc title<input autoFocus value={discTitleDraft} onChange={(event) => setDiscTitleDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !busy) saveDiscTitle(); }} /></label>
+                        {canRenameFullWidthDisc ? <label className="workbench__modal-field">Full-width title<input value={discFullWidthTitleDraft} onChange={(event) => setDiscFullWidthTitleDraft(event.target.value)} /></label> : null}
+                        <div className="workbench__modal-actions">
+                            <button className="secondary-button" onClick={() => setDiscEditorOpen(false)} disabled={busy}>Cancel</button>
+                            <button className="primary-button" onClick={saveDiscTitle} disabled={busy || (discTitleDraft === (disc.title ?? '') && (!canRenameFullWidthDisc || discFullWidthTitleDraft === (disc.fullWidthTitle ?? '')))}><CheckCircleIcon /> Save title</button>
                         </div>
                     </section>
                 </div>

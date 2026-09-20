@@ -73,8 +73,9 @@ export const TopMenu = function (props: {
     tracksSelected?: number[];
     onClick?: () => void;
     onRecognizeTracks?: () => void;
+    onRenameDisc?: () => void;
 }) {
-    const { tracksSelected, onClick, onRecognizeTracks } = props;
+    const { tracksSelected, onClick, onRecognizeTracks, onRenameDisc } = props;
     const { classes } = useStyles();
     const dispatch = useDispatch();
 
@@ -168,6 +169,11 @@ export const TopMenu = function (props: {
     }, [dispatch, handleMenuClose]);
 
     const handleRenameDisc = useCallback(() => {
+        if (onRenameDisc) {
+            onRenameDisc();
+            handleMenuClose();
+            return;
+        }
         dispatch(
             batchActions([
                 renameDialogActions.setVisible(true),
@@ -178,7 +184,7 @@ export const TopMenu = function (props: {
             ])
         );
         handleMenuClose();
-    }, [dispatch, handleMenuClose, discTitle, fullWidthDiscTitle]);
+    }, [dispatch, handleMenuClose, discTitle, fullWidthDiscTitle, onRenameDisc]);
 
     const handleSelfTest = useCallback(() => {
         handleMenuClose();
