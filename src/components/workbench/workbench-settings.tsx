@@ -2,8 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import FolderOpenRoundedIcon from '@mui/icons-material/FolderOpenRounded';
 import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
-import { useDispatch, useShallowEqualSelector } from '../../frontend-utils';
-import { setLocalBridgeEnabled } from '../../redux/actions';
 import type { ServiceCatalogSnapshot, ServiceParameterDescriptor } from '../../application/service-catalog';
 import type { CustomParameters } from '../../custom-parameters';
 import type { UserSettings, UserSettingsUpdate } from '../../application/settings-store';
@@ -12,6 +10,8 @@ import { useApplicationClient, useApplicationWorkspace, useUpdateApplicationSett
 import { areServiceParametersValid, createDefaultServiceParameters } from './workbench-model';
 import { useI18n } from '../use-i18n';
 import { resolveUiLanguage, translate, type ResolvedUiLanguage } from '../../i18n';
+import { browserPreferences } from '../../frontend/browser-preferences-store';
+import { useBrowserPreferences } from '../../frontend/use-browser-preferences';
 
 const titleFormats = [
     ['filename', 'File name'],
@@ -138,12 +138,11 @@ const NativeSettings = () => {
 
 export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): void }) => {
     const { t } = useI18n();
-    const dispatch = useDispatch();
     const client = useApplicationClient();
     const updateSettings = useUpdateApplicationSettings();
     const workspace = useApplicationWorkspace();
     const settings = workspace.settings.values;
-    const localBridgeEnabled = useShallowEqualSelector((state) => state.appState.localBridgeEnabled);
+    const { localBridgeEnabled } = useBrowserPreferences();
     const [catalog, setCatalog] = useState<ServiceCatalogSnapshot | null>(null);
     const [encoderId, setEncoderId] = useState(settings.audioEncoderId);
     const [encoderParameters, setEncoderParameters] = useState<CustomParameters>(settings.audioExportServiceConfig);
@@ -246,7 +245,7 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
         let bridgePersisted = false;
         try {
             if (bridgeEnabled !== localBridgeEnabled) {
-                await dispatch(setLocalBridgeEnabled(bridgeEnabled));
+                browserPreferences.setLocalBridgeEnabled(bridgeEnabled);
                 bridgePersisted = true;
             }
             await updateSettings({
@@ -260,7 +259,7 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
         } catch (error) {
             if (bridgePersisted) {
                 try {
-                    await dispatch(setLocalBridgeEnabled(localBridgeEnabled));
+                    browserPreferences.setLocalBridgeEnabled(localBridgeEnabled);
                 } catch {
                     // Keep the original error visible; a failed rollback will be retried on the next explicit save.
                 }
@@ -277,7 +276,7 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
             <div className="workbench__settings-columns">
                 <div>
                     <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('APPEARANCE')}</span><h3>{t('Interface')}</h3><label className="workbench__settings-field"><span>{t('Language')}</span><select value={settings.uiLanguage} disabled={busy} onChange={(event) => { const uiLanguage = event.target.value as UserSettings['uiLanguage']; void apply({ uiLanguage }, 'Interface language updated.', resolveUiLanguage(uiLanguage)); }}><option value="system">{t('Follow browser language')}</option><option value="zh-CN">{t('Chinese (Simplified)')}</option><option value="en">{t('English')}</option></select></label><label className="workbench__settings-field"><span>{t('Color theme')}</span><select value={settings.colorTheme} disabled={busy} onChange={(event) => void apply({ colorTheme: event.target.value as UserSettings['colorTheme'] }, 'Color theme updated.')}><option value="system">{t('Use system theme')}</option><option value="dark">{t('Dark')}</option><option value="light">{t('Light')}</option></select></label></section>
-                    <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('WORKFLOW')}</span><h3>{t('Editing and notifications')}</h3><Toggle checked={settings.fullWidthSupport} disabled={busy} label={t('Full-width title editing')} description={t('Enable Hiragana, Kanji and full-width MiniDisc titles.')} onChange={(checked) => updateBoolean('fullWidthSupport', checked, 'Title editing preference updated.')} /><Toggle checked={!settings.discProtectedDialogDisabled} disabled={busy} label={t('Disc-protected warning')} description={t('Warn before operations on a protected disc.')} onChange={(checked) => updateBoolean('discProtectedDialogDisabled', !checked, 'Protection warning preference updated.')} /><Toggle checked={settings.notifyWhenFinished} disabled={busy} label={t('Completion notifications')} description={t('Show a notification when a background task finishes.')} onChange={(checked) => updateBoolean('notifyWhenFinished', checked, 'Notification preference updated.')} /></section>
+                    <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('WORKFLOW')}</span><h3>{t('Editing and notifications')}</h3><Toggle checked={settings.fullWidthSupport} disabled={busy} label={t('Full-width title editing')} description={t('Enable Hiragana, Kanji and full-width MiniDisc titles.')} onChange={(checked) => updateBoolean('fullWidthSupport', checked, 'Title editing preference updated.')} /><Toggle checked={settings.notifyWhenFinished} disabled={busy} label={t('Completion notifications')} description={t('Show a notification when a background task finishes.')} onChange={(checked) => updateBoolean('notifyWhenFinished', checked, 'Notification preference updated.')} /></section>
                     <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('METADATA')}</span><h3>{t('Default title rules')}</h3><label className="workbench__settings-field"><span>{t('Imported track title')}</span><select value={settings.trackTitleFormat} disabled={busy} onChange={(event) => void apply({ trackTitleFormat: event.target.value as UserSettings['trackTitleFormat'] }, 'Import title rule updated.')}>{titleFormats.map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}</select></label><label className="workbench__settings-field"><span>{t('Recognized track title')}</span><select value={settings.recognitionTrackTitleFormat} disabled={busy} onChange={(event) => void apply({ recognitionTrackTitleFormat: event.target.value as UserSettings['recognitionTrackTitleFormat'] }, 'Recognition title rule updated.')}>{titleFormats.filter(([value]) => value !== 'filename').map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}</select></label><label className="workbench__settings-field"><span>{t('Recognition input')}</span><select value={settings.recognitionImportMethod} disabled={busy} onChange={(event) => void apply({ recognitionImportMethod: event.target.value as UserSettings['recognitionImportMethod'] }, 'Recognition input updated.')}><option value="line-in">{t('Line input')}</option><option value="exploits">{t('Direct device read')}</option></select></label></section>
                 </div>
                 <div>

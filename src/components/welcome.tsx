@@ -6,12 +6,6 @@ import LibraryMusicRoundedIcon from '@mui/icons-material/LibraryMusicRounded';
 import SecurityRoundedIcon from '@mui/icons-material/SecurityRounded';
 import UsbRoundedIcon from '@mui/icons-material/UsbRounded';
 import React, { useCallback, useState } from 'react';
-import { batchActions, useDispatch, useShallowEqualSelector } from '../frontend-utils';
-import { initializeParameters } from '../custom-parameters';
-import { deleteService, setSelectedService } from '../redux/actions';
-import { actions as appActions } from '../redux/app-feature';
-import { actions as errorDialogActions } from '../redux/error-dialog-feature';
-import { actions as otherDialogActions } from '../redux/other-device-feature';
 import {
     doesServiceRequireChrome,
     doesServiceRequireOnlineServices,
@@ -27,19 +21,22 @@ import { useApplicationClient, useApplicationSettings, useApplicationWorkspace }
 import { useI18n } from './use-i18n';
 import { WorkbenchSettingsDialog } from './workbench/workbench-settings-dialog';
 import { AppDialog } from './app-dialog';
+import { browserPreferences } from '../frontend/browser-preferences-store';
+import { useBrowserPreferences } from '../frontend/use-browser-preferences';
 import './welcome.css';
 
 export const Welcome = () => {
     const { t } = useI18n();
-    const dispatch = useDispatch();
     const applicationClient = useApplicationClient();
     const settings = useApplicationSettings();
     const { connection } = useApplicationWorkspace();
-    const { browserSupported, runningChrome, availableServices, lastSelectedService } = useShallowEqualSelector(
-        (state) => state.appState
-    );
+    const { availableServices, lastSelectedService } = useBrowserPreferences();
+    const runningChrome = Boolean(navigator.usb);
+    const [browserSupported, setBrowserSupported] = useState(runningChrome);
     const [showWhyUnsupported, setWhyUnsupported] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const [aboutOpen, setAboutOpen] = useState(false);
+    const [customDeviceOpen, setCustomDeviceOpen] = useState(false);
     const [preferenceError, setPreferenceError] = useState<string | null>(null);
     const [fullHimdReview, setFullHimdReview] = useState<{ service: ServiceConstructionInfo; index: number } | null>(null);
     const openSettings = useCallback(() => setSettingsOpen(true), []);
@@ -60,22 +57,13 @@ export const Welcome = () => {
     const connectToService = async (service = selectedService, serviceIndex = selectedIndex) => {
         if (!service) return;
         try {
-            await dispatch(setSelectedService(serviceIndex));
+            browserPreferences.setSelectedService(serviceIndex);
             setPreferenceError(null);
         } catch (error) {
             setPreferenceError(t(error instanceof Error ? error.message : String(error)));
         }
         try {
-            const result = await applicationClient.connectLocalDevice(service);
-            if (result.connected) {
-                dispatch(
-                    batchActions([
-                        appActions.setMainView('MAIN'),
-                        errorDialogActions.setErrorMessage(''),
-                        errorDialogActions.setVisible(false),
-                    ])
-                );
-            }
+            await applicationClient.connectLocalDevice(service);
         } catch (error) {
             console.error(error);
         }
@@ -91,26 +79,19 @@ export const Welcome = () => {
     };
 
     const addCustomDevice = () => {
-        const firstService = Services.find((service) => service.customParameters);
-        if (!firstService?.customParameters) return;
-        dispatch(
-            batchActions([
-                otherDialogActions.setVisible(true),
-                otherDialogActions.setSelectedServiceIndex(0),
-                otherDialogActions.setCustomParameters(initializeParameters(firstService.customParameters)),
-            ])
-        );
+        if (!Services.some((service) => service.customParameters)) return;
+        setCustomDeviceOpen(true);
     };
 
     const removeSelectedCustomDevice = () => {
         if (!selectedServiceIsCustom) return;
-        void dispatch(deleteService(selectedIndex)).then(() => setPreferenceError(null)).catch((error) => {
+        void Promise.resolve().then(() => browserPreferences.deleteService(selectedIndex)).then(() => setPreferenceError(null)).catch((error) => {
             setPreferenceError(t(error instanceof Error ? error.message : String(error)));
         });
     };
 
     const selectService = (index: number) => {
-        void dispatch(setSelectedService(index)).then(() => setPreferenceError(null)).catch((error) => {
+        void Promise.resolve().then(() => browserPreferences.setSelectedService(index)).then(() => setPreferenceError(null)).catch((error) => {
             setPreferenceError(t(error instanceof Error ? error.message : String(error)));
         });
     };
@@ -122,7 +103,7 @@ export const Welcome = () => {
                     <span className="welcome-workspace__brand-mark" aria-hidden="true"><UsbRoundedIcon /></span>
                     <span><strong>{t('MiniDisc Workspace')}</strong><small>{t('Local first · Open source')}</small></span>
                 </div>
-                <TopMenu onShowSettings={openSettings} />
+                <TopMenu onShowAbout={() => setAboutOpen(true)} onShowSettings={openSettings} />
             </header>
 
             <main className="welcome-workspace__main">
@@ -169,7 +150,7 @@ export const Welcome = () => {
                             <p>{t('Use a Chromium browser for WebUSB, or continue if you only need a remote device.')}</p>
                             <div className="welcome-workspace__actions">
                                 <a className="welcome-workspace__primary" rel="noopener noreferrer" target="_blank" href="https://www.google.com/chrome/">Chrome<LaunchRoundedIcon /></a>
-                                <button className="welcome-workspace__secondary" onClick={() => dispatch(appActions.setBrowserSupported(true))}>{t('Continue for remote devices')}</button>
+                                <button className="welcome-workspace__secondary" onClick={() => setBrowserSupported(true)}>{t('Continue for remote devices')}</button>
                             </div>
                             <button className="welcome-workspace__text-button" onClick={() => setWhyUnsupported((visible) => !visible)}>{t('Why WebUSB is required')}</button>
                             {showWhyUnsupported ? <ul className="welcome-workspace__requirements"><li>{t('WebUSB is needed to control the NetMD device via the USB connection to your computer.')}</li><li>{t('WebAssembly is used to convert the music to a MiniDisc compatible format')}</li></ul> : null}
@@ -190,8 +171,12 @@ export const Welcome = () => {
             </footer>
 
             <WorkbenchSettingsDialog open={settingsOpen} onClose={closeSettings} />
-            <AboutDialog />
-            <OtherDeviceDialog />
+            <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
+            <OtherDeviceDialog
+                open={customDeviceOpen}
+                onClose={() => setCustomDeviceOpen(false)}
+                onAdd={(info) => browserPreferences.addService(info)}
+            />
             <AppDialog
                 open={fullHimdReview !== null}
                 size="small"

@@ -7,7 +7,6 @@ import { DEFAULT_UI_LANGUAGE_PREFERENCE } from '../i18n';
 export interface UserSettings {
     colorTheme: 'dark' | 'light' | 'system';
     uiLanguage: 'system' | 'en' | 'zh-CN';
-    discProtectedDialogDisabled: boolean;
     notifyWhenFinished: boolean;
     fullWidthSupport: boolean;
     factoryModeUseSlowerExploit: boolean;
@@ -34,7 +33,6 @@ export type UserSettingsUpdate = Partial<UserSettings>;
 const defaults: UserSettings = {
     colorTheme: 'system',
     uiLanguage: DEFAULT_UI_LANGUAGE_PREFERENCE,
-    discProtectedDialogDisabled: false,
     notifyWhenFinished: false,
     fullWidthSupport: false,
     factoryModeUseSlowerExploit: false,
@@ -139,12 +137,6 @@ export class SettingsStore {
         return {
             colorTheme: loadPreference('colorTheme', defaults.colorTheme, isOneOf(['dark', 'light', 'system'] as const), this.storage),
             uiLanguage: loadPreference('uiLanguage', defaults.uiLanguage, isOneOf(['system', 'en', 'zh-CN'] as const), this.storage),
-            discProtectedDialogDisabled: loadPreference(
-                'discProtectedDialogDisabled',
-                defaults.discProtectedDialogDisabled,
-                isBoolean,
-                this.storage
-            ),
             notifyWhenFinished: loadPreference('notifyWhenFinished', defaults.notifyWhenFinished, isBoolean, this.storage),
             fullWidthSupport: loadPreference('fullWidthSupport', defaults.fullWidthSupport, isBoolean, this.storage),
             factoryModeUseSlowerExploit: loadPreference(

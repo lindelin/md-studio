@@ -35,7 +35,7 @@ Run `npm run licenses:update` after dependency changes and `npm run runtime-asse
 - Read device, disc, import queue, settings, and task truth from Workspace Store.
 - Keep browser-only objects such as `File`, USB sessions, audio streams, workers, save targets, and interactive permission handles behind in-process adapters.
 - Keep MCP and CLI commands serializable. Do not add a JSON path that bypasses browser-only authorization for dangerous maintenance.
-- Do not create a second UI-specific device state or task lifecycle in Redux.
+- Do not create a second UI-specific device state or task lifecycle beside the shared Workspace.
 - Preserve partial results and recovery evidence when a multi-item task fails or is cancelled.
 
 ## Hardware testing

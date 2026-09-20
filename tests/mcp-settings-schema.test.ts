@@ -8,7 +8,6 @@ const expectedKeys = [
     'audioExportService',
     'audioExportServiceConfig',
     'colorTheme',
-    'discProtectedDialogDisabled',
     'factoryModeNERAWDownload',
     'factoryModeUseSlowerExploit',
     'fullWidthSupport',
@@ -37,6 +36,7 @@ describe('MCP settings schema', () => {
         assert.equal(mcpSettingsChangesSchema.safeParse({ archiveDiscCreateZip: true }).success, false);
         assert.equal(mcpSettingsChangesSchema.safeParse({ pageFullHeight: true }).success, false);
         assert.equal(mcpSettingsChangesSchema.safeParse({ factoryBadSectorRememberChoice: true }).success, false);
+        assert.equal(mcpSettingsChangesSchema.safeParse({ discProtectedDialogDisabled: true }).success, false);
         assert.equal(mcpSettingsChangesSchema.safeParse({ uiLanguage: 'fr' }).success, false);
         assert.equal(mcpSettingsChangesSchema.safeParse({}).success, false);
     });

@@ -10,12 +10,9 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
-import { useDispatch } from '../frontend-utils';
-import { actions as appActions } from '../redux/app-feature';
 import { useI18n } from './use-i18n';
 
-export const TopMenu = function ({ onShowSettings }: { onShowSettings: () => void }) {
-    const dispatch = useDispatch();
+export const TopMenu = function ({ onShowAbout, onShowSettings }: { onShowAbout: () => void; onShowSettings: () => void }) {
     const { t } = useI18n();
     const helpLinkRef = React.useRef<null | HTMLAnchorElement>(null);
     const [menuAnchorEl, setMenuAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -31,9 +28,9 @@ export const TopMenu = function ({ onShowSettings }: { onShowSettings: () => voi
     }, [handleMenuClose, onShowSettings]);
 
     const handleShowAbout = useCallback(() => {
-        dispatch(appActions.showAboutDialog(true));
+        onShowAbout();
         handleMenuClose();
-    }, [dispatch, handleMenuClose]);
+    }, [handleMenuClose, onShowAbout]);
 
     const handleHelpLink = useCallback(
         (event: React.MouseEvent<HTMLElement>) => {

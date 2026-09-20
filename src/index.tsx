@@ -5,17 +5,12 @@ import process from 'process';
 
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { Provider } from 'react-redux';
 import serviceRegistry from './services/registry';
-
-import { store } from './redux/store';
-import { actions as appActions } from './redux/app-feature';
 
 import App from './components/app';
 
 import { MediaRecorderService } from './services/browserintegration/mediarecorder';
 import { BrowserMediaSessionService } from './services/browserintegration/media-session';
-import { disconnectDevice } from './redux/actions';
 import { sleep } from './utils';
 import { SettingsResetErrorBoundary } from './components/settings-reset-error-boundary';
 import { startLocalApplicationBridge } from './application/browser-bridge';
@@ -40,8 +35,11 @@ serviceRegistry.importWriter = new BrowserImportWriter({
     getUseFullWidthTitles: () => serviceRegistry.settingsStore.getSnapshot().values.fullWidthSupport,
     localFiles,
     notifyCompleted: () => {
-        const state = store.getState().appState;
-        if (!state.hasNotificationSupport || !serviceRegistry.settingsStore.getSnapshot().values.notifyWhenFinished) return;
+        if (
+            !('Notification' in window) ||
+            Notification.permission === 'denied' ||
+            !serviceRegistry.settingsStore.getSnapshot().values.notifyWhenFinished
+        ) return;
         const notification = new Notification(runtimeTranslate('MiniDisc recording completed'), {
             icon: NotificationCompleteIconUrl,
         });
@@ -82,15 +80,14 @@ const originalApplicationTitle = document.title;
     if (navigator && navigator.usb) {
         navigator.usb.ondisconnect = function (event) {
             if (isActiveUsbDevice(event.device)) {
-                store.dispatch(disconnectDevice(false));
+                void applicationClient.disconnectLocalDevice(false).catch((error) => {
+                    console.error('Failed to finalize the disconnected USB device', error);
+                });
                 document.title = originalApplicationTitle;
             } else {
                 console.log("The device disconnected isn't connected to this webapp");
             }
         };
-    } else {
-        store.dispatch(appActions.setBrowserSupported(false));
-        store.dispatch(appActions.setRunningChrome(false));
     }
 
     Object.defineProperty(window, 'reload', {
@@ -100,7 +97,6 @@ const originalApplicationTitle = document.title;
     });
 
     if (!('Notification' in window) || Notification.permission === 'denied') {
-        store.dispatch(appActions.setNotificationSupport(false));
         if (serviceRegistry.settingsStore.getSnapshot().values.notifyWhenFinished) {
             serviceRegistry.settingsStore.update({ notifyWhenFinished: false });
         }
@@ -111,14 +107,13 @@ const originalApplicationTitle = document.title;
     // Polls the device for its state while playing tracks
     let consecutiveFailures = 0;
 
-    function shouldMonitorBeRunning(state: ReturnType<typeof store.getState>): boolean {
-        return state.appState.mainView === 'MAIN' && state.appState.loading === false;
+    function shouldMonitorBeRunning(): boolean {
+        return applicationClient.getWorkspaceSnapshot().connection.phase === 'connected';
     }
 
     async function monitor() {
         let nextPollDelay = 500;
-        const state = store.getState();
-        if (shouldMonitorBeRunning(state)) {
+        if (shouldMonitorBeRunning()) {
             const client = getApplicationClient();
             const activeSessionId = client.getWorkspaceSnapshot().device?.sessionId;
             if (!activeSessionId) {
@@ -127,7 +122,7 @@ const originalApplicationTitle = document.title;
             }
             try {
                 await sleep(250);
-                if (client.getWorkspaceSnapshot().device?.sessionId !== activeSessionId || !shouldMonitorBeRunning(store.getState())) {
+                if (client.getWorkspaceSnapshot().device?.sessionId !== activeSessionId || !shouldMonitorBeRunning()) {
                     setTimeout(monitor, nextPollDelay);
                     return;
                 }
@@ -158,11 +153,9 @@ const originalApplicationTitle = document.title;
 
 const root = createRoot(document.getElementById('root')!);
 root.render(
-    <Provider store={store}>
-        <ApplicationClientProvider client={applicationClient}>
-            <SettingsResetErrorBoundary>
-                <App />
-            </SettingsResetErrorBoundary>
-        </ApplicationClientProvider>
-    </Provider>
+    <ApplicationClientProvider client={applicationClient}>
+        <SettingsResetErrorBoundary>
+            <App />
+        </SettingsResetErrorBoundary>
+    </ApplicationClientProvider>
 );

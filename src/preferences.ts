@@ -6,6 +6,7 @@ export const APP_PREFERENCE_KEYS = [
     'uiLanguage',
     // Retired preference retained so Reset Application also removes legacy data.
     'vintageMode',
+    // Retired no-op warning preference retained for application reset cleanup.
     'discProtectedDialogDisabled',
     'notifyWhenFinished',
     'onlineServicesEnabled',

@@ -1,9 +1,6 @@
-import React, { useCallback, useState } from 'react';
-import { batchActions, useDispatch, useShallowEqualSelector } from '../frontend-utils';
+import React, { useCallback, useEffect, useState } from 'react';
 import { CustomParameterInfo, initializeParameters, isAllValid } from '../custom-parameters';
-import { addService } from '../redux/actions';
-import { actions as otherDeviceActions } from '../redux/other-device-feature';
-import { Services } from '../services/interface-service-manager';
+import { Services, type ServiceConstructionInfo } from '../services/interface-service-manager';
 import { AppDialog } from './app-dialog';
 import { useI18n } from './use-i18n';
 
@@ -13,6 +10,8 @@ type ParameterFieldProps = {
     onChange(value: string | number | boolean): void;
     translate(message: string): string;
 };
+
+const customServices = Services.filter((service) => service.customParameters);
 
 const ParameterField = ({ parameter, value, onChange, translate }: ParameterFieldProps) => {
     const label = translate(parameter.userFriendlyName);
@@ -74,47 +73,61 @@ const ParameterField = ({ parameter, value, onChange, translate }: ParameterFiel
     );
 };
 
-export const OtherDeviceDialog = () => {
+export const OtherDeviceDialog = ({
+    onAdd,
+    onClose,
+    open,
+}: {
+    onAdd(info: ServiceConstructionInfo): void | Promise<void>;
+    onClose(): void;
+    open: boolean;
+}) => {
     const { t } = useI18n();
-    const dispatch = useDispatch();
-    const { visible, selectedServiceIndex, customParameters } = useShallowEqualSelector((state) => state.otherDeviceDialog);
-    const customServices = Services.filter((service) => service.customParameters);
+    const [selectedServiceIndex, setSelectedServiceIndex] = useState(0);
+    const [customParameters, setCustomParameters] = useState(() =>
+        initializeParameters(customServices[0]?.customParameters)
+    );
     const safeSelectedIndex = customServices[selectedServiceIndex] ? selectedServiceIndex : 0;
     const currentService = customServices[safeSelectedIndex];
     const [saveError, setSaveError] = useState<string | null>(null);
 
+    useEffect(() => {
+        if (!open) return;
+        setSelectedServiceIndex(0);
+        setCustomParameters(initializeParameters(customServices[0]?.customParameters));
+        setSaveError(null);
+    }, [open]);
+
     const handleClose = useCallback(() => {
         setSaveError(null);
-        dispatch(otherDeviceActions.setVisible(false));
-    }, [dispatch]);
+        onClose();
+    }, [onClose]);
 
     const handleAdd = useCallback(() => {
         if (!currentService || !isAllValid(currentService.customParameters, customParameters)) return;
         setSaveError(null);
-        void dispatch(addService({ id: currentService.id, name: currentService.name, parameters: customParameters }))
-            .then(() => dispatch(otherDeviceActions.setVisible(false)))
+        void Promise.resolve(onAdd({ id: currentService.id, name: currentService.name, parameters: customParameters }))
+            .then(onClose)
             .catch((error) => setSaveError(t(error instanceof Error ? error.message : String(error))));
-    }, [currentService, customParameters, dispatch, t]);
+    }, [currentService, customParameters, onAdd, onClose, t]);
 
     const handleServiceSelectionChanged = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
         const nextIndex = Number(event.target.value);
         const nextService = customServices[nextIndex];
         if (!nextService) return;
-        dispatch(batchActions([
-            otherDeviceActions.setSelectedServiceIndex(nextIndex),
-            otherDeviceActions.setCustomParameters(initializeParameters(nextService.customParameters)),
-        ]));
-    }, [customServices, dispatch]);
+        setSelectedServiceIndex(nextIndex);
+        setCustomParameters(initializeParameters(nextService.customParameters));
+    }, []);
 
     const handleParameterChange = useCallback((varName: string, value: string | number | boolean) => {
-        dispatch(otherDeviceActions.setCustomParameters({ ...customParameters, [varName]: value }));
-    }, [customParameters, dispatch]);
+        setCustomParameters((current) => ({ ...current, [varName]: value }));
+    }, []);
 
     const addDisabled = !currentService || !isAllValid(currentService.customParameters, customParameters);
 
     return (
         <AppDialog
-            open={visible}
+            open={open}
             title={t('Add Custom Device')}
             onClose={handleClose}
             dismissOnBackdrop

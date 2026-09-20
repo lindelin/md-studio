@@ -54,11 +54,9 @@ function decodeBase64(data: string) {
 export const WorkbenchTools = ({
     onMessage,
     onTaskStarted,
-    onSessionEnded,
 }: {
     onMessage(message: string): void;
     onTaskStarted(id: string, message: string): void;
-    onSessionEnded(): void;
 }) => {
     const { language, t } = useI18n();
     const client = useApplicationClient();
@@ -595,7 +593,6 @@ export const WorkbenchTools = ({
                 setMaintenanceAction(null);
                 setMaintenanceConfirmation('');
                 setStatus(null);
-                onSessionEnded();
                 return;
             }
 

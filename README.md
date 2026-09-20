@@ -2,7 +2,7 @@
 
 MiniDisc Workspace is a local-first application for organizing, writing, playing, and exporting MiniDisc media. It is being rebuilt around a shared application command layer so the browser UI, MCP server, and CLI use the same device state, validation, task progress, and safety rules.
 
-The project is under active reconstruction. The stable NetMD and HiMD protocol implementations are retained while device orchestration and the user interface are separated from the legacy Redux actions.
+The project is under active reconstruction. The stable NetMD and HiMD protocol implementations are retained while device orchestration and the user interface move onto the shared application command and workspace model.
 
 ## Current capabilities
 
@@ -82,7 +82,7 @@ CLI ──────────────┘              │
                            tasks and imports
 ```
 
-The application layer owns validation, revisions, destructive confirmation, serialization, task state, and device snapshots. Studio Workbench is the primary interface and reads the same workspace model as MCP and CLI. Redux remains only for the connection shell and compatibility dialogs; it no longer owns device, disc, task, import-queue, or persistent-setting truth. The obsolete standalone Factory screen has been removed; its supported TOC, recovery, and maintenance operations live in the capability-gated Tools workflow.
+The application layer owns validation, revisions, destructive confirmation, serialization, task state, and device snapshots. Studio Workbench is the primary interface and reads the same workspace model as MCP and CLI. A small browser-preferences store owns only the selected adapter, custom-device catalog, and local-bridge switch; dialog and form drafts stay in local React state. Redux is no longer a dependency. The obsolete standalone Factory screen has been removed; its supported TOC, recovery, and maintenance operations live in the capability-gated Tools workflow.
 
 ## Local execution boundary
 

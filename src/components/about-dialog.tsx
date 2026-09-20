@@ -1,22 +1,17 @@
-import React, { useCallback } from 'react';
-import { useDispatch, useShallowEqualSelector } from '../frontend-utils';
-import { actions as appActions } from '../redux/app-feature';
+import React from 'react';
 import { BUILD_DATE, GIT_DIFF, GIT_HASH } from '../version-info';
 import { AppDialog } from './app-dialog';
 import { useI18n } from './use-i18n';
 
-export const AboutDialog = () => {
+export const AboutDialog = ({ open, onClose }: { open: boolean; onClose(): void }) => {
     const { t } = useI18n();
-    const dispatch = useDispatch();
-    const visible = useShallowEqualSelector((state) => state.appState.aboutDialogVisible);
-    const handleClose = useCallback(() => dispatch(appActions.showAboutDialog(false)), [dispatch]);
 
     return (
         <AppDialog
-            open={visible}
+            open={open}
             title={t('About MiniDisc Workspace')}
-            onClose={handleClose}
-            actions={<button className="app-dialog__button--primary" onClick={handleClose}>{t('Close')}</button>}
+            onClose={onClose}
+            actions={<button className="app-dialog__button--primary" onClick={onClose}>{t('Close')}</button>}
         >
             <p>
                 {t('MiniDisc Workspace is derived from')}{' '}

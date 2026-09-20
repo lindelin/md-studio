@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { useDispatch } from '../../frontend-utils';
 import {
     acceptedTypes,
     bytesToHumanReadable,
@@ -9,7 +8,6 @@ import {
     getSortedTracks,
     isSequential,
 } from '../../utils';
-import { actions as appActions } from '../../redux/app-feature';
 import { useApplicationClient, useApplicationWorkspace, useUpdateApplicationSettings } from '../use-application-client';
 import type { AdvancedBadSectorDecision } from '../../application/contracts';
 import { getDefaultRecordingFormat, getRecordingCodec } from '../../application/device-profile';
@@ -68,10 +66,7 @@ import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 
 import { TopMenu } from '../topmenu';
-import { DiscProtectedDialog } from '../disc-protected-dialog';
-import { ErrorDialog } from '../error-dialog';
 import { AboutDialog } from '../about-dialog';
-import { PanicDialog } from '../panic-dialog';
 import { WorkbenchLibrary } from './workbench-library';
 import { WorkbenchSettings } from './workbench-settings';
 import { WorkbenchTrackTransfer } from './workbench-track-transfer';
@@ -132,7 +127,6 @@ function formatTaskTimestamp(timestamp?: string) {
 
 export const Workbench = () => {
     const { language, t } = useI18n();
-    const dispatch = useDispatch();
     const client = useApplicationClient();
     const workspace = useApplicationWorkspace();
     const updateSettings = useUpdateApplicationSettings();
@@ -154,6 +148,7 @@ export const Workbench = () => {
     const [groupDialogOpen, setGroupDialogOpen] = useState(false);
     const [trackTransferMode, setTrackTransferMode] = useState<'export' | 'record' | 'recovery' | null>(null);
     const [trackRecognitionOpen, setTrackRecognitionOpen] = useState(false);
+    const [aboutOpen, setAboutOpen] = useState(false);
     const [taskCenterOpen, setTaskCenterOpen] = useState(false);
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [writeReviewOpen, setWriteReviewOpen] = useState(false);
@@ -978,7 +973,7 @@ export const Workbench = () => {
 
                 <nav className="workbench__nav workbench__support-nav" aria-label={t('Help')}>
                     <a href="https://www.minidisc.wiki/guides/start" target="_blank" rel="noreferrer"><HelpOutlineRoundedIcon /><span>{t('Help & Support')}</span></a>
-                    <button aria-label={t('About')} onClick={() => dispatch(appActions.showAboutDialog(true))}><InfoOutlinedIcon /><span>{t('About')}</span></button>
+                    <button aria-label={t('About')} onClick={() => setAboutOpen(true)}><InfoOutlinedIcon /><span>{t('About')}</span></button>
                 </nav>
 
                 <div className="workbench__sidebar-footer">
@@ -997,7 +992,7 @@ export const Workbench = () => {
                         <span className={`workbench__status ${device ? 'is-online' : ''}`}><i />{t(device ? 'Connected' : 'Disconnected')}</span>
                         <button className="icon-button" aria-label={t('Refresh disc')} onClick={refresh} disabled={!disc || busy}><RefreshRoundedIcon /></button>
                         <button className="workbench__eject-button" aria-label={t('Eject disc')} onClick={eject} disabled={!disc || !canEject || busy}><EjectIcon /><span>{t('Eject')}</span></button>
-                        <TopMenu onShowSettings={() => setSection('settings')} />
+                        <TopMenu onShowAbout={() => setAboutOpen(true)} onShowSettings={() => setSection('settings')} />
                     </div>
                 </header>
 
@@ -1047,7 +1042,6 @@ export const Workbench = () => {
                 ) : section === 'tools' ? (
                     <WorkbenchTools
                         onMessage={setMessage}
-                        onSessionEnded={() => dispatch(appActions.setMainView('WELCOME'))}
                         onTaskStarted={(id, nextMessage) => {
                             setSelectedTaskId(id);
                             setTaskCenterOpen(true);
@@ -1277,10 +1271,7 @@ export const Workbench = () => {
             {isDragActive ? <div className="workbench__drop-overlay"><FolderOpenIcon /><strong>{t('Drop audio to add it to the recording plan')}</strong></div> : null}
             {message ? <button className="workbench__toast" aria-live="polite" aria-atomic="true" onClick={() => setMessage(null)}>{t(message)}</button> : null}
 
-            <DiscProtectedDialog />
-            <ErrorDialog />
-            <AboutDialog />
-            <PanicDialog />
+            <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
 
             {trackTransferMode && device ? (
                 <WorkbenchTrackTransfer

@@ -16,12 +16,14 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 - Device services return results and errors without opening browser-native alert, confirm, or prompt dialogs. Full-access HiMD uses a bilingual in-app review.
 - Windows development and production builds use cross-platform runtime preparation and version metadata.
 - The bundled open-source Atracdenc runtime is rebuilt from pinned source and toolchain revisions with a checksum-enforced Windows script.
+- The legacy Redux shell has been removed. Runtime state comes from the shared Workspace, while the browser-only device catalog and local-bridge switch use a small revisioned preference store.
 
 ## Reliability and safety
 
 - Device mutations are serialized and checked for capability, disc presence, write protection, session, revision, index, and destructive confirmation.
 - Shared settings are persisted before their revision is published. Browser storage failures return a structured error and multi-field updates restore their previous values instead of reporting a success that disappears after reload.
-- Device selection, custom-device entries, and the local-bridge switch are also persisted before Redux state changes. Their reducers remain free of browser-storage side effects, and failed writes stay visible in the bilingual interface.
+- Device selection, custom-device entries, and the local-bridge switch are persisted before the browser-preferences store publishes a new revision. Failed writes leave the previous snapshot intact and stay visible in the bilingual interface.
+- The obsolete write-protection-warning preference has been retired; actual write protection continues to be enforced by the application command layer.
 - The startup recovery screen clears only this application's preferences as one transaction. If browser storage refuses the reset, it keeps the error visible instead of reloading into the same failure.
 - Encoder output is validated for ATRAC container, codec, bitrate, and non-empty frames before upload.
 - Remote requests, browser workers, playback readiness, and cached reconnects have bounded failure paths.
@@ -40,7 +42,7 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 
 ## Verification snapshot
 
-- 319 automated tests in 85 suites
+- 318 automated tests in 84 suites
 - Full TypeScript and TSX lint with zero warnings
 - Application and bridge type checks
 - Production Vite/PWA build

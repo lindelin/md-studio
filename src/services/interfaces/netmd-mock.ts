@@ -191,7 +191,7 @@ class NetMDMockService extends NetMDService {
     }
 
     async listContent() {
-        // This object ends up in the state of redux and Immer will freeze it.
+        // Keep mock metadata as plain data because application snapshots are recursively frozen.
         // That's why it's deep cloned
         return JSON.parse(JSON.stringify(this._getDisc()));
     }
