@@ -34,7 +34,6 @@ import {
     readPatch,
     formatToHiMD,
 } from 'netmd-js';
-import { makeGetAsyncPacketIteratorOnWorkerThread } from 'netmd-js/dist/web-encrypt-worker';
 import { Logger } from 'netmd-js/dist/logger';
 import { sanitizeHalfWidthTitle, sanitizeFullWidthTitle, concatUint8Arrays } from 'netmd-js/dist/utils';
 import { asyncMutex, sleep, isSequential, getPublicPathFor } from '../../utils';
@@ -62,7 +61,7 @@ import {
 import netmdExploits from 'netmd-exploits';
 import netmdTocmanip from 'netmd-tocmanip';
 import { HiMDCodecName } from 'himd-js';
-import Worker from 'netmd-js/dist/web-encrypt-worker?worker';
+import { makeNetMDEncryptPacketIterator } from './netmd-encrypt-worker';
 import { Capability, ExploitCapability } from './capabilities';
 export { Capability, ExploitCapability } from './capabilities';
 
@@ -698,8 +697,11 @@ export class NetMDUSBService extends NetMDService {
         this.dropCachedContentList();
     }
 
-    getWorkerForUpload(): [Worker, typeof makeGetAsyncPacketIteratorOnWorkerThread] {
-        return [new Worker(), makeGetAsyncPacketIteratorOnWorkerThread];
+    getWorkerForUpload(): [Worker, typeof makeNetMDEncryptPacketIterator] {
+        return [
+            new Worker(new URL('./netmd-encrypt-worker-runtime.ts', import.meta.url), { type: 'module' }),
+            makeNetMDEncryptPacketIterator,
+        ];
     }
 
     @asyncMutex

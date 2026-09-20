@@ -1,10 +1,9 @@
 import { getCellsForTitle, getRemainingCharactersForTitles, MDTrack } from 'netmd-js';
 import { Logger } from 'netmd-js/dist/logger';
 import { concatUint8Arrays } from 'netmd-js/dist/utils';
-import { makeGetAsyncPacketIteratorOnWorkerThread } from 'netmd-js/dist/web-encrypt-worker';
 import { asyncMutex } from '../../utils';
 import { Capability, NetMDService, Group, Disc, Track, convertDiscToNJS, convertTrackToNJS, Codec, WireformatDict } from './netmd';
-import Worker from 'netmd-js/dist/web-encrypt-worker?worker';
+import { makeNetMDEncryptPacketIterator } from './netmd-encrypt-worker';
 
 export class NetMDRemoteService extends NetMDService {
     private logger?: Logger;
@@ -228,9 +227,9 @@ export class NetMDRemoteService extends NetMDService {
                     encrypted,
                 });
 
-            const w = new Worker();
+            const w = new Worker(new URL('./netmd-encrypt-worker-runtime.ts', import.meta.url), { type: 'module' });
 
-            const webWorkerAsyncPacketIterator = makeGetAsyncPacketIteratorOnWorkerThread(w, ({ encryptedBytes }) => {
+            const webWorkerAsyncPacketIterator = makeNetMDEncryptPacketIterator(w, ({ encryptedBytes }) => {
                 encrypted = encryptedBytes;
                 updateProgress();
             });
