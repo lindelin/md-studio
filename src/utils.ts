@@ -1,11 +1,7 @@
-import { AppDispatch, RootState } from './redux/store';
 import { Mutex } from 'async-mutex';
 import { Disc, Track } from './services/interfaces/netmd';
 import { HiMDKBPSToFrameSize, type HiMDCodecName } from 'himd-js';
 import { ExportParams } from './services/audio/audio-export';
-import { SIGNATURES } from 'netmd-tocmanip';
-
-export type Promised<R> = R extends Promise<infer Q> ? Q : never;
 
 export const acceptedTypes = {
     'audio/*': [],
@@ -279,12 +275,6 @@ export function timeToSeekArgs(timeInSecs: number): number[] {
     return [h, m, s, 0];
 }
 
-export function secondsToHumanReadable(time: number): string {
-    const negative = time < 0;
-    const [h, m, s] = timeToSeekArgs(Math.abs(time));
-    return `${negative ? '-' : ''}${h > 0 ? h + ':' : ''}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-}
-
 export function bytesToHumanReadable(bytes: number): string {
     if (bytes === 0) return '0 B';
     const negative = bytes < 0;
@@ -373,24 +363,6 @@ export function asyncMutex(target: any, propertyKey: string, descriptor: Propert
     return descriptor;
 }
 
-export function askNotificationPermission(): Promise<NotificationPermission> {
-    // Adapted from: https://developer.mozilla.org/en-US/docs/Web/API/Notifications_API/Using_the_Notifications_API
-    function checkNotificationPromise() {
-        try {
-            Notification.requestPermission().then();
-        } catch (e) {
-            return false;
-        }
-        return true;
-    }
-
-    if (checkNotificationPromise()) {
-        return Notification.requestPermission();
-    } else {
-        return new Promise((resolve) => Notification.requestPermission(resolve));
-    }
-}
-
 export function downloadBlob(buffer: Blob, fileName: string) {
     const url = URL.createObjectURL(buffer);
     const a = document.createElement('a');
@@ -460,19 +432,4 @@ export async function convertToWAV(
 ): Promise<Uint8Array<ArrayBuffer>> {
     void track;
     return ffmpegTranscode(data, extension, '-f wav');
-}
-
-export function dispatchQueue(
-    ...entries: ((dispatch: AppDispatch, getState: () => RootState) => Promise<void>)[]
-): (dispatch: AppDispatch, getState: () => RootState) => Promise<void> {
-    return async function (dispatch: AppDispatch, getState: () => RootState) {
-        for (const entry of entries) {
-            await entry(dispatch, getState);
-        }
-    };
-}
-
-export function getDeviceNameFromTOCSignature(deviceId: number) {
-    const signature = SIGNATURES[deviceId];
-    return `${signature || 'Unknown device'} (0x${deviceId.toString(16).padStart(4, '0')})`;
 }
