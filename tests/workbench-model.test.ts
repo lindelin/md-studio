@@ -8,6 +8,7 @@ import {
     createDefaultServiceParameters,
     defaultMetadataTrackSelection,
     findTaskNeedingAttention,
+    formatRecognitionTitle,
     getTaskErrorDetail,
     getSelfTestReadiness,
     isActiveUninterruptibleWrite,
@@ -223,6 +224,18 @@ describe('Studio Workbench device diagnostics', () => {
         });
         assert.equal(getSelfTestReadiness({ ...device, disc: { ...device.disc!, trackCount: 1 } }).ready, false);
         assert.equal(getSelfTestReadiness({ ...device, capabilities: capabilities.slice(1) }).ready, false);
+    });
+});
+
+describe('Studio Workbench recognition titles', () => {
+    it('formats complete and partial recognition metadata without dangling separators', () => {
+        const metadata = { title: 'Song', artist: 'Artist', album: 'Album' };
+        assert.equal(formatRecognitionTitle(metadata, 'title'), 'Song');
+        assert.equal(formatRecognitionTitle(metadata, 'album-title'), 'Album - Song');
+        assert.equal(formatRecognitionTitle(metadata, 'artist-title'), 'Artist - Song');
+        assert.equal(formatRecognitionTitle(metadata, 'title-artist'), 'Song - Artist');
+        assert.equal(formatRecognitionTitle(metadata, 'artist-album-title'), 'Artist - Album - Song');
+        assert.equal(formatRecognitionTitle({ title: 'Song', artist: '', album: '  ' }, 'artist-album-title'), 'Song');
     });
 });
 

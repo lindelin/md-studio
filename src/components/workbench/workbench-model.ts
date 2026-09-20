@@ -184,6 +184,28 @@ export function getSelfTestReadiness(device?: Pick<DeviceSnapshot, 'capabilities
     return { ready: true, reason: 'This disc can run the complete 14-step destructive self-test.' };
 }
 
+export type RecognitionTitleFormat = 'title' | 'album-title' | 'artist-title' | 'title-artist' | 'artist-album-title';
+
+export function formatRecognitionTitle(
+    metadata: { title?: string; artist?: string; album?: string },
+    format: RecognitionTitleFormat
+) {
+    const title = metadata.title?.trim() ?? '';
+    const artist = metadata.artist?.trim() ?? '';
+    const album = metadata.album?.trim() ?? '';
+    const parts =
+        format === 'album-title'
+            ? [album, title]
+            : format === 'artist-title'
+              ? [artist, title]
+              : format === 'title-artist'
+                ? [title, artist]
+                : format === 'artist-album-title'
+                  ? [artist, album, title]
+                  : [title];
+    return parts.filter(Boolean).join(' - ');
+}
+
 export function summarizeTaskResult(result: unknown) {
     if (!result || typeof result !== 'object' || Array.isArray(result)) return [];
     const record = result as Record<string, unknown>;

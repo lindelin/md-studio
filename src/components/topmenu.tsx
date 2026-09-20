@@ -70,7 +70,12 @@ const useStyles = makeStyles()((theme) => ({
     },
 }));
 
-export const TopMenu = function (props: { tracksSelected?: number[]; onClick?: () => void }) {
+export const TopMenu = function (props: {
+    tracksSelected?: number[];
+    onClick?: () => void;
+    onRecognizeTracks?: () => void;
+}) {
+    const { tracksSelected, onClick, onRecognizeTracks } = props;
     const { classes } = useStyles();
     const dispatch = useDispatch();
 
@@ -267,9 +272,10 @@ export const TopMenu = function (props: { tracksSelected?: number[]; onClick?: (
     );
 
     const handleOpenSongRecognition = useCallback(() => {
-        dispatch(openRecognizeTrackDialog(props.tracksSelected ?? []));
+        if (onRecognizeTracks) onRecognizeTracks();
+        else dispatch(openRecognizeTrackDialog(tracksSelected ?? []));
         handleMenuClose();
-    }, [dispatch, handleMenuClose, props.tracksSelected]);
+    }, [dispatch, handleMenuClose, onRecognizeTracks, tracksSelected]);
 
     const menuItems = [],
         shortcutsItems = [];
@@ -624,7 +630,7 @@ export const TopMenu = function (props: { tracksSelected?: number[]; onClick?: (
     if (vintageMode) {
         const p = {
             mainView,
-            onClick: props.onClick,
+            onClick,
             handleWipeDisc,
             handleRefresh,
             handleRenameDisc,

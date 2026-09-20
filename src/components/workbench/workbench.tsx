@@ -58,6 +58,7 @@ import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import CreateNewFolderRoundedIcon from '@mui/icons-material/CreateNewFolderRounded';
 import FolderOffRoundedIcon from '@mui/icons-material/FolderOffRounded';
 import SelectAllRoundedIcon from '@mui/icons-material/SelectAllRounded';
+import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded';
 
 import { TopMenu } from '../topmenu';
 import { DiscProtectedDialog } from '../disc-protected-dialog';
@@ -65,7 +66,6 @@ import { RenameDialog } from '../rename-dialog';
 import { ErrorDialog } from '../error-dialog';
 import { FactoryModeBadSectorDialog } from '../factory/factory-bad-sector-dialog';
 import { DumpDialog } from '../dump-dialog';
-import { SongRecognitionDialog } from '../song-recognition-dialog';
 import { FactoryModeNoticeDialog } from '../factory/factory-notice-dialog';
 import { AboutDialog } from '../about-dialog';
 import { ChangelogDialog } from '../changelog-dialog';
@@ -73,6 +73,7 @@ import { PanicDialog } from '../panic-dialog';
 import { WorkbenchLibrary } from './workbench-library';
 import { WorkbenchSettings } from './workbench-settings';
 import { WorkbenchTrackTransfer } from './workbench-track-transfer';
+import { WorkbenchTrackRecognition } from './workbench-track-recognition';
 import { WorkbenchTools } from './workbench-tools';
 
 import './workbench.css';
@@ -142,6 +143,7 @@ export const Workbench = () => {
     const [groupDraft, setGroupDraft] = useState('');
     const [groupDialogOpen, setGroupDialogOpen] = useState(false);
     const [trackTransferOpen, setTrackTransferOpen] = useState(false);
+    const [trackRecognitionOpen, setTrackRecognitionOpen] = useState(false);
     const [taskCenterOpen, setTaskCenterOpen] = useState(false);
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [writeReviewOpen, setWriteReviewOpen] = useState(false);
@@ -768,7 +770,7 @@ export const Workbench = () => {
                         <span className={`workbench__status ${device ? 'is-online' : ''}`}><i />{device ? 'Connected' : 'Disconnected'}</span>
                         <button className="icon-button" aria-label="Refresh disc" onClick={refresh} disabled={!disc || busy}><RefreshRoundedIcon /></button>
                         <button className="workbench__eject-button" aria-label="Eject disc" onClick={eject} disabled={!disc || !canEject || busy}><EjectIcon /><span>Eject</span></button>
-                        <TopMenu tracksSelected={selectedTrackIndexes} />
+                        <TopMenu tracksSelected={selectedTrackIndexes} onRecognizeTracks={() => setTrackRecognitionOpen(true)} />
                     </div>
                 </header>
 
@@ -848,6 +850,7 @@ export const Workbench = () => {
                                 <strong>{selectedTrackIndexes.length} selected</strong>
                                 <span>Ctrl/⌘ click toggles · Shift click extends the selection</span>
                                 <div>
+                                    <button onClick={() => setTrackRecognitionOpen(true)} disabled={!canPlayback && !device?.capabilities.includes('advanced.factory')}><MusicNoteRoundedIcon /> Recognize</button>
                                     <button onClick={openTrackTransfer}><DownloadRoundedIcon /> {canDownload || factoryModeRippingInMainUi ? 'Export' : 'Record'}</button>
                                     <button onClick={() => { setGroupDraft(''); setGroupDialogOpen(true); }} disabled={!canGroupSelection}><CreateNewFolderRoundedIcon /> Group</button>
                                     <button onClick={ungroupSelected} disabled={!canDeleteGroup || selectedNamedGroups.length === 0}><FolderOffRoundedIcon /> Ungroup</button>
@@ -1042,7 +1045,6 @@ export const Workbench = () => {
             <ErrorDialog />
             <FactoryModeBadSectorDialog />
             {factoryModeRippingInMainUi ? <DumpDialog trackIndexes={selectedTrackIndexes} isCapableOfDownload isExploitDownload /> : null}
-            <SongRecognitionDialog />
             <FactoryModeNoticeDialog />
             <AboutDialog />
             <ChangelogDialog />
@@ -1059,6 +1061,21 @@ export const Workbench = () => {
                         setTaskCenterOpen(true);
                         setMessage(nextMessage);
                     }}
+                />
+            ) : null}
+
+            {trackRecognitionOpen && device ? (
+                <WorkbenchTrackRecognition
+                    tracks={tracks}
+                    initialTrackIndexes={selectedTrackIndexes}
+                    expectedRevision={device.revision}
+                    onClose={() => setTrackRecognitionOpen(false)}
+                    onTaskStarted={(id, nextMessage) => {
+                        setSelectedTaskId(id);
+                        setTaskCenterOpen(true);
+                        setMessage(nextMessage);
+                    }}
+                    onApplied={setMessage}
                 />
             ) : null}
 
