@@ -3,6 +3,7 @@ import type {
     AdvancedDeviceInfo,
     AdvancedTocDump,
     AdvancedTocPatchPreview,
+    AdvancedTocWritePreview,
     DeviceSnapshot,
     GroupMetadataUpdate,
     HiMDTrackMetadataUpdate,
@@ -57,6 +58,7 @@ export type ApplicationCommand =
     | { type: 'metadata.applyCsv'; text: string; includedTrackIndexes: number[]; expectedRevision?: number }
     | { type: 'advanced.inspect' }
     | { type: 'advanced.readToc' }
+    | { type: 'advanced.previewTocWrite'; dataBase64: string }
     | { type: 'advanced.previewTocPatch'; kind: RawTocPatchKind }
     | {
           type: 'advanced.writeToc';
@@ -64,7 +66,7 @@ export type ApplicationCommand =
           confirmation?: DestructiveConfirmation;
           expectedRevision?: number;
           interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION;
-          expectedCurrentTocSha256?: string;
+          expectedCurrentTocSha256: string;
       }
     | {
           type: 'advanced.applyTocPatch';
@@ -160,6 +162,7 @@ export interface CommandSuccess {
     metadataPlan?: MetadataImportPlan;
     advancedInfo?: AdvancedDeviceInfo;
     advancedToc?: AdvancedTocDump;
+    advancedTocWritePreview?: AdvancedTocWritePreview;
     advancedTocPatch?: AdvancedTocPatchPreview;
     settings?: SettingsSnapshot;
     library?: LibraryCatalogSnapshot;
@@ -422,6 +425,9 @@ export class ApplicationCommandBus {
             }
             if (command.type === 'advanced.readToc') {
                 return { ok: true, advancedToc: await application.readRawToc() };
+            }
+            if (command.type === 'advanced.previewTocWrite') {
+                return { ok: true, advancedTocWritePreview: await application.previewRawTocWrite(command.dataBase64) };
             }
             if (command.type === 'advanced.previewTocPatch') {
                 return { ok: true, advancedTocPatch: await application.previewRawTocPatch(command.kind) };

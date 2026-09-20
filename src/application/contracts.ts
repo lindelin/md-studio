@@ -82,6 +82,16 @@ export interface AdvancedTocDump {
     dataBase64: string;
 }
 
+export interface AdvancedTocWritePreview {
+    byteLength: number;
+    currentSha256: string;
+    proposedSha256: string;
+    currentWritableSha256: string;
+    proposedWritableSha256: string;
+    changedWritableBytes: number;
+    changedWritableSectors: number[];
+}
+
 export interface AdvancedTocPatchPreview {
     kind: RawTocPatchKind;
     totalTracks: number;

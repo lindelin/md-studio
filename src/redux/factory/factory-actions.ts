@@ -108,7 +108,6 @@ export function editFragmentMode(index: number, mode: number) {
 
 export function writeModifiedTOC() {
     return async function(dispatch: AppDispatch, getState: () => RootState) {
-        if (!window.confirm('Write the edited TOC to the disc? A malformed TOC can make every track unreadable.')) return;
         dispatch(appStateActions.setLoading(true));
         try {
             const toc = getState().factory.toc!;
@@ -116,12 +115,37 @@ export function writeModifiedTOC() {
             const data = new Uint8Array(2352 * 6);
             for (let index = 0; index < 6; index += 1) data.set(sectors[index]!, index * 2352);
             const client = getApplicationClient();
+            const preparedDevice = client.getWorkspaceSnapshot().device;
+            if (!preparedDevice) throw new Error('No MiniDisc device is connected.');
+            const dataBase64 = encodeBase64(data);
+            const previewResult = await client.execute({ type: 'advanced.previewTocWrite', dataBase64 });
+            if (!previewResult.ok) throw new Error(previewResult.error.message);
+            const preview = previewResult.advancedTocWritePreview;
+            if (!preview) throw new Error('The device did not return a raw TOC write preview.');
+            if (preview.changedWritableBytes === 0) {
+                window.alert('The edited TOC matches the writable sectors on the disc. No write is needed.');
+                dispatch(factoryActions.setModified(false));
+                return;
+            }
+            const reviewedDevice = client.getWorkspaceSnapshot().device;
+            if (
+                reviewedDevice?.sessionId !== preparedDevice.sessionId ||
+                reviewedDevice.revision !== preparedDevice.revision
+            ) {
+                throw new Error('The connected device or disc changed while the edited TOC was being reviewed. Review it again.');
+            }
+            const confirmation = 'WRITE EDITED TOC';
+            const supplied = window.prompt(
+                `The edited TOC changes ${preview.changedWritableBytes.toLocaleString()} byte${preview.changedWritableBytes === 1 ? '' : 's'} in writable sector${preview.changedWritableSectors.length === 1 ? '' : 's'} ${preview.changedWritableSectors.join(', ')}.\n\nCurrent SHA-256: ${preview.currentSha256}\nProposed SHA-256: ${preview.proposedSha256}\n\nA malformed TOC can make every track unreadable. Type ${confirmation} to continue.`
+            );
+            if (supplied !== confirmation) return;
             const result = await client.execute({
                 type: 'advanced.writeToc',
-                dataBase64: encodeBase64(data),
-                confirmation: { confirmed: true, reason: 'Confirmed in the advanced TOC editor.' },
-                expectedRevision: client.getWorkspaceSnapshot().device?.revision,
+                dataBase64,
+                confirmation: { confirmed: true, reason: 'Confirmed after reviewing the edited TOC checksums and byte changes.' },
+                expectedRevision: preparedDevice.revision,
                 interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
+                expectedCurrentTocSha256: preview.currentSha256,
             });
             if (!result.ok) throw new Error(result.error.message);
             if (!result.snapshot) throw new Error('Writing the advanced TOC did not return the device state.');

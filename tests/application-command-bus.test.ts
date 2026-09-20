@@ -192,7 +192,19 @@ describe('ApplicationCommandBus import writing', () => {
     it('routes confirmed raw TOC writes through the application boundary', async () => {
         let receivedBytes = '';
         let receivedExpectedHash: string | undefined;
+        const preview = {
+            byteLength: 14112,
+            currentSha256: 'a'.repeat(64),
+            proposedSha256: 'b'.repeat(64),
+            currentWritableSha256: 'c'.repeat(64),
+            proposedWritableSha256: 'd'.repeat(64),
+            changedWritableBytes: 2,
+            changedWritableSectors: [0, 2],
+        };
         const application = {
+            async previewRawTocWrite() {
+                return preview;
+            },
             async writeRawToc(
                 dataBase64: string,
                 _confirmation: unknown,
@@ -207,6 +219,7 @@ describe('ApplicationCommandBus import writing', () => {
         } as unknown as MiniDiscApplication;
         const bus = new ApplicationCommandBus(application, new TaskManager(), new ImportQueue());
 
+        const previewResult = await bus.execute({ type: 'advanced.previewTocWrite', dataBase64: 'dG9j' });
         const result = await bus.execute({
             type: 'advanced.writeToc',
             dataBase64: 'dG9j',
@@ -215,6 +228,7 @@ describe('ApplicationCommandBus import writing', () => {
             expectedCurrentTocSha256: 'a'.repeat(64),
         });
 
+        assert.deepEqual(previewResult.ok && previewResult.advancedTocWritePreview, preview);
         assert.equal(receivedBytes, 'dG9j');
         assert.equal(receivedExpectedHash, 'a'.repeat(64));
         assert.equal(result.ok && result.snapshot?.revision, 8);

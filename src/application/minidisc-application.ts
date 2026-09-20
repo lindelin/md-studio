@@ -3,6 +3,7 @@ import {
     type AdvancedDeviceGateway,
     type AdvancedTocDump,
     type AdvancedTocPatchPreview,
+    type AdvancedTocWritePreview,
     type AdvancedMemoryDump,
     type AdvancedMemoryKind,
     type AdvancedMemoryProgress,
@@ -38,6 +39,8 @@ import { getRecordingCodec } from './device-profile';
 import {
     isRawTocPatchKind,
     planRawTocPatch,
+    RAW_TOC_BYTE_LENGTH,
+    RAW_TOC_SECTOR_COUNT,
     RAW_TOC_SECTOR_SIZE,
     RAW_TOC_WRITABLE_SECTOR_COUNT,
     RAW_TOC_WRITABLE_BYTE_LENGTH,
@@ -170,6 +173,39 @@ export class MiniDiscApplication {
         });
     }
 
+    previewRawTocWrite(dataBase64: string): Promise<AdvancedTocWritePreview> {
+        return this.serial(async () => {
+            this.requireWritableDisc('advanced.factory');
+            const proposed = this.decodeRawToc(dataBase64);
+            const gateway = this.requireAdvancedGateway();
+            await this.requireExploitCapability(gateway, 'flushUTOC');
+            const currentDump = await this.readRawTocFromGateway(gateway);
+            const current = decodeBase64(currentDump.dataBase64);
+            const changedWritableSectors: number[] = [];
+            let changedWritableBytes = 0;
+            for (let index = 0; index < RAW_TOC_WRITABLE_SECTOR_COUNT; index += 1) {
+                const start = index * RAW_TOC_SECTOR_SIZE;
+                const end = start + RAW_TOC_SECTOR_SIZE;
+                let sectorChanged = false;
+                for (let offset = start; offset < end; offset += 1) {
+                    if (current[offset] === proposed[offset]) continue;
+                    changedWritableBytes += 1;
+                    sectorChanged = true;
+                }
+                if (sectorChanged) changedWritableSectors.push(index);
+            }
+            return {
+                byteLength: proposed.byteLength,
+                currentSha256: currentDump.sha256,
+                proposedSha256: await digestHex(proposed),
+                currentWritableSha256: await digestHex(current.subarray(0, RAW_TOC_WRITABLE_BYTE_LENGTH)),
+                proposedWritableSha256: await digestHex(proposed.subarray(0, RAW_TOC_WRITABLE_BYTE_LENGTH)),
+                changedWritableBytes,
+                changedWritableSectors,
+            };
+        });
+    }
+
     writeRawToc(
         dataBase64: string,
         confirmation?: DestructiveConfirmation,
@@ -183,23 +219,21 @@ export class MiniDiscApplication {
                 confirmation,
                 'Writing a raw TOC can make every track on the disc unreadable and requires explicit confirmation.'
             );
-            const sectorSize = 2352;
-            const sectorCount = 6;
-            const writableSectorCount = 4;
-            const data = decodeBase64(dataBase64);
-            if (data.byteLength !== sectorSize * sectorCount) {
-                throw new ApplicationError('INVALID_INPUT', 'A raw TOC must contain exactly six 2352-byte sectors.', {
-                    expectedBytes: sectorSize * sectorCount,
-                    actualBytes: data.byteLength,
-                });
-            }
+            const data = this.decodeRawToc(dataBase64);
             const gateway = this.requireAdvancedGateway();
             await this.requireExploitCapability(gateway, 'flushUTOC');
-            if (expectedCurrentTocSha256 !== undefined) {
-                await this.requireCurrentRawToc(gateway, expectedCurrentTocSha256);
+            if (expectedCurrentTocSha256 === undefined) {
+                throw new ApplicationError(
+                    'INVALID_INPUT',
+                    'Writing a raw TOC requires a preview of the current disc and its SHA-256 checksum.'
+                );
             }
-            for (let index = 0; index < writableSectorCount; index += 1) {
-                await gateway.writeTocSector(index, data.slice(index * sectorSize, (index + 1) * sectorSize));
+            await this.requireCurrentRawToc(gateway, expectedCurrentTocSha256);
+            for (let index = 0; index < RAW_TOC_WRITABLE_SECTOR_COUNT; index += 1) {
+                await gateway.writeTocSector(
+                    index,
+                    data.slice(index * RAW_TOC_SECTOR_SIZE, (index + 1) * RAW_TOC_SECTOR_SIZE)
+                );
             }
             await gateway.flushToc();
         });
@@ -259,25 +293,23 @@ export class MiniDiscApplication {
     }
 
     private async readRawTocFromGateway(gateway: AdvancedDeviceGateway): Promise<AdvancedTocDump> {
-        const sectorSize = 2352;
-        const sectorCount = 6;
         const sectors: Uint8Array[] = [];
-        for (let index = 0; index < sectorCount; index += 1) {
+        for (let index = 0; index < RAW_TOC_SECTOR_COUNT; index += 1) {
             const sector = await gateway.readTocSector(index);
-            if (sector.byteLength !== sectorSize) {
+            if (sector.byteLength !== RAW_TOC_SECTOR_SIZE) {
                 throw new ApplicationError('INVALID_INPUT', `The device returned an invalid TOC sector ${index}.`, {
                     index,
-                    expectedBytes: sectorSize,
+                    expectedBytes: RAW_TOC_SECTOR_SIZE,
                     actualBytes: sector.byteLength,
                 });
             }
             sectors.push(sector);
         }
-        const data = new Uint8Array(sectorSize * sectorCount);
-        sectors.forEach((sector, index) => data.set(sector, index * sectorSize));
+        const data = new Uint8Array(RAW_TOC_BYTE_LENGTH);
+        sectors.forEach((sector, index) => data.set(sector, index * RAW_TOC_SECTOR_SIZE));
         return {
-            sectorSize,
-            sectorCount,
+            sectorSize: RAW_TOC_SECTOR_SIZE,
+            sectorCount: RAW_TOC_SECTOR_COUNT,
             byteLength: data.byteLength,
             sha256: await digestHex(data),
             dataBase64: encodeBase64(data),
@@ -297,6 +329,17 @@ export class MiniDiscApplication {
             );
         }
         return current;
+    }
+
+    private decodeRawToc(dataBase64: string) {
+        const data = decodeBase64(dataBase64);
+        if (data.byteLength !== RAW_TOC_BYTE_LENGTH) {
+            throw new ApplicationError('INVALID_INPUT', 'A raw TOC must contain exactly six 2352-byte sectors.', {
+                expectedBytes: RAW_TOC_BYTE_LENGTH,
+                actualBytes: data.byteLength,
+            });
+        }
+        return data;
     }
 
     private requireRawTocPatchKind(kind: unknown): asserts kind is RawTocPatchKind {

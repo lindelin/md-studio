@@ -9,7 +9,7 @@ import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded';
 import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import type { MetadataImportPlan } from '../../domain/metadata-import';
-import type { AdvancedDeviceInfo, AdvancedTocPatchPreview } from '../../application/contracts';
+import type { AdvancedDeviceInfo, AdvancedTocPatchPreview, AdvancedTocWritePreview } from '../../application/contracts';
 import type { ApplicationCommand } from '../../application/command-bus';
 import { executeSessionEndingCommand } from '../../application/device-session-transition';
 import { INTERACTIVE_ADVANCED_AUTHORIZATION } from '../../application/interactive-authorization';
@@ -73,7 +73,7 @@ export const WorkbenchTools = ({
     const [rawTocReview, setRawTocReview] = useState<{
         sourceName: string;
         source: RawTocFileInspection;
-        current: RawTocFileInspection;
+        preview: AdvancedTocWritePreview;
         expectedSessionId: string;
         expectedRevision: number;
     } | null>(null);
@@ -296,15 +296,20 @@ export const WorkbenchTools = ({
         setRawTocConfirmation('');
         try {
             const source = await inspectRawTocData(new Uint8Array(await file.arrayBuffer()));
-            const result = await client.execute({ type: 'advanced.readToc' });
+            const result = await client.execute({ type: 'advanced.previewTocWrite', dataBase64: source.dataBase64 });
             if (!result.ok) throw new Error(result.error.message);
-            if (!result.advancedToc) throw new Error('The device did not return its current raw TOC.');
-            const current = await inspectRawTocData(decodeBase64(result.advancedToc.dataBase64));
+            if (!result.advancedTocWritePreview) throw new Error('The device did not return a raw TOC write preview.');
             const latest = client.getWorkspaceSnapshot().device;
             if (latest?.sessionId !== expectedSessionId || latest.revision !== expectedRevision) {
                 throw new Error('The connected device or disc changed while the TOC file was being checked. Choose it again.');
             }
-            setRawTocReview({ sourceName: file.name, source, current, expectedSessionId, expectedRevision });
+            setRawTocReview({
+                sourceName: file.name,
+                source,
+                preview: result.advancedTocWritePreview,
+                expectedSessionId,
+                expectedRevision,
+            });
             setStatus(null);
         } catch (error) {
             setStatus(error instanceof Error ? error.message : 'Could not review the raw TOC backup.');
@@ -336,7 +341,7 @@ export const WorkbenchTools = ({
                     reason: 'Confirmed in Studio Workbench after comparing the source and current raw TOC checksums.',
                 },
                 expectedRevision: rawTocReview.expectedRevision,
-                expectedCurrentTocSha256: rawTocReview.current.sha256,
+                expectedCurrentTocSha256: rawTocReview.preview.currentSha256,
                 interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
             });
             if (!result.ok) throw new Error(result.error.message);
@@ -690,15 +695,17 @@ export const WorkbenchTools = ({
                         <h2 id="workbench-raw-toc-title">Write {rawTocReview.sourceName}?</h2>
                         <p>The file is exactly {rawTocReview.source.byteLength.toLocaleString()} bytes. The device will write sectors 0–{RAW_TOC_WRITABLE_SECTOR_COUNT - 1}; sectors 4–5 remain reference data.</p>
                         <dl className="workbench__review-grid">
-                            <div><dt>Current disc SHA-256</dt><dd>{rawTocReview.current.sha256}</dd></div>
-                            <div><dt>Backup SHA-256</dt><dd>{rawTocReview.source.sha256}</dd></div>
-                            <div><dt>Current writable sectors</dt><dd>{rawTocReview.current.writableSha256}</dd></div>
-                            <div><dt>Backup writable sectors</dt><dd>{rawTocReview.source.writableSha256}</dd></div>
+                            <div><dt>Current disc SHA-256</dt><dd>{rawTocReview.preview.currentSha256}</dd></div>
+                            <div><dt>Backup SHA-256</dt><dd>{rawTocReview.preview.proposedSha256}</dd></div>
+                            <div><dt>Current writable sectors</dt><dd>{rawTocReview.preview.currentWritableSha256}</dd></div>
+                            <div><dt>Backup writable sectors</dt><dd>{rawTocReview.preview.proposedWritableSha256}</dd></div>
+                            <div><dt>Writable bytes changed</dt><dd>{rawTocReview.preview.changedWritableBytes.toLocaleString()}</dd></div>
+                            <div><dt>Writable sectors changed</dt><dd>{rawTocReview.preview.changedWritableSectors.join(', ') || 'None'}</dd></div>
                         </dl>
                         <div className="workbench__write-warning">
                             A malformed or wrong-disc TOC can make every track unreadable. Keep USB and device power stable until the disc refresh completes.
                         </div>
-                        {rawTocReview.current.writableSha256 === rawTocReview.source.writableSha256 ? (
+                        {rawTocReview.preview.changedWritableBytes === 0 ? (
                             <div className="workbench__tools-empty"><CheckCircleRoundedIcon /> The writable sectors already match. No write is needed.</div>
                         ) : (
                             <label>
@@ -711,7 +718,7 @@ export const WorkbenchTools = ({
                             <button
                                 className="danger-button"
                                 onClick={() => void writeRawToc()}
-                                disabled={busy || rawTocReview.current.writableSha256 === rawTocReview.source.writableSha256 || !isRawTocConfirmationValid(rawTocConfirmation)}
+                                disabled={busy || rawTocReview.preview.changedWritableBytes === 0 || !isRawTocConfirmationValid(rawTocConfirmation)}
                             >
                                 {busy ? 'Writing…' : 'Write reviewed TOC'}
                             </button>

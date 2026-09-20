@@ -631,6 +631,16 @@ describe('MiniDiscApplication', () => {
                     Buffer.from(data).toString('base64'),
                     { confirmed: true, reason: 'Confirmed in the advanced maintenance UI.' },
                     0,
+                    INTERACTIVE_ADVANCED_AUTHORIZATION
+                ),
+            { code: 'INVALID_INPUT' }
+        );
+        await assert.rejects(
+            () =>
+                application.writeRawToc(
+                    Buffer.from(data).toString('base64'),
+                    { confirmed: true, reason: 'Confirmed in the advanced maintenance UI.' },
+                    0,
                     INTERACTIVE_ADVANCED_AUTHORIZATION,
                     'f'.repeat(64)
                 ),
@@ -655,6 +665,51 @@ describe('MiniDiscApplication', () => {
         assert.deepEqual(sectorsRead, [0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5]);
         assert.equal(snapshot.revision, 1);
         assert.deepEqual(calls, ['read', 'read']);
+    });
+
+    it('previews exact writable raw TOC changes without mutating the disc', async () => {
+        const { gateway } = makeGateway();
+        const current = new Uint8Array(2352 * 6);
+        const proposed = current.slice();
+        proposed[0] = 1;
+        proposed[2352 * 2 + 20] = 2;
+        proposed[2352 * 5] = 3;
+        let writes = 0;
+        const application = new MiniDiscApplication(gateway, undefined, {
+            async readInfo() {
+                return { firmwareVersion: 'S1.600', capabilities: ['flushUTOC'] };
+            },
+            async readTocSector(index) {
+                return current.slice(index * 2352, (index + 1) * 2352);
+            },
+            async writeTocSector() {
+                writes += 1;
+            },
+            async flushToc() {},
+            async runTetris() {},
+            async setSpUploadSpeedup() {},
+            async setDiscSwapDetectionDisabled() {},
+            async enableHimdFullMode() {},
+            async enterServiceMode() {},
+            async readRam() {
+                return new Uint8Array();
+            },
+            async readFirmware() {
+                return { ram: new Uint8Array(), rom: new Uint8Array() };
+            },
+        });
+        await application.refresh();
+
+        const preview = await application.previewRawTocWrite(Buffer.from(proposed).toString('base64'));
+
+        assert.equal(preview.byteLength, proposed.byteLength);
+        assert.deepEqual(preview.changedWritableSectors, [0, 2]);
+        assert.equal(preview.changedWritableBytes, 2);
+        assert.equal(preview.currentSha256, createHash('sha256').update(current).digest('hex'));
+        assert.equal(preview.proposedSha256, createHash('sha256').update(proposed).digest('hex'));
+        assert.notEqual(preview.currentWritableSha256, preview.proposedWritableSha256);
+        assert.equal(writes, 0);
+        assert.equal(application.readSnapshot()?.revision, 0);
     });
 
     it('previews and applies targeted raw TOC flag changes against the reviewed checksum', async () => {
