@@ -8,6 +8,7 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 - The interface starts in Simplified Chinese and retains complete English support, including runtime task states, validation, recovery guidance, and retained compatibility dialogs.
 - Browser UI, MCP, and CLI share revision-checked application commands, import queue state, device snapshots, and long-running tasks.
 - Local-path automation reads audio tags and duration before staging, while file bytes remain behind short-lived local handles until conversion starts.
+- Audio, transcoding, caches, task queues, and device traffic stay on the user's computer; hosted builds serve static application files only.
 - Writing performs a capacity, title, codec, device-session, and revision preview before creating a task.
 - Homebrew SP Mono and ATRAC1 writes show their exact capability requirements in the bilingual write review before a task is created; automation cannot authorize these browser-only operations.
 - CSV metadata planning, normal and recovery export review, raw TOC review, protection flags, diagnostics, and capability-gated advanced tools are available from the workbench.

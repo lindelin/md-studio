@@ -84,6 +84,12 @@ CLI ──────────────┘              │
 
 The application layer owns validation, revisions, destructive confirmation, serialization, task state, and device snapshots. Studio Workbench is the primary interface and reads the same workspace model as MCP and CLI. Redux remains only for the connection shell and compatibility dialogs; it no longer owns device, disc, task, import-queue, or persistent-setting truth. The obsolete standalone Factory screen has been removed; its supported TOC, recovery, and maintenance operations live in the capability-gated Tools workflow.
 
+## Local execution boundary
+
+Audio files, metadata editing, transcoding, task queues, caches, and device communication run on the user's computer. A hosted web build serves static application files only: it does not upload audio, proxy USB traffic, run encoding jobs, or store disc contents. The desktop build uses the same local application core.
+
+Any future online metadata lookup or AI-assisted suggestion must be optional, disabled independently, and show the exact text fields that will leave the computer before the request is sent. Audio bytes and device data are excluded from those integrations by default.
+
 ## Safety
 
 Treat real discs as valuable media. Delete, erase, and HiMD format operations require explicit confirmation. Automated callers should refresh the disc first and send the returned revision with each prepared mutation.

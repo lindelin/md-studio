@@ -47,12 +47,22 @@ const definitions = [
         role: 'Custom FFmpeg JavaScript runtime with MiniDisc audio format patches',
         source: {
             kind: 'repository-binary',
-            repository: 'https://github.com/ffmpegjs/FFmpeg',
-            revision: '0deba716e237a538',
+            repository: 'https://github.com/ffmpegwasm/ffmpeg.wasm-core',
+            revision: '0deba716e237a5382f1b69320d093483df1d1d5b',
+            dependencies: {
+                zlib: 'cacf7f1d4e3d44d871b605da3b647f07d718623f',
+                lame: '59a722d49e9f2bea65917dcdd17b94c710a02f0c',
+            },
+            toolchain: {
+                emsdk: '27b23d467d5b8beb73d4d325b9a32c8eb77e8f95',
+                emscripten: '1.39.0 (d57bfdd6d43181501bbd3fab502d57c9073ceb49)',
+                cmake: '3.29.6',
+                make: '4.4.1',
+            },
+            buildScript: 'scripts/rebuild-ffmpeg.ps1',
             buildInstructions: 'extra/BUILD_FFMPEGJS.md',
-            license: 'Review required: FFmpeg license depends on the exact build configuration',
+            license: 'LGPL-2.1-or-later (FFmpeg and LAME); Zlib (zlib)',
         },
-        reviewRequired: true,
     },
     {
         path: 'public/atracdenc.js',

@@ -11,3 +11,10 @@ index f7954956c0..d02ca29f40 100644
  
      return ret;
  }
+diff --git a/fftools/cmdutils.h b/fftools/cmdutils.h
+index 6e2e0a2..e7ded09 100644
+--- a/fftools/cmdutils.h
++++ b/fftools/cmdutils.h
+@@ -62 +62 @@ void register_exit(void (*cb)(int ret));
+-void exit_program(int ret) av_noreturn;
++void exit_program(int ret);
