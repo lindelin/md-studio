@@ -17,6 +17,7 @@ import { useDispatch } from '../frontend-utils';
 import { actions as errorDialogActions } from '../redux/error-dialog-feature';
 import type { PlaybackCommand } from '../application/contracts';
 import { useApplicationClient, useApplicationWorkspace } from './use-application-client';
+import { useI18n } from './use-i18n';
 
 import MDIcon0 from '../images/md0.svg?react';
 import MDIcon1 from '../images/md1.svg?react';
@@ -120,6 +121,7 @@ const useStyles = makeStyles()((theme) => ({
 }));
 
 export const Controls = () => {
+    const { t } = useI18n();
     const dispatch = useDispatch();
     const applicationClient = useApplicationClient();
     const workspace = useApplicationWorkspace();
@@ -185,9 +187,9 @@ export const Controls = () => {
     if (!discPresent) {
         message = ``;
     } else if (deviceState === 'readingTOC') {
-        message = 'READING TOC';
+        message = t('READING TOC');
     } else if (tracks.length === 0) {
-        message = `BLANKDISC`;
+        message = t('BLANK DISC');
     } else if (deviceStatus && deviceStatus.track !== null && activeTrack) {
         const track = activeTrack;
         const title = track.fullWidthTitle || track.title;
@@ -327,19 +329,19 @@ export const Controls = () => {
         <Box className={classes.container}>
             {playbackSupported ? (
                 <React.Fragment>
-                    <IconButton disabled={!disc} aria-label="prev" onClick={handlePrev} className={classes.button}>
+                    <IconButton disabled={!disc} aria-label={t('Previous track')} onClick={handlePrev} className={classes.button}>
                         <SkipPreviousIcon />
                     </IconButton>
-                    <IconButton disabled={!disc} aria-label="play" onClick={handlePlay} className={classes.button}>
+                    <IconButton disabled={!disc} aria-label={t('Play track')} onClick={handlePlay} className={classes.button}>
                         <PlayArrowIcon />
                     </IconButton>
-                    <IconButton disabled={!disc} aria-label="pause" onClick={handlePause} className={classes.button}>
+                    <IconButton disabled={!disc} aria-label={t('Pause track')} onClick={handlePause} className={classes.button}>
                         <PauseIcon />
                     </IconButton>
-                    <IconButton disabled={!disc} aria-label="stop" onClick={handleStop} className={classes.button}>
+                    <IconButton disabled={!disc} aria-label={t('Stop playback')} onClick={handleStop} className={classes.button}>
                         <StopIcon />
                     </IconButton>
-                    <IconButton disabled={!disc} aria-label="next" onClick={handleNext} className={classes.button}>
+                    <IconButton disabled={!disc} aria-label={t('Next track')} onClick={handleNext} className={classes.button}>
                         <SkipNextIcon />
                     </IconButton>
                 </React.Fragment>
@@ -357,7 +359,7 @@ export const Controls = () => {
                                 : {}
                         }
                     >
-                        {disc === null ? (loading ? 'LOADING...' : 'NO DISC') : message}
+                        {disc === null ? t(loading ? 'LOADING...' : 'NO DISC') : message}
                     </span>
                 </div>
                 <div className={classes.lcdDisc}>

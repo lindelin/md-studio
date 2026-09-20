@@ -13,7 +13,6 @@ export interface UserSettings {
     pageFullWidth: boolean;
     archiveDiscCreateZip: boolean;
     factoryModeUseSlowerExploit: boolean;
-    factoryModeShortcuts: boolean;
     factoryModeNERAWDownload: boolean;
     audioEncoderId: string | null;
     audioExportService: number;
@@ -44,7 +43,6 @@ const defaults: UserSettings = {
     pageFullWidth: false,
     archiveDiscCreateZip: false,
     factoryModeUseSlowerExploit: false,
-    factoryModeShortcuts: false,
     factoryModeNERAWDownload: false,
     audioEncoderId: null,
     audioExportService: 1,
@@ -148,7 +146,6 @@ export class SettingsStore {
                 isBoolean,
                 this.storage
             ),
-            factoryModeShortcuts: loadPreference('factoryModeShortcuts', defaults.factoryModeShortcuts, isBoolean, this.storage),
             factoryModeNERAWDownload: loadPreference(
                 'factoryModeNERAWDownload',
                 defaults.factoryModeNERAWDownload,

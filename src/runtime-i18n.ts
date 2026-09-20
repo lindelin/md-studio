@@ -1,0 +1,14 @@
+import { resolveUiLanguage, translate, type ResolvedUiLanguage, type UiLanguagePreference } from './i18n';
+import { loadPreference } from './preferences';
+
+const isUiLanguagePreference = (value: unknown): value is UiLanguagePreference =>
+    value === 'system' || value === 'en' || value === 'zh-CN';
+
+export function getCurrentUiLanguage(browserLanguage = typeof navigator === 'undefined' ? 'en' : navigator.language): ResolvedUiLanguage {
+    const preference = loadPreference<UiLanguagePreference>('uiLanguage', 'system', isUiLanguagePreference);
+    return resolveUiLanguage(preference, browserLanguage);
+}
+
+export function runtimeTranslate(message: string, browserLanguage?: string) {
+    return translate(getCurrentUiLanguage(browserLanguage), message);
+}

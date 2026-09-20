@@ -12,6 +12,7 @@ The project is under active reconstruction. The stable NetMD and HiMD protocol i
 -   Audio import, browser-side transcoding, NetMD upload, supported-device download, recording, and factory tools inherited from Web MiniDisc Pro
 -   Revision-checked application commands and observable long-running tasks
 -   Local MCP tools and a scriptable CLI over a loopback-only browser bridge
+-   Simplified Chinese and English interfaces with an immediate, persisted language switch
 -   Safe preference loading that isolates a damaged setting instead of clearing the complete browser store
 
 ## Requirements
@@ -79,7 +80,7 @@ CLI ──────────────┘              │
                            tasks and imports
 ```
 
-The application layer owns validation, revisions, destructive confirmation, serialization, task state, and device snapshots. Studio Workbench is the primary interface and reads the same workspace model as MCP and CLI. Redux remains only for compatibility dialogs and temporary legacy presentation state; it no longer owns device, disc, task, import-queue, or persistent-setting truth.
+The application layer owns validation, revisions, destructive confirmation, serialization, task state, and device snapshots. Studio Workbench is the primary interface and reads the same workspace model as MCP and CLI. Redux remains only for the connection shell and compatibility dialogs; it no longer owns device, disc, task, import-queue, or persistent-setting truth. The obsolete standalone Factory screen has been removed; its supported TOC, recovery, and maintenance operations live in the capability-gated Tools workflow.
 
 ## Safety
 

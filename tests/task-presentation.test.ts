@@ -7,7 +7,7 @@ describe('task presentation policy', () => {
         assert.equal(usesLegacyTaskPresentation('MAIN'), false);
     });
 
-    it('keeps progress dialogs for compatibility and maintenance surfaces', () => {
-        assert.equal(usesLegacyTaskPresentation('FACTORY'), true);
+    it('keeps legacy presentation outside the connected workspace', () => {
+        assert.equal(usesLegacyTaskPresentation('WELCOME'), true);
     });
 });

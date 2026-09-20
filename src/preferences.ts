@@ -20,6 +20,7 @@ export const APP_PREFERENCE_KEYS = [
     'pageFullWidth',
     'archiveDiscCreateZip',
     'factoryModeUseSlowerExploit',
+    // Retired Factory UI preference retained so Reset Application removes it.
     'factoryModeShortcuts',
     'factoryModeNERAWDownload',
     'factoryBadSectorRememberChoice',

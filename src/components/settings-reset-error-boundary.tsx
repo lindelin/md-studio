@@ -1,5 +1,5 @@
 import React from 'react';
-import { clearAppPreferences } from '../preferences';
+import { clearAppPreferences, loadPreference } from '../preferences';
 
 export class SettingsResetErrorBoundary extends React.Component<
     {
@@ -22,6 +22,8 @@ export class SettingsResetErrorBoundary extends React.Component<
         if (!this.state.error) return <>{this.props.children}</>;
 
         const message = (this.state.error.stack ?? this.state.error.message).substring(0, 500);
+        const preference = loadPreference<'system' | 'en' | 'zh-CN'>('uiLanguage', 'system');
+        const isChinese = preference === 'zh-CN' || (preference === 'system' && navigator.language.toLowerCase().startsWith('zh'));
         return (
             <main
                 role="alert"
@@ -33,12 +35,12 @@ export class SettingsResetErrorBoundary extends React.Component<
                     lineHeight: 1.5,
                 }}
             >
-                <h1>MiniDisc Workspace could not start</h1>
-                <p>Reload the app first. If the problem continues, reset only this app's saved settings.</p>
+                <h1>{isChinese ? 'MiniDisc Workspace 无法启动' : 'MiniDisc Workspace could not start'}</h1>
+                <p>{isChinese ? '请先重新加载应用。如果问题仍然存在，请仅重置本应用保存的设置。' : "Reload the app first. If the problem continues, reset only this app's saved settings."}</p>
                 <pre style={{ overflow: 'auto', padding: 16, background: 'rgba(127, 127, 127, 0.15)' }}>{message}</pre>
                 <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
                     <button type="button" onClick={() => window.reload()}>
-                        Reload
+                        {isChinese ? '重新加载' : 'Reload'}
                     </button>
                     <button
                         type="button"
@@ -47,7 +49,7 @@ export class SettingsResetErrorBoundary extends React.Component<
                             window.reload();
                         }}
                     >
-                        Reset app settings and reload
+                        {isChinese ? '重置应用设置并重新加载' : 'Reset app settings and reload'}
                     </button>
                 </div>
             </main>

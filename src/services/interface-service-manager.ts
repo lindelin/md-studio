@@ -2,6 +2,7 @@ import React, { ReactHTMLElement } from 'react';
 import { CustomParameterInfo, CustomParameters } from '../custom-parameters';
 import type { Codec, MinidiscSpec, NetMDService, RecordingCodec } from './interfaces/netmd';
 import { DeviceIds } from 'networkwm-js';
+import { runtimeTranslate } from '../runtime-i18n';
 
 export interface LoadedService {
     service: NetMDService;
@@ -61,7 +62,7 @@ export const Services: ServicePrototype[] = [
                 const { HiMDSpec } = await import('./interfaces/himd');
                 return { service: window.native.himdFullInterface, spec: new HiMDSpec() };
             }
-            if (!confirm('Warning: For Full HiMD mode, it is recommended to use ElectronWMD instead! Continue?')) {
+            if (!confirm(runtimeTranslate('Warning: For Full HiMD mode, it is recommended to use ElectronWMD instead. Continue?'))) {
                 return null;
             }
             const { HiMDFullService, HiMDSpec } = await import('./interfaces/himd');

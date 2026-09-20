@@ -39,76 +39,76 @@ export const AboutDialog = () => {
             <DialogTitle id="about-dialog-slide-title">{t('About MiniDisc Workspace')}</DialogTitle>
             <DialogContent>
                 <DialogContentText>
-                    MiniDisc Workspace is derived from{' '}
+                    {t('MiniDisc Workspace is derived from')}{' '}
                     <Link rel="noopener noreferrer" href="https://github.com/asivery/webminidisc" target="_blank">
                         Web MiniDisc Pro
                     </Link>{' '}
-                    and uses
+                    {t('and uses')}
                 </DialogContentText>
                 <ul>
                     <li>
                         <Link rel="noopener noreferrer" href="https://www.ffmpeg.org/" target="_blank">
                             FFmpeg
                         </Link>{' '}
-                        and{' '}
+                        {t('and')}{' '}
                         <Link rel="noopener noreferrer" href="https://github.com/ffmpegjs/FFmpeg" target="_blank">
                             ffmpegjs
                         </Link>
-                        , to read your audio files (wav, mp3, ogg, mp4, etc...).
+                        {t(', to read your audio files (WAV, MP3, OGG, MP4, and more).')}
                     </li>
                     <li>
                         <Link rel="noopener noreferrer" href="https://github.com/dcherednik/atracdenc/" target="_blank">
                             Atracdenc
                         </Link>
-                        , to support atrac3 encoding (lp2, lp4 audio formats).
+                        {t(', to support ATRAC3 encoding (LP2 and LP4).')}
                     </li>
                     <li>
                         <Link rel="noopener noreferrer" href="https://emscripten.org/" target="_blank">
                             Emscripten
                         </Link>
-                        , to run both FFmpeg and Atracdenc in the browser.
+                        {t(', to run FFmpeg and Atracdenc in the browser.')}
                     </li>
                     <li>
                         <Link rel="noopener noreferrer" href="https://github.com/cybercase/netmd-js" target="_blank">
                             netmd-js
                         </Link>
-                        , to send commands to NetMD devices using Javascript.
+                        {t(', to send commands to NetMD devices with JavaScript.')}
                     </li>
                     <li>
                         <Link rel="noopener noreferrer" href="https://github.com/asivery/netmd-exploits" target="_blank">
                             netmd-exploits
                         </Link>
-                        , to download ATRAC via USB and trigger low-level firmware code.
+                        {t(', to download ATRAC through USB and run supported low-level firmware tools.')}
                     </li>
                     <li>
                         <Link rel="noopener noreferrer" href="https://github.com/asivery/netmd-tocmanip" target="_blank">
                             netmd-tocmanip
                         </Link>
-                        , to read and manipulate the table of contents.
+                        {t(', to read and edit the table of contents.')}
                     </li>
                     <li>
                         <Link rel="noopener noreferrer" href="https://github.com/glaubitz/linux-minidisc" target="_blank">
                             linux-minidisc
                         </Link>
-                        , to make the netmd-js project possible.
+                        {t(', which made the netmd-js project possible.')}
                     </li>
                     <li>
                         <Link rel="noopener noreferrer" href="https://material-ui.com/" target="_blank">
                             material-ui
                         </Link>
-                        , to build the user interface.
+                        {t(', to build the user interface.')}
                     </li>
                 </ul>
                 <DialogContentText>{t('Attribution')}</DialogContentText>
                 <ul>
                     <li>
-                        MiniDisc logo from{' '}
+                        {t('MiniDisc logo from')}{' '}
                         <Link rel="noopener noreferrer" href="https://en.wikipedia.org/wiki/MiniDisc" target="_blank">
                             https://en.wikipedia.org/wiki/MiniDisc
                         </Link>
                     </li>
                     <li>
-                        MiniDisc icon from{' '}
+                        {t('MiniDisc icon from')}{' '}
                         <Link
                             rel="noopener noreferrer"
                             href="https://www.deviantart.com/blinkybill/art/Sony-MiniDisc-Plastic-Icon-473812540"
@@ -119,7 +119,7 @@ export const AboutDialog = () => {
                     </li>
                 </ul>
                 <DialogContentText style={{ textAlign: 'center', fontSize: 13 }}>
-                    Version #{GIT_HASH} {(GIT_DIFF as any) === '0' ? '' : `(${GIT_DIFF} diff-lines ahead)`} built on {BUILD_DATE}
+                    {t('Version')} #{GIT_HASH} {(GIT_DIFF as any) === '0' ? '' : `(${GIT_DIFF} ${t('diff lines ahead')})`} · {t('Built on')} {BUILD_DATE}
                 </DialogContentText>
             </DialogContent>
             <DialogActions>

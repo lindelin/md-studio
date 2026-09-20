@@ -3,6 +3,7 @@ import { Capability, Codec, DeviceStatus, Disc, Group, NetMDService, TitleParame
 import { resolvePathFromGlobalIndex, TrackMetadata, DeviceDefinition, decryptMP3, initializeIfNeeded } from 'networkwm-js';
 import { FSAHiMDFilesystem, HiMDKBPSToFrameSize, generateCodecInfo } from "himd-js";
 import { AbstractedTrack, DatabaseAbstraction } from "networkwm-js";
+import { runtimeTranslate } from '../../runtime-i18n';
 
 const CHUNK_SIZE = 524288;
 
@@ -308,7 +309,7 @@ export class NetworkWMService extends NetMDService {
     }
 
     // Can't be implemented
-    notAvailableInThisMode = () => window.alert("Not available");
+    notAvailableInThisMode = () => window.alert(runtimeTranslate('This action is not available in the current mode.'));
     async play(): Promise<void> { this.notAvailableInThisMode(); }
     async pause(): Promise<void> { this.notAvailableInThisMode(); }
     async stop(): Promise<void> {}

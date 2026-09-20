@@ -9,7 +9,8 @@ export function renderCustomParameter(
     parameter: CustomParameterInfo,
     value: any,
     parameterChangeCallback: (varName: string, newValue: any) => void,
-    customClass?: string
+    customClass?: string,
+    translate: (message: string) => string = (message) => message
 ) {
     const handleParameterChange = (event: any, type: CustomParameterType, name: string) => {
         parameterChangeCallback(
@@ -92,18 +93,18 @@ export function renderCustomParameter(
                 <FormControlLabel
                     classes={{ root: customClass }}
                     control={
-                        <Tooltip title={value || '<NONE>'}>
+                        <Tooltip title={value || translate('None')}>
                             <Button
                                 style={{ color: !(parameter.validator?.(value) ?? true) ? 'red' : undefined }}
                                 onClick={() => {
                                     window.native
-                                        ?.openFileHostDialog?.([{ name: 'All files', extensions: ['*'] }], parameter.type === 'hostDirPath')
+                                        ?.openFileHostDialog?.([{ name: translate('All files'), extensions: ['*'] }], parameter.type === 'hostDirPath')
                                         ?.then((e) => {
                                             parameterChangeCallback(parameter.varName, e ?? '');
                                         });
                                 }}
                             >
-                                Choose {parameter.type === 'hostDirPath' ? 'Directory' : 'File'}
+                                {translate(parameter.type === 'hostDirPath' ? 'Choose directory' : 'Choose file')}
                             </Button>
                         </Tooltip>
                     }

@@ -70,7 +70,6 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import { TopMenu } from '../topmenu';
 import { DiscProtectedDialog } from '../disc-protected-dialog';
 import { ErrorDialog } from '../error-dialog';
-import { FactoryModeNoticeDialog } from '../factory/factory-notice-dialog';
 import { AboutDialog } from '../about-dialog';
 import { PanicDialog } from '../panic-dialog';
 import { WorkbenchLibrary } from './workbench-library';
@@ -1266,7 +1265,6 @@ export const Workbench = () => {
 
             <DiscProtectedDialog />
             <ErrorDialog />
-            <FactoryModeNoticeDialog />
             <AboutDialog />
             <PanicDialog />
 

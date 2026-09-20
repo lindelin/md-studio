@@ -100,7 +100,7 @@ const useStyles = makeStyles()((theme) => ({
 }));
 
 export const Welcome = () => {
-    const { t } = useI18n();
+    const { language, t } = useI18n();
     const { classes } = useStyles();
     const dispatch = useDispatch();
     const applicationClient = useApplicationClient();
@@ -161,7 +161,12 @@ export const Welcome = () => {
     }
 
     const options: OptionType[] = availableServices.map((n, i) => ({
-        name: getConnectButtonName(n),
+        name: (() => {
+            const name = getConnectButtonName(n);
+            if (language !== 'zh-CN') return name;
+            if (name === 'Connect') return '连接设备';
+            return name.startsWith('Connect to ') ? `连接 ${name.slice('Connect to '.length)}` : name;
+        })(),
         switchTo: true,
         handler: () => connectToService(i),
         id: i,
@@ -279,7 +284,7 @@ export const Welcome = () => {
                         </Typography>
 
                         <Link rel="noopener noreferrer" target="_blank" href="https://www.google.com/chrome/">
-                            <img alt="Chrome Logo" src={ChromeIconPath} className={classes.chromeLogo} />
+                            <img alt={t('Chrome logo')} src={ChromeIconPath} className={classes.chromeLogo} />
                         </Link>
 
                         <Typography component="h2" variant="subtitle1" align="center" className={classes.spacing}>

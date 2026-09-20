@@ -14,7 +14,6 @@ import Box from '@mui/material/Box';
 import { useApplicationSettings, useApplicationWorkspace } from './use-application-client';
 import { resolveUiLanguage } from '../i18n';
 
-const Toc = lazy(() => import('./factory/factory'));
 const Controls = lazy(() => import('./controls'));
 const Welcome = lazy(() => import('./welcome'));
 const Workbench = lazy(() => import('./workbench/workbench'));
@@ -64,16 +63,6 @@ const useStyles = makeStyles()((theme) => ({
         [forAnyDesktop(theme)]: {
             width: '90%',
         },
-    },
-    factoryLayout: {
-        width: '100%',
-        margin: 0,
-    },
-    factoryPaper: {
-        minHeight: '100vh',
-        margin: 0,
-        padding: 0,
-        borderRadius: 0,
     },
     bottomBar: {
         display: 'flex',
@@ -279,18 +268,15 @@ const InternalApp = () => {
                 <main
                     className={cx(classes.layout, {
                         [classes.layoutFullWidth]: pageFullWidth,
-                        [classes.factoryLayout]: mainView === 'FACTORY',
                     })}
                 >
                     <Paper
                         className={cx(classes.paper, {
                             [classes.paperShowsList]: canListContent,
                             [classes.paperFullHeight]: pageFullHeight,
-                            [classes.factoryPaper]: mainView === 'FACTORY',
                         })}
                     >
                         {mainView === 'WELCOME' ? <Welcome /> : null}
-                        {mainView === 'FACTORY' ? <Toc /> : null}
 
                         <Box className={classes.controlsContainer}>{mainView === 'WELCOME' ? <Controls /> : null}</Box>
                     </Paper>

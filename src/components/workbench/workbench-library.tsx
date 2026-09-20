@@ -407,7 +407,7 @@ export const WorkbenchLibrary = ({
                         ) : visibleBrowserRows.map(renderBrowserRow)}
                         {!busy && items.length === 0 && library.status === 'ready' ? <div className="workbench__library-empty"><AudiotrackRoundedIcon /><strong>{t(searchQuery ? 'No matching tracks' : 'This folder is empty')}</strong><span>{t(searchQuery ? 'Try a different title, artist, album or path.' : 'Choose another folder or refresh the library.')}</span></div> : null}
                     </div>
-                    {nextOffset !== undefined ? <button className="workbench__library-more" disabled={busy} onClick={() => void loadPage(nextOffset, true)}>Load more · {items.length} of {total}</button> : null}
+                    {nextOffset !== undefined ? <button className="workbench__library-more" disabled={busy} onClick={() => void loadPage(nextOffset, true)}>{language === 'zh-CN' ? `加载更多 · 已显示 ${items.length} / ${total}` : `Load more · ${items.length} of ${total}`}</button> : null}
                 </div>
 
                 <aside className="workbench__library-selection">
@@ -415,7 +415,7 @@ export const WorkbenchLibrary = ({
                     <h3>{selectedTracks.length ? (language === 'zh-CN' ? `已选择 ${selectedTracks.length} 首曲目` : `${selectedTracks.length} tracks selected`) : t('Nothing selected')}</h3>
                     <p>{t(selectedTracks.length ? 'These tracks will be added to the shared recording plan in this order.' : 'Select tracks from folders or search results.')}</p>
                     <div>
-                        {selectedTracks.map((track, index) => <button key={libraryPathKey(track.path)} aria-label={`Remove ${track.title || track.name} from selection`} onClick={() => toggleTrack(track)}><em>{String(index + 1).padStart(2, '0')}</em><span><strong>{track.title || track.name}</strong><small>{track.artist || track.path.join('/')}</small></span><span>×</span></button>)}
+                        {selectedTracks.map((track, index) => <button key={libraryPathKey(track.path)} aria-label={language === 'zh-CN' ? `从选择中移除 ${track.title || track.name}` : `Remove ${track.title || track.name} from selection`} onClick={() => toggleTrack(track)}><em>{String(index + 1).padStart(2, '0')}</em><span><strong>{track.title || track.name}</strong><small>{track.artist || track.path.join('/')}</small></span><span>×</span></button>)}
                     </div>
                 </aside>
             </div>

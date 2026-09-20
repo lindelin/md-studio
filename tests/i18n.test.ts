@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { resolveUiLanguage, translate } from '../src/i18n.ts';
+import { getCurrentUiLanguage, runtimeTranslate } from '../src/runtime-i18n.ts';
 
 describe('UI language', () => {
     it('follows Chinese browser locales and otherwise keeps English', () => {
@@ -23,5 +24,11 @@ describe('UI language', () => {
         assert.equal(translate('zh-CN', 'Disc maintenance'), '碟片维护');
         assert.equal(translate('zh-CN', 'Format as Hi-MD'), '格式化为 Hi-MD');
         assert.equal(translate('zh-CN', 'WRITE TOC'), 'WRITE TOC');
+    });
+
+    it('localizes non-React browser prompts with the same language rules', () => {
+        assert.equal(getCurrentUiLanguage('zh-CN'), 'zh-CN');
+        assert.equal(runtimeTranslate('MiniDisc recording completed', 'zh-CN'), 'MiniDisc 录制完成');
+        assert.equal(runtimeTranslate('MiniDisc recording completed', 'en-US'), 'MiniDisc recording completed');
     });
 });

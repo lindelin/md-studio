@@ -10,6 +10,7 @@ import MenuItem from '@mui/material/MenuItem';
 import MenuList from '@mui/material/MenuList';
 import { ButtonProps } from '@mui/material/Button';
 import { CircularProgress } from '@mui/material';
+import { useI18n } from './use-i18n';
 
 export type OptionType = {
     name: string;
@@ -28,6 +29,7 @@ export type SplitButtonProps = {
 } & ButtonProps;
 
 export default function SplitButton(props: SplitButtonProps) {
+    const { t } = useI18n();
     const [open, setOpen] = React.useState(false);
     const anchorRef = React.useRef<HTMLDivElement>(null);
 
@@ -57,7 +59,7 @@ export default function SplitButton(props: SplitButtonProps) {
 
     return (
         <div className={boxClassName}>
-            <ButtonGroup variant="contained" ref={anchorRef} aria-label="MiniDisc device connection" disabled={loading}>
+            <ButtonGroup variant="contained" ref={anchorRef} aria-label={t('MiniDisc device connection')} disabled={loading}>
                 <Button {...buttonProps} onClick={options[selectedIndex].handler} style={{ minWidth: width ? width * 0.8 : undefined }}>
                     {loading ? <CircularProgress style={{ width: 24, height: 24 }} /> : options[selectedIndex].name}
                 </Button>
@@ -65,7 +67,7 @@ export default function SplitButton(props: SplitButtonProps) {
                     size="small"
                     aria-controls={open ? 'split-button-menu' : undefined}
                     aria-expanded={open ? 'true' : undefined}
-                    aria-label="Choose connection type"
+                    aria-label={t('Choose connection type')}
                     aria-haspopup="menu"
                     onClick={handleToggle}
                     style={{ minWidth: width ? width * 0.2 : undefined, background: '#e0e0e0' }}

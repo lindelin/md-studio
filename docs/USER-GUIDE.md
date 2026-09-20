@@ -13,6 +13,8 @@ npm run dev
 
 Open the local address printed in the terminal. Use **Connect to MockMD** when learning the interface or testing changes without hardware.
 
+The interface follows the browser language by default and supports **简体中文** and **English** explicitly. Change it under **Settings → Language**; the choice takes effect immediately and is saved for later sessions. Device names, codec names, capability identifiers, and exact destructive confirmation phrases remain unchanged where translating them could make diagnostics or safety checks ambiguous.
+
 For a real recorder, install the WinUSB driver described by the [MiniDisc Wiki Windows guide](https://www.minidisc.wiki/guides/webminidisc/requirements#windows), connect the recorder, choose its matching adapter, and approve the browser's USB picker.
 
 Only one tab or application can claim a USB interface. If connection fails with `Unable to claim interface`, close other MiniDisc tabs and programs, disconnect and reconnect the USB cable, then try once from the remaining tab. Repeated connect clicks do not release a claim held elsewhere.

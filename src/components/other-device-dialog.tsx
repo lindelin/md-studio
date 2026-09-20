@@ -16,6 +16,7 @@ import { Services } from '../services/interface-service-manager';
 import { addService } from '../redux/actions';
 import { isAllValid, initializeParameters } from '../custom-parameters';
 import { renderCustomParameter } from './custom-parameters-renderer';
+import { useI18n } from './use-i18n';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
@@ -36,6 +37,7 @@ const useStyles = makeStyles()((theme) => ({
 }));
 
 export const OtherDeviceDialog = () => {
+    const { t } = useI18n();
     const dispatch = useDispatch();
     const { classes } = useStyles();
 
@@ -100,13 +102,13 @@ export const OtherDeviceDialog = () => {
             TransitionComponent={Transition}
             aria-labelledby="rename-dialog-title"
         >
-            <DialogTitle id="rename-dialog-title">Add Custom Device</DialogTitle>
+            <DialogTitle id="rename-dialog-title">{t('Add Custom Device')}</DialogTitle>
             <DialogContent>
                 <Select
                     onChange={handleServiceSelectionChanged}
                     value={otherDeviceDialogSelectedServiceIndex}
                     className={classes.select}
-                    label="Service"
+                    label={t('Service')}
                 >
                     {customServices.map((n, i) => (
                         <MenuItem value={i} key={`${i}`}>
@@ -114,17 +116,23 @@ export const OtherDeviceDialog = () => {
                         </MenuItem>
                     ))}
                 </Select>
-                {currentService.description}
+                {currentService.catalogDescription ? t(currentService.catalogDescription) : null}
                 <div className={classes.fullWidth}>
                     {currentService.customParameters!.map((n) =>
-                        renderCustomParameter(n, otherDeviceDialogCustomParameters[n.varName], handleParameterChange)
+                        renderCustomParameter(
+                            { ...n, userFriendlyName: t(n.userFriendlyName) },
+                            otherDeviceDialogCustomParameters[n.varName],
+                            handleParameterChange,
+                            undefined,
+                            t
+                        )
                     )}
                 </div>
             </DialogContent>
             <DialogActions>
-                <Button onClick={handleClose}>Cancel</Button>
+                <Button onClick={handleClose}>{t('Cancel')}</Button>
                 <Button color={'primary'} onClick={handleAdd} disabled={addButtonDisabled}>
-                    Add
+                    {t('Add')}
                 </Button>
             </DialogActions>
         </Dialog>

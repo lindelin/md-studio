@@ -11,6 +11,7 @@ import Slide, { SlideProps } from '@mui/material/Slide';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import { makeStyles } from 'tss-react/mui';
+import { useI18n } from './use-i18n';
 
 const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
     return <Slide direction="up" ref={ref} {...props} />;
@@ -30,6 +31,7 @@ const useStyles = makeStyles()((theme) => ({
 }));
 
 export const PanicDialog = () => {
+    const { t } = useI18n();
     const dispatch = useDispatch();
     const { classes } = useStyles();
 
@@ -53,16 +55,16 @@ export const PanicDialog = () => {
             aria-labelledby="error-dialog-slide-title"
             aria-describedby="error-dialog-slide-description"
         >
-            <DialogTitle id="alert-dialog-slide-title">Oops… Something unexpected happened.</DialogTitle>
+            <DialogTitle id="alert-dialog-slide-title">{t('Oops… Something unexpected happened.')}</DialogTitle>
             <DialogContent>
                 <Typography color="textSecondary" variant="body1" component="div">
-                    Try to restart the app. If the error persists, try the followings:
+                    {t('Try to restart the app. If the error persists, try the following:')}
                     <ol>
-                        <li>Use your browser in incognito mode.</li>
-                        <li>Use a blank MiniDisc.</li>
-                        <li>Try to use MiniDisc Workspace on another computer.</li>
+                        <li>{t('Use your browser in incognito mode.')}</li>
+                        <li>{t('Use a blank MiniDisc.')}</li>
+                        <li>{t('Try MiniDisc Workspace on another computer.')}</li>
                     </ol>
-                    If this does not solve the error, your unit might not be supported yet or you have encountered a bug.
+                    {t('If this does not solve the error, your device might not be supported yet or you may have encountered a bug.')}
                 </Typography>
                 <Typography variant="body1" component="div" className={classes.codeBlock}>
                     {errorProvided}
@@ -70,10 +72,10 @@ export const PanicDialog = () => {
             </DialogContent>
             <DialogActions>
                 <Button onClick={handleIgnore} size="small">
-                    Ignore and Continue
+                    {t('Ignore and Continue')}
                 </Button>
                 <Button onClick={handleReloadApp} color="primary">
-                    Restart the App
+                    {t('Restart the App')}
                 </Button>
             </DialogActions>
         </Dialog>

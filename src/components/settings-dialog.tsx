@@ -148,13 +148,13 @@ const NativeFields = ({ section, classes }: { section: string; classes: any }) =
     return filtered.map((entry) => {
         if (entry.type === 'action') {
             return (
-                <SimpleField name={entry.name} classes={classes} formControl={true} key={entry.family + entry.name}>
+                <SimpleField name={t(entry.name)} classes={classes} formControl={true} key={entry.family + entry.name}>
                     <Button onClick={() => entry.update(true)}>{t('Go')}</Button>
                 </SimpleField>
             );
         } else if (entry.type === 'boolean') {
             return (
-                <SimpleField name={entry.name} classes={classes} formControl={true} key={entry.family + entry.name}>
+                <SimpleField name={t(entry.name)} classes={classes} formControl={true} key={entry.family + entry.name}>
                     <Switch checked={entry.state as boolean} onChange={() => entry.update(!entry.state).then(updateState)} />
                 </SimpleField>
             );
@@ -162,12 +162,13 @@ const NativeFields = ({ section, classes }: { section: string; classes: any }) =
             return renderCustomParameter(
                 {
                     type: entry.type,
-                    userFriendlyName: entry.name,
+                    userFriendlyName: t(entry.name),
                     varName: entry.family + entry.name,
                 },
                 entry.state,
                 (_, nv) => entry.update(nv).then(updateState),
-                classes.marginApply
+                classes.marginApply,
+                t
             );
         }
     });
@@ -190,7 +191,6 @@ export const SettingsDialog = () => {
         fullWidthSupport,
         archiveDiscCreateZip,
         factoryModeUseSlowerExploit,
-        factoryModeShortcuts,
         factoryModeNERAWDownload,
         discProtectedDialogDisabled,
         audioExportService: globalStateAudioExportService,
@@ -297,9 +297,6 @@ export const SettingsDialog = () => {
     const handleToggleFactoryModeUseSlowerExploits = useCallback(() => {
         applySetting({ factoryModeUseSlowerExploit: !factoryModeUseSlowerExploit });
     }, [applySetting, factoryModeUseSlowerExploit]);
-    const handleToggleFactoryModeShortcuts = useCallback(() => {
-        applySetting({ factoryModeShortcuts: !factoryModeShortcuts });
-    }, [applySetting, factoryModeShortcuts]);
     const handleToggleFactoryModeNERAWDownload = useCallback(() => {
         applySetting({ factoryModeNERAWDownload: !factoryModeNERAWDownload });
     }, [applySetting, factoryModeNERAWDownload]);
@@ -415,14 +412,6 @@ export const SettingsDialog = () => {
                     <Switch checked={factoryModeUseSlowerExploit} onChange={handleToggleFactoryModeUseSlowerExploits} />
                 </SimpleField>
                 <SimpleField
-                    name={t('Enable homebrew mode shortcuts')}
-                    classes={classes}
-                    formControl={true}
-                    tooltip={t('This enables an additional section in the menu allowing you to easily access homebrew mode features from the main menu')}
-                >
-                    <Switch checked={factoryModeShortcuts} onChange={handleToggleFactoryModeShortcuts} />
-                </SimpleField>
-                <SimpleField
                     name={t('Download raw streams from netmd-exploits (expert feature)')}
                     classes={classes}
                     formControl={true}
@@ -450,7 +439,8 @@ export const SettingsDialog = () => {
                             { ...n, userFriendlyName: t(n.userFriendlyName) },
                             currentExportServiceConfig![n.varName],
                             handleExportServiceParameterChange,
-                            classes.noLeftMargin
+                            classes.noLeftMargin,
+                            t
                         )
                     )}
                 </Box>
@@ -477,7 +467,8 @@ export const SettingsDialog = () => {
                                     { ...n, userFriendlyName: t(n.userFriendlyName) },
                                     currentLibraryServiceConfig![n.varName],
                                     handleLibraryServiceParameterChange,
-                                    classes.noLeftMargin
+                                    classes.noLeftMargin,
+                                    t
                                 )
                             )}
                         </Box>

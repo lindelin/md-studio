@@ -3,10 +3,6 @@ import otherDeviceDialog from './other-device-feature';
 import errorDialog from './error-dialog-feature';
 import panicDialog, { actions as panicDialogActions } from './panic-dialog-feature';
 import appState, { actions as appActions, buildInitialState as buildInitialAppState } from './app-feature';
-import factory from './factory/factory-feature';
-
-import factoryNoticeDialog from './factory/factory-notice-dialog-feature';
-import factoryBadSectorDialog from './factory/factory-bad-sector-dialog-feature';
 
 import { batchActions, batchDispatchMiddleware } from 'redux-batched-actions';
 
@@ -26,9 +22,6 @@ const reducer = combineReducers({
     otherDeviceDialog,
     errorDialog,
     panicDialog,
-    factory,
-    factoryNoticeDialog,
-    factoryBadSectorDialog,
     appState,
 });
 

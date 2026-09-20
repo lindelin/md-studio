@@ -6,7 +6,7 @@ import { isBoolean, isFiniteNumber, isServiceList } from '../preferences';
 import { normalizeServiceSelection } from '../frontend/service-selection';
 import { updateLoadingOperations } from '../frontend/loading-state';
 
-export type Views = 'WELCOME' | 'MAIN' | 'FACTORY';
+export type Views = 'WELCOME' | 'MAIN';
 
 export interface AppState {
     mainView: Views;

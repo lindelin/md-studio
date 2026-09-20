@@ -46,6 +46,7 @@ import {
 import { concatUint8Arrays } from 'netmd-js/dist/utils';
 import { recomputeGroupsAfterTrackMove } from '../../domain/disc-layout';
 import { CryptoBlockProvider, CryptoProvider } from 'himd-js/dist/workers';
+import { runtimeTranslate } from '../../runtime-i18n';
 
 import WorkerURL from 'himd-js/dist/web-crypto-worker?worker&url';
 
@@ -238,7 +239,7 @@ export class HiMDRestrictedService extends NetMDService {
 
     async listContent(dropCache?: boolean | undefined): Promise<Disc> {
         if (dropCache && this.himd?.isDirty()) {
-            window.alert('You have changes not yet written to disc. Please apply changes first.');
+            window.alert(runtimeTranslate('You have changes not yet written to disc. Please apply changes first.'));
             await this.reloadCache();
             return JSON.parse(JSON.stringify(this.cachedDisc!));
         }
