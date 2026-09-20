@@ -6,6 +6,7 @@ import { LocalFileRegistry } from './local-file-registry.ts';
 import { LocalOutputRegistry } from './local-output-registry.ts';
 import { startLocalBridgeServer } from './websocket-server.ts';
 import { stageLocalAudioImport } from './local-audio-import.ts';
+import { normalizeCliRecordingFormat } from './cli-recording-format.ts';
 
 function help() {
     return `MiniDisc Workspace CLI
@@ -21,7 +22,7 @@ Usage:
   npm run cli -- --file command.json
 
 Options:
-  --codec <name>       Recording codec for write (for example LP2 or LP4)
+  --codec <name>       Recording codec or mode for write (for example LP2 or LP4)
   --bitrate <number>   Recording bitrate paired with --codec
   --wav                Convert exported tracks to WAV
   --port <number>      Local browser bridge port (default: 47123)
@@ -162,7 +163,9 @@ async function executeOperation(
 
     const ids = added.importQueue.items.slice(-staged.length).map((item) => item.id);
     registerTemporaryImports(ids);
-    const format = operation.codec && operation.bitrate ? { codec: operation.codec, bitrate: operation.bitrate } : undefined;
+    const format = operation.codec && operation.bitrate
+        ? normalizeCliRecordingFormat(operation.codec, operation.bitrate)
+        : undefined;
     const preview = await broker.execute(
         {
             type: 'import.preview',
