@@ -10,7 +10,7 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 - Local-path automation reads audio tags and duration before staging, while file bytes remain behind short-lived local handles until conversion starts.
 - The Library can index a browser-selected local folder, search and page its metadata, and add deferred files to the shared recording plan without uploading or persisting folder access.
 - Audio, transcoding, caches, task queues, and device traffic stay on the user's computer; hosted builds serve static application files only.
-- Online services default to off. The connection UI, command layer and each remote request boundary block Remote NetMD, the remote encoder, remote library, and song recognition until the user enables them in Settings.
+- The official build is local-only. Remote NetMD, the remote encoder, remote library, external song recognition, and their settings and dependencies have been removed.
 - Writing performs a capacity, title, codec, device-session, and revision preview before creating a task.
 - Homebrew SP Mono and ATRAC1 writes show their exact capability requirements in the bilingual write review before a task is created; automation cannot authorize these browser-only operations.
 - CSV metadata planning, normal and recovery export review, raw TOC review, protection flags, diagnostics, and capability-gated advanced tools are available from the workbench.
@@ -29,7 +29,7 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 - The startup recovery screen clears only this application's preferences as one transaction. If browser storage refuses the reset, it keeps the error visible instead of reloading into the same failure.
 - Encoder output is validated for ATRAC container, codec, bitrate, and non-empty frames before upload.
 - Completion notifications request browser permission only from the explicit Settings switch. Unsupported, denied, or failed notifications cannot change a successful write result or prevent the completed imports from leaving the queue.
-- Remote requests, browser workers, playback readiness, and cached reconnects have bounded failure paths.
+- Browser workers, playback readiness, and cached reconnects have bounded failure paths.
 - Local bridge messages, file chunks, output paths, origins, and tokens are bounded and validated.
 - Raw TOC writes require a preview, exact checksums, current session/revision, and browser-only authorization; MCP and CLI can preview but cannot apply them.
 - NetMD cancellation stops at a track boundary. It does not claim to interrupt the track already recording.
@@ -45,7 +45,7 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 
 ## Verification snapshot
 
-- 328 automated tests in 86 suites
+- 311 automated tests in 81 suites
 - Full TypeScript and TSX lint with zero warnings
 - Application and bridge type checks
 - Production Vite/PWA build

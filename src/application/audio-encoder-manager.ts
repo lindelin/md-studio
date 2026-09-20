@@ -11,7 +11,6 @@ export interface AudioEncoderSupport {
 export interface AudioEncoderConfiguration {
     index: number;
     parameters: CustomParameters;
-    onlineServicesEnabled?: boolean;
 }
 
 export interface AudioEncoderDescriptor {
@@ -69,7 +68,6 @@ export class AudioEncoderManager {
         const signature = JSON.stringify([
             configuration.index,
             configuration.parameters,
-            configuration.onlineServicesEnabled ?? false,
         ]);
         if (this.active && this.activeSignature === signature) return this.active.service;
         if (this.pending?.signature === signature) return this.pending.promise;

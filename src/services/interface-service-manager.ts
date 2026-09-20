@@ -5,8 +5,6 @@ import type { Codec, MinidiscSpec, NetMDService, RecordingCodec } from './interf
 // dependencies. The connection catalog only needs this small static device list;
 // the full implementation remains behind the dynamic NetworkWMService import.
 import { DeviceIds } from 'networkwm-js/dist/devices.js';
-import { applicationSettings } from '../application/settings-store';
-import { createOnlineServiceGuard } from '../application/online-service-policy';
 
 export interface LoadedService {
     service: NetMDService;
@@ -22,7 +20,6 @@ interface ServicePrototype {
     description?: ReactHTMLElement<any>;
     catalogDescription?: string;
     requiresChrome: boolean;
-    requiresOnlineServices?: boolean;
 }
 
 export interface ServiceConstructionInfo {
@@ -98,54 +95,6 @@ export const Services: ServicePrototype[] = [
                 type: DeviceIds.filter((e) => e.disableDRM).map((e) => ({ name: e.name, value: e.productId.toString() })),
                 userFriendlyName: 'Device',
                 defaultValue: DeviceIds.filter((e) => e.disableDRM)[0].productId.toString(),
-            },
-        ],
-    },
-    {
-        id: 'remote-netmd',
-        name: 'Remote NetMD',
-        catalogDescription: 'Connect to a NetMD recorder exposed by a Remote NetMD server.',
-        requiresOnlineServices: true,
-        getConnectName: (parameters) => `Connect to ${parameters!.friendlyName || parameters!.serverAddress}`,
-        description: React.createElement(
-            'p',
-            null,
-            'Connect to a remote NetMD device with the help of ',
-            React.createElement('a', { href: 'https://github.com/asivery/remote-netmd-server' }, 'Remote NetMD')
-        ),
-        load: async (parameters) => {
-            const [{ NetMDRemoteService }, { DefaultMinidiscSpec }] = await Promise.all([
-                import('./interfaces/remote-netmd'),
-                import('./interfaces/netmd'),
-            ]);
-            return {
-                service: new NetMDRemoteService({
-                    debug: true,
-                    ...parameters,
-                    guardOnlineService: createOnlineServiceGuard(applicationSettings),
-                } as any),
-                spec: new DefaultMinidiscSpec(),
-            };
-        },
-        requiresChrome: false,
-        customParameters: [
-            {
-                userFriendlyName: 'Server Address',
-                varName: 'serverAddress',
-                type: 'string',
-                validator: (content) => {
-                    try {
-                        const asURL = new URL(content);
-                        return asURL.pathname === '/';
-                    } catch (e) {
-                        return false;
-                    }
-                },
-            },
-            {
-                userFriendlyName: 'Friendly Name',
-                varName: 'friendlyName',
-                type: 'string',
             },
         ],
     },
@@ -377,8 +326,4 @@ export function getConnectButtonName(service: ServiceConstructionInfo) {
 
 export function doesServiceRequireChrome(info: ServiceConstructionInfo) {
     return getPrototype(info)?.requiresChrome ?? false;
-}
-
-export function doesServiceRequireOnlineServices(info: ServiceConstructionInfo) {
-    return getPrototype(info)?.requiresOnlineServices ?? false;
 }

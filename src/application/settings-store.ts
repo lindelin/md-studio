@@ -11,7 +11,6 @@ export interface UserSettings {
     fullWidthSupport: boolean;
     factoryModeUseSlowerExploit: boolean;
     factoryModeNERAWDownload: boolean;
-    onlineServicesEnabled: boolean;
     audioEncoderId: string | null;
     audioExportService: number;
     audioExportServiceConfig: CustomParameters;
@@ -19,8 +18,6 @@ export interface UserSettings {
     libraryServiceConfig: CustomParameters;
     uploadFormat: Record<string, [number, number]>;
     trackTitleFormat: ImportTitleFormat;
-    recognitionTrackTitleFormat: Exclude<ImportTitleFormat, 'filename'>;
-    recognitionImportMethod: 'exploits' | 'line-in';
 }
 
 export interface SettingsSnapshot {
@@ -37,7 +34,6 @@ const defaults: UserSettings = {
     fullWidthSupport: false,
     factoryModeUseSlowerExploit: false,
     factoryModeNERAWDownload: false,
-    onlineServicesEnabled: false,
     audioEncoderId: null,
     audioExportService: 1,
     audioExportServiceConfig: {},
@@ -45,8 +41,6 @@ const defaults: UserSettings = {
     libraryServiceConfig: {},
     uploadFormat: {},
     trackTitleFormat: 'filename',
-    recognitionTrackTitleFormat: 'title',
-    recognitionImportMethod: 'line-in',
 };
 
 const booleanKeys = new Set<keyof UserSettings>(
@@ -62,8 +56,6 @@ const booleanKeys = new Set<keyof UserSettings>(
                 'libraryServiceConfig',
                 'uploadFormat',
                 'trackTitleFormat',
-                'recognitionTrackTitleFormat',
-                'recognitionImportMethod',
             ].includes(key)
     ) as (keyof UserSettings)[]
 );
@@ -71,8 +63,12 @@ const booleanKeys = new Set<keyof UserSettings>(
 const isAudioServiceIndex = (value: unknown): value is number =>
     typeof value === 'number' && Number.isInteger(value) && value >= 0;
 
+const isAudioEncoderId = (value: unknown): value is string | null =>
+    value === null ||
+    (typeof value === 'string' && value !== 'remote-atrac' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(value));
+
 const isLibraryServiceIndex = (value: unknown): value is number =>
-    typeof value === 'number' && Number.isInteger(value) && value >= -1;
+    value === -1 || value === 0;
 
 function browserStorage(): Storage | null {
     try {
@@ -151,17 +147,10 @@ export class SettingsStore {
                 isBoolean,
                 this.storage
             ),
-            onlineServicesEnabled: loadPreference(
-                'onlineServicesEnabled',
-                defaults.onlineServicesEnabled,
-                isBoolean,
-                this.storage
-            ),
             audioEncoderId: loadPreference(
                 'audioEncoderId',
                 defaults.audioEncoderId,
-                (value): value is string | null =>
-                    value === null || (typeof value === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(value)),
+                isAudioEncoderId,
                 this.storage
             ),
             audioExportService: loadPreference('audioExportService', defaults.audioExportService, isAudioServiceIndex, this.storage),
@@ -185,18 +174,6 @@ export class SettingsStore {
                 isOneOf(['filename', 'title', 'album-title', 'artist-title', 'artist-album-title', 'title-artist'] as const),
                 this.storage
             ),
-            recognitionTrackTitleFormat: loadPreference(
-                'recognitionTrackTitleFormat',
-                defaults.recognitionTrackTitleFormat,
-                isOneOf(['title', 'album-title', 'artist-title', 'artist-album-title', 'title-artist'] as const),
-                this.storage
-            ),
-            recognitionImportMethod: loadPreference(
-                'recognitionImportMethod',
-                defaults.recognitionImportMethod,
-                isOneOf(['exploits', 'line-in'] as const),
-                this.storage
-            ),
         };
     }
 
@@ -215,7 +192,7 @@ export class SettingsStore {
             return;
         }
         if (key === 'audioEncoderId') {
-            if (value !== null && (typeof value !== 'string' || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(value))) {
+            if (!isAudioEncoderId(value)) {
                 throw new ApplicationError('INVALID_INPUT', 'audioEncoderId must be a stable service id or null.');
             }
             return;
@@ -242,18 +219,6 @@ export class SettingsStore {
         if (key === 'trackTitleFormat') {
             if (!isOneOf(['filename', 'title', 'album-title', 'artist-title', 'artist-album-title', 'title-artist'] as const)(value)) {
                 throw new ApplicationError('INVALID_INPUT', 'trackTitleFormat is invalid.');
-            }
-            return;
-        }
-        if (key === 'recognitionTrackTitleFormat') {
-            if (!isOneOf(['title', 'album-title', 'artist-title', 'artist-album-title', 'title-artist'] as const)(value)) {
-                throw new ApplicationError('INVALID_INPUT', 'recognitionTrackTitleFormat is invalid.');
-            }
-            return;
-        }
-        if (key === 'recognitionImportMethod') {
-            if (!isOneOf(['exploits', 'line-in'] as const)(value)) {
-                throw new ApplicationError('INVALID_INPUT', 'recognitionImportMethod must be exploits or line-in.');
             }
             return;
         }

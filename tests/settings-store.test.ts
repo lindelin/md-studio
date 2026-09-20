@@ -54,16 +54,13 @@ describe('SettingsStore', () => {
                 colorTheme: 'dark',
                 uiLanguage: 'zh-CN',
                 fullWidthSupport: true,
-                onlineServicesEnabled: true,
-                audioEncoderId: 'remote-atrac',
-                audioExportService: 2,
+                audioEncoderId: 'atracdenc',
+                audioExportService: 1,
                 audioExportServiceConfig: { bitrate: 256, normalize: true },
-                libraryService: 1,
-                libraryServiceConfig: { endpoint: 'https://example.test/library' },
+                libraryService: 0,
+                libraryServiceConfig: {},
                 uploadFormat: { 'Mock NetMD': [1, 2] },
                 trackTitleFormat: 'artist-title',
-                recognitionTrackTitleFormat: 'title-artist',
-                recognitionImportMethod: 'exploits',
             },
             0
         );
@@ -73,16 +70,13 @@ describe('SettingsStore', () => {
         assert.equal(reloaded.values.colorTheme, 'dark');
         assert.equal(reloaded.values.uiLanguage, 'zh-CN');
         assert.equal(reloaded.values.fullWidthSupport, true);
-        assert.equal(reloaded.values.onlineServicesEnabled, true);
-        assert.equal(reloaded.values.audioEncoderId, 'remote-atrac');
-        assert.equal(reloaded.values.audioExportService, 2);
+        assert.equal(reloaded.values.audioEncoderId, 'atracdenc');
+        assert.equal(reloaded.values.audioExportService, 1);
         assert.deepEqual(reloaded.values.audioExportServiceConfig, { bitrate: 256, normalize: true });
-        assert.equal(reloaded.values.libraryService, 1);
-        assert.deepEqual(reloaded.values.libraryServiceConfig, { endpoint: 'https://example.test/library' });
+        assert.equal(reloaded.values.libraryService, 0);
+        assert.deepEqual(reloaded.values.libraryServiceConfig, {});
         assert.deepEqual(reloaded.values.uploadFormat, { 'Mock NetMD': [1, 2] });
         assert.equal(reloaded.values.trackTitleFormat, 'artist-title');
-        assert.equal(reloaded.values.recognitionTrackTitleFormat, 'title-artist');
-        assert.equal(reloaded.values.recognitionImportMethod, 'exploits');
         assert.deepEqual(revisions, [1]);
     });
 
@@ -116,10 +110,7 @@ describe('SettingsStore', () => {
             () => settings.update({ uiLanguage: 'fr' } as any),
             (error: unknown) => (error as ApplicationError).code === 'INVALID_INPUT'
         );
-        assert.throws(
-            () => settings.update({ onlineServicesEnabled: 'yes' } as any),
-            (error: unknown) => (error as ApplicationError).code === 'INVALID_INPUT'
-        );
+        assert.throws(() => settings.update({ onlineServicesEnabled: true } as any), /Unknown setting/);
         assert.throws(
             () => settings.update({ audioEncoderId: 'Invalid Encoder Id' }),
             (error: unknown) => (error as ApplicationError).code === 'INVALID_INPUT'
@@ -144,14 +135,7 @@ describe('SettingsStore', () => {
             () => settings.update({ trackTitleFormat: 'performer' } as any),
             (error: unknown) => (error as ApplicationError).code === 'INVALID_INPUT'
         );
-        assert.throws(
-            () => settings.update({ recognitionTrackTitleFormat: 'filename' } as any),
-            (error: unknown) => (error as ApplicationError).code === 'INVALID_INPUT'
-        );
-        assert.throws(
-            () => settings.update({ recognitionImportMethod: 'microphone' } as any),
-            (error: unknown) => (error as ApplicationError).code === 'INVALID_INPUT'
-        );
+        assert.throws(() => settings.update({ recognitionImportMethod: 'line-in' } as any), /Unknown setting/);
         assert.equal(settings.getSnapshot().revision, 1);
         assert.equal(settings.getSnapshot().values.notifyWhenFinished, false);
     });
@@ -165,30 +149,23 @@ describe('SettingsStore', () => {
         storage.setItem('libraryServiceConfig', JSON.stringify({ nested: { invalid: true } }));
         storage.setItem('uploadFormat', JSON.stringify({ Mock: [1.5, 0] }));
         storage.setItem('trackTitleFormat', JSON.stringify('invalid-format'));
-        storage.setItem('recognitionTrackTitleFormat', JSON.stringify('filename'));
-        storage.setItem('recognitionImportMethod', JSON.stringify('microphone'));
-        storage.setItem('onlineServicesEnabled', JSON.stringify('yes'));
+        storage.setItem('libraryService', JSON.stringify(1));
 
         const snapshot = new SettingsStore(storage).getSnapshot();
 
         assert.equal(snapshot.values.audioExportService, 1);
         assert.equal(snapshot.values.audioEncoderId, null);
         assert.deepEqual(snapshot.values.audioExportServiceConfig, { quality: 'high' });
-        assert.equal(snapshot.values.libraryService, 0);
+        assert.equal(snapshot.values.libraryService, -1);
         assert.deepEqual(snapshot.values.libraryServiceConfig, {});
         assert.deepEqual(snapshot.values.uploadFormat, {});
         assert.equal(snapshot.values.trackTitleFormat, 'filename');
-        assert.equal(snapshot.values.recognitionTrackTitleFormat, 'title');
-        assert.equal(snapshot.values.recognitionImportMethod, 'line-in');
-        assert.equal(snapshot.values.onlineServicesEnabled, false);
         assert.equal(storage.getItem('audioExportService'), null);
         assert.equal(storage.getItem('audioEncoderId'), null);
         assert.equal(storage.getItem('libraryServiceConfig'), null);
         assert.equal(storage.getItem('uploadFormat'), null);
         assert.equal(storage.getItem('trackTitleFormat'), null);
-        assert.equal(storage.getItem('recognitionTrackTitleFormat'), null);
-        assert.equal(storage.getItem('recognitionImportMethod'), null);
-        assert.equal(storage.getItem('onlineServicesEnabled'), null);
+        assert.equal(storage.getItem('libraryService'), null);
     });
 
     it('preserves a legacy encoder index until a stable service id is saved', () => {

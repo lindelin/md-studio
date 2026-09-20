@@ -64,9 +64,9 @@ The server currently registers these tools:
 
 Tool schemas returned by the MCP server are authoritative. Track indexes in MCP are zero-based. Friendly CLI export track numbers are one-based to match the labels shown in the app.
 
-Raw TOC application, protection-flag application, device memory access, recovery export, direct recognition sampling, and device mode changes remain browser-only. Their commands require an in-memory authorization value that JSON, MCP, and CLI cannot construct. MCP can inspect firmware and preview raw TOC changes without applying them.
+Raw TOC application, protection-flag application, device memory access, recovery export, and device mode changes remain browser-only. Their commands require an in-memory authorization value that JSON, MCP, and CLI cannot construct. MCP can inspect firmware and preview raw TOC changes without applying them.
 
-`onlineServicesEnabled` defaults to `false`. While it is false, settings updates cannot select the remote encoder or remote library, the browser refuses song-recognition requests, and Remote NetMD is blocked before connection and again at each HTTP or WebSocket request boundary. Enabling it only grants permission to use those explicitly selected features; normal imports, local transcoding, direct USB device operations and the loopback bridge do not need it. To disable it through automation when a remote encoder or library is currently selected, update the encoder to a local service and set `libraryService` to `-1` in the same atomic settings request.
+The official build exposes only local device, encoder, library, and loopback automation services. Retired online-service setting keys are rejected by MCP and CLI rather than being silently accepted.
 
 ## CLI examples
 

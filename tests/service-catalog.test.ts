@@ -11,7 +11,6 @@ describe('service catalog', () => {
                     name: 'Encoder',
                     available: false,
                     unavailableReason: 'Not bundled',
-                    requiresOnlineServices: true,
                     customParameters: [
                         {
                             userFriendlyName: 'Mode',
@@ -29,7 +28,6 @@ describe('service catalog', () => {
                 {
                     id: 'library',
                     name: 'Library',
-                    requiresOnlineServices: true,
                     customParameters: [
                         { userFriendlyName: 'Address', varName: 'address', type: 'string', defaultValue: 'https://example.test/' },
                     ],
@@ -51,7 +49,6 @@ describe('service catalog', () => {
             name: 'Encoder',
             available: false,
             unavailableReason: 'Not bundled',
-            requiresOnlineServices: true,
             parameters: [
                 {
                     key: 'mode',
@@ -75,7 +72,6 @@ describe('service catalog', () => {
             parameters: [],
         });
         assert.equal(catalog.libraries[0].id, 'library');
-        assert.equal(catalog.libraries[0].requiresOnlineServices, true);
         assert.doesNotThrow(() => JSON.stringify(catalog));
     });
 });

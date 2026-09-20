@@ -252,7 +252,6 @@ export class ApplicationError extends Error {
         | 'INTERACTIVE_AUTHORIZATION_REQUIRED'
         | 'DISC_READ_ONLY'
         | 'DEVICE_NOT_CONNECTED'
-        | 'ONLINE_SERVICE_DISABLED'
         | 'PERSISTENCE_FAILED';
     public readonly details?: Record<string, unknown>;
 
@@ -266,7 +265,6 @@ export class ApplicationError extends Error {
             | 'INTERACTIVE_AUTHORIZATION_REQUIRED'
             | 'DISC_READ_ONLY'
             | 'DEVICE_NOT_CONNECTED'
-            | 'ONLINE_SERVICE_DISABLED'
             | 'PERSISTENCE_FAILED',
         message: string,
         details?: Record<string, unknown>

@@ -52,7 +52,6 @@
         "react-dom": "^18.2.0",
         "react-dropzone": "^14.2.3",
         "recorderjs": "github:asivery/Recorderjs",
-        "shazam-api": "^0.3.0",
         "stream-browserify": "^3.0.0",
         "util": "^0.12.5",
         "vite-plugin-svgr": "^4.3.0",

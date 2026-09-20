@@ -390,7 +390,6 @@ describe('InProcessApplicationClient', () => {
             undefined,
             undefined,
             undefined,
-            undefined,
             async (files) => {
                 selected.push(files);
                 return { revision: 1, status: 'ready', database: {}, error: null };

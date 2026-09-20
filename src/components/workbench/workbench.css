@@ -498,31 +498,6 @@
 .workbench__bad-sector-options label.is-disabled { opacity: .45; }
 .workbench__bad-sector-options input { width: 14px; height: 14px; margin: 0; accent-color: #efbd63; }
 .workbench__bad-sector-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 20px; }
-.workbench__recognition-modal { width: min(860px, 100%); max-height: calc(100vh - 48px); overflow: auto; }
-.workbench__recognition-controls { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(190px, .65fr); align-items: end; gap: 12px; }
-.workbench__recognition-input { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; border: 1px solid #304754; border-radius: 6px; padding: 10px 12px; background: #101d25; }
-.workbench__recognition-input > div { display: flex; align-items: center; gap: 9px; }
-.workbench__recognition-input svg { color: var(--wb-accent); }
-.workbench__recognition-input strong, .workbench__recognition-input small { display: block; }
-.workbench__recognition-input strong { color: #d7e7ee; font-size: 10px; }
-.workbench__recognition-input small { margin-top: 3px; color: #728994; font-size: 8px; }
-.workbench__recognition-input select { min-width: 230px; height: 36px; border: 1px solid #3a5361; border-radius: 5px; padding: 0 9px; color: #edf6fa; background: #0f1b22; font-size: 10px; }
-.workbench__recognition-progress { display: grid; gap: 5px; margin-top: 12px; }
-.workbench__recognition-progress > span { height: 5px; overflow: hidden; border-radius: 99px; background: #0c171d; }
-.workbench__recognition-progress i { display: block; height: 100%; background: var(--wb-accent); }
-.workbench__recognition-progress small { color: #7e97a4; font-size: 8px; }
-.workbench__recognition-table { margin-top: 14px; overflow: hidden; border: 1px solid #304754; border-radius: 6px; background: #101d25; }
-.workbench__recognition-body { max-height: 300px; overflow: auto; }
-.workbench__recognition-row { display: grid; min-height: 48px; grid-template-columns: 32px 36px minmax(130px, .8fr) minmax(220px, 1.4fr); align-items: center; gap: 8px; border-bottom: 1px solid #223845; padding: 6px 10px; color: #a9bbc4; font-size: 10px; }
-.workbench__recognition-row:last-child { border-bottom: 0; }
-.workbench__recognition-row.is-head { min-height: 34px; color: #718894; background: #15242d; font-size: 8px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-.workbench__recognition-row input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--wb-accent); }
-.workbench__recognition-row > span:nth-child(3) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.workbench__recognition-row > span:last-child input { height: 32px; margin: 0; }
-.workbench__recognition-row > span:last-child small { display: block; margin-top: 3px; color: #6f8793; font-size: 8px; }
-.workbench__recognition-row em { color: #708591; font-style: normal; }
-.workbench__recognition-row em.is-not-found, .workbench__recognition-row em.is-too-short { color: #d49b6b; }
-
 @media (max-width: 1100px) {
     .workbench { grid-template-columns: 76px minmax(0, 1fr); }
     .workbench__sidebar { padding-inline: 12px; }
@@ -591,10 +566,6 @@
     .workbench__transfer-options { grid-template-columns: 1fr; }
     .workbench__transfer-monitor { grid-template-columns: 1fr 1fr; }
     .workbench__transfer-monitor > div { grid-column: 1 / -1; }
-    .workbench__recognition-controls { grid-template-columns: 1fr; }
-    .workbench__recognition-input { align-items: stretch; flex-direction: column; }
-    .workbench__recognition-input select { width: 100%; min-width: 0; }
-    .workbench__recognition-row { grid-template-columns: 28px 30px minmax(90px, .7fr) minmax(150px, 1.3fr); }
     .workbench__toc-editor-backdrop { align-items: stretch; padding: 10px; }
     .workbench__toc-editor { height: calc(100vh - 20px); }
     .workbench__toc-editor-header { align-items: flex-start; flex-direction: column; padding: 14px; }

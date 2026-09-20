@@ -9,7 +9,6 @@ import {
     createDefaultServiceParameters,
     defaultMetadataTrackSelection,
     findTaskNeedingAttention,
-    formatRecognitionTitle,
     getTaskOutputFiles,
     getTaskCancellationPresentation,
     getTaskErrorDetail,
@@ -331,18 +330,6 @@ describe('Studio Workbench disc maintenance', () => {
         assert.equal(isDiscMaintenanceConfirmationValid('erase', 'erase disc'), false);
         assert.equal(isDiscMaintenanceConfirmationValid('formatHimd', 'FORMAT HI-MD'), true);
         assert.equal(isDiscMaintenanceConfirmationValid('formatHimd', 'ERASE DISC'), false);
-    });
-});
-
-describe('Studio Workbench recognition titles', () => {
-    it('formats complete and partial recognition metadata without dangling separators', () => {
-        const metadata = { title: 'Song', artist: 'Artist', album: 'Album' };
-        assert.equal(formatRecognitionTitle(metadata, 'title'), 'Song');
-        assert.equal(formatRecognitionTitle(metadata, 'album-title'), 'Album - Song');
-        assert.equal(formatRecognitionTitle(metadata, 'artist-title'), 'Artist - Song');
-        assert.equal(formatRecognitionTitle(metadata, 'title-artist'), 'Song - Artist');
-        assert.equal(formatRecognitionTitle(metadata, 'artist-album-title'), 'Artist - Album - Song');
-        assert.equal(formatRecognitionTitle({ title: 'Song', artist: '', album: '  ' }, 'artist-album-title'), 'Song');
     });
 });
 

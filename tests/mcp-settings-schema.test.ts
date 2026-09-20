@@ -14,9 +14,6 @@ const expectedKeys = [
     'libraryService',
     'libraryServiceConfig',
     'notifyWhenFinished',
-    'onlineServicesEnabled',
-    'recognitionImportMethod',
-    'recognitionTrackTitleFormat',
     'trackTitleFormat',
     'uiLanguage',
     'uploadFormat',
@@ -27,7 +24,6 @@ describe('MCP settings schema', () => {
         assert.deepEqual(mcpSettingKeys, [...expectedKeys].sort());
         assert.deepEqual(mcpSettingsChangesSchema.parse({ uiLanguage: 'zh-CN' }), { uiLanguage: 'zh-CN' });
         assert.deepEqual(mcpSettingsChangesSchema.parse({ audioEncoderId: null }), { audioEncoderId: null });
-        assert.deepEqual(mcpSettingsChangesSchema.parse({ onlineServicesEnabled: true }), { onlineServicesEnabled: true });
     });
 
     it('rejects retired and unknown preferences instead of silently stripping them', () => {
@@ -37,6 +33,8 @@ describe('MCP settings schema', () => {
         assert.equal(mcpSettingsChangesSchema.safeParse({ pageFullHeight: true }).success, false);
         assert.equal(mcpSettingsChangesSchema.safeParse({ factoryBadSectorRememberChoice: true }).success, false);
         assert.equal(mcpSettingsChangesSchema.safeParse({ discProtectedDialogDisabled: true }).success, false);
+        assert.equal(mcpSettingsChangesSchema.safeParse({ onlineServicesEnabled: true }).success, false);
+        assert.equal(mcpSettingsChangesSchema.safeParse({ recognitionImportMethod: 'line-in' }).success, false);
         assert.equal(mcpSettingsChangesSchema.safeParse({ uiLanguage: 'fr' }).success, false);
         assert.equal(mcpSettingsChangesSchema.safeParse({}).success, false);
     });

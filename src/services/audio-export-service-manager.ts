@@ -3,9 +3,8 @@ import { AT3RE_INCLUDED, ATRACOS_INCLUDED } from '../version-info';
 import type { AudioExportService } from './audio/audio-export';
 import { ApplicationError } from '../application/contracts';
 import type { AudioEncoderConfiguration, AudioEncoderDescriptor } from '../application/audio-encoder-manager';
-import type { OnlineServiceGuard } from '../application/online-service-policy';
 
-type AudioServiceConstructor = new (parameters: CustomParameters, guardOnlineService?: OnlineServiceGuard) => AudioExportService;
+type AudioServiceConstructor = new (parameters: CustomParameters) => AudioExportService;
 
 export const DEFAULT_AUDIO_SERVICE_ID = 'atracdenc';
 
@@ -17,7 +16,6 @@ export interface AudioServicePrototype {
     description?: string;
     available: boolean;
     unavailableReason?: string;
-    requiresOnlineServices?: boolean;
 }
 
 export const AudioServices: AudioServicePrototype[] = [
@@ -35,31 +33,6 @@ export const AudioServices: AudioServicePrototype[] = [
         load: async () => (await import('./audio/atracdenc-export')).AtracdencAudioExportService,
         description: 'The standard open-source ATRAC encoder. Its ATRAC3 support is incomplete',
         available: true,
-    },
-    {
-        id: 'remote-atrac',
-        name: 'Remote ATRAC Encoder',
-        load: async () => (await import('./audio/remote-atrac-export')).RemoteAtracExportService,
-        available: true,
-        requiresOnlineServices: true,
-        customParameters: [
-            {
-                userFriendlyName: 'Server Address',
-                varName: 'address',
-                type: 'string',
-                defaultValue: 'https://atrac.minidisc.wiki/',
-                validator: (content) => {
-                    try {
-                        new URL(content);
-                        return true;
-                    } catch (e) {
-                        return false;
-                    }
-                },
-            },
-        ],
-        description:
-            'A separate high-quality ATRAC encoder hosted on another server (as defined by https://github.com/thinkbrown/atrac-api)',
     },
 ];
 
@@ -112,8 +85,7 @@ export function resolveAudioServiceIndexById(preferredId: string | null | undefi
 }
 
 export async function createAudioEncoder(
-    configuration: AudioEncoderConfiguration,
-    guardOnlineService?: OnlineServiceGuard
+    configuration: AudioEncoderConfiguration
 ): Promise<AudioEncoderDescriptor> {
     const index = resolveAudioServiceIndex(configuration.index);
     const prototype = AudioServices[index];
@@ -125,6 +97,6 @@ export async function createAudioEncoder(
         index,
         id: prototype.id,
         name: prototype.name,
-        service: new Constructor(configuration.parameters, guardOnlineService),
+        service: new Constructor(configuration.parameters),
     };
 }

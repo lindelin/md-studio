@@ -34,8 +34,6 @@ declare global {
             himdFullInterface?: NetMDService;
             nwInterface?: NetMDService;
 
-            // Optional:
-            unrestrictedFetchJSON: (url: string, parameters?: any) => any;
             reload?: () => void;
 
             // Settings API:

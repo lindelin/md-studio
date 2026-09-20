@@ -18,8 +18,6 @@ import { AudioServices, createAudioEncoder, resolveAudioServiceIndexById } from 
 import { createServiceCatalog, type ServiceCatalogSnapshot } from '../application/service-catalog';
 import { Services as DeviceServices } from './interface-service-manager';
 import type { LocalAudioInput } from '../application/browser-audio-input';
-import type { TrackRecognizer } from '../application/browser-track-recognizer';
-import { createOnlineServiceGuard } from '../application/online-service-policy';
 
 interface ServiceRegistry {
     netmdService?: NetMDService;
@@ -38,7 +36,6 @@ interface ServiceRegistry {
     importWriter?: ImportWriter;
     trackExporter?: TrackExporter;
     trackRecorder?: TrackRecorder;
-    trackRecognizer?: TrackRecognizer;
     operationCoordinator: DeviceOperationCoordinator;
     workspaceStore: WorkspaceStore;
     settingsStore: SettingsStore;
@@ -46,10 +43,9 @@ interface ServiceRegistry {
 
 const taskManager = new TaskManager();
 const importQueue = new ImportQueue();
-const guardOnlineService = createOnlineServiceGuard(applicationSettings);
 const libraryCatalog = new LibraryCatalog(() => {
     const settings = applicationSettings.getSnapshot().values;
-    return createLibraryService(settings.libraryService, settings.libraryServiceConfig, guardOnlineService);
+    return createLibraryService(settings.libraryService, settings.libraryServiceConfig);
 });
 const audioEncoderManager = new AudioEncoderManager(
     () => {
@@ -57,10 +53,9 @@ const audioEncoderManager = new AudioEncoderManager(
         return {
             index: resolveAudioServiceIndexById(settings.audioEncoderId, settings.audioExportService),
             parameters: settings.audioExportServiceConfig,
-            onlineServicesEnabled: settings.onlineServicesEnabled,
         };
     },
-    (configuration) => createAudioEncoder(configuration, guardOnlineService)
+    (configuration) => createAudioEncoder(configuration)
 );
 const ServiceRegistry: ServiceRegistry = {
     taskManager,

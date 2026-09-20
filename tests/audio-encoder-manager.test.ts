@@ -26,7 +26,6 @@ describe('AudioEncoderManager', () => {
         let configuration: AudioEncoderConfiguration = {
             index: 0,
             parameters: { quality: 'standard' },
-            onlineServicesEnabled: false,
         };
         let initialized = 0;
         const manager = new AudioEncoderManager(
@@ -71,11 +70,6 @@ describe('AudioEncoderManager', () => {
         assert.equal(manager.getSnapshot().revision, 2);
         assert.equal(manager.getSnapshot().id, 'encoder-1');
 
-        configuration = { index: 1, parameters: {}, onlineServicesEnabled: true };
-        const policyReplacement = await manager.getService();
-
-        assert.notEqual(policyReplacement, replacement);
-        assert.equal(initialized, 3);
     });
 
     it('reports initialization failures without discarding the last working service', async () => {

@@ -7,7 +7,6 @@ const {
     filterOutCorrupted,
     getConnectButtonName,
     getSimpleServices,
-    doesServiceRequireOnlineServices,
 } = await import('../src/services/interface-service-manager.ts');
 
 describe('device service catalog', () => {
@@ -18,11 +17,10 @@ describe('device service catalog', () => {
             { id: 'himd-full', name: 'HiMD (secure full access)' },
         ]);
         assert.equal(getConnectButtonName({ id: 'usb-netmd', name: 'Renamed display label' }), 'Connect');
-        assert.equal(doesServiceRequireOnlineServices({ id: 'usb-netmd', name: 'USB NetMD' }), false);
-        assert.equal(doesServiceRequireOnlineServices({ id: 'remote-netmd', name: 'Remote NetMD' }), true);
+        assert.equal(getSimpleServices().some((service) => service.id === 'remote-netmd'), false);
     });
 
-    it('migrates valid name-only custom devices to canonical ids', () => {
+    it('drops saved Remote NetMD entries from the local-only product catalog', () => {
         assert.deepEqual(
             filterOutCorrupted([
                 {
@@ -30,13 +28,7 @@ describe('device service catalog', () => {
                     parameters: { serverAddress: 'https://example.test/', friendlyName: 'Studio' },
                 },
             ]),
-            [
-                {
-                    id: 'remote-netmd',
-                    name: 'Remote NetMD',
-                    parameters: { serverAddress: 'https://example.test/', friendlyName: 'Studio' },
-                },
-            ]
+            []
         );
     });
 });

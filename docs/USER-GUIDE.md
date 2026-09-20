@@ -24,7 +24,7 @@ Only one tab or application can claim a USB interface. If connection fails with 
 - **Device** shows connection, disc capacity, playback, and synchronization state.
 - **Disc** shows tracks already on the inserted disc. Selection drives playback, metadata, groups, export, and maintenance actions.
 - **Recording Plan** contains local audio waiting to be written. Editing this list does not change the disc.
-- **Library** can index a local music folder or browse an explicitly configured remote source, then add selected tracks to the recording plan.
+- **Library** can index a local music folder, then add selected tracks to the recording plan.
 - **Inspector** edits the focused item and applies supported batch metadata to the current selection.
 - **Task Center** shows queued and active work, true completion state, partial results, recovery advice, and completed output files.
 - **Settings** controls defaults and service configuration. Items marked for reload take effect after the page reloads.
@@ -32,13 +32,13 @@ Only one tab or application can claim a USB interface. If connection fails with 
 
 Advanced controls are enabled only when the connected adapter advertises the required capability. A disabled action can be correct for that recorder.
 
-## Local and online execution
+## Local execution
 
 Normal MiniDisc work is local. File import, metadata editing, FFmpeg conversion, ATRAC encoding, queues, caches, exports, MCP/CLI traffic and USB communication stay on this computer. A hosted web version downloads static application files and does not send those jobs to a project server.
 
 Use **Library → Choose local folder** to build a searchable catalog from audio on this computer. The browser keeps the selected files only for the current page session and passes them to the normal local encoder when recording starts. Reloading the page removes that temporary permission, so choose the folder again. The application does not upload the folder, its paths, metadata, or audio.
 
-**Settings → Online services** is off for a new installation. While it is off, the connection screen and request implementations block Remote NetMD, the remote ATRAC encoder, remote music library and song recognition. Turning it on only permits those features; each still runs after the user selects or starts it. Turning it off again returns a selected remote encoder to a bundled local encoder, clears the remote library selection and blocks the next request from an existing Remote NetMD connection.
+The official application does not include Remote NetMD, a remote ATRAC encoder, a remote music library, or an external song-recognition client. Device access, encoding, the library, and automation therefore remain local without relying on a project server.
 
 **Settings → Completion notifications** is also optional and local. Enabling it asks the browser for this site's notification permission at that moment. If permission is unavailable, denied, or later revoked, recording still completes normally and the task result remains in the Task Center; only the desktop notification is skipped.
 

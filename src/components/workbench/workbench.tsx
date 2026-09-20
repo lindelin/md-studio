@@ -61,7 +61,6 @@ import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import CreateNewFolderRoundedIcon from '@mui/icons-material/CreateNewFolderRounded';
 import FolderOffRoundedIcon from '@mui/icons-material/FolderOffRounded';
 import SelectAllRoundedIcon from '@mui/icons-material/SelectAllRounded';
-import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 
@@ -70,7 +69,6 @@ import { AboutDialog } from '../about-dialog';
 import { WorkbenchLibrary } from './workbench-library';
 import { WorkbenchSettings } from './workbench-settings';
 import { WorkbenchTrackTransfer } from './workbench-track-transfer';
-import { WorkbenchTrackRecognition } from './workbench-track-recognition';
 import { WorkbenchTools } from './workbench-tools';
 import { WorkbenchBadSectorPrompt } from './workbench-bad-sector-prompt';
 import { useI18n } from '../use-i18n';
@@ -147,7 +145,6 @@ export const Workbench = () => {
     const [groupDraft, setGroupDraft] = useState('');
     const [groupDialogOpen, setGroupDialogOpen] = useState(false);
     const [trackTransferMode, setTrackTransferMode] = useState<'export' | 'record' | 'recovery' | null>(null);
-    const [trackRecognitionOpen, setTrackRecognitionOpen] = useState(false);
     const [aboutOpen, setAboutOpen] = useState(false);
     const [taskCenterOpen, setTaskCenterOpen] = useState(false);
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -1082,7 +1079,6 @@ export const Workbench = () => {
                                 <strong>{language === 'zh-CN' ? `已选 ${selectedTrackIndexes.length} 首` : `${selectedTrackIndexes.length} selected`}</strong>
                                 <span>{t('Ctrl/⌘ click toggles · Shift click extends the selection')}</span>
                                 <div>
-                                    <button onClick={() => setTrackRecognitionOpen(true)} disabled={!canPlayback && !device?.capabilities.includes('advanced.factory')}><MusicNoteRoundedIcon /> {t('Recognize')}</button>
                                     <button onClick={openTrackTransfer} disabled={busy || (!canDownload && !canInspectRecoveryExport && !canPlayback)}><DownloadRoundedIcon /> {t(canDownload ? 'Export' : canInspectRecoveryExport ? 'Recovery export' : 'Record')}</button>
                                     {canDownload && canInspectRecoveryExport ? <button onClick={openRecoveryTrackTransfer} disabled={busy}><DownloadRoundedIcon /> {t('Recovery export')}</button> : null}
                                     <button onClick={() => { setGroupDraft(''); setGroupDialogOpen(true); }} disabled={!canGroupSelection}><CreateNewFolderRoundedIcon /> {t('Group')}</button>
@@ -1181,7 +1177,7 @@ export const Workbench = () => {
                             <button aria-label={t('Close task center')} onClick={() => setTaskCenterOpen(false)}>×</button>
                         </header>
                         {recentTasks.length === 0 ? (
-                            <div className="workbench__task-empty"><CheckCircleIcon /><strong>{t('No task history yet')}</strong><span>{t('Writes, exports, recordings and recognition jobs will appear here.')}</span></div>
+                            <div className="workbench__task-empty"><CheckCircleIcon /><strong>{t('No task history yet')}</strong><span>{t('Writes, exports and recordings will appear here.')}</span></div>
                         ) : (
                             <div className="workbench__task-center-body">
                                 <nav aria-label={t('Recent tasks')}>
@@ -1293,21 +1289,6 @@ export const Workbench = () => {
                     key={`${badSectorPrompt.address}:${badSectorPrompt.count}:${badSectorPrompt.seconds}`}
                     prompt={badSectorPrompt}
                     onChoose={resolveBadSectorChoice}
-                />
-            ) : null}
-
-            {trackRecognitionOpen && device ? (
-                <WorkbenchTrackRecognition
-                    tracks={tracks}
-                    initialTrackIndexes={selectedTrackIndexes}
-                    expectedRevision={device.revision}
-                    onClose={() => setTrackRecognitionOpen(false)}
-                    onTaskStarted={(id, nextMessage) => {
-                        setSelectedTaskId(id);
-                        setTaskCenterOpen(true);
-                        setMessage(nextMessage);
-                    }}
-                    onApplied={setMessage}
                 />
             ) : null}
 

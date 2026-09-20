@@ -957,16 +957,16 @@ describe('MiniDiscApplication', () => {
             'progress:2',
             'finalize',
         ]);
-        const recognitionError = new Error('recognition failed');
+        const readError = new Error('read failed');
         finalization.error = new Error('cleanup failed');
         await assert.rejects(
             () =>
                 application.runAdvancedTrackDownloadSession(
                     false,
                     INTERACTIVE_ADVANCED_AUTHORIZATION,
-                    async () => { throw recognitionError; }
+                    async () => { throw readError; }
                 ),
-            (error) => error === recognitionError
+            (error) => error === readError
         );
         assert.deepEqual(actions.slice(-2), ['prepare:false', 'finalize']);
 

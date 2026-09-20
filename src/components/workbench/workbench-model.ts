@@ -191,28 +191,6 @@ export function isDiscMaintenanceConfirmationValid(action: DiscMaintenanceAction
     return confirmation === getDiscMaintenanceConfirmationToken(action);
 }
 
-export type RecognitionTitleFormat = 'title' | 'album-title' | 'artist-title' | 'title-artist' | 'artist-album-title';
-
-export function formatRecognitionTitle(
-    metadata: { title?: string; artist?: string; album?: string },
-    format: RecognitionTitleFormat
-) {
-    const title = metadata.title?.trim() ?? '';
-    const artist = metadata.artist?.trim() ?? '';
-    const album = metadata.album?.trim() ?? '';
-    const parts =
-        format === 'album-title'
-            ? [album, title]
-            : format === 'artist-title'
-              ? [artist, title]
-              : format === 'title-artist'
-                ? [title, artist]
-                : format === 'artist-album-title'
-                  ? [artist, album, title]
-                  : [title];
-    return parts.filter(Boolean).join(' - ');
-}
-
 export function buildAdvancedExportFileName(prefix: string, deviceName: string, firmwareVersion?: string) {
     const sanitize = (value: string) =>
         Array.from(value.trim(), (character) => (character.charCodeAt(0) < 32 ? '_' : character))
@@ -230,7 +208,6 @@ export function localizeTaskLabel(label: string, language: 'en' | 'zh-CN') {
     const patterns: [RegExp, (count: string) => string][] = [
         [/^Write (\d+) tracks? to MiniDisc$/, (count) => `将 ${count} 首曲目录制到 MiniDisc`],
         [/^Export (\d+) tracks? with device recovery$/, (count) => `通过设备恢复导出 ${count} 首曲目`],
-        [/^Recognize (\d+) tracks?$/, (count) => `识别 ${count} 首曲目`],
         [/^Record (\d+) tracks? through the audio input$/, (count) => `通过音频输入录制 ${count} 首曲目`],
         [/^Export (\d+) tracks? from MiniDisc$/, (count) => `从 MiniDisc 导出 ${count} 首曲目`],
     ];
@@ -256,7 +233,6 @@ export function localizeTaskMessage(message: string, language: 'en' | 'zh-CN') {
         'Keep the device connected and retry the advanced export.': '保持设备连接，然后重试高级导出。',
         'Keep the downloaded recordings and retry only the remaining tracks.': '保留已下载的录音，只重试剩余曲目。',
         'Check the audio input and device playback connection before retrying.': '重试前请检查音频输入和设备播放连接。',
-        'Check the audio source and recognition service, then retry the remaining tracks.': '检查音频来源和识别服务，然后重试剩余曲目。',
         'Refresh the disc, keep the completed tracks, and retry only the remaining imports.': '刷新碟片并保留已完成的曲目，只重试剩余导入项。',
         'Check the source audio, encoder, and device connection before retrying the write.': '检查源音频、编码器和设备连接，然后重试写入。',
         'The recording task stopped before all tracks were transferred.': '录制任务在所有曲目传输完成前停止。',

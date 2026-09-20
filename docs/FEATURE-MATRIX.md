@@ -7,7 +7,6 @@ Status meanings:
 - **Ready** — implemented through the shared application boundary and covered by automated or browser verification.
 - **Hardware check** — implemented, but final acceptance requires a compatible physical device.
 - **Browser only** — intentionally requires an in-memory browser capability or user interaction and is excluded from JSON, MCP, and CLI.
-- **Optional online** — disabled by default and outside the normal local workflow; it remains a release-scope decision.
 - **Removed** — deliberately excluded from the new product.
 
 ## Product and architecture
@@ -26,6 +25,7 @@ Status meanings:
 | Standalone Factory screen | Removed | — | Supported maintenance operations moved into capability-gated Workbench tools. |
 | Tetris easter egg | Removed | — | No UI, command, bridge, capability or device-service entry remains. |
 | Raw device globals in DevTools | Removed | — | NetMD, HiMD, exploit, patch and TOC objects are no longer attached to `window`. |
+| Remote NetMD | Removed | — | The remote adapter, transport and configuration surface are excluded from the local-only product. |
 
 ## MiniDisc workflows
 
@@ -55,23 +55,22 @@ Status meanings:
 | FFmpeg source conversion | Yes | Yes | Browser Worker | Ready; worker startup, cleanup, cancellation boundaries and safe virtual names are covered. |
 | Local Atracdenc LP2/LP4 encoding | Yes | Yes | Browser Worker/WASM | Ready; real CLI → browser → MZ-N920 LP2 write verified. |
 | Optional At3RE / Atrac3OS / native local encoder | When assets exist | Yes | Local Worker or desktop process | Hardware/runtime check; unavailable assets are not advertised. |
-| Remote ATRAC encoding | Optional | Optional | External HTTP service | Optional online; disabled by default and conflicts with a strict local-only release profile. |
+| Remote ATRAC encoding | Removed | Removed | — | Excluded from the local-only product; bundled and native local encoders remain. |
 | Standard LP write | Yes | Yes | `import.write` + browser writer | Ready on MockMD and MZ-N920, including write-after-refresh and queue cleanup. |
 | Homebrew ATRAC1 / SP / Mono write | Yes | No | Browser-only authorization | Hardware check; policy and confirmation are covered, representative write paths remain device-specific. |
 | Immediate interruption of the active NetMD track | No | No | Protocol limitation | Not accepted as safe. Cancellation stops before the next track; the UI never claims the active recorder stopped. |
 | Completion notification | Yes | — | Local browser notification | Ready; permission is requested only from the explicit setting and notification failure cannot change a successful write. |
 
-## Export, recording, recognition and library
+## Export, recording and library
 
 | Capability | Status | Boundary | Evidence / remaining acceptance |
 |---|---|---|---|
 | Standard direct track export | Hardware check | Shared background task | Capability and output handling are ready; requires a device with `track.download` such as MZ-RH1. |
 | Recovery/exploit export | Browser only / hardware check | Browser authorization + advanced task | Review, progress, bad-sector decisions and output handling are ready; representative device acceptance remains. |
 | Browser audio-input recording | Hardware check | Local microphone/line input | Device enumeration, preview replacement, cleanup and task state are covered; real input acceptance remains. |
-| Song recognition | Optional online | Local sampling + external recognition request | Disabled with online services. A strict local-only release must remove it or replace the matcher with a local implementation. |
 | Library workspace UI | Ready | Workbench + `LibraryCatalog` | Navigation, search, paging, selection and import are covered. |
 | Built-in local folder library | Ready | Browser-session file handles + local encoder | Folder selection, bounded indexing, metadata, search, paging and import are local. Browser permission is intentionally reselected after reload. |
-| Remote HTTP library | Optional online | External server | Disabled by default. The local folder library is the normal server-free catalog path. |
+| Remote HTTP library | Removed | — | Excluded from the local-only product. |
 
 ## Advanced maintenance
 
@@ -91,15 +90,14 @@ The serializable command surface currently contains:
 
 `workspace.get`, `services.get`, `settings.get`, `settings.update`, `disc.refresh`, `device.pollStatus`, `disc.rename`, `disc.erase`, `disc.formatHimd`, `device.flush`, `disc.eject`, `metadata.exportCsv`, `metadata.planCsv`, `metadata.applyCsv`, `advanced.inspect`, `advanced.readToc`, `advanced.previewTocWrite`, `advanced.previewTocPatch`, `advanced.writeToc`, `advanced.applyTocPatch`, `advanced.setSpUploadSpeedup`, `advanced.setDiscSwapDetectionDisabled`, `advanced.enableHimdFullMode`, `advanced.enterServiceMode`, `library.get`, `library.refresh`, `library.status`, `library.refreshSummary`, `library.list`, `library.search`, `library.import`, `track.renameMany`, `track.renameHimdMany`, `track.move`, `track.export`, `track.record`, `track.deleteMany`, `group.rename`, `group.create`, `group.deleteMany`, `playback.control`, `diagnostics.selfTest`, `task.list`, `task.get`, `task.cancel`, `import.list`, `import.add`, `import.update`, `import.updateMany`, `import.move`, `import.remove`, `import.clear`, `import.preview`, and `import.write`.
 
-The local MCP server exposes 43 friendly tools over the same command bus. Raw TOC application, device memory reads, recovery export, direct recognition sampling, Homebrew upload authorization and device mode changes remain browser-only because their in-memory capabilities cannot be represented by a JSON client.
+The local MCP server exposes 43 friendly tools over the same command bus. Raw TOC application, device memory reads, recovery export, Homebrew upload authorization and device mode changes remain browser-only because their in-memory capabilities cannot be represented by a JSON client.
 
 The friendly tool surface is: `minidisc_get_workspace`, `minidisc_list_services`, `minidisc_get_status`, `minidisc_refresh_library`, `minidisc_list_library`, `minidisc_search_library`, `minidisc_import_library_tracks`, `minidisc_get_settings`, `minidisc_update_settings`, `minidisc_get_advanced_device_info`, `minidisc_read_raw_toc`, `minidisc_preview_raw_toc_write`, `minidisc_preview_toc_flag_change`, `minidisc_rename_disc`, `minidisc_export_metadata_csv`, `minidisc_plan_metadata_csv`, `minidisc_apply_metadata_csv`, `minidisc_rename_tracks`, `minidisc_rename_himd_tracks`, `minidisc_create_group`, `minidisc_rename_group`, `minidisc_delete_groups`, `minidisc_move_track`, `minidisc_export_tracks`, `minidisc_delete_tracks`, `minidisc_erase_disc`, `minidisc_format_himd`, `minidisc_flush_device`, `minidisc_eject_disc`, `minidisc_control_playback`, `minidisc_run_device_self_test`, `minidisc_list_tasks`, `minidisc_cancel_task`, `minidisc_get_task`, `minidisc_list_imports`, `minidisc_add_imports`, `minidisc_update_import`, `minidisc_update_imports`, `minidisc_move_import`, `minidisc_remove_imports`, `minidisc_clear_imports`, `minidisc_preview_imports`, and `minidisc_write_imports`.
 
 ## Release acceptance still open
 
-1. Decide and enforce the final local-only product profile. Remote encoder, remote library, Remote NetMD and external song recognition are currently optional and disabled by default; the strict interpretation is to remove them from the official build.
-2. Verify standard export and successful file-result presentation on a download-capable NetMD device.
-3. Verify representative HiMD metadata/export and Network Walkman operations without weakening capability gates.
-4. Verify browser audio-input recording and, if recognition remains, define a local recognition implementation.
-5. Verify device-specific advanced backup/recovery and Homebrew write paths only on explicitly disposable media.
-6. Capture final release screenshots after the product profile is frozen, then repeat the clean-install, build, license and runtime-asset release gates.
+1. Verify standard export and successful file-result presentation on a download-capable NetMD device.
+2. Verify representative HiMD metadata/export and Network Walkman operations without weakening capability gates.
+3. Verify browser audio-input recording.
+4. Verify device-specific advanced backup/recovery and Homebrew write paths only on explicitly disposable media.
+5. Capture final release screenshots, then repeat the clean-install, build, license and runtime-asset release gates.

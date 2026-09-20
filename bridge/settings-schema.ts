@@ -8,7 +8,6 @@ const settingsShape = {
     fullWidthSupport: z.boolean().optional(),
     factoryModeUseSlowerExploit: z.boolean().optional(),
     factoryModeNERAWDownload: z.boolean().optional(),
-    onlineServicesEnabled: z.boolean().optional(),
     audioEncoderId: z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/).nullable().optional(),
     audioExportService: z.number().int().nonnegative().optional(),
     audioExportServiceConfig: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
@@ -18,10 +17,6 @@ const settingsShape = {
     trackTitleFormat: z
         .enum(['filename', 'title', 'album-title', 'artist-title', 'artist-album-title', 'title-artist'])
         .optional(),
-    recognitionTrackTitleFormat: z
-        .enum(['title', 'album-title', 'artist-title', 'artist-album-title', 'title-artist'])
-        .optional(),
-    recognitionImportMethod: z.enum(['exploits', 'line-in']).optional(),
 } satisfies { [Key in keyof UserSettings]: z.ZodType<UserSettings[Key] | undefined> };
 
 export const mcpSettingsChangesSchema = z

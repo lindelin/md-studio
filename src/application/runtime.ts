@@ -9,8 +9,7 @@ import type { AdaptiveFile } from '../utils';
 import { createDeferredFile } from './deferred-file';
 import { describeDeviceSessionFailure, DeviceSessionConnector } from './device-session';
 import type { MinidiscSpec, NetMDService } from '../services/interfaces/netmd';
-import { doesServiceRequireOnlineServices, loadService } from '../services/interface-service-manager';
-import { assertOnlineServicesEnabled } from './online-service-policy';
+import { loadService } from '../services/interface-service-manager';
 import { LibraryServices } from '../services/library-services';
 
 function connectDeviceSession(service: NetMDService, spec: MinidiscSpec) {
@@ -187,11 +186,6 @@ export function getApplicationClient() {
                         message: null,
                     });
                     try {
-                        if (doesServiceRequireOnlineServices(request)) {
-                            assertOnlineServicesEnabled(
-                                serviceRegistry.settingsStore.getSnapshot().values.onlineServicesEnabled
-                            );
-                        }
                         const loaded = await loadService(request);
                         if (!loaded) {
                             serviceRegistry.workspaceStore.setConnection(disconnectedDeviceConnection());
@@ -250,15 +244,6 @@ export function getApplicationClient() {
                     await releaseDeviceSession(finalize);
                     serviceRegistry.workspaceStore.setConnection(disconnectedDeviceConnection());
                 },
-            },
-            async (request) => {
-                if (!serviceRegistry.trackRecognizer) {
-                    throw new Error('Song recognition is unavailable in this application environment.');
-                }
-                assertOnlineServicesEnabled(
-                    serviceRegistry.settingsStore.getSnapshot().values.onlineServicesEnabled
-                );
-                return serviceRegistry.trackRecognizer.start(request, serviceRegistry.taskManager);
             },
             async (files) => {
                 const { indexBrowserFolder } = await import('../services/library/browser-folder-library');

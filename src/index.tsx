@@ -21,7 +21,6 @@ import { BrowserTrackRecorder } from './application/browser-track-recorder';
 import { getApplicationClient, isActiveUsbDevice } from './application/runtime';
 import { BrowserAudioInput } from './application/browser-audio-input';
 import { BrowserLocalFileGateway } from './application/browser-local-file-gateway';
-import { BrowserTrackRecognizer } from './application/browser-track-recognizer';
 import NotificationCompleteIconUrl from './images/record-complete-notification-icon.png';
 import { ApplicationClientProvider } from './frontend/application-client-provider';
 import { hasPendingWorkspaceWork } from './frontend/pending-work';
@@ -51,7 +50,6 @@ serviceRegistry.trackExporter = new BrowserTrackExporter(localFiles);
 serviceRegistry.trackRecorder = new BrowserTrackRecorder(mediaRecorderService);
 const applicationClient = getApplicationClient();
 serviceRegistry.mediaSessionService = new BrowserMediaSessionService(applicationClient);
-serviceRegistry.trackRecognizer = new BrowserTrackRecognizer(applicationClient);
 const localApplicationBridge = startLocalApplicationBridge(localFiles);
 if (import.meta.hot) {
     import.meta.hot.dispose(() => {

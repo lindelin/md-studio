@@ -417,7 +417,7 @@ describe('ApplicationCommandBus import writing', () => {
         assert.equal(receivedDeviceId, 'line-in');
     });
 
-    it('updates shared settings but rejects attempts to enable the local bridge', async () => {
+    it('updates local-only shared settings but rejects retired and unavailable services', async () => {
         const settings = new SettingsStore(null);
         const serviceCatalog = {
             audioEncoders: [
@@ -430,22 +430,13 @@ describe('ApplicationCommandBus import writing', () => {
                     parameters: [],
                 },
                 { index: 1, id: 'atracdenc', name: 'Atracdenc', available: true, parameters: [] },
-                {
-                    index: 2,
-                    id: 'remote-atrac',
-                    name: 'Remote ATRAC',
-                    available: true,
-                    requiresOnlineServices: true,
-                    parameters: [],
-                },
             ],
             libraries: [
                 {
                     index: 0,
-                    id: 'remote-library',
-                    name: 'Remote Library',
+                    id: 'browser-folder',
+                    name: 'Local Folder',
                     available: true,
-                    requiresOnlineServices: true,
                     parameters: [],
                 },
             ],
@@ -478,33 +469,17 @@ describe('ApplicationCommandBus import writing', () => {
             type: 'settings.update',
             changes: { audioEncoderId: 'at3re' },
         });
-        const remoteEncoderBlocked = await bus.execute({
+        const retiredEncoder = await bus.execute({
             type: 'settings.update',
             changes: { audioEncoderId: 'remote-atrac' },
         });
-        const remoteLibraryBlocked = await bus.execute({
+        const localLibrary = await bus.execute({
             type: 'settings.update',
             changes: { libraryService: 0 },
         });
-        const onlineConfiguration = await bus.execute({
+        const retiredLibrary = await bus.execute({
             type: 'settings.update',
-            changes: {
-                onlineServicesEnabled: true,
-                audioEncoderId: 'remote-atrac',
-                libraryService: 0,
-            },
-        });
-        const unsafeDisable = await bus.execute({
-            type: 'settings.update',
-            changes: { onlineServicesEnabled: false },
-        });
-        const localOnlyConfiguration = await bus.execute({
-            type: 'settings.update',
-            changes: {
-                onlineServicesEnabled: false,
-                audioEncoderId: 'atracdenc',
-                libraryService: -1,
-            },
+            changes: { libraryService: 1 },
         });
 
         assert.equal(updated.ok && updated.settings?.values.colorTheme, 'dark');
@@ -514,17 +489,11 @@ describe('ApplicationCommandBus import writing', () => {
         assert.equal(!rejected.ok && rejected.error.code, 'INVALID_INPUT');
         assert.equal(unavailableEncoder.ok, false);
         assert.equal(!unavailableEncoder.ok && unavailableEncoder.error.code, 'INVALID_INPUT');
-        assert.equal(remoteEncoderBlocked.ok, false);
-        assert.equal(!remoteEncoderBlocked.ok && remoteEncoderBlocked.error.code, 'ONLINE_SERVICE_DISABLED');
-        assert.equal(remoteLibraryBlocked.ok, false);
-        assert.equal(!remoteLibraryBlocked.ok && remoteLibraryBlocked.error.code, 'ONLINE_SERVICE_DISABLED');
-        assert.equal(onlineConfiguration.ok && onlineConfiguration.settings?.values.onlineServicesEnabled, true);
-        assert.equal(onlineConfiguration.ok && onlineConfiguration.settings?.values.audioEncoderId, 'remote-atrac');
-        assert.equal(unsafeDisable.ok, false);
-        assert.equal(!unsafeDisable.ok && unsafeDisable.error.code, 'ONLINE_SERVICE_DISABLED');
-        assert.equal(localOnlyConfiguration.ok && localOnlyConfiguration.settings?.values.onlineServicesEnabled, false);
-        assert.equal(localOnlyConfiguration.ok && localOnlyConfiguration.settings?.values.audioEncoderId, 'atracdenc');
-        assert.equal(localOnlyConfiguration.ok && localOnlyConfiguration.settings?.values.libraryService, -1);
+        assert.equal(retiredEncoder.ok, false);
+        assert.equal(!retiredEncoder.ok && retiredEncoder.error.code, 'INVALID_INPUT');
+        assert.equal(localLibrary.ok && localLibrary.settings?.values.libraryService, 0);
+        assert.equal(retiredLibrary.ok, false);
+        assert.equal(!retiredLibrary.ok && retiredLibrary.error.code, 'INVALID_INPUT');
     });
 
     it('reports browser persistence failures to UI and automation clients without advancing settings', async () => {
