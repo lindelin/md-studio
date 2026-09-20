@@ -1,11 +1,11 @@
 import { readFile } from 'node:fs/promises';
-import { parse as parsePath } from 'node:path';
 import type { ApplicationCommand, CommandResult } from '../src/application/command-bus.ts';
 import type { TaskSnapshot } from '../src/application/task-manager.ts';
 import { LocalBridgeBroker } from './broker.ts';
 import { LocalFileRegistry } from './local-file-registry.ts';
 import { LocalOutputRegistry } from './local-output-registry.ts';
 import { startLocalBridgeServer } from './websocket-server.ts';
+import { stageLocalAudioImport } from './local-audio-import.ts';
 
 function help() {
     return `MiniDisc Workspace CLI
@@ -150,20 +150,11 @@ async function executeOperation(
         };
     }
 
-    const staged = await Promise.all(operation.paths.map((filePath) => files.register(filePath)));
+    const staged = await Promise.all(operation.paths.map((filePath) => stageLocalAudioImport(files, filePath)));
     const added = await broker.execute(
         {
             type: 'import.add',
-            inputs: staged.map((file) => ({
-                source: {
-                    kind: 'local-path',
-                    name: file.name,
-                    reference: file.reference,
-                    size: file.size,
-                    mimeType: file.mimeType,
-                },
-                metadata: { title: parsePath(file.name).name },
-            })),
+            inputs: staged.map((file) => file.input),
         },
         timeoutMs
     );

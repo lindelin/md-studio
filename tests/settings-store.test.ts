@@ -185,4 +185,13 @@ describe('SettingsStore', () => {
         assert.equal(snapshot.values.audioEncoderId, null);
         assert.equal(snapshot.values.audioExportService, 2);
     });
+
+    it('allows clearing a stable encoder id back to automatic selection', () => {
+        const settings = new SettingsStore(new MemoryStorage());
+        settings.update({ audioEncoderId: 'atracdenc' });
+
+        const cleared = settings.update({ audioEncoderId: null });
+
+        assert.equal(cleared.values.audioEncoderId, null);
+    });
 });

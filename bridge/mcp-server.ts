@@ -6,6 +6,8 @@ import { LocalBridgeBroker } from './broker.ts';
 import { LocalFileRegistry } from './local-file-registry.ts';
 import { LocalOutputRegistry } from './local-output-registry.ts';
 import { startLocalBridgeServer } from './websocket-server.ts';
+import { mcpSettingsChangesSchema } from './settings-schema.ts';
+import { stageLocalAudioImport } from './local-audio-import.ts';
 
 const localFiles = new LocalFileRegistry();
 const localOutputs = new LocalOutputRegistry();
@@ -179,39 +181,7 @@ function createServer() {
             description:
                 'Update shared app preferences with revision protection. This cannot enable or reconfigure the local MCP/CLI bridge.',
             inputSchema: z.object({
-                changes: z
-                    .object({
-                        colorTheme: z.enum(['dark', 'light', 'system']).optional(),
-                        vintageMode: z.boolean().optional(),
-                        discProtectedDialogDisabled: z.boolean().optional(),
-                        notifyWhenFinished: z.boolean().optional(),
-                        fullWidthSupport: z.boolean().optional(),
-                        pageFullHeight: z.boolean().optional(),
-                        pageFullWidth: z.boolean().optional(),
-                        archiveDiscCreateZip: z.boolean().optional(),
-                        factoryModeUseSlowerExploit: z.boolean().optional(),
-                        factoryModeShortcuts: z.boolean().optional(),
-                        factoryModeNERAWDownload: z.boolean().optional(),
-                        audioEncoderId: z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/).optional(),
-                        audioExportService: z.number().int().nonnegative().optional(),
-                        audioExportServiceConfig: z
-                            .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
-                            .optional(),
-                        libraryService: z.number().int().min(-1).optional(),
-                        libraryServiceConfig: z
-                            .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
-                            .optional(),
-                        uploadFormat: z.record(z.string(), z.tuple([z.number().int().nonnegative(), z.number().int().nonnegative()])).optional(),
-                        trackTitleFormat: z
-                            .enum(['filename', 'title', 'album-title', 'artist-title', 'artist-album-title', 'title-artist'])
-                            .optional(),
-                        recognitionTrackTitleFormat: z
-                            .enum(['title', 'album-title', 'artist-title', 'artist-album-title', 'title-artist'])
-                            .optional(),
-                        recognitionImportMethod: z.enum(['exploits', 'line-in']).optional(),
-                        factoryBadSectorRememberChoice: z.boolean().optional(),
-                    })
-                    .refine((changes) => Object.keys(changes).length > 0, 'At least one setting is required.'),
+                changes: mcpSettingsChangesSchema,
                 expectedRevision: z.number().int().nonnegative().optional(),
             }),
         },
@@ -233,6 +203,17 @@ function createServer() {
             inputSchema: z.object({}),
         },
         async () => execute({ type: 'advanced.readToc' })
+    );
+    server.registerTool(
+        'minidisc_preview_raw_toc_write',
+        {
+            description:
+                'Compare a complete six-sector raw UTOC image with the current disc and report changed writable sectors, byte counts, and checksums. This never writes the disc.',
+            inputSchema: z.object({
+                dataBase64: z.string().min(1).max(20_000),
+            }).strict(),
+        },
+        async ({ dataBase64 }) => execute({ type: 'advanced.previewTocWrite', dataBase64 })
     );
     server.registerTool(
         'minidisc_preview_toc_flag_change',
@@ -514,54 +495,40 @@ function createServer() {
         'minidisc_add_imports',
         {
             description:
-                'Add local audio paths to the ordered import queue. Audio payload transfer starts only when the write task begins.',
+                'Inspect local audio files and add them to the ordered import queue. Tags and duration are read locally; supplied metadata overrides detected values. Audio payload transfer starts only when the write task begins.',
             inputSchema: z.object({
                 inputs: z
                     .array(
                         z.object({
-                            source: z.object({
-                                kind: z.literal('local-path'),
-                                name: z.string().min(1),
-                                reference: z.string().min(1),
-                                size: z.number().int().nonnegative().optional(),
-                                mimeType: z.string().optional(),
-                            }),
+                            path: z.string().min(1),
                             metadata: z.object({
-                                title: z.string(),
+                                title: z.string().optional(),
                                 fullWidthTitle: z.string().optional(),
                                 artist: z.string().optional(),
                                 album: z.string().optional(),
                                 duration: z.number().nonnegative().optional(),
                                 forcedEncoding: z
-                                    .object({ codec: z.string().min(1), bitrate: z.number().int().nonnegative() })
+                                    .object({ codec: z.string().min(1), bitrate: z.number().int().positive() })
                                     .nullable()
                                     .optional(),
                                 bytesToSkip: z.number().int().nonnegative().optional(),
-                            }),
+                            }).strict().optional(),
                         })
+                        .strict()
                     )
                     .min(1),
                 expectedRevision: z.number().int().nonnegative().optional(),
-            }),
+            }).strict(),
         },
         async ({ inputs, expectedRevision }) => {
             const stagedHandles: string[] = [];
             try {
                 const stagedInputs = await Promise.all(
                     inputs.map(async (input) => {
-                        const staged = await localFiles.register(input.source.reference);
+                        const staged = await stageLocalAudioImport(localFiles, input.path, input.metadata);
                         stagedHandles.push(staged.handle);
                         pendingLocalFileHandles.add(staged.handle);
-                        return {
-                            ...input,
-                            source: {
-                                ...input.source,
-                                name: input.source.name || staged.name,
-                                reference: staged.reference,
-                                size: staged.size,
-                                mimeType: input.source.mimeType || staged.mimeType,
-                            },
-                        };
+                        return staged.input;
                     })
                 );
                 const result = await executeResult({ type: 'import.add', inputs: stagedInputs, expectedRevision });

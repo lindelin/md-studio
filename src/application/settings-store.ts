@@ -216,8 +216,8 @@ export class SettingsStore {
             return;
         }
         if (key === 'audioEncoderId') {
-            if (typeof value !== 'string' || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(value)) {
-                throw new ApplicationError('INVALID_INPUT', 'audioEncoderId must be a stable service id.');
+            if (value !== null && (typeof value !== 'string' || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(value))) {
+                throw new ApplicationError('INVALID_INPUT', 'audioEncoderId must be a stable service id or null.');
             }
             return;
         }
