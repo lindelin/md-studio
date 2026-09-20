@@ -26,6 +26,7 @@ import NotificationCompleteIconUrl from './images/record-complete-notification-i
 import { ApplicationClientProvider } from './frontend/application-client-provider';
 import { hasPendingWorkspaceWork } from './frontend/pending-work';
 import { runtimeTranslate } from './runtime-i18n';
+import { getBrowserNotificationPermission, tryCreateBrowserNotification } from './frontend/browser-notifications';
 const mediaRecorderService = new MediaRecorderService();
 const localFiles = new BrowserLocalFileGateway();
 serviceRegistry.localAudioInput = new BrowserAudioInput(mediaRecorderService);
@@ -35,14 +36,11 @@ serviceRegistry.importWriter = new BrowserImportWriter({
     getUseFullWidthTitles: () => serviceRegistry.settingsStore.getSnapshot().values.fullWidthSupport,
     localFiles,
     notifyCompleted: () => {
-        if (
-            !('Notification' in window) ||
-            Notification.permission === 'denied' ||
-            !serviceRegistry.settingsStore.getSnapshot().values.notifyWhenFinished
-        ) return;
-        const notification = new Notification(runtimeTranslate('MiniDisc recording completed'), {
+        if (!serviceRegistry.settingsStore.getSnapshot().values.notifyWhenFinished) return;
+        const notification = tryCreateBrowserNotification(runtimeTranslate('MiniDisc recording completed'), {
             icon: NotificationCompleteIconUrl,
         });
+        if (!notification) return;
         notification.onclick = function () {
             window.focus();
             this.close();
@@ -96,9 +94,13 @@ const originalApplicationTitle = document.title;
         configurable: false,
     });
 
-    if (!('Notification' in window) || Notification.permission === 'denied') {
+    if (getBrowserNotificationPermission() !== 'granted') {
         if (serviceRegistry.settingsStore.getSnapshot().values.notifyWhenFinished) {
-            serviceRegistry.settingsStore.update({ notifyWhenFinished: false });
+            try {
+                serviceRegistry.settingsStore.update({ notifyWhenFinished: false });
+            } catch (error) {
+                console.error('Could not disable unavailable completion notifications', error);
+            }
         }
     }
 })();

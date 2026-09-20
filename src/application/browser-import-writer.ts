@@ -273,7 +273,11 @@ export class BrowserImportWriter implements ImportWriter {
                     tasks.cancel(taskId, { writtenTracks });
                 } else {
                     tasks.succeed(taskId, { writtenTracks });
-                    this.dependencies.notifyCompleted?.();
+                    try {
+                        this.dependencies.notifyCompleted?.();
+                    } catch (notificationError) {
+                        console.warn('Could not show the recording completion notification.', notificationError);
+                    }
                 }
             }
 

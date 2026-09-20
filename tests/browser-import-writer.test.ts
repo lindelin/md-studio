@@ -178,6 +178,35 @@ describe('BrowserImportWriter', () => {
         assert.equal(finished.progress.stages?.transfer.buffered, 4);
     });
 
+    it('keeps a successful write and clears its queue when an optional notification fails', async () => {
+        const tasks = new TaskManager();
+        const queue = new ImportQueue();
+        const added = addTracks(queue, 1);
+        const writer = new BrowserImportWriter({
+            getApplication: () => makeApplication(async (_title, _fullWidthTitle, data, _format, onProgress) => {
+                onProgress({ written: data.byteLength, encrypted: data.byteLength, total: data.byteLength });
+            }),
+            getAudioExportService: async () => makeAudioExporter(),
+            getUseFullWidthTitles: () => false,
+            localFiles: new BrowserLocalFileGateway(),
+            notifyCompleted: () => { throw new Error('notification service unavailable'); },
+        });
+
+        const started = await writer.start(
+            {
+                format: { codec: 'AT3', bitrate: 132 },
+                expectedRevision: added.revision,
+                removeOnSuccess: true,
+            },
+            queue,
+            tasks
+        );
+        const finished = await waitForFinished(tasks, started.id);
+
+        assert.equal(finished.status, 'succeeded');
+        assert.equal(queue.snapshot().items.length, 0);
+    });
+
     it('uses the native reviewed browser authorization without a second confirmation prompt', async () => {
         const tasks = new TaskManager();
         const queue = new ImportQueue();

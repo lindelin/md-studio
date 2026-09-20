@@ -26,6 +26,7 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 - The obsolete write-protection-warning preference has been retired; actual write protection continues to be enforced by the application command layer.
 - The startup recovery screen clears only this application's preferences as one transaction. If browser storage refuses the reset, it keeps the error visible instead of reloading into the same failure.
 - Encoder output is validated for ATRAC container, codec, bitrate, and non-empty frames before upload.
+- Completion notifications request browser permission only from the explicit Settings switch. Unsupported, denied, or failed notifications cannot change a successful write result or prevent the completed imports from leaving the queue.
 - Remote requests, browser workers, playback readiness, and cached reconnects have bounded failure paths.
 - Local bridge messages, file chunks, output paths, origins, and tokens are bounded and validated.
 - Raw TOC writes require a preview, exact checksums, current session/revision, and browser-only authorization; MCP and CLI can preview but cannot apply them.
@@ -42,7 +43,7 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 
 ## Verification snapshot
 
-- 318 automated tests in 84 suites
+- 322 automated tests in 85 suites
 - Full TypeScript and TSX lint with zero warnings
 - Application and bridge type checks
 - Production Vite/PWA build

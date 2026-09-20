@@ -12,6 +12,10 @@ import { useI18n } from '../use-i18n';
 import { resolveUiLanguage, translate, type ResolvedUiLanguage } from '../../i18n';
 import { browserPreferences } from '../../frontend/browser-preferences-store';
 import { useBrowserPreferences } from '../../frontend/use-browser-preferences';
+import {
+    getBrowserNotificationPermission,
+    requestBrowserNotificationPermission,
+} from '../../frontend/browser-notifications';
 
 const titleFormats = [
     ['filename', 'File name'],
@@ -151,6 +155,7 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
     const [bridgeEnabled, setBridgeEnabled] = useState(localBridgeEnabled);
     const [status, setStatus] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
+    const [notificationPermission, setNotificationPermission] = useState(getBrowserNotificationPermission);
 
     useEffect(() => {
         let active = true;
@@ -238,6 +243,33 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
         }
     };
 
+    const updateCompletionNotifications = async (enabled: boolean) => {
+        if (!enabled) {
+            await apply({ notifyWhenFinished: false }, 'Notification preference updated.');
+            return;
+        }
+        setBusy(true);
+        setStatus(null);
+        try {
+            const permission = await requestBrowserNotificationPermission();
+            setNotificationPermission(permission);
+            if (permission !== 'granted') {
+                setStatus(t(
+                    permission === 'unsupported'
+                        ? 'This browser does not support completion notifications.'
+                        : 'Notification permission was not granted. Enable it in the browser site settings and try again.'
+                ));
+                return;
+            }
+            await updateSettings({ notifyWhenFinished: true });
+            onMessage(t('Notification preference updated.'));
+        } catch (error) {
+            setStatus(t(error instanceof Error ? error.message : String(error)));
+        } finally {
+            setBusy(false);
+        }
+    };
+
     const saveServices = async () => {
         if (!selectedEncoder || !serviceConfigurationValid) return;
         setBusy(true);
@@ -276,7 +308,7 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
             <div className="workbench__settings-columns">
                 <div>
                     <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('APPEARANCE')}</span><h3>{t('Interface')}</h3><label className="workbench__settings-field"><span>{t('Language')}</span><select value={settings.uiLanguage} disabled={busy} onChange={(event) => { const uiLanguage = event.target.value as UserSettings['uiLanguage']; void apply({ uiLanguage }, 'Interface language updated.', resolveUiLanguage(uiLanguage)); }}><option value="system">{t('Follow browser language')}</option><option value="zh-CN">{t('Chinese (Simplified)')}</option><option value="en">{t('English')}</option></select></label><label className="workbench__settings-field"><span>{t('Color theme')}</span><select value={settings.colorTheme} disabled={busy} onChange={(event) => void apply({ colorTheme: event.target.value as UserSettings['colorTheme'] }, 'Color theme updated.')}><option value="system">{t('Use system theme')}</option><option value="dark">{t('Dark')}</option><option value="light">{t('Light')}</option></select></label></section>
-                    <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('WORKFLOW')}</span><h3>{t('Editing and notifications')}</h3><Toggle checked={settings.fullWidthSupport} disabled={busy} label={t('Full-width title editing')} description={t('Enable Hiragana, Kanji and full-width MiniDisc titles.')} onChange={(checked) => updateBoolean('fullWidthSupport', checked, 'Title editing preference updated.')} /><Toggle checked={settings.notifyWhenFinished} disabled={busy} label={t('Completion notifications')} description={t('Show a notification when a background task finishes.')} onChange={(checked) => updateBoolean('notifyWhenFinished', checked, 'Notification preference updated.')} /></section>
+                    <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('WORKFLOW')}</span><h3>{t('Editing and notifications')}</h3><Toggle checked={settings.fullWidthSupport} disabled={busy} label={t('Full-width title editing')} description={t('Enable Hiragana, Kanji and full-width MiniDisc titles.')} onChange={(checked) => updateBoolean('fullWidthSupport', checked, 'Title editing preference updated.')} /><Toggle checked={settings.notifyWhenFinished} disabled={busy || notificationPermission === 'unsupported' || notificationPermission === 'denied'} label={t('Completion notifications')} description={t(notificationPermission === 'unsupported' ? 'This browser does not support completion notifications.' : notificationPermission === 'denied' ? 'Notifications are blocked for this site. Enable them in the browser site settings and reload the app.' : 'Show a notification when a background task finishes.')} onChange={(checked) => void updateCompletionNotifications(checked)} /></section>
                     <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('METADATA')}</span><h3>{t('Default title rules')}</h3><label className="workbench__settings-field"><span>{t('Imported track title')}</span><select value={settings.trackTitleFormat} disabled={busy} onChange={(event) => void apply({ trackTitleFormat: event.target.value as UserSettings['trackTitleFormat'] }, 'Import title rule updated.')}>{titleFormats.map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}</select></label><label className="workbench__settings-field"><span>{t('Recognized track title')}</span><select value={settings.recognitionTrackTitleFormat} disabled={busy} onChange={(event) => void apply({ recognitionTrackTitleFormat: event.target.value as UserSettings['recognitionTrackTitleFormat'] }, 'Recognition title rule updated.')}>{titleFormats.filter(([value]) => value !== 'filename').map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}</select></label><label className="workbench__settings-field"><span>{t('Recognition input')}</span><select value={settings.recognitionImportMethod} disabled={busy} onChange={(event) => void apply({ recognitionImportMethod: event.target.value as UserSettings['recognitionImportMethod'] }, 'Recognition input updated.')}><option value="line-in">{t('Line input')}</option><option value="exploits">{t('Direct device read')}</option></select></label></section>
                 </div>
                 <div>
