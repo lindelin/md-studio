@@ -98,3 +98,17 @@ export function summarizeTaskResult(result: unknown) {
     if (Array.isArray(record.tracks)) lines.push(`Tracks: ${record.tracks.length}`);
     return lines;
 }
+
+export function findTaskNeedingAttention<T extends { id: string; status: string }>(
+    tasks: T[],
+    acknowledgedTaskIds: ReadonlySet<string>
+) {
+    return tasks.find(
+        (task) => (task.status === 'failed' || task.status === 'interrupted') && !acknowledgedTaskIds.has(task.id)
+    );
+}
+
+export function getTaskErrorDetail(error?: { message: string; details?: Record<string, unknown> }) {
+    const detail = error?.details?.displayMessage;
+    return typeof detail === 'string' && detail.trim() && detail !== error?.message ? detail : null;
+}

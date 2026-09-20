@@ -13,6 +13,7 @@ import { getApplicationClient } from '../../application/runtime';
 import { waitForApplicationTask } from '../../application/application-client';
 import { INTERACTIVE_ADVANCED_AUTHORIZATION } from '../../application/interactive-authorization';
 import { executeSessionEndingCommand } from '../../application/device-session-transition';
+import { usesLegacyTaskPresentation } from '../../frontend/task-presentation';
 
 function decodeBase64(data: string) {
     const binary = atob(data);
@@ -33,9 +34,9 @@ function resolveExploitCapabilities(names: string[]) {
         .filter((capability): capability is ExploitCapability => typeof capability === 'number');
 }
 
-async function waitForAdvancedTask(taskId: string, fallbackError: string) {
+async function waitForAdvancedTask(taskId: string, fallbackError: string, reportFailure = true) {
     const task = await waitForApplicationTask(getApplicationClient(), taskId);
-    if (task.status === 'failed' || task.status === 'interrupted') {
+    if (reportFailure && (task.status === 'failed' || task.status === 'interrupted')) {
         throw new Error(task.error?.message ?? fallbackError);
     }
     return task;
@@ -228,7 +229,7 @@ export function exploitDownloadTracks(
     convertOutputToWav: boolean,
     callback: (blob: Blob, name: string) => void = downloadBlob
 ) {
-    return async function(dispatch: AppDispatch, _getState: () => RootState) {
+    return async function(dispatch: AppDispatch, getState: () => RootState) {
         const disc = getApplicationClient().getWorkspaceSnapshot().device?.disc;
         if (!disc) throw new Error('No MiniDisc is loaded.');
         const settings = getApplicationClient().getWorkspaceSnapshot().settings.values;
@@ -275,7 +276,12 @@ export function exploitDownloadTracks(
                 return result.response;
             }
         );
-        await waitForAdvancedTask(task.id, 'Advanced track export failed.');
+        const workspace = getApplicationClient().getWorkspaceSnapshot();
+        await waitForAdvancedTask(
+            task.id,
+            'Advanced track export failed.',
+            usesLegacyTaskPresentation(getState().appState.mainView, workspace.settings.values.vintageMode)
+        );
     };
 }
 
@@ -357,7 +363,7 @@ export function archiveDisc() {
             .fill(0)
             .map((_, i) => i);
         if (canDownloadTracks) {
-            await downloadTracks(indexes, false, callback)(dispatch);
+            await downloadTracks(indexes, false, callback)(dispatch, getState);
         } else {
             await exploitDownloadTracks(indexes, false, callback)(dispatch, getState);
         }

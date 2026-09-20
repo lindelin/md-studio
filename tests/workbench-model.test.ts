@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
     buildBatchMetadataUpdates,
+    findTaskNeedingAttention,
+    getTaskErrorDetail,
     summarizeTaskResult,
     taskProgressPercent,
     updateOrderedSelection,
@@ -88,5 +90,23 @@ describe('Studio Workbench task presentation', () => {
             summarizeTaskResult({ writtenTracks: 2, files: ['a.oma', 'b.oma'], internal: { token: 'hidden' } }),
             ['Written: 2', 'Files: 2']
         );
+    });
+
+    it('selects only new failed or interrupted tasks for attention', () => {
+        const tasks = [
+            { id: 'running', status: 'running' },
+            { id: 'known', status: 'failed' },
+            { id: 'new', status: 'interrupted' },
+        ];
+        assert.deepEqual(findTaskNeedingAttention(tasks, new Set(['known'])), { id: 'new', status: 'interrupted' });
+        assert.equal(findTaskNeedingAttention(tasks, new Set(['known', 'new'])), undefined);
+    });
+
+    it('shows a distinct user-facing error detail without duplicating the task error', () => {
+        assert.equal(
+            getTaskErrorDetail({ message: 'USB transfer failed', details: { displayMessage: 'Reconnect and retry.' } }),
+            'Reconnect and retry.'
+        );
+        assert.equal(getTaskErrorDetail({ message: 'Same', details: { displayMessage: 'Same' } }), null);
     });
 });

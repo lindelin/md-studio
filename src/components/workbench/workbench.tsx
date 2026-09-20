@@ -19,6 +19,8 @@ import { getDefaultRecordingFormat, getRecordingCodec } from '../../application/
 import type { ImportQueueItem } from '../../application/import-queue';
 import {
     buildBatchMetadataUpdates,
+    findTaskNeedingAttention,
+    getTaskErrorDetail,
     summarizeTaskResult,
     taskProgressPercent,
     updateOrderedSelection,
@@ -55,16 +57,12 @@ import SelectAllRoundedIcon from '@mui/icons-material/SelectAllRounded';
 
 import { TopMenu } from '../topmenu';
 import { DiscProtectedDialog } from '../disc-protected-dialog';
-import { UploadDialog } from '../upload-dialog';
 import { RenameDialog } from '../rename-dialog';
 import { ErrorDialog } from '../error-dialog';
 import { ConvertDialog } from '../convert-dialog';
-import { RecordDialog } from '../record-dialog';
-import { FactoryModeProgressDialog } from '../factory/factory-progress-dialog';
 import { FactoryModeBadSectorDialog } from '../factory/factory-bad-sector-dialog';
 import { DumpDialog } from '../dump-dialog';
 import { SongRecognitionDialog } from '../song-recognition-dialog';
-import { SongRecognitionProgressDialog } from '../song-recognition-progress-dialog';
 import { FactoryModeNoticeDialog } from '../factory/factory-notice-dialog';
 import { AboutDialog } from '../about-dialog';
 import { ChangelogDialog } from '../changelog-dialog';
@@ -141,6 +139,13 @@ export const Workbench = () => {
     const [message, setMessage] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
     const previousImportCount = useRef(imports.length);
+    const acknowledgedAttentionTaskIds = useRef(
+        new Set(
+            workspace.tasks
+                .filter((task) => task.status === 'failed' || task.status === 'interrupted')
+                .map((task) => task.id)
+        )
+    );
 
     const planItems: PlanItem[] = useMemo(
         () =>
@@ -267,6 +272,7 @@ export const Workbench = () => {
     );
     const selectedTask = recentTasks.find((task) => task.id === selectedTaskId) ?? recentTasks[0] ?? null;
     const selectedTaskResultLines = selectedTask ? summarizeTaskResult(selectedTask.result) : [];
+    const selectedTaskErrorDetail = getTaskErrorDetail(selectedTask?.error);
     const activeTaskCount = workspace.tasks.filter((task) => task.status === 'running' || task.status === 'queued').length;
 
     useEffect(() => {
@@ -275,6 +281,17 @@ export const Workbench = () => {
             setSelectedTaskId(recentTasks[0].id);
         }
     }, [recentTasks, selectedTaskId, taskCenterOpen]);
+
+    useEffect(() => {
+        const attentionTask = findTaskNeedingAttention(recentTasks, acknowledgedAttentionTaskIds.current);
+        for (const task of recentTasks) {
+            if (task.status === 'failed' || task.status === 'interrupted') acknowledgedAttentionTaskIds.current.add(task.id);
+        }
+        if (!attentionTask) return;
+        setSelectedTaskId(attentionTask.id);
+        setTaskCenterOpen(true);
+        setMessage(`${attentionTask.label} needs attention. Review the task details before retrying.`);
+    }, [recentTasks]);
 
     useEffect(() => {
         if (!taskCenterOpen) return;
@@ -856,6 +873,7 @@ export const Workbench = () => {
                                         {selectedTask.error ? (
                                             <div className="workbench__task-error">
                                                 <strong>{selectedTask.error.message}</strong>
+                                                {selectedTaskErrorDetail ? <span>{selectedTaskErrorDetail}</span> : null}
                                                 {selectedTask.error.completedItems !== undefined || selectedTask.error.pendingItems !== undefined ? <span>{selectedTask.error.completedItems ?? 0} completed · {selectedTask.error.pendingItems ?? 0} pending</span> : null}
                                                 {selectedTask.error.recoveryAction ? <p>{selectedTask.error.recoveryAction}</p> : null}
                                             </div>
@@ -883,16 +901,12 @@ export const Workbench = () => {
             {message ? <button className="workbench__toast" onClick={() => setMessage(null)}>{message}</button> : null}
 
             <DiscProtectedDialog />
-            <UploadDialog />
             <RenameDialog />
             <ErrorDialog />
             <ConvertDialog files={uploadedFiles} />
-            <RecordDialog />
-            <FactoryModeProgressDialog />
             <FactoryModeBadSectorDialog />
             <DumpDialog trackIndexes={selectedTrackIndexes} isCapableOfDownload={canDownload || factoryModeRippingInMainUi} isExploitDownload={factoryModeRippingInMainUi} />
             <SongRecognitionDialog />
-            <SongRecognitionProgressDialog />
             <FactoryModeNoticeDialog />
             <AboutDialog />
             <ChangelogDialog />

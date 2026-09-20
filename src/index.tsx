@@ -33,8 +33,11 @@ import { BrowserTrackRecognizer } from './application/browser-track-recognizer';
 import NotificationCompleteIconUrl from './images/record-complete-notification-icon.png';
 import { ApplicationClientProvider } from './frontend/application-client-provider';
 import { hasPendingWorkspaceWork } from './frontend/pending-work';
+import { usesLegacyTaskPresentation } from './frontend/task-presentation';
 const mediaRecorderService = new MediaRecorderService();
 const localFiles = new BrowserLocalFileGateway();
+const shouldUseLegacyTaskPresentation = () =>
+    usesLegacyTaskPresentation(store.getState().appState.mainView, serviceRegistry.settingsStore.getSnapshot().values.vintageMode);
 serviceRegistry.localAudioInput = new BrowserAudioInput(mediaRecorderService);
 serviceRegistry.importWriter = new BrowserImportWriter({
     getApplication: () => serviceRegistry.application,
@@ -49,7 +52,7 @@ serviceRegistry.importWriter = new BrowserImportWriter({
         return window.confirm(`${modes.join(' and ')} requires Homebrew mode. Continue with advanced device access?`);
     },
     showImportDialog: () => {
-        store.dispatch(convertDialogActions.setVisible(true));
+        if (shouldUseLegacyTaskPresentation()) store.dispatch(convertDialogActions.setVisible(true));
     },
     notifyCompleted: () => {
         const state = store.getState().appState;
@@ -63,7 +66,9 @@ serviceRegistry.importWriter = new BrowserImportWriter({
         };
     },
     reportError: (message) => {
-        store.dispatch(batchActions([errorDialogActions.setVisible(true), errorDialogActions.setErrorMessage(message)]));
+        if (shouldUseLegacyTaskPresentation()) {
+            store.dispatch(batchActions([errorDialogActions.setVisible(true), errorDialogActions.setErrorMessage(message)]));
+        }
     },
 });
 serviceRegistry.trackExporter = new BrowserTrackExporter(localFiles);

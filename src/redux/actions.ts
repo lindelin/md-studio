@@ -16,6 +16,7 @@ import type { TaskSnapshot } from '../application/task-manager';
 import type { ApplicationCommand } from '../application/command-bus';
 import type { PlaybackCommand } from '../application/contracts';
 import type { TrackRecognitionTaskResult } from '../application/browser-track-recognizer';
+import { usesLegacyTaskPresentation } from '../frontend/task-presentation';
 
 async function executeDeviceCommand(command: ApplicationCommand) {
     const result = await getApplicationClient().execute(command);
@@ -26,6 +27,11 @@ async function executeDeviceCommand(command: ApplicationCommand) {
 
 function currentDeviceRevision() {
     return getApplicationClient().getWorkspaceSnapshot().device?.revision;
+}
+
+function shouldReportTaskFailure(getState: () => RootState) {
+    const workspace = getApplicationClient().getWorkspaceSnapshot();
+    return usesLegacyTaskPresentation(getState().appState.mainView, workspace.settings.values.vintageMode);
 }
 
 export function disconnectDevice(finalize = true) {
@@ -343,7 +349,7 @@ async function waitForTaskResult(dispatch: AppDispatch, initialTask: TaskSnapsho
 }
 
 export function downloadTracks(indexes: number[], convertOutputToWav: boolean, callback?: (blob: Blob, name: string) => void) {
-    return async function (dispatch: AppDispatch): Promise<void> {
+    return async function (dispatch: AppDispatch, getState: () => RootState): Promise<void> {
         const request = {
             indexes,
             convertToWav: convertOutputToWav,
@@ -372,12 +378,12 @@ export function downloadTracks(indexes: number[], convertOutputToWav: boolean, c
             return;
         }
         if (!task) return;
-        await waitForTaskResult(dispatch, task, 'Track export failed.');
+        await waitForTaskResult(dispatch, task, 'Track export failed.', shouldReportTaskFailure(getState));
     };
 }
 
 export function recordTracks(indexes: number[], deviceId: string) {
-    return async function (dispatch: AppDispatch): Promise<void> {
+    return async function (dispatch: AppDispatch, getState: () => RootState): Promise<void> {
         try {
             const result = await getApplicationClient().execute({
                 type: 'track.record',
@@ -387,7 +393,7 @@ export function recordTracks(indexes: number[], deviceId: string) {
             });
             if (!result.ok) throw new Error(result.error.message);
             if (!result.task) throw new Error('Audio-input recording could not be started.');
-            await waitForTaskResult(dispatch, result.task, 'Audio-input recording failed.');
+            await waitForTaskResult(dispatch, result.task, 'Audio-input recording failed.', shouldReportTaskFailure(getState));
         } catch (error) {
             dispatch(
                 batchActions([
@@ -644,12 +650,13 @@ export function openRecognizeTrackDialog(selectedTracks: number[]) {
 
 export function recognizeTracks(_trackEntries: TitleEntry[], mode: 'exploits' | 'line-in', inputModeConfiguration?: { deviceId?: string }) {
     const trackEntries = [..._trackEntries];
-    return async function (dispatch: AppDispatch) {
+    return async function (dispatch: AppDispatch, getState: () => RootState) {
         const client = getApplicationClient();
         const disc = client.getWorkspaceSnapshot().device?.disc;
         if (!disc) throw new Error('No MiniDisc is loaded.');
         const tracks = new Map(getTracks(disc).map((track) => [track.index, track]));
 
+        let terminalTaskFailure = false;
         try {
             const started = await client.startLocalTrackRecognition({
                 mode,
@@ -664,6 +671,7 @@ export function recognizeTracks(_trackEntries: TitleEntry[], mode: 'exploits' | 
             });
             const finished = await waitForApplicationTask(client, started.id);
             if (finished.status === 'failed' || finished.status === 'interrupted') {
+                terminalTaskFailure = true;
                 throw new Error(finished.error?.message ?? 'Song recognition failed.');
             }
             const results = (finished.result as TrackRecognitionTaskResult | undefined)?.tracks ?? [];
@@ -683,6 +691,7 @@ export function recognizeTracks(_trackEntries: TitleEntry[], mode: 'exploits' | 
             });
             dispatch(songRecognitionDialogActions.setTitles(updatedEntries));
         } catch (error) {
+            if (terminalTaskFailure && !shouldReportTaskFailure(getState)) return;
             dispatch(
                 batchActions([
                     errorDialogAction.setVisible(true),
