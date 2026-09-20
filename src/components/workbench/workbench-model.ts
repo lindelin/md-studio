@@ -1,6 +1,7 @@
 import type { ConfigurableServiceDescriptor } from '../../application/service-catalog';
 import type { ImportPreview } from '../../application/import-preview';
 import type { CustomParameters } from '../../custom-parameters';
+import type { MetadataImportPlan } from '../../domain/metadata-import';
 
 export type WorkbenchDraftField = 'title' | 'album' | 'artist' | 'fullWidthTitle';
 
@@ -150,6 +151,12 @@ export function canRequestTaskCancellation(task: {
         isActiveUninterruptibleWrite(task) &&
         task.progress.completed + 1 >= task.progress.total
     );
+}
+
+export function defaultMetadataTrackSelection(plan: MetadataImportPlan) {
+    return plan.tracks
+        .filter((track) => Boolean(track.actual) && track.matchesDisc)
+        .map((track) => track.trackIndex);
 }
 
 export function summarizeTaskResult(result: unknown) {

@@ -6,6 +6,7 @@ import {
     canRequestTaskCancellation,
     canStartRecording,
     createDefaultServiceParameters,
+    defaultMetadataTrackSelection,
     findTaskNeedingAttention,
     getTaskErrorDetail,
     isActiveUninterruptibleWrite,
@@ -180,6 +181,20 @@ describe('Studio Workbench task presentation', () => {
             true
         );
         assert.equal(canRequestTaskCancellation({ ...finalTrack, phase: 'converting' }), true);
+    });
+});
+
+describe('Studio Workbench metadata import review', () => {
+    it('selects only tracks that exist and match the current disc by default', () => {
+        const plan = {
+            tracks: [
+                { trackIndex: 0, actual: { title: 'One' }, matchesDisc: true },
+                { trackIndex: 1, actual: { title: 'Two' }, matchesDisc: false },
+                { trackIndex: 2, matchesDisc: false },
+                { trackIndex: 3, actual: { title: 'Four' }, matchesDisc: true },
+            ],
+        } as unknown as Parameters<typeof defaultMetadataTrackSelection>[0];
+        assert.deepEqual(defaultMetadataTrackSelection(plan), [0, 3]);
     });
 });
 

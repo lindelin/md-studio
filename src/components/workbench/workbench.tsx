@@ -73,6 +73,7 @@ import { PanicDialog } from '../panic-dialog';
 import { WorkbenchLibrary } from './workbench-library';
 import { WorkbenchSettings } from './workbench-settings';
 import { WorkbenchTrackTransfer } from './workbench-track-transfer';
+import { WorkbenchTools } from './workbench-tools';
 
 import './workbench.css';
 
@@ -735,6 +736,7 @@ export const Workbench = () => {
                     </button>
                     <button aria-label="Import audio" onClick={open} disabled={!canUpload}><AddRoundedIcon /><span>Import Audio</span></button>
                     <button aria-label="Settings" className={section === 'settings' ? 'is-active' : ''} onClick={() => setSection('settings')}><SettingsRoundedIcon /><span>Settings</span></button>
+                    <button aria-label="Tools" className={`workbench__mobile-only ${section === 'tools' ? 'is-active' : ''}`} onClick={() => setSection('tools')}><TuneRoundedIcon /><span>Tools</span></button>
                 </nav>
 
                 <div className="workbench__sidebar-label">WORKSPACE</div>
@@ -797,12 +799,6 @@ export const Workbench = () => {
                         <div><span className="workbench__eyebrow">AUTOMATION</span><h2>Application commands are ready</h2><p>The same workspace powers this interface, the local MCP bridge and the CLI. Local bridge access remains off until you enable it in Settings.</p></div>
                         <button className="secondary-button" onClick={() => setSection('settings')}>Open settings</button>
                     </section>
-                ) : section === 'tools' ? (
-                    <section className="workbench__focus-panel">
-                        <TuneRoundedIcon />
-                        <div><span className="workbench__eyebrow">TOOLS</span><h2>Advanced disc tools</h2><p>Use the application menu for CSV metadata, recognition, exports, diagnostics and Homebrew features.</p></div>
-                        <TopMenu tracksSelected={selectedTrackIndexes} />
-                    </section>
                 ) : null}
 
                 {section === 'library' ? (
@@ -816,6 +812,8 @@ export const Workbench = () => {
                     />
                 ) : section === 'settings' ? (
                     <WorkbenchSettings onMessage={setMessage} />
+                ) : section === 'tools' ? (
+                    <WorkbenchTools onMessage={setMessage} />
                 ) : <div className="workbench__workspace-grid">
                     <section className="workbench__plan">
                         <div className="workbench__section-heading">
