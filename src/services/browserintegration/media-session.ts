@@ -1,6 +1,6 @@
 import { debounce, DisplayTrack, getSortedTracks, sleep, timeToSeekArgs } from '../../utils';
 import { createEmptyWave } from '../../create-empty-wave';
-import { Disc } from '../interfaces/netmd';
+import type { Disc } from '../interfaces/netmd';
 import type { ApplicationClient } from '../../application/application-client';
 import type { PlaybackCommand } from '../../application/contracts';
 

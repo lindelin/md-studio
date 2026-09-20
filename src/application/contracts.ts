@@ -1,6 +1,6 @@
 import type { Codec, Disc, DeviceStatus, Group, RecordingCodec, TitleParameter } from '../services/interfaces/netmd';
 import type { ImportPreviewCalculation, ImportPreviewTrack } from './import-preview';
-import type { RawTocPatchKind } from '../domain/raw-toc-patch';
+import type { RawTocPatchKind } from '../domain/raw-toc-contract';
 
 export type ApplicationCapability =
     | 'content.read'

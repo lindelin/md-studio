@@ -1,4 +1,4 @@
-import { CodecFamily } from '../interfaces/netmd';
+import type { CodecFamily } from '../interfaces/netmd';
 import { DefaultFfmpegAudioExportService, ExportParams } from './audio-export';
 
 export class Atrac3Re {

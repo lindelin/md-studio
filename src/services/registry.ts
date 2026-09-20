@@ -1,4 +1,4 @@
-import { MinidiscSpec, NetMDFactoryService, NetMDService } from './interfaces/netmd';
+import type { MinidiscSpec, NetMDFactoryService, NetMDService } from './interfaces/netmd';
 import { MediaSessionService } from './browserintegration/media-session';
 import type { MiniDiscApplication } from '../application/minidisc-application';
 import type { ApplicationCommandBus } from '../application/command-bus';

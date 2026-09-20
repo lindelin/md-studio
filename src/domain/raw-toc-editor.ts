@@ -1,5 +1,5 @@
 import { parseTOC, reconstructTOC, type ToC } from 'netmd-tocmanip';
-import { RAW_TOC_BYTE_LENGTH, RAW_TOC_SECTOR_COUNT, RAW_TOC_SECTOR_SIZE } from './raw-toc-patch';
+import { RAW_TOC_BYTE_LENGTH, RAW_TOC_SECTOR_COUNT, RAW_TOC_SECTOR_SIZE } from './raw-toc-contract';
 
 export const RAW_TOC_EDITOR_WRITABLE_SECTORS = 4;
 export const RAW_TOC_CELL_LENGTH = 7;

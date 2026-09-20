@@ -4,7 +4,7 @@ import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import HeadphonesRoundedIcon from '@mui/icons-material/HeadphonesRounded';
 import type { TrackRecognitionTaskResult } from '../../application/browser-track-recognizer';
 import { requestBrowserAudioDevices, type BrowserAudioDevice } from '../../application/browser-audio-devices';
-import { sanitizeDeviceFullWidthTitle, sanitizeDeviceHalfWidthTitle } from '../../application/device-profile';
+import { sanitizeDeviceFullWidthTitle, sanitizeDeviceHalfWidthTitle } from '../../application/device-title';
 import type { UserSettings } from '../../application/settings-store';
 import type { DisplayTrack } from '../../utils';
 import { useApplicationClient, useApplicationWorkspace, useUpdateApplicationSettings } from '../use-application-client';

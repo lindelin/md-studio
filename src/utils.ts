@@ -1,6 +1,6 @@
 import { Mutex } from 'async-mutex';
-import { Disc, Track } from './services/interfaces/netmd';
-import { HiMDKBPSToFrameSize, type HiMDCodecName } from 'himd-js';
+import type { Disc, Track } from './services/interfaces/netmd';
+import { HI_MD_KBPS_TO_FRAME_SIZE, type HiMDCodecName } from './domain/himd-codec';
 import { ExportParams } from './services/audio/audio-export';
 
 export const acceptedTypes = {
@@ -176,7 +176,7 @@ export async function getATRACOMAEncoding(
         return 'ILLEGAL';
     }
 
-    for (const [_kbps, fSize] of Object.entries(HiMDKBPSToFrameSize.atrac3plus)) {
+    for (const [_kbps, fSize] of Object.entries(HI_MD_KBPS_TO_FRAME_SIZE.atrac3plus)) {
         const kbps = parseInt(_kbps);
         if (fSize === frameSize + 8 && jointStereo === 0) {
             return { format: { codec: 'A3+', bitrate: kbps }, headerLength };
@@ -231,7 +231,7 @@ export async function getATRACWAVEncoding(
             return { format: { codec: 'AT3', bitrate: 66 }, headerLength };
     }
 
-    for (const [_kbps, fSize] of Object.entries(HiMDKBPSToFrameSize.atrac3plus)) {
+    for (const [_kbps, fSize] of Object.entries(HI_MD_KBPS_TO_FRAME_SIZE.atrac3plus)) {
         const kbps = parseInt(_kbps);
         if (fSize === bytesPerFrame * 2 && channels === 2) {
             return { format: { codec: 'A3+', bitrate: kbps }, headerLength };

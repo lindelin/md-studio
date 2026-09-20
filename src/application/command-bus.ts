@@ -39,7 +39,7 @@ import type {
 } from './library-catalog';
 import type { ServiceCatalogSnapshot } from './service-catalog';
 import type { ImportPreview } from './import-preview';
-import type { RawTocPatchKind } from '../domain/raw-toc-patch';
+import type { RawTocPatchKind } from '../domain/raw-toc-contract';
 
 export type LibraryImportFactory = (paths: string[][], expectedLibraryRevision?: number) => ImportQueueInput[];
 

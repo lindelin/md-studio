@@ -2,10 +2,17 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
     allocateRecordingTitle,
+    measureHalfWidthTitle,
     RecordingTitleCapacityError,
 } from '../src/domain/recording-title-budget.ts';
+import { getHalfWidthTitleLength } from 'netmd-js/dist/utils';
 
 describe('recording title allocation', () => {
+    it('matches the upstream NetMD byte measurement across supported Japanese title characters', () => {
+        const sample = Array.from({ length: 0x3100 - 0x3000 }, (_, index) => String.fromCharCode(0x3000 + index)).join('');
+        assert.equal(measureHalfWidthTitle(`ASCII ${sample}`), getHalfWidthTitleLength(`ASCII ${sample}`));
+    });
+
     it('fits half-width titles by encoded units instead of JavaScript character count', () => {
         const allocated = allocateRecordingTitle('ガガガガ', '', { halfWidth: 7, fullWidth: 7 }, true, 0);
 

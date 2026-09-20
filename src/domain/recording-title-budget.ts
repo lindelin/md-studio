@@ -1,4 +1,6 @@
-import { getHalfWidthTitleLength } from 'netmd-js/dist/utils';
+const TWO_UNIT_HALF_WIDTH_CHARACTERS = new Set(
+    'ガギグゲゴザジズゼゾダヂヅデドバパビピブプベペボポヮヰヱヵヶヴヽヾがぎぐげござじずぜぞだぢづでどばぱびぴぶぷべぺぼぽゎゐゑゕゖゔゝゞ'
+);
 
 export interface RecordingTitleBudget {
     halfWidth: number;
@@ -34,8 +36,8 @@ export function allocateRecordingTitle(
         throw new RecordingTitleCapacityError('full-width', available.fullWidth, minimumUnits);
     }
 
-    const fittedHalfWidth = fitMeasuredPrefix(halfWidthTitle, floorToCell(available.halfWidth), getHalfWidthTitleLength);
-    const halfWidthUsed = Math.max(roundToCell(getHalfWidthTitleLength(fittedHalfWidth)), minimumUnits);
+    const fittedHalfWidth = fitMeasuredPrefix(halfWidthTitle, floorToCell(available.halfWidth), measureHalfWidthTitle);
+    const halfWidthUsed = Math.max(roundToCell(measureHalfWidthTitle(fittedHalfWidth)), minimumUnits);
 
     const fittedFullWidth = includeFullWidth
         ? fitMeasuredPrefix(fullWidthTitle, Math.min(floorToCell(available.fullWidth), 210), (value) => value.length * 2)
@@ -52,6 +54,17 @@ export function allocateRecordingTitle(
             fullWidth: available.fullWidth - fullWidthUsed,
         },
     };
+}
+
+// NetMD stores the listed voiced, semi-voiced, and uncommon kana as two bytes.
+// Keeping this protocol-sized measurement local avoids loading the complete
+// netmd-js utility module (including its encryption and Shift-JIS tables) at startup.
+export function measureHalfWidthTitle(title: string) {
+    let length = title.length;
+    for (const character of title) {
+        if (TWO_UNIT_HALF_WIDTH_CHARACTERS.has(character)) length += 1;
+    }
+    return length;
 }
 
 function fitMeasuredPrefix(value: string, maximum: number, measure: (value: string) => number) {

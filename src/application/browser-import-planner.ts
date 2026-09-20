@@ -1,7 +1,7 @@
 import type { ApplicationClient } from './application-client';
 import { inspectImportFiles, type ImportInspectionFailure } from './audio-import-inspector';
 import type { DeviceRecordingProfile } from './contracts';
-import { sanitizeDeviceFullWidthTitle, sanitizeDeviceHalfWidthTitle } from './device-profile';
+import { sanitizeDeviceFullWidthTitle, sanitizeDeviceHalfWidthTitle } from './device-title';
 import { formatImportTitle, type ImportTitleFormat } from './import-title';
 import type { ImportQueueSnapshot } from './import-queue';
 import type { AdaptiveFile } from '../utils';

@@ -38,14 +38,13 @@ import { ImportPreviewError, type ImportPreview, type ImportPreviewTrack } from 
 import { getRecordingCodec } from './device-profile';
 import {
     isRawTocPatchKind,
-    planRawTocPatch,
     RAW_TOC_BYTE_LENGTH,
     RAW_TOC_SECTOR_COUNT,
     RAW_TOC_SECTOR_SIZE,
     RAW_TOC_WRITABLE_SECTOR_COUNT,
     RAW_TOC_WRITABLE_BYTE_LENGTH,
     type RawTocPatchKind,
-} from '../domain/raw-toc-patch';
+} from '../domain/raw-toc-contract';
 
 export const MINIDISC_SELF_TEST_STEP_COUNT = 14;
 
@@ -247,6 +246,7 @@ export class MiniDiscApplication {
             await this.requireExploitCapability(gateway, 'flushUTOC');
             const current = await this.readRawTocFromGateway(gateway);
             const currentData = decodeBase64(current.dataBase64);
+            const { planRawTocPatch } = await import('../domain/raw-toc-patch');
             const plan = planRawTocPatch(currentData, kind);
             return {
                 kind,
@@ -278,6 +278,7 @@ export class MiniDiscApplication {
             const gateway = this.requireAdvancedGateway();
             await this.requireExploitCapability(gateway, 'flushUTOC');
             const current = await this.requireCurrentRawToc(gateway, expectedCurrentTocSha256);
+            const { planRawTocPatch } = await import('../domain/raw-toc-patch');
             const plan = planRawTocPatch(decodeBase64(current.dataBase64), kind);
             if (plan.changedFragments === 0) {
                 throw new ApplicationError('INVALID_INPUT', 'The selected raw TOC change is already applied.');

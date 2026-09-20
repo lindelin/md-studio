@@ -1,6 +1,6 @@
 import { DefaultFfmpegAudioExportService, ExportParams } from './audio-export';
 import { AtracdencProcess } from './atracdenc-worker';
-import { CodecFamily } from '../interfaces/netmd';
+import type { CodecFamily } from '../interfaces/netmd';
 import { getPublicPathFor } from '../../utils';
 
 export class AtracdencAudioExportService extends DefaultFfmpegAudioExportService {

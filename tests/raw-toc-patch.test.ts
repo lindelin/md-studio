@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { ModeFlag, parseTOC } from 'netmd-tocmanip';
+import { planRawTocPatch } from '../src/domain/raw-toc-patch.ts';
 import {
-    planRawTocPatch,
     RAW_TOC_BYTE_LENGTH,
     RAW_TOC_SECTOR_SIZE,
     RAW_TOC_WRITABLE_BYTE_LENGTH,
-} from '../src/domain/raw-toc-patch.ts';
+} from '../src/domain/raw-toc-contract.ts';
 
 describe('raw TOC flag patches', () => {
     it('changes only fragments missing unrestricted SCMS flags and preserves reference sectors', () => {

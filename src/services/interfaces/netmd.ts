@@ -60,7 +60,7 @@ import {
 } from 'netmd-exploits';
 import netmdExploits from 'netmd-exploits';
 import netmdTocmanip from 'netmd-tocmanip';
-import { HiMDCodecName } from 'himd-js';
+import type { HiMDCodecName } from '../../domain/himd-codec';
 import { makeNetMDEncryptPacketIterator } from './netmd-encrypt-worker';
 import { createNetMDTransferGuard } from './netmd-transfer-guard';
 import { Capability, ExploitCapability } from './capabilities';

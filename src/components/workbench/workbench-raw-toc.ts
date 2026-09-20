@@ -1,8 +1,8 @@
 import {
     RAW_TOC_BYTE_LENGTH,
     RAW_TOC_WRITABLE_BYTE_LENGTH,
-} from '../../domain/raw-toc-patch';
-import type { RawTocPatchKind } from '../../domain/raw-toc-patch';
+} from '../../domain/raw-toc-contract';
+import type { RawTocPatchKind } from '../../domain/raw-toc-contract';
 
 export {
     RAW_TOC_BYTE_LENGTH,
@@ -10,7 +10,7 @@ export {
     RAW_TOC_SECTOR_SIZE,
     RAW_TOC_WRITABLE_BYTE_LENGTH,
     RAW_TOC_WRITABLE_SECTOR_COUNT,
-} from '../../domain/raw-toc-patch';
+} from '../../domain/raw-toc-contract';
 export const RAW_TOC_CONFIRMATION = 'WRITE TOC';
 
 export interface RawTocPatchAction {

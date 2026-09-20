@@ -1,7 +1,10 @@
 import React, { ReactHTMLElement } from 'react';
 import { CustomParameterInfo, CustomParameters } from '../custom-parameters';
 import type { Codec, MinidiscSpec, NetMDService, RecordingCodec } from './interfaces/netmd';
-import { DeviceIds } from 'networkwm-js';
+// The package root eagerly re-exports its filesystem, encryption, ID3, and Hi-MD
+// dependencies. The connection catalog only needs this small static device list;
+// the full implementation remains behind the dynamic NetworkWMService import.
+import { DeviceIds } from 'networkwm-js/dist/devices.js';
 import { runtimeTranslate } from '../runtime-i18n';
 
 export interface LoadedService {

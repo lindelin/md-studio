@@ -1,4 +1,4 @@
-import { CodecFamily } from '../interfaces/netmd';
+import type { CodecFamily } from '../interfaces/netmd';
 import { getPublicPathFor } from '../../utils';
 
 type FfmpegWorker = ReturnType<(typeof import('@ffmpeg/ffmpeg'))['createWorker']>;

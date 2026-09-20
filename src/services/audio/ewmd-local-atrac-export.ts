@@ -1,5 +1,5 @@
 import { CustomParameters } from '../../custom-parameters';
-import { CodecFamily } from '../interfaces/netmd';
+import type { CodecFamily } from '../interfaces/netmd';
 import { DefaultFfmpegAudioExportService, ExportParams } from './audio-export';
 import { validateAndStripAtracEncoderOutput } from './atrac-encoder-output';
 

@@ -4,9 +4,8 @@ import {
     createDeviceRecordingProfile,
     getDefaultRecordingFormat,
     getRecordingCodec,
-    sanitizeDeviceFullWidthTitle,
-    sanitizeDeviceHalfWidthTitle,
 } from '../src/application/device-profile.ts';
+import { sanitizeDeviceFullWidthTitle, sanitizeDeviceHalfWidthTitle } from '../src/application/device-title.ts';
 import { DefaultMinidiscSpec, type MinidiscSpec } from '../src/services/interfaces/netmd.ts';
 
 describe('device recording profile', () => {

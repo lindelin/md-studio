@@ -9,7 +9,7 @@ import {
     parseRawTocEditorData,
     reconstructRawTocEditorData,
 } from '../src/domain/raw-toc-editor.ts';
-import { RAW_TOC_BYTE_LENGTH, RAW_TOC_SECTOR_SIZE } from '../src/domain/raw-toc-patch.ts';
+import { RAW_TOC_BYTE_LENGTH, RAW_TOC_SECTOR_SIZE } from '../src/domain/raw-toc-contract.ts';
 
 function emptyRawToc() {
     const data = new Uint8Array(RAW_TOC_BYTE_LENGTH);
