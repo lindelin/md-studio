@@ -3,10 +3,12 @@ import { describe, it } from 'node:test';
 import {
     areServiceParametersValid,
     buildBatchMetadataUpdates,
+    canRequestTaskCancellation,
     canStartRecording,
     createDefaultServiceParameters,
     findTaskNeedingAttention,
     getTaskErrorDetail,
+    isActiveUninterruptibleWrite,
     libraryPathKey,
     resolveRowNavigationIndex,
     summarizeTaskResult,
@@ -162,6 +164,22 @@ describe('Studio Workbench task presentation', () => {
             'Reconnect and retry.'
         );
         assert.equal(getTaskErrorDetail({ message: 'Same', details: { displayMessage: 'Same' } }), null);
+    });
+
+    it('does not offer a no-op stop while the final track is transferring', () => {
+        const finalTrack = {
+            kind: 'disc.write',
+            status: 'running',
+            phase: 'transferring',
+            progress: { completed: 0, total: 1 },
+        };
+        assert.equal(isActiveUninterruptibleWrite(finalTrack), true);
+        assert.equal(canRequestTaskCancellation(finalTrack), false);
+        assert.equal(
+            canRequestTaskCancellation({ ...finalTrack, progress: { completed: 0, total: 2 } }),
+            true
+        );
+        assert.equal(canRequestTaskCancellation({ ...finalTrack, phase: 'converting' }), true);
     });
 });
 

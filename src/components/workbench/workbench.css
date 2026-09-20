@@ -291,6 +291,9 @@
 .workbench__task-error { display: grid; gap: 6px; margin-bottom: 16px; border: 1px solid #653c45; border-radius: 5px; padding: 11px 12px; color: #dca2a6; background: #271a20; font-size: 9px; }
 .workbench__task-error strong { color: #ffadb1; font-size: 10px; }
 .workbench__task-error p { margin: 2px 0 0; color: #bd8e92; line-height: 1.45; }
+.workbench__task-safety-note { display: grid; gap: 5px; margin-bottom: 16px; border: 1px solid #705f3e; border-radius: 5px; padding: 11px 12px; color: #e7c486; background: #2c281d; font-size: 9px; }
+.workbench__task-safety-note strong { font-size: 10px; }
+.workbench__task-safety-note span { color: #c9bd9f; line-height: 1.45; }
 .workbench__task-detail > .danger-button { min-height: 32px; font-size: 9px; }
 
 .workbench__footer { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(320px, 2fr); align-items: center; gap: 34px; border-top: 1px solid var(--wb-border); padding: 0 30px; background: #101a22; }

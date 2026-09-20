@@ -19,9 +19,11 @@ import { stageBrowserImports } from '../../application/browser-import-planner';
 import { INTERACTIVE_HOMEBREW_AUTHORIZATION } from '../../application/interactive-authorization';
 import {
     buildBatchMetadataUpdates,
+    canRequestTaskCancellation,
     canStartRecording,
     findTaskNeedingAttention,
     getTaskErrorDetail,
+    isActiveUninterruptibleWrite,
     resolveRowNavigationIndex,
     summarizeTaskResult,
     taskProgressPercent,
@@ -649,7 +651,7 @@ export const Workbench = () => {
             await execute({ type: 'task.cancel', id });
             setMessage(
                 task?.kind === 'disc.write'
-                    ? 'Stop requested. The recorder will finish the current track before stopping. Keep USB connected while the recording light is flashing.'
+                    ? 'Stop requested. The current track cannot be interrupted safely; the next track will not start. Keep USB connected while the recording light is flashing.'
                     : 'Cancellation requested. The current operation will stop at its next safe boundary.'
             );
         });
@@ -1002,8 +1004,14 @@ export const Workbench = () => {
                                                 {selectedTask.error.recoveryAction ? <p>{selectedTask.error.recoveryAction}</p> : null}
                                             </div>
                                         ) : null}
-                                        {selectedTask.status === 'running' || selectedTask.status === 'queued' ? (
-                                            <button className="danger-button" disabled={selectedTask.cancellationRequested || busy} onClick={() => cancelTask(selectedTask.id)}><StopRoundedIcon /> {selectedTask.cancellationRequested ? (selectedTask.kind === 'disc.write' ? 'Stop after current track requested' : 'Cancellation requested') : (selectedTask.kind === 'disc.write' ? 'Stop after current track' : 'Cancel task')}</button>
+                                        {isActiveUninterruptibleWrite(selectedTask) ? (
+                                            <div className="workbench__task-safety-note">
+                                                <strong>The current track cannot be interrupted safely.</strong>
+                                                <span>Keep USB connected while the recording light is flashing. A stop request can only prevent another track from starting.</span>
+                                            </div>
+                                        ) : null}
+                                        {canRequestTaskCancellation(selectedTask) ? (
+                                            <button className="danger-button" disabled={selectedTask.cancellationRequested || busy} onClick={() => cancelTask(selectedTask.id)}><StopRoundedIcon /> {selectedTask.cancellationRequested ? (selectedTask.kind === 'disc.write' ? 'Next track will not start' : 'Cancellation requested') : (selectedTask.kind === 'disc.write' ? 'Stop before next track' : 'Cancel task')}</button>
                                         ) : null}
                                     </section>
                                 ) : null}
@@ -1055,6 +1063,9 @@ export const Workbench = () => {
                         <span className="workbench__eyebrow">WRITE REVIEW</span>
                         <h2 id="workbench-write-title">Record {imports.length} track{imports.length === 1 ? '' : 's'} to MiniDisc</h2>
                         <p>Review the exact recording mode and capacity calculation before the device starts writing.</p>
+                        <div className="workbench__write-warning">
+                            A track cannot be interrupted safely once transfer starts. Stopping only prevents the next track from starting; keep USB connected until the recording light stops flashing.
+                        </div>
                         {writePreviewPending ? <div className="workbench__write-pending"><i />Validating the recording plan…</div> : null}
                         {writePreview ? (
                             <>
