@@ -4,7 +4,6 @@ import { mcpSettingKeys, mcpSettingsChangesSchema } from '../bridge/settings-sch
 import type { UserSettings } from '../src/application/settings-store.ts';
 
 const expectedKeys = [
-    'archiveDiscCreateZip',
     'audioEncoderId',
     'audioExportService',
     'audioExportServiceConfig',
@@ -36,6 +35,7 @@ describe('MCP settings schema', () => {
     it('rejects retired and unknown preferences instead of silently stripping them', () => {
         assert.equal(mcpSettingsChangesSchema.safeParse({ vintageMode: true }).success, false);
         assert.equal(mcpSettingsChangesSchema.safeParse({ factoryModeShortcuts: true }).success, false);
+        assert.equal(mcpSettingsChangesSchema.safeParse({ archiveDiscCreateZip: true }).success, false);
         assert.equal(mcpSettingsChangesSchema.safeParse({ uiLanguage: 'fr' }).success, false);
         assert.equal(mcpSettingsChangesSchema.safeParse({}).success, false);
     });

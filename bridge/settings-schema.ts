@@ -9,7 +9,6 @@ const settingsShape = {
     fullWidthSupport: z.boolean().optional(),
     pageFullHeight: z.boolean().optional(),
     pageFullWidth: z.boolean().optional(),
-    archiveDiscCreateZip: z.boolean().optional(),
     factoryModeUseSlowerExploit: z.boolean().optional(),
     factoryModeNERAWDownload: z.boolean().optional(),
     audioEncoderId: z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/).nullable().optional(),

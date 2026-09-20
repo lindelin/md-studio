@@ -18,6 +18,7 @@ export const APP_PREFERENCE_KEYS = [
     'libraryServiceConfig',
     'pageFullHeight',
     'pageFullWidth',
+    // Retired no-op preference retained so Reset Application removes it.
     'archiveDiscCreateZip',
     'factoryModeUseSlowerExploit',
     // Retired Factory UI preference retained so Reset Application removes it.

@@ -189,7 +189,6 @@ export const SettingsDialog = () => {
         pageFullHeight,
         pageFullWidth,
         fullWidthSupport,
-        archiveDiscCreateZip,
         factoryModeUseSlowerExploit,
         factoryModeNERAWDownload,
         discProtectedDialogDisabled,
@@ -291,9 +290,6 @@ export const SettingsDialog = () => {
     const handleToggleDiscProtectedDialogDisabled = useCallback(() => {
         applySetting({ discProtectedDialogDisabled: !discProtectedDialogDisabled });
     }, [applySetting, discProtectedDialogDisabled]);
-    const handleToggleArchiveDiscCreateZip = useCallback(() => {
-        applySetting({ archiveDiscCreateZip: !archiveDiscCreateZip });
-    }, [applySetting, archiveDiscCreateZip]);
     const handleToggleFactoryModeUseSlowerExploits = useCallback(() => {
         applySetting({ factoryModeUseSlowerExploit: !factoryModeUseSlowerExploit });
     }, [applySetting, factoryModeUseSlowerExploit]);
@@ -394,14 +390,6 @@ export const SettingsDialog = () => {
                     tooltip={t('Allows a loopback-only process on this computer to control the connected device. The app reloads when this setting changes.')}
                 >
                     <Switch checked={localBridgeEnabled} onChange={handleToggleLocalBridge} />
-                </SimpleField>
-                <SimpleField
-                    name={t("Create a ZIP file when using 'Archive Disc'")}
-                    classes={classes}
-                    formControl={true}
-                    tooltip={t("Enabling it might increase memory usage when using the Homebrew mode's 'Archive Disc' feature")}
-                >
-                    <Switch checked={archiveDiscCreateZip} onChange={handleToggleArchiveDiscCreateZip} />
                 </SimpleField>
                 <SimpleField
                     name={t('Use the slower exploit for ATRAC ripping')}

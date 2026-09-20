@@ -11,7 +11,6 @@ export interface UserSettings {
     fullWidthSupport: boolean;
     pageFullHeight: boolean;
     pageFullWidth: boolean;
-    archiveDiscCreateZip: boolean;
     factoryModeUseSlowerExploit: boolean;
     factoryModeNERAWDownload: boolean;
     audioEncoderId: string | null;
@@ -41,7 +40,6 @@ const defaults: UserSettings = {
     fullWidthSupport: false,
     pageFullHeight: false,
     pageFullWidth: false,
-    archiveDiscCreateZip: false,
     factoryModeUseSlowerExploit: false,
     factoryModeNERAWDownload: false,
     audioEncoderId: null,
@@ -139,7 +137,6 @@ export class SettingsStore {
             fullWidthSupport: loadPreference('fullWidthSupport', defaults.fullWidthSupport, isBoolean, this.storage),
             pageFullHeight: loadPreference('pageFullHeight', defaults.pageFullHeight, isBoolean, this.storage),
             pageFullWidth: loadPreference('pageFullWidth', defaults.pageFullWidth, isBoolean, this.storage),
-            archiveDiscCreateZip: loadPreference('archiveDiscCreateZip', defaults.archiveDiscCreateZip, isBoolean, this.storage),
             factoryModeUseSlowerExploit: loadPreference(
                 'factoryModeUseSlowerExploit',
                 defaults.factoryModeUseSlowerExploit,
