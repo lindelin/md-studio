@@ -557,8 +557,13 @@ export const Workbench = () => {
 
     const cancelTask = (id: string) => {
         void run(async () => {
+            const task = workspace.tasks.find((candidate) => candidate.id === id);
             await execute({ type: 'task.cancel', id });
-            setMessage('Cancellation requested. The current device step will finish safely.');
+            setMessage(
+                task?.kind === 'disc.write'
+                    ? 'Stop requested. The recorder will finish the current track before stopping. Keep USB connected while the recording light is flashing.'
+                    : 'Cancellation requested. The current operation will stop at its next safe boundary.'
+            );
         });
     };
 
@@ -885,7 +890,7 @@ export const Workbench = () => {
                                             </div>
                                         ) : null}
                                         {selectedTask.status === 'running' || selectedTask.status === 'queued' ? (
-                                            <button className="danger-button" disabled={selectedTask.cancellationRequested || busy} onClick={() => cancelTask(selectedTask.id)}><StopRoundedIcon /> {selectedTask.cancellationRequested ? 'Cancellation requested' : 'Cancel task'}</button>
+                                            <button className="danger-button" disabled={selectedTask.cancellationRequested || busy} onClick={() => cancelTask(selectedTask.id)}><StopRoundedIcon /> {selectedTask.cancellationRequested ? (selectedTask.kind === 'disc.write' ? 'Stop after current track requested' : 'Cancellation requested') : (selectedTask.kind === 'disc.write' ? 'Stop after current track' : 'Cancel task')}</button>
                                         ) : null}
                                     </section>
                                 ) : null}
