@@ -6,8 +6,8 @@ export const W95UploadDialog = (props: {
     visible: boolean;
     cancelled: boolean;
     canCancel: boolean;
-    activeUninterruptibleWrite: boolean;
     cancelLabel: string;
+    writeSafetyNotice?: string;
     writtenProgress: number;
     encryptedProgress: number;
     totalProgress: number;
@@ -48,9 +48,9 @@ export const W95UploadDialog = (props: {
                         Uploading {props.trackCurrent} of {props.trackTotal}: {props.titleCurrent}
                     </div>
                     <Progress value={props.progressValue} />
-                    {props.activeUninterruptibleWrite && !props.canCancel && !props.cancelled ? (
+                    {props.writeSafetyNotice ? (
                         <div style={{ width: '100%', marginTop: 16 }} role="status">
-                            The final track is already recording and cannot be interrupted safely. Keep USB connected until the recording light stops.
+                            {props.writeSafetyNotice}
                         </div>
                     ) : null}
 

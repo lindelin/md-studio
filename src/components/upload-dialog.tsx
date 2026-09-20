@@ -17,7 +17,10 @@ import { makeStyles } from 'tss-react/mui';
 const W95UploadDialog = React.lazy(() => import('./win95/upload-dialog').then(({ W95UploadDialog }) => ({ default: W95UploadDialog })));
 import { setNotifyWhenFinished } from '../redux/actions';
 import { useApplicationClient, useApplicationSettings, useApplicationWorkspace } from './use-application-client';
-import { canRequestTaskCancellation, isActiveUninterruptibleWrite } from '../application/task-cancellation-policy';
+import {
+    canRequestTaskCancellation,
+    getTaskCancellationPresentation,
+} from '../application/task-cancellation-policy';
 
 const useStyles = makeStyles()((theme) => ({
     progressPerc: {
@@ -54,14 +57,9 @@ export const UploadDialog = () => {
     const visible = Boolean(task);
     const cancelled = task?.cancellationRequested ?? false;
     const canCancel = task ? canRequestTaskCancellation(task) : false;
-    const activeUninterruptibleWrite = task ? isActiveUninterruptibleWrite(task) : false;
-    const cancelLabel = cancelled
-        ? activeUninterruptibleWrite
-            ? 'Waiting for current track to finish...'
-            : 'Cancellation requested...'
-        : activeUninterruptibleWrite
-          ? 'Skip remaining tracks after this one'
-          : 'Cancel recording task';
+    const cancellationPresentation = task ? getTaskCancellationPresentation(task) : undefined;
+    const cancelLabel = cancellationPresentation?.actionLabel ?? 'Cancel before recording starts';
+    const writeSafetyNotice = cancellationPresentation?.safetyNotice;
     const writtenProgress = transfer?.completed ?? 0;
     const encryptedProgress = transfer?.buffered ?? writtenProgress;
     const totalProgress = transfer?.total ?? 1;
@@ -94,8 +92,8 @@ export const UploadDialog = () => {
             visible,
             cancelled,
             canCancel,
-            activeUninterruptibleWrite,
             cancelLabel,
+            writeSafetyNotice,
             writtenProgress,
             encryptedProgress,
             totalProgress,
@@ -151,9 +149,9 @@ export const UploadDialog = () => {
                     valueBuffer={bufferValue}
                 />
                 <Box className={classes.progressPerc}>{progressValue}%</Box>
-                {activeUninterruptibleWrite && !canCancel && !cancelled ? (
+                {writeSafetyNotice ? (
                     <DialogContentText className={classes.uploadLabel} role="status">
-                        The final track is already recording and cannot be interrupted safely. Keep USB connected until the recording light stops.
+                        {writeSafetyNotice}
                     </DialogContentText>
                 ) : null}
             </DialogContent>

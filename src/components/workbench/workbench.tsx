@@ -22,6 +22,7 @@ import {
     canRequestTaskCancellation,
     canStartRecording,
     findTaskNeedingAttention,
+    getTaskCancellationPresentation,
     getTaskErrorDetail,
     getTaskOutputFiles,
     isActiveUninterruptibleWrite,
@@ -752,7 +753,7 @@ export const Workbench = () => {
             await execute({ type: 'task.cancel', id });
             setMessage(
                 task?.kind === 'disc.write'
-                    ? 'Stop requested. The current track cannot be interrupted safely; the next track will not start. Keep USB connected while the recording light is flashing.'
+                    ? 'Batch end requested. This does not interrupt the track already recording; later tracks will not start. Keep USB connected while the recording light is flashing.'
                     : 'Cancellation requested. The current operation will stop at its next safe boundary.'
             );
         });
@@ -1181,11 +1182,11 @@ export const Workbench = () => {
                                         {isActiveUninterruptibleWrite(selectedTask) ? (
                                             <div className="workbench__task-safety-note">
                                                 <strong>The current track cannot be interrupted safely.</strong>
-                                                <span>Keep USB connected while the recording light is flashing. A stop request can only prevent another track from starting.</span>
+                                                <span>{getTaskCancellationPresentation(selectedTask).safetyNotice}</span>
                                             </div>
                                         ) : null}
                                         {canRequestTaskCancellation(selectedTask) ? (
-                                            <button className="danger-button" disabled={selectedTask.cancellationRequested || busy} onClick={() => cancelTask(selectedTask.id)}><StopRoundedIcon /> {selectedTask.cancellationRequested ? (selectedTask.kind === 'disc.write' ? 'Next track will not start' : 'Cancellation requested') : (selectedTask.kind === 'disc.write' ? 'Stop before next track' : 'Cancel task')}</button>
+                                            <button className="danger-button" disabled={selectedTask.cancellationRequested || busy} onClick={() => cancelTask(selectedTask.id)}><StopRoundedIcon /> {getTaskCancellationPresentation(selectedTask).actionLabel}</button>
                                         ) : null}
                                     </section>
                                 ) : null}

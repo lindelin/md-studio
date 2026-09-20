@@ -11,6 +11,7 @@ import {
     findTaskNeedingAttention,
     formatRecognitionTitle,
     getTaskOutputFiles,
+    getTaskCancellationPresentation,
     getTaskErrorDetail,
     getSelfTestReadiness,
     isActiveUninterruptibleWrite,
@@ -213,6 +214,29 @@ describe('Studio Workbench task presentation', () => {
         assert.equal(
             canRequestTaskCancellation({ ...finalTrack, phase: 'converting', progress: { completed: 1, total: 1 } }),
             false
+        );
+    });
+
+    it('describes active writes as a batch boundary instead of an immediate stop', () => {
+        const activeWrite = {
+            kind: 'disc.write',
+            status: 'running',
+            phase: 'transferring',
+            progress: { completed: 0, total: 2 },
+            cancellationRequested: false,
+        };
+        assert.deepEqual(getTaskCancellationPresentation(activeWrite), {
+            actionLabel: 'End batch after current track',
+            safetyNotice:
+                'The track already recording cannot be interrupted safely. Ending the batch only prevents later tracks from starting; keep USB connected while the recording light is flashing.',
+        });
+        assert.match(
+            getTaskCancellationPresentation({ ...activeWrite, cancellationRequested: true }).safetyNotice ?? '',
+            /track already recording will continue/
+        );
+        assert.equal(
+            getTaskCancellationPresentation({ ...activeWrite, progress: { completed: 0, total: 1 } }).actionLabel,
+            'Current track cannot be stopped'
         );
     });
 });

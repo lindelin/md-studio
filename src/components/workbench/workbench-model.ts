@@ -3,7 +3,11 @@ import type { ImportPreview } from '../../application/import-preview';
 import type { CustomParameters } from '../../custom-parameters';
 import type { MetadataImportPlan } from '../../domain/metadata-import';
 import type { DeviceSnapshot } from '../../application/contracts';
-export { canRequestTaskCancellation, isActiveUninterruptibleWrite } from '../../application/task-cancellation-policy';
+export {
+    canRequestTaskCancellation,
+    getTaskCancellationPresentation,
+    isActiveUninterruptibleWrite,
+} from '../../application/task-cancellation-policy';
 
 export type WorkbenchDraftField = 'title' | 'album' | 'artist' | 'fullWidthTitle';
 
