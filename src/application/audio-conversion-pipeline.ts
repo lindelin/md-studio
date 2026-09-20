@@ -97,6 +97,7 @@ export async function* convertImportAudio(
             }
             return { file, data };
         } catch (error) {
+            console.error(`Audio conversion failed for ${file.file.name}.`, error);
             throw new ImportAudioConversionError(file.file.name, 'Unsupported or unrecognized format.', { cause: error });
         }
     };

@@ -34,6 +34,7 @@ Runtime data intentionally replaces reference-only placeholders: device name, ca
 - Collapsed sidebar actions now retain accessible names; Library search has an explicit submit action, and bulk selection/removal controls expose readable labels.
 - Settings opens as a native two-column workspace backed by shared settings and the service catalog; ordinary preferences write through the command layer, reload-sensitive service drafts validate before save, and no legacy Settings dialog is mounted.
 - At 760×900, Settings remains a first-level bottom-navigation action and its cards collapse to a readable single column.
+- The enabled loopback bridge accepted a real CLI local-path import, transferred the WAV in bounded chunks, encoded it with Atracdenc, completed a unified write task, refreshed MockMD from five to six tracks, and removed its temporary queue item. The successful task remained available in the Task Center and no legacy dialog was mounted.
 - Empty, disconnected, busy, selected, disabled, and connected states render without layout failure.
 - 1024 × 768 collapses the sidebar and hides lower-priority columns without horizontal page overflow.
 - 760 × 900 moves navigation to the bottom and stacks the inspector below the track plan.
@@ -53,6 +54,7 @@ Runtime data intentionally replaces reference-only placeholders: device name, ca
 - P2: task failures were briefly duplicated in the Task Center and the legacy Error dialog. Fixed with an explicit shell presentation policy: Studio Workbench owns terminal task feedback while Win95 and Factory surfaces keep compatibility dialogs.
 - P2: Library still opened a separate legacy MUI dialog and obscured the workbench. Fixed with an integrated Library workspace backed by the existing application commands and shared ImportQueue.
 - P2: Settings still opened a legacy MUI modal over the workbench and split service configuration from newer title defaults. Fixed with an integrated settings workspace and a single staged save path for reload-sensitive configuration.
+- P1: development writes through the default Atracdenc backend failed before encoding because one TypeScript module doubled as a classic Worker entry. Vite served its `export` syntax to the Worker, and the original Worker also collided with the Emscripten runtime's global `Module`. Fixed by splitting a worker-only entry, passing the public runtime URL from the main thread, and verifying both the development CLI write and production Worker bundle.
 - P3: the reference includes free-form notes. Notes remain a future queue feature because the shared contracts do not model them yet.
 
 ## Result

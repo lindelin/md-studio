@@ -50,7 +50,9 @@ export class Atrac3OSExportService extends DefaultFfmpegAudioExportService {
 
     async prepare(file: File): Promise<void> {
         if (!this.atrac3OSProcess) {
-            this.atrac3OSProcess = new Atrac3OSProcess(new Worker(new URL('./atrac3os-worker', import.meta.url), { type: 'classic' }));
+            this.atrac3OSProcess = new Atrac3OSProcess(
+                new Worker(new URL('./atrac3os-worker.ts', import.meta.url), { type: 'classic' })
+            );
             this.ready = this.atrac3OSProcess.init();
         }
         await super.prepare(file);

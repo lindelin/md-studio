@@ -37,8 +37,8 @@ function createProcess(timeouts = { init: 50, encode: 50 }) {
 describe('AtracdencProcess', () => {
     it('matches init and encode responses and transfers the audio buffer', async () => {
         const { worker, process } = createProcess();
-        const initializing = process.init();
-        assert.deepEqual(worker.posted[0].message, { action: 'init' });
+        const initializing = process.init('/atracdenc.js');
+        assert.deepEqual(worker.posted[0].message, { action: 'init', runtimeUrl: '/atracdenc.js' });
         worker.respond({ action: 'init' });
         await initializing;
 
@@ -54,31 +54,31 @@ describe('AtracdencProcess', () => {
 
     it('rejects worker and structured encoder failures without leaving a request pending', async () => {
         const { worker, process } = createProcess();
-        const first = process.init();
+        const first = process.init('/atracdenc.js');
         worker.fail('worker startup failed');
         await assert.rejects(first, /worker startup failed/);
 
-        const second = process.init();
+        const second = process.init('/atracdenc.js');
         worker.respond({ action: 'init', error: 'ENCODER_FAILURE', message: 'runtime unavailable' });
         await assert.rejects(second, /runtime unavailable/);
     });
 
     it('rejects unexpected responses and synchronous postMessage failures', async () => {
         const { worker, process } = createProcess();
-        const unexpected = process.init();
+        const unexpected = process.init('/atracdenc.js');
         worker.respond({ action: 'encode' });
         await assert.rejects(unexpected, /unexpected encode response/);
 
         worker.postError = new Error('could not transfer input');
-        await assert.rejects(() => process.init(), /could not transfer input/);
+        await assert.rejects(() => process.init('/atracdenc.js'), /could not transfer input/);
     });
 
     it('times out silent workers and rejects pending work when terminated', async () => {
         const timedOut = createProcess({ init: 5, encode: 5 });
-        await assert.rejects(() => timedOut.process.init(), /did not respond within/);
+        await assert.rejects(() => timedOut.process.init('/atracdenc.js'), /did not respond within/);
 
         const active = createProcess();
-        const pending = active.process.init();
+        const pending = active.process.init('/atracdenc.js');
         active.process.terminate();
         await assert.rejects(pending, /was terminated/);
         assert.equal(active.worker.terminated, true);

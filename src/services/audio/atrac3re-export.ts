@@ -72,7 +72,9 @@ export class Atrac3REExportService extends DefaultFfmpegAudioExportService {
 
     async prepare(file: File): Promise<void> {
         if (!this.atrac3REProcess) {
-            this.atrac3REProcess = new Atrac3Re(new Worker(new URL('./atrac3re-worker', import.meta.url), { type: 'classic' }));
+            this.atrac3REProcess = new Atrac3Re(
+                new Worker(new URL('./atrac3re-worker.ts', import.meta.url), { type: 'classic' })
+            );
             this.ready = this.atrac3REProcess.init();
         }
         await super.prepare(file);

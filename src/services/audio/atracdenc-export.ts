@@ -1,15 +1,18 @@
 import { DefaultFfmpegAudioExportService, ExportParams } from './audio-export';
 import { AtracdencProcess } from './atracdenc-worker';
 import { CodecFamily } from '../interfaces/netmd';
+import { getPublicPathFor } from '../../utils';
 
 export class AtracdencAudioExportService extends DefaultFfmpegAudioExportService {
     public atracdencProcess?: AtracdencProcess;
 
     async prepare(file: File): Promise<void> {
         await super.prepare(file);
-        this.atracdencProcess = new AtracdencProcess(new Worker(new URL('./atracdenc-worker', import.meta.url), { type: 'classic' }));
+        this.atracdencProcess = new AtracdencProcess(
+            new Worker(new URL('./atracdenc-worker-runtime.ts', import.meta.url), { type: 'classic' })
+        );
         try {
-            await this.atracdencProcess.init();
+            await this.atracdencProcess.init(getPublicPathFor('atracdenc.js'));
         } catch (error) {
             this.atracdencProcess.terminate();
             this.atracdencProcess = undefined;

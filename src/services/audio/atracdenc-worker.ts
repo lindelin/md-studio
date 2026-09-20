@@ -1,7 +1,3 @@
-/* eslint no-restricted-globals: 0 */
-function getPublicPathFor(script: string) {
-    return `${import.meta.env.BASE_URL}${script}`;
-}
 export class AtracdencProcess {
     private pendingRequest?: {
         action: 'init' | 'encode';
@@ -19,8 +15,8 @@ export class AtracdencProcess {
         worker.onmessageerror = () => this.rejectPending(new Error('Atracdenc returned an unreadable response.'));
     }
 
-    async init() {
-        await this.request('init', {}, [], this.timeouts.init);
+    async init(runtimeUrl: string) {
+        await this.request('init', { runtimeUrl }, [], this.timeouts.init);
     }
 
     async encode(data: ArrayBuffer, bitrate: string) {
@@ -75,62 +71,4 @@ export class AtracdencProcess {
         this.pendingRequest.reject(reason);
         this.pendingRequest = undefined;
     }
-}
-
-if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope) {
-    // Worker
-    let Module: any;
-    onmessage = async (ev: MessageEvent) => {
-        const { action, ...others } = ev.data;
-        try {
-            if (action === 'init') {
-                self.importScripts(getPublicPathFor(`atracdenc.js`));
-                const moduleFactory = (self as any).Module;
-                if (typeof moduleFactory !== 'function') throw new Error('Atracdenc runtime did not expose a module factory.');
-                Module = await moduleFactory();
-                Module.setLogger && Module.setLogger((msg: string, stream: string) => console.log(`${stream}: ${msg}`));
-                self.postMessage({ action: 'init' });
-            } else if (action === 'encode') {
-                if (!Module) throw new Error('Atracdenc is not initialized.');
-                const { bitrate, data } = others;
-                const inWavFile = `inWavFile.wav`;
-                const outAt3File = `outAt3File.aea`;
-                const dataArray = new Uint8Array(data);
-                Module.FS.writeFile(`${inWavFile}`, dataArray);
-                Module.callMain([`-e`, `atrac3`, `-i`, inWavFile, `-o`, outAt3File, `--bitrate`, bitrate]);
-
-                // Read file and trim header (96 bytes)
-                const fileStat = Module.FS.stat(outAt3File);
-                const size = fileStat.size;
-                if (size < 96) throw new Error('Atracdenc produced an invalid output file.');
-                const tmp = new Uint8Array(size - 96);
-                const outAt3FileStream = Module.FS.open(outAt3File, 'r');
-                try {
-                    Module.FS.read(outAt3FileStream, tmp, 0, tmp.length, 96);
-                } finally {
-                    Module.FS.close(outAt3FileStream);
-                }
-
-                const result = tmp.buffer;
-
-                self.postMessage(
-                    {
-                        action: 'encode',
-                        result,
-                    },
-                    [result]
-                );
-            } else {
-                throw new Error(`Unknown Atracdenc worker action: ${String(action)}.`);
-            }
-        } catch (error) {
-            self.postMessage({
-                action,
-                error: 'ENCODER_FAILURE',
-                message: error instanceof Error ? error.message : String(error),
-            });
-        }
-    };
-} else {
-    // Main
 }
