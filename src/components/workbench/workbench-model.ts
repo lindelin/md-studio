@@ -202,22 +202,63 @@ export function buildAdvancedExportFileName(prefix: string, deviceName: string, 
     return `${parts.join('_')}.bin`;
 }
 
-export function summarizeTaskResult(result: unknown) {
+export function localizeTaskLabel(label: string, language: 'en' | 'zh-CN') {
+    if (language === 'en') return label;
+    const patterns: [RegExp, (count: string) => string][] = [
+        [/^Write (\d+) tracks? to MiniDisc$/, (count) => `将 ${count} 首曲目录制到 MiniDisc`],
+        [/^Export (\d+) tracks? with device recovery$/, (count) => `通过设备恢复导出 ${count} 首曲目`],
+        [/^Recognize (\d+) tracks?$/, (count) => `识别 ${count} 首曲目`],
+        [/^Record (\d+) tracks? through the audio input$/, (count) => `通过音频输入录制 ${count} 首曲目`],
+        [/^Export (\d+) tracks? from MiniDisc$/, (count) => `从 MiniDisc 导出 ${count} 首曲目`],
+    ];
+    for (const [pattern, format] of patterns) {
+        const match = label.match(pattern);
+        if (match) return format(match[1]);
+    }
+    const labels: Record<string, string> = {
+        'Export device RAM': '导出设备 RAM',
+        'Export device firmware': '导出设备固件',
+        'Run destructive MiniDisc device self-test': '运行破坏性 MiniDisc 设备自检',
+    };
+    return labels[label] ?? label;
+}
+
+export function localizeTaskMessage(message: string, language: 'en' | 'zh-CN') {
+    if (language === 'en' || !message) return message;
+    const noAudio = message.match(/^The device returned no audio for track (\d+)\.$/);
+    if (noAudio) return `设备没有返回曲目 ${noAudio[1]} 的音频。`;
+    const messages: Record<string, string> = {
+        'Keep the completed files and retry only the remaining tracks.': '保留已完成的文件，只重试剩余曲目。',
+        'Check the device connection and output directory, then retry the export.': '检查设备连接和输出目录，然后重试导出。',
+        'Keep the device connected and retry the advanced export.': '保持设备连接，然后重试高级导出。',
+        'Keep the downloaded recordings and retry only the remaining tracks.': '保留已下载的录音，只重试剩余曲目。',
+        'Check the audio input and device playback connection before retrying.': '重试前请检查音频输入和设备播放连接。',
+        'Check the audio source and recognition service, then retry the remaining tracks.': '检查音频来源和识别服务，然后重试剩余曲目。',
+        'Refresh the disc, keep the completed tracks, and retry only the remaining imports.': '刷新碟片并保留已完成的曲目，只重试剩余导入项。',
+        'Check the source audio, encoder, and device connection before retrying the write.': '检查源音频、编码器和设备连接，然后重试写入。',
+        'The recording task stopped before all tracks were transferred.': '录制任务在所有曲目传输完成前停止。',
+        'The recording task stopped unexpectedly.': '录制任务意外停止。',
+        'Reconnect the device, refresh its state, and verify what completed before retrying.': '重新连接设备并刷新状态；确认已完成的内容后再重试。',
+    };
+    return messages[message] ?? message;
+}
+
+export function summarizeTaskResult(result: unknown, language: 'en' | 'zh-CN' = 'en') {
     if (!result || typeof result !== 'object' || Array.isArray(result)) return [];
     const record = result as Record<string, unknown>;
-    const labels: Record<string, string> = {
-        writtenTracks: 'Written',
-        exportedTracks: 'Exported',
-        recordedTracks: 'Recorded',
-        completedItems: 'Completed',
-        pendingItems: 'Pending',
+    const labels: Record<string, [string, string]> = {
+        writtenTracks: ['Written', '已写入'],
+        exportedTracks: ['Exported', '已导出'],
+        recordedTracks: ['Recorded', '已录制'],
+        completedItems: ['Completed', '已完成'],
+        pendingItems: ['Pending', '待处理'],
     };
     const lines: string[] = [];
     for (const [key, label] of Object.entries(labels)) {
-        if (typeof record[key] === 'number') lines.push(`${label}: ${record[key]}`);
+        if (typeof record[key] === 'number') lines.push(`${label[language === 'zh-CN' ? 1 : 0]}: ${record[key]}`);
     }
-    if (Array.isArray(record.files)) lines.push(`Files: ${record.files.length}`);
-    if (Array.isArray(record.tracks)) lines.push(`Tracks: ${record.tracks.length}`);
+    if (Array.isArray(record.files)) lines.push(`${language === 'zh-CN' ? '文件' : 'Files'}: ${record.files.length}`);
+    if (Array.isArray(record.tracks)) lines.push(`${language === 'zh-CN' ? '曲目' : 'Tracks'}: ${record.tracks.length}`);
     return lines;
 }
 

@@ -26,6 +26,8 @@ import {
     getTaskErrorDetail,
     getTaskOutputFiles,
     isActiveUninterruptibleWrite,
+    localizeTaskLabel,
+    localizeTaskMessage,
     resolveRowNavigationIndex,
     summarizeTaskResult,
     taskProgressPercent,
@@ -158,6 +160,10 @@ export const Workbench = () => {
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [writeReviewOpen, setWriteReviewOpen] = useState(false);
     const [discEditorOpen, setDiscEditorOpen] = useState(false);
+    const [deleteReview, setDeleteReview] = useState<{
+        tracks: { index: number; title: string }[];
+        expectedRevision: number;
+    } | null>(null);
     const [discTitleDraft, setDiscTitleDraft] = useState('');
     const [discFullWidthTitleDraft, setDiscFullWidthTitleDraft] = useState('');
     const [writePreview, setWritePreview] = useState<ImportPreview | null>(null);
@@ -381,7 +387,7 @@ export const Workbench = () => {
         [workspace.tasks]
     );
     const selectedTask = recentTasks.find((task) => task.id === selectedTaskId) ?? recentTasks[0] ?? null;
-    const selectedTaskResultLines = selectedTask ? summarizeTaskResult(selectedTask.result) : [];
+    const selectedTaskResultLines = selectedTask ? summarizeTaskResult(selectedTask.result, language) : [];
     const selectedTaskOutputs = selectedTask ? getTaskOutputFiles(selectedTask.result) : { files: [], total: 0 };
     const selectedTaskErrorDetail = getTaskErrorDetail(selectedTask?.error);
     const activeTaskCount = workspace.tasks.filter((task) => task.status === 'running' || task.status === 'queued').length;
@@ -393,6 +399,7 @@ export const Workbench = () => {
     useEffect(() => {
         sessionBadSectorDecision.current = null;
         setBadSectorPrompt(null);
+        setDeleteReview(null);
         return () => {
             badSectorResolver.current?.({ decision: 'abort', rememberForExport: false, rememberForSession: false });
             badSectorResolver.current = null;
@@ -470,8 +477,9 @@ export const Workbench = () => {
         if (!attentionTask) return;
         setSelectedTaskId(attentionTask.id);
         setTaskCenterOpen(true);
-        setMessage(`${attentionTask.label} needs attention. Review the task details before retrying.`);
-    }, [recentTasks]);
+        const label = localizeTaskLabel(attentionTask.label, language);
+        setMessage(language === 'zh-CN' ? `${label}需要处理。重试前请检查任务详情。` : `${label} needs attention. Review the task details before retrying.`);
+    }, [language, recentTasks]);
 
     useEffect(() => {
         if (!taskCenterOpen) return;
@@ -594,25 +602,40 @@ export const Workbench = () => {
 
     const removeSelected = () => {
         if (!selected) return;
-        void run(async () => {
-            if (selected.kind === 'import') {
+        if (selected.kind === 'import') {
+            void run(async () => {
                 const ids = selectedImportIds.length > 0 ? selectedImportIds : [selected.item.id];
                 await execute({ type: 'import.remove', ids, expectedRevision: workspace.imports.revision });
                 setSelectedImportIds([]);
                 setLastSelectedImportIndex(null);
-                return;
-            }
-            const indexes = sortedSelectedTrackIndexes.length > 0 ? sortedSelectedTrackIndexes : [selected.item.index];
-            const description = indexes.length === 1 ? `“${selected.item.title || `Track ${selected.item.index}`}”` : `${indexes.length} tracks`;
-            if (!window.confirm(`Delete ${description} from this test disc?`)) return;
+            });
+            return;
+        }
+        if (!device) return;
+        const indexes = sortedSelectedTrackIndexes.length > 0 ? sortedSelectedTrackIndexes : [selected.item.index];
+        setDeleteReview({
+            tracks: indexes.map((index) => {
+                const track = tracks.find((candidate) => candidate.index === index);
+                return { index, title: track?.title || (language === 'zh-CN' ? `曲目 ${index + 1}` : `Track ${index + 1}`) };
+            }),
+            expectedRevision: device.revision,
+        });
+    };
+
+    const confirmTrackDeletion = () => {
+        if (!deleteReview) return;
+        void run(async () => {
             await execute({
                 type: 'track.deleteMany',
-                indexes,
+                indexes: deleteReview.tracks.map((track) => track.index),
                 confirmation: { confirmed: true, reason: 'User confirmed deletion in the workbench.' },
-                expectedRevision: device?.revision,
+                expectedRevision: deleteReview.expectedRevision,
             });
+            const deleted = deleteReview.tracks.length;
+            setDeleteReview(null);
             setSelectedTrackIndexes([]);
             setLastSelectedTrackIndex(null);
+            setMessage(language === 'zh-CN' ? `已删除 ${deleted} 首曲目。` : `Deleted ${deleted} track${deleted === 1 ? '' : 's'}.`);
         });
     };
 
@@ -1161,8 +1184,8 @@ export const Workbench = () => {
                                                 onClick={() => setSelectedTaskId(task.id)}
                                             >
                                                 <span className={`workbench__task-dot is-${task.status}`} />
-                                                <span><strong>{task.label}</strong><small>{task.kind} · {formatTaskTimestamp(task.finishedAt ?? task.startedAt ?? task.createdAt)}</small></span>
-                                                <em>{task.status === 'running' || task.status === 'queued' ? `${percent}%` : taskStatusLabel(task.status)}</em>
+                                                <span><strong>{localizeTaskLabel(task.label, language)}</strong><small>{t(task.kind)} · {formatTaskTimestamp(task.finishedAt ?? task.startedAt ?? task.createdAt)}</small></span>
+                                                <em>{task.status === 'running' || task.status === 'queued' ? `${percent}%` : t(taskStatusLabel(task.status))}</em>
                                             </button>
                                         );
                                     })}
@@ -1170,14 +1193,14 @@ export const Workbench = () => {
                                 {selectedTask ? (
                                     <section className="workbench__task-detail">
                                         <div className="workbench__task-detail-title">
-                                            <div><span className="workbench__eyebrow">{selectedTask.kind}</span><h3>{selectedTask.label}</h3></div>
-                                            <span className={`workbench__task-badge is-${selectedTask.status}`}>{taskStatusLabel(selectedTask.status)}</span>
+                                            <div><span className="workbench__eyebrow">{t(selectedTask.kind)}</span><h3>{localizeTaskLabel(selectedTask.label, language)}</h3></div>
+                                            <span className={`workbench__task-badge is-${selectedTask.status}`}>{t(taskStatusLabel(selectedTask.status))}</span>
                                         </div>
-                                        <div className="workbench__task-detail-meter" role="progressbar" aria-label={`${selectedTask.label} progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={taskProgressPercent(selectedTask)}><i style={{ width: `${taskProgressPercent(selectedTask)}%` }} /></div>
+                                        <div className="workbench__task-detail-meter" role="progressbar" aria-label={language === 'zh-CN' ? `${localizeTaskLabel(selectedTask.label, language)}进度` : `${selectedTask.label} progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={taskProgressPercent(selectedTask)}><i style={{ width: `${taskProgressPercent(selectedTask)}%` }} /></div>
                                         <dl>
-                                            <div><dt>{t('Phase')}</dt><dd>{selectedTask.phase}</dd></div>
-                                            <div><dt>{t('Progress')}</dt><dd>{selectedTask.progress.completed} / {selectedTask.progress.total} {selectedTask.progress.unit}</dd></div>
-                                            <div><dt>{t('Current item')}</dt><dd>{selectedTask.progress.currentLabel || '—'}</dd></div>
+                                            <div><dt>{t('Phase')}</dt><dd>{t(selectedTask.phase)}</dd></div>
+                                            <div><dt>{t('Progress')}</dt><dd>{selectedTask.progress.completed} / {selectedTask.progress.total} {t(selectedTask.progress.unit)}</dd></div>
+                                            <div><dt>{t('Current item')}</dt><dd>{selectedTask.progress.currentLabel ? t(selectedTask.progress.currentLabel) : '—'}</dd></div>
                                         </dl>
                                         {selectedTaskResultLines.length > 0 ? (
                                             <div className="workbench__task-result">
@@ -1198,25 +1221,25 @@ export const Workbench = () => {
                                                         </li>
                                                     ))}
                                                 </ul>
-                                                {selectedTaskOutputs.total > selectedTaskOutputs.files.length ? <small>Showing the first {selectedTaskOutputs.files.length} files.</small> : null}
+                                                {selectedTaskOutputs.total > selectedTaskOutputs.files.length ? <small>{language === 'zh-CN' ? `仅显示前 ${selectedTaskOutputs.files.length} 个文件。` : `Showing the first ${selectedTaskOutputs.files.length} files.`}</small> : null}
                                             </div>
                                         ) : null}
                                         {selectedTask.error ? (
                                             <div className="workbench__task-error">
-                                                <strong>{selectedTask.error.message}</strong>
-                                                {selectedTaskErrorDetail ? <span>{selectedTaskErrorDetail}</span> : null}
-                                                {selectedTask.error.completedItems !== undefined || selectedTask.error.pendingItems !== undefined ? <span>{selectedTask.error.completedItems ?? 0} completed · {selectedTask.error.pendingItems ?? 0} pending</span> : null}
-                                                {selectedTask.error.recoveryAction ? <p>{selectedTask.error.recoveryAction}</p> : null}
+                                                <strong>{localizeTaskMessage(selectedTask.error.message, language)}</strong>
+                                                {selectedTaskErrorDetail ? <span>{localizeTaskMessage(selectedTaskErrorDetail, language)}</span> : null}
+                                                {selectedTask.error.completedItems !== undefined || selectedTask.error.pendingItems !== undefined ? <span>{language === 'zh-CN' ? `已完成 ${selectedTask.error.completedItems ?? 0} · 待处理 ${selectedTask.error.pendingItems ?? 0}` : `${selectedTask.error.completedItems ?? 0} completed · ${selectedTask.error.pendingItems ?? 0} pending`}</span> : null}
+                                                {selectedTask.error.recoveryAction ? <p>{localizeTaskMessage(selectedTask.error.recoveryAction, language)}</p> : null}
                                             </div>
                                         ) : null}
                                         {isActiveUninterruptibleWrite(selectedTask) ? (
                                             <div className="workbench__task-safety-note">
                                                 <strong>{t('The current track cannot be interrupted safely.')}</strong>
-                                                <span>{getTaskCancellationPresentation(selectedTask).safetyNotice}</span>
+                                                <span>{t(getTaskCancellationPresentation(selectedTask).safetyNotice ?? '')}</span>
                                             </div>
                                         ) : null}
                                         {canRequestTaskCancellation(selectedTask) ? (
-                                            <button className="danger-button" disabled={selectedTask.cancellationRequested || busy} onClick={() => cancelTask(selectedTask.id)}><StopRoundedIcon /> {getTaskCancellationPresentation(selectedTask).actionLabel}</button>
+                                            <button className="danger-button" disabled={selectedTask.cancellationRequested || busy} onClick={() => cancelTask(selectedTask.id)}><StopRoundedIcon /> {t(getTaskCancellationPresentation(selectedTask).actionLabel)}</button>
                                         ) : null}
                                     </section>
                                 ) : null}
@@ -1227,7 +1250,7 @@ export const Workbench = () => {
 
                 <footer className="workbench__footer">
                     <button className="workbench__task-status" onClick={() => setTaskCenterOpen((open) => !open)} aria-expanded={taskCenterOpen} aria-controls="workbench-task-center">
-                        {activeTask ? <><span className="workbench__task-spinner" /><div><strong>{activeTask.label}</strong><small>{activeTask.phase} · {Math.round(taskPercent)}%</small></div></> : <><CheckCircleIcon /><div><strong>{t('Ready')}</strong><small>{imports.length ? (language === 'zh-CN' ? `已准备 ${imports.length} 首曲目` : `${imports.length} tracks prepared`) : t('No pending transfer')}</small></div></>}
+                        {activeTask ? <><span className="workbench__task-spinner" /><div><strong>{localizeTaskLabel(activeTask.label, language)}</strong><small>{t(activeTask.phase)} · {Math.round(taskPercent)}%</small></div></> : <><CheckCircleIcon /><div><strong>{t('Ready')}</strong><small>{imports.length ? (language === 'zh-CN' ? `已准备 ${imports.length} 首曲目` : `${imports.length} tracks prepared`) : t('No pending transfer')}</small></div></>}
                         <em>{activeTaskCount > 0 ? activeTaskCount : workspace.tasks.length} {language === 'zh-CN' ? (activeTaskCount > 0 ? '项进行中' : '项任务') : (activeTaskCount > 0 ? 'active' : 'tasks')}</em>
                     </button>
                     <div className="workbench__footer-meter"><span><i style={{ width: `${activeTask ? taskPercent : usedPercent}%` }} /></span><small>{activeTask ? (language === 'zh-CN' ? `已完成 ${Math.round(taskPercent)}%` : `${Math.round(taskPercent)}% complete`) : (language === 'zh-CN' ? `已用 ${capacityUsed} / ${capacityTotal}` : `${capacityUsed} of ${capacityTotal} used`)}</small></div>
@@ -1345,6 +1368,25 @@ export const Workbench = () => {
                         <p>{language === 'zh-CN' ? `曲目 ${(sortedSelectedTrackIndexes[0] ?? 0) + 1}–${(sortedSelectedTrackIndexes.at(-1) ?? 0) + 1} 将保持当前顺序。` : `Tracks ${(sortedSelectedTrackIndexes[0] ?? 0) + 1}–${(sortedSelectedTrackIndexes.at(-1) ?? 0) + 1} will stay in their current order.`}</p>
                         <label>{t('Group name')}<input autoFocus value={groupDraft} onChange={(event) => setGroupDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && groupDraft.trim()) createGroup(); }} /></label>
                         <div className="workbench__modal-actions"><button className="secondary-button" onClick={() => setGroupDialogOpen(false)}>{t('Cancel')}</button><button className="primary-button" onClick={createGroup} disabled={!groupDraft.trim() || busy}>{t('Create group')}</button></div>
+                    </section>
+                </div>
+            ) : null}
+            {deleteReview ? (
+                <div className="workbench__modal-backdrop" role="presentation" onMouseDown={() => !busy && setDeleteReview(null)}>
+                    <section className="workbench__modal" role="alertdialog" aria-modal="true" aria-labelledby="workbench-delete-title" aria-describedby="workbench-delete-description" onMouseDown={(event) => event.stopPropagation()}>
+                        <span className="workbench__eyebrow">{t('DELETE TRACKS')}</span>
+                        <h2 id="workbench-delete-title">{t('Delete selected tracks?')}</h2>
+                        <p id="workbench-delete-description">{t('This permanently removes the selected audio from the inserted MiniDisc. This action cannot be undone.')}</p>
+                        <div className="workbench__transfer-tracks" aria-label={t('Tracks to delete')}>
+                            {deleteReview.tracks.slice(0, 6).map((track) => (
+                                <span key={track.index}><b>{String(track.index + 1).padStart(2, '0')}</b>{track.title}</span>
+                            ))}
+                            {deleteReview.tracks.length > 6 ? <small>{language === 'zh-CN' ? `另有 ${deleteReview.tracks.length - 6} 首曲目` : `+ ${deleteReview.tracks.length - 6} more tracks`}</small> : null}
+                        </div>
+                        <div className="workbench__modal-actions">
+                            <button className="secondary-button" onClick={() => setDeleteReview(null)} disabled={busy}>{t('Keep tracks')}</button>
+                            <button className="danger-button" onClick={confirmTrackDeletion} disabled={busy}><DeleteOutlineIcon /> {deleteReview.tracks.length === 1 ? t('Delete from disc') : t('Delete tracks')}</button>
+                        </div>
                     </section>
                 </div>
             ) : null}

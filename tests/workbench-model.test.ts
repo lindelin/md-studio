@@ -16,6 +16,8 @@ import {
     getSelfTestReadiness,
     isActiveUninterruptibleWrite,
     libraryPathKey,
+    localizeTaskLabel,
+    localizeTaskMessage,
     resolveRowNavigationIndex,
     summarizeTaskResult,
     taskProgressPercent,
@@ -152,6 +154,27 @@ describe('Studio Workbench task presentation', () => {
             summarizeTaskResult({ writtenTracks: 2, files: ['a.oma', 'b.oma'], internal: { token: 'hidden' } }),
             ['Written: 2', 'Files: 2']
         );
+        assert.deepEqual(
+            summarizeTaskResult({ writtenTracks: 2, files: ['a.oma', 'b.oma'] }, 'zh-CN'),
+            ['已写入: 2', '文件: 2']
+        );
+    });
+
+    it('localizes known task labels without changing unknown or English labels', () => {
+        assert.equal(localizeTaskLabel('Write 2 tracks to MiniDisc', 'zh-CN'), '将 2 首曲目录制到 MiniDisc');
+        assert.equal(localizeTaskLabel('Export device firmware', 'zh-CN'), '导出设备固件');
+        assert.equal(localizeTaskLabel('Vendor-specific operation', 'zh-CN'), 'Vendor-specific operation');
+        assert.equal(localizeTaskLabel('Write 2 tracks to MiniDisc', 'en'), 'Write 2 tracks to MiniDisc');
+    });
+
+    it('localizes task recovery messages while preserving unknown device errors', () => {
+        assert.equal(localizeTaskMessage('The device returned no audio for track 3.', 'zh-CN'), '设备没有返回曲目 3 的音频。');
+        assert.equal(
+            localizeTaskMessage('Check the device connection and output directory, then retry the export.', 'zh-CN'),
+            '检查设备连接和输出目录，然后重试导出。'
+        );
+        assert.equal(localizeTaskMessage('Vendor error 42', 'zh-CN'), 'Vendor error 42');
+        assert.equal(localizeTaskMessage('The device returned no audio for track 3.', 'en'), 'The device returned no audio for track 3.');
     });
 
     it('extracts bounded output file entries without exposing arbitrary result fields', () => {
