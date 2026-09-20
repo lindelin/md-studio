@@ -112,3 +112,23 @@ export function getTaskErrorDetail(error?: { message: string; details?: Record<s
     const detail = error?.details?.displayMessage;
     return typeof detail === 'string' && detail.trim() && detail !== error?.message ? detail : null;
 }
+
+export function resolveRowNavigationIndex(currentIndex: number, rowCount: number, key: string, pageSize = 10) {
+    if (rowCount <= 0 || currentIndex < 0 || currentIndex >= rowCount) return null;
+    switch (key) {
+        case 'ArrowUp':
+            return Math.max(0, currentIndex - 1);
+        case 'ArrowDown':
+            return Math.min(rowCount - 1, currentIndex + 1);
+        case 'Home':
+            return 0;
+        case 'End':
+            return rowCount - 1;
+        case 'PageUp':
+            return Math.max(0, currentIndex - pageSize);
+        case 'PageDown':
+            return Math.min(rowCount - 1, currentIndex + pageSize);
+        default:
+            return null;
+    }
+}

@@ -4,6 +4,7 @@ import {
     buildBatchMetadataUpdates,
     findTaskNeedingAttention,
     getTaskErrorDetail,
+    resolveRowNavigationIndex,
     summarizeTaskResult,
     taskProgressPercent,
     updateOrderedSelection,
@@ -108,5 +109,23 @@ describe('Studio Workbench task presentation', () => {
             'Reconnect and retry.'
         );
         assert.equal(getTaskErrorDetail({ message: 'Same', details: { displayMessage: 'Same' } }), null);
+    });
+});
+
+describe('Studio Workbench row navigation', () => {
+    it('supports single-row, boundary, page, home and end movement', () => {
+        assert.equal(resolveRowNavigationIndex(4, 20, 'ArrowUp'), 3);
+        assert.equal(resolveRowNavigationIndex(4, 20, 'ArrowDown'), 5);
+        assert.equal(resolveRowNavigationIndex(4, 20, 'Home'), 0);
+        assert.equal(resolveRowNavigationIndex(4, 20, 'End'), 19);
+        assert.equal(resolveRowNavigationIndex(15, 20, 'PageUp'), 5);
+        assert.equal(resolveRowNavigationIndex(15, 20, 'PageDown'), 19);
+        assert.equal(resolveRowNavigationIndex(0, 20, 'ArrowUp'), 0);
+    });
+
+    it('ignores unsupported keys and invalid table positions', () => {
+        assert.equal(resolveRowNavigationIndex(0, 3, 'Enter'), null);
+        assert.equal(resolveRowNavigationIndex(-1, 3, 'ArrowDown'), null);
+        assert.equal(resolveRowNavigationIndex(0, 0, 'ArrowDown'), null);
     });
 });

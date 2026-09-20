@@ -21,6 +21,7 @@ import {
     buildBatchMetadataUpdates,
     findTaskNeedingAttention,
     getTaskErrorDetail,
+    resolveRowNavigationIndex,
     summarizeTaskResult,
     taskProgressPercent,
     updateOrderedSelection,
@@ -463,9 +464,9 @@ export const Workbench = () => {
             selectRow(event, row);
             return;
         }
-        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+        const nextIndex = resolveRowNavigationIndex(row.index, planItems.length, event.key);
+        if (nextIndex === null) return;
         event.preventDefault();
-        const nextIndex = row.index + (event.key === 'ArrowUp' ? -1 : 1);
         const next = planItems[nextIndex];
         if (!next) return;
         selectRow(event, next);
@@ -756,7 +757,7 @@ export const Workbench = () => {
                                             key={row.key}
                                             role="row"
                                             aria-selected={isSelected}
-                                            tabIndex={0}
+                                            tabIndex={row.key === selectedKey ? 0 : -1}
                                             draggable={row.kind === 'import'}
                                             onDragStart={() => row.kind === 'import' && setDraggedId(row.item.id)}
                                             onDragOver={(event) => row.kind === 'import' && event.preventDefault()}
