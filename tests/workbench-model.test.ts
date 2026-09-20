@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { buildBatchMetadataUpdates, updateOrderedSelection } from '../src/components/workbench/workbench-model';
+import {
+    buildBatchMetadataUpdates,
+    summarizeTaskResult,
+    taskProgressPercent,
+    updateOrderedSelection,
+} from '../src/components/workbench/workbench-model';
 
 const noModifiers = { shiftKey: false, ctrlKey: false, metaKey: false };
 
@@ -65,6 +70,23 @@ describe('Studio Workbench batch metadata', () => {
                 { title: 'Focused title', artist: '', album: '', fullWidthTitle: '' }
             ),
             [{ target: 'one', changes: { title: 'Focused title' } }]
+        );
+    });
+});
+
+describe('Studio Workbench task presentation', () => {
+    it('uses explicit stage progress and completed task state', () => {
+        assert.equal(
+            taskProgressPercent({ status: 'running', progress: { completed: 1, total: 4, currentPercent: 62.4 } }),
+            62
+        );
+        assert.equal(taskProgressPercent({ status: 'succeeded', progress: { completed: 0, total: 0 } }), 100);
+    });
+
+    it('summarizes known task results without rendering arbitrary nested values', () => {
+        assert.deepEqual(
+            summarizeTaskResult({ writtenTracks: 2, files: ['a.oma', 'b.oma'], internal: { token: 'hidden' } }),
+            ['Written: 2', 'Files: 2']
         );
     });
 });

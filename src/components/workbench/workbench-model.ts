@@ -69,3 +69,32 @@ export function buildBatchMetadataUpdates<T>(
         ];
     });
 }
+
+export function taskProgressPercent(task: {
+    progress: { currentPercent?: number; completed: number; total: number };
+    status: string;
+}) {
+    if (task.status === 'succeeded') return 100;
+    if (task.progress.currentPercent !== undefined) return Math.round(task.progress.currentPercent);
+    if (task.progress.total <= 0) return 0;
+    return Math.round((task.progress.completed / task.progress.total) * 100);
+}
+
+export function summarizeTaskResult(result: unknown) {
+    if (!result || typeof result !== 'object' || Array.isArray(result)) return [];
+    const record = result as Record<string, unknown>;
+    const labels: Record<string, string> = {
+        writtenTracks: 'Written',
+        exportedTracks: 'Exported',
+        recordedTracks: 'Recorded',
+        completedItems: 'Completed',
+        pendingItems: 'Pending',
+    };
+    const lines: string[] = [];
+    for (const [key, label] of Object.entries(labels)) {
+        if (typeof record[key] === 'number') lines.push(`${label}: ${record[key]}`);
+    }
+    if (Array.isArray(record.files)) lines.push(`Files: ${record.files.length}`);
+    if (Array.isArray(record.tracks)) lines.push(`Tracks: ${record.tracks.length}`);
+    return lines;
+}

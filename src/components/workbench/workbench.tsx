@@ -19,6 +19,8 @@ import { getDefaultRecordingFormat, getRecordingCodec } from '../../application/
 import type { ImportQueueItem } from '../../application/import-queue';
 import {
     buildBatchMetadataUpdates,
+    summarizeTaskResult,
+    taskProgressPercent,
     updateOrderedSelection,
     type WorkbenchDraftField,
 } from './workbench-model';
@@ -100,6 +102,16 @@ function errorMessage(error: unknown) {
     return error instanceof Error ? error.message : String(error);
 }
 
+function taskStatusLabel(status: string) {
+    return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function formatTaskTimestamp(timestamp?: string) {
+    if (!timestamp) return '—';
+    const date = new Date(timestamp);
+    return Number.isNaN(date.getTime()) ? '—' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
 export const Workbench = () => {
     const dispatch = useDispatch();
     const client = useApplicationClient();
@@ -123,6 +135,8 @@ export const Workbench = () => {
     const [dirtyDraftFields, setDirtyDraftFields] = useState<WorkbenchDraftField[]>([]);
     const [groupDraft, setGroupDraft] = useState('');
     const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+    const [taskCenterOpen, setTaskCenterOpen] = useState(false);
+    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [formatIndex, setFormatIndex] = useState<[number, number]>(device?.recording.defaultFormat ?? [0, 0]);
     const [message, setMessage] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
@@ -246,10 +260,30 @@ export const Workbench = () => {
     const usedPercent = disc?.total ? Math.min(100, Math.max(0, (disc.used / disc.total) * 100)) : 0;
     const queuedDuration = imports.reduce((total, item) => total + (item.duration ?? 0), 0);
     const activeTask = workspace.tasks.find((task) => task.status === 'running' || task.status === 'queued') ?? null;
-    const taskPercent = activeTask
-        ? activeTask.progress.currentPercent ??
-          (activeTask.progress.total > 0 ? (activeTask.progress.completed / activeTask.progress.total) * 100 : 0)
-        : 0;
+    const taskPercent = activeTask ? taskProgressPercent(activeTask) : 0;
+    const recentTasks = useMemo(
+        () => [...workspace.tasks].sort((left, right) => right.createdAt.localeCompare(left.createdAt)).slice(0, 12),
+        [workspace.tasks]
+    );
+    const selectedTask = recentTasks.find((task) => task.id === selectedTaskId) ?? recentTasks[0] ?? null;
+    const selectedTaskResultLines = selectedTask ? summarizeTaskResult(selectedTask.result) : [];
+    const activeTaskCount = workspace.tasks.filter((task) => task.status === 'running' || task.status === 'queued').length;
+
+    useEffect(() => {
+        if (!taskCenterOpen || recentTasks.length === 0) return;
+        if (!selectedTaskId || !recentTasks.some((task) => task.id === selectedTaskId)) {
+            setSelectedTaskId(recentTasks[0].id);
+        }
+    }, [recentTasks, selectedTaskId, taskCenterOpen]);
+
+    useEffect(() => {
+        if (!taskCenterOpen) return;
+        const closeOnEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setTaskCenterOpen(false);
+        };
+        window.addEventListener('keydown', closeOnEscape);
+        return () => window.removeEventListener('keydown', closeOnEscape);
+    }, [taskCenterOpen]);
     const sortedSelectedTrackIndexes = useMemo(
         () => [...selectedTrackIndexes].sort((left, right) => left - right),
         [selectedTrackIndexes]
@@ -502,6 +536,13 @@ export const Workbench = () => {
     const openTrackTransfer = () => {
         if (selectedTrackIndexes.length === 0) return;
         dispatch(dumpDialogActions.setVisible(true));
+    };
+
+    const cancelTask = (id: string) => {
+        void run(async () => {
+            await execute({ type: 'task.cancel', id });
+            setMessage('Cancellation requested. The current device step will finish safely.');
+        });
     };
 
     const refresh = () => void run(async () => void (await execute({ type: 'disc.refresh', dropCache: true })));
@@ -765,10 +806,75 @@ export const Workbench = () => {
                     </aside>
                 </div>
 
+                {taskCenterOpen ? (
+                    <aside
+                        id="workbench-task-center"
+                        className="workbench__task-center"
+                        aria-label="Task center"
+                    >
+                        <header>
+                            <div><span className="workbench__eyebrow">TASK CENTER</span><h2>Transfers and background work</h2></div>
+                            <button aria-label="Close task center" onClick={() => setTaskCenterOpen(false)}>×</button>
+                        </header>
+                        {recentTasks.length === 0 ? (
+                            <div className="workbench__task-empty"><CheckCircleIcon /><strong>No task history yet</strong><span>Writes, exports, recordings and recognition jobs will appear here.</span></div>
+                        ) : (
+                            <div className="workbench__task-center-body">
+                                <nav aria-label="Recent tasks">
+                                    {recentTasks.map((task) => {
+                                        const percent = taskProgressPercent(task);
+                                        return (
+                                            <button
+                                                className={task.id === selectedTask?.id ? 'is-active' : ''}
+                                                key={task.id}
+                                                onClick={() => setSelectedTaskId(task.id)}
+                                            >
+                                                <span className={`workbench__task-dot is-${task.status}`} />
+                                                <span><strong>{task.label}</strong><small>{task.kind} · {formatTaskTimestamp(task.finishedAt ?? task.startedAt ?? task.createdAt)}</small></span>
+                                                <em>{task.status === 'running' || task.status === 'queued' ? `${percent}%` : taskStatusLabel(task.status)}</em>
+                                            </button>
+                                        );
+                                    })}
+                                </nav>
+                                {selectedTask ? (
+                                    <section className="workbench__task-detail">
+                                        <div className="workbench__task-detail-title">
+                                            <div><span className="workbench__eyebrow">{selectedTask.kind}</span><h3>{selectedTask.label}</h3></div>
+                                            <span className={`workbench__task-badge is-${selectedTask.status}`}>{taskStatusLabel(selectedTask.status)}</span>
+                                        </div>
+                                        <div className="workbench__task-detail-meter"><i style={{ width: `${taskProgressPercent(selectedTask)}%` }} /></div>
+                                        <dl>
+                                            <div><dt>Phase</dt><dd>{selectedTask.phase}</dd></div>
+                                            <div><dt>Progress</dt><dd>{selectedTask.progress.completed} / {selectedTask.progress.total} {selectedTask.progress.unit}</dd></div>
+                                            <div><dt>Current item</dt><dd>{selectedTask.progress.currentLabel || '—'}</dd></div>
+                                        </dl>
+                                        {selectedTaskResultLines.length > 0 ? (
+                                            <div className="workbench__task-result">
+                                                {selectedTaskResultLines.map((line) => <span key={line}>{line}</span>)}
+                                            </div>
+                                        ) : null}
+                                        {selectedTask.error ? (
+                                            <div className="workbench__task-error">
+                                                <strong>{selectedTask.error.message}</strong>
+                                                {selectedTask.error.completedItems !== undefined || selectedTask.error.pendingItems !== undefined ? <span>{selectedTask.error.completedItems ?? 0} completed · {selectedTask.error.pendingItems ?? 0} pending</span> : null}
+                                                {selectedTask.error.recoveryAction ? <p>{selectedTask.error.recoveryAction}</p> : null}
+                                            </div>
+                                        ) : null}
+                                        {selectedTask.status === 'running' || selectedTask.status === 'queued' ? (
+                                            <button className="danger-button" disabled={selectedTask.cancellationRequested || busy} onClick={() => cancelTask(selectedTask.id)}><StopRoundedIcon /> {selectedTask.cancellationRequested ? 'Cancellation requested' : 'Cancel task'}</button>
+                                        ) : null}
+                                    </section>
+                                ) : null}
+                            </div>
+                        )}
+                    </aside>
+                ) : null}
+
                 <footer className="workbench__footer">
-                    <div className="workbench__task-status">
+                    <button className="workbench__task-status" onClick={() => setTaskCenterOpen((open) => !open)} aria-expanded={taskCenterOpen} aria-controls="workbench-task-center">
                         {activeTask ? <><span className="workbench__task-spinner" /><div><strong>{activeTask.label}</strong><small>{activeTask.phase} · {Math.round(taskPercent)}%</small></div></> : <><CheckCircleIcon /><div><strong>Ready</strong><small>{imports.length ? `${imports.length} tracks prepared` : 'No pending transfer'}</small></div></>}
-                    </div>
+                        <em>{activeTaskCount > 0 ? activeTaskCount : workspace.tasks.length} {activeTaskCount > 0 ? 'active' : 'tasks'}</em>
+                    </button>
                     <div className="workbench__footer-meter"><span><i style={{ width: `${activeTask ? taskPercent : usedPercent}%` }} /></span><small>{activeTask ? `${Math.round(taskPercent)}% complete` : `${capacityUsed} of ${capacityTotal} used`}</small></div>
                 </footer>
             </main>
