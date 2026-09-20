@@ -20,7 +20,6 @@ import {
 import { actions as appActions } from '../redux/app-feature';
 import { actions as renameDialogActions, RenameType } from '../redux/rename-dialog-feature';
 import { actions as factoryNoticeDialogActions } from '../redux/factory/factory-notice-dialog-feature';
-import { dispatchQueue } from '../utils';
 import { useShallowEqualSelector } from '../frontend-utils';
 import Link from '@mui/material/Link';
 import ListItemIcon from '@mui/material/ListItemIcon';
@@ -288,8 +287,8 @@ export const TopMenu = function (props: {
 
     const handleArchiveDisc = useCallback(async () => {
         handleMenuClose();
-        const { archiveDisc, readToc } = await loadFactoryActions();
-        dispatch(dispatchQueue(readToc(), archiveDisc()));
+        const { archiveDisc } = await loadFactoryActions();
+        dispatch(archiveDisc());
     }, [dispatch, handleMenuClose]);
 
     const handleStripSCMS = useCallback(async () => {

@@ -65,6 +65,16 @@ const useStyles = makeStyles()((theme) => ({
             width: '90%',
         },
     },
+    factoryLayout: {
+        width: '100%',
+        margin: 0,
+    },
+    factoryPaper: {
+        minHeight: '100vh',
+        margin: 0,
+        padding: 0,
+        borderRadius: 0,
+    },
     bottomBar: {
         display: 'flex',
         alignItems: 'center',
@@ -266,11 +276,17 @@ const InternalApp = () => {
                     </Backdrop>
                 }
             >
-                <main className={cx(classes.layout, { [classes.layoutFullWidth]: pageFullWidth })}>
+                <main
+                    className={cx(classes.layout, {
+                        [classes.layoutFullWidth]: pageFullWidth,
+                        [classes.factoryLayout]: mainView === 'FACTORY',
+                    })}
+                >
                     <Paper
                         className={cx(classes.paper, {
                             [classes.paperShowsList]: canListContent,
                             [classes.paperFullHeight]: pageFullHeight,
+                            [classes.factoryPaper]: mainView === 'FACTORY',
                         })}
                     >
                         {mainView === 'WELCOME' ? <Welcome /> : null}

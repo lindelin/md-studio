@@ -399,6 +399,9 @@
 .workbench__write-option small { margin-top: 3px; color: #718692; font-size: 8px; font-weight: 400; line-height: 1.45; }
 .workbench__write-option.is-disabled { opacity: .48; cursor: default; }
 .workbench__toc-editor-backdrop { z-index: 1750; }
+.workbench__toc-editor-backdrop, .workbench__toc-editor-backdrop * { box-sizing: border-box; }
+.workbench__toc-editor-backdrop.is-embedded { position: static; display: block; padding: 16px; background: var(--wb-bg); backdrop-filter: none; }
+.workbench__toc-editor-backdrop.is-embedded > .workbench__toc-editor { width: 100%; height: calc(100vh - 110px); margin: 0 auto; }
 .workbench__toc-editor { display: grid; grid-template-rows: auto auto auto minmax(0, 1fr) auto; width: min(1240px, 100%); height: min(900px, calc(100vh - 48px)); padding: 0; overflow: hidden; }
 .workbench__toc-editor-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 18px 20px; border-bottom: 1px solid var(--wb-border); }
 .workbench__toc-editor-header h2 { margin-bottom: 4px; }

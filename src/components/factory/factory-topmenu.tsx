@@ -11,19 +11,15 @@ import {
     downloadRam,
     downloadRom,
     downloadToc,
-    uploadToc,
-    readToc,
     runTetris,
-    stripSCMS,
+    applyTocFlagPatch,
     archiveDisc,
     toggleSPUploadSpeedup,
-    stripTrProtect,
     enterHiMDUnrestrictedMode,
     toggleDiscSwapDetection,
     enterServiceMode,
 } from '../../redux/factory/factory-actions';
 import { actions as appActions } from '../../redux/app-feature';
-import { actions as factoryEditOtherValuesDialogActions } from '../../redux/factory/factory-edit-other-values-dialog-feature';
 import { useShallowEqualSelector } from "../../frontend-utils";
 import Link from '@mui/material/Link';
 import ListItemIcon from '@mui/material/ListItemIcon';
@@ -31,7 +27,6 @@ import ListItemText from '@mui/material/ListItemText';
 import Tooltip from '@mui/material/Tooltip';
 import { makeStyles } from 'tss-react/mui';
 
-import RefreshIcon from '@mui/icons-material/Refresh';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import ToggleOffIcon from '@mui/icons-material/ToggleOff';
@@ -40,7 +35,6 @@ import HelpIcon from '@mui/icons-material/Help';
 import MemoryIcon from '@mui/icons-material/Memory';
 import CodeIcon from '@mui/icons-material/Code';
 import GetAppIcon from '@mui/icons-material/GetApp';
-import PublishIcon from '@mui/icons-material/Publish';
 import GamesIcon from '@mui/icons-material/Games';
 import SecurityIcon from '@mui/icons-material/Security';
 import NoEncryptionIcon from '@mui/icons-material/NoEncryption';
@@ -71,7 +65,6 @@ export const FactoryTopMenu = function() {
 
     const githubLinkRef = React.useRef<null | HTMLAnchorElement>(null);
     const helpLinkRef = React.useRef<null | HTMLAnchorElement>(null);
-    const hiddenFileInputRef = React.useRef<null | HTMLInputElement>(null);
     const [menuAnchorEl, setMenuAnchorEl] = React.useState<null | HTMLElement>(null);
     const [submenuAnchorEl, setSubmenuAnchorEl] = React.useState<null | HTMLElement>(null);
     const menuOpen = Boolean(menuAnchorEl);
@@ -110,14 +103,6 @@ export const FactoryTopMenu = function() {
         handleMenuClose();
     }, [dispatch, handleMenuClose]);
 
-    const handleTOCUpload = useCallback(
-        (event: any) => {
-            const file = event.target.files[0];
-            dispatch(uploadToc(file));
-        },
-        [dispatch]
-    );
-
     const handleGithubLink = useCallback(
         (event: React.MouseEvent<HTMLElement>) => {
             event.stopPropagation();
@@ -142,16 +127,6 @@ export const FactoryTopMenu = function() {
         [handleMenuClose]
     );
 
-    const handleFactoryRefresh = useCallback(() => {
-        dispatch(readToc());
-        handleMenuClose();
-    }, [dispatch, handleMenuClose]);
-
-    const handleEditOtherToCValues = useCallback(() => {
-        dispatch(factoryEditOtherValuesDialogActions.setVisible(true));
-        handleMenuClose();
-    }, [dispatch, handleMenuClose]);
-
     const handleReadRAM = useCallback(() => {
         dispatch(downloadRam());
         handleMenuClose();
@@ -167,11 +142,6 @@ export const FactoryTopMenu = function() {
         handleMenuClose();
     }, [dispatch, handleMenuClose]);
 
-    const handleUploadTOC = useCallback(() => {
-        hiddenFileInputRef.current?.click();
-        handleMenuClose();
-    }, [hiddenFileInputRef, handleMenuClose]);
-
     const handlePlayTetris = useCallback(() => {
         dispatch(runTetris());
         handleMenuClose();
@@ -183,12 +153,12 @@ export const FactoryTopMenu = function() {
     }, [dispatch, handleSubmenuClose]);
 
     const handleStripSCMS = useCallback(() => {
-        dispatch(stripSCMS());
+        dispatch(applyTocFlagPatch('unrestrict-scms'));
         handleSubmenuClose();
     }, [dispatch, handleSubmenuClose]);
 
     const handleAllUnprotect = useCallback(() => {
-        dispatch(stripTrProtect());
+        dispatch(applyTocFlagPatch('mark-tracks-writable'));
         handleSubmenuClose();
     }, [dispatch, handleSubmenuClose]);
 
@@ -213,22 +183,6 @@ export const FactoryTopMenu = function() {
     }, [dispatch, handleMenuClose]);
 
     const menuItems = [];
-    menuItems.push(
-        <MenuItem key="update" onClick={handleFactoryRefresh}>
-            <ListItemIcon className={classes.listItemIcon}>
-                <RefreshIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>Reload TOC</ListItemText>
-        </MenuItem>
-    );
-    menuItems.push(
-        <MenuItem key="editOtherTOC" onClick={handleEditOtherToCValues}>
-            <ListItemIcon className={classes.listItemIcon}>
-                <MemoryIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>Edit Other TOC values</ListItemText>
-        </MenuItem>
-    );
     menuItems.push(
         <MenuItem key="toolbox" onClick={handleSubmenuOpen}>
             <ListItemIcon className={classes.listItemIcon}>
@@ -278,14 +232,6 @@ export const FactoryTopMenu = function() {
                 <GetAppIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText>Download TOC</ListItemText>
-        </MenuItem>
-    );
-    menuItems.push(
-        <MenuItem key="uploadTOC" onClick={handleUploadTOC}>
-            <ListItemIcon className={classes.listItemIcon}>
-                <PublishIcon fontSize="small" />
-            </ListItemIcon>
-            <ListItemText>Upload TOC</ListItemText>
         </MenuItem>
     );
     menuItems.push(<Divider key="feature-divider-3" />);
@@ -363,7 +309,7 @@ export const FactoryTopMenu = function() {
                     ref={githubLinkRef}
                     onClick={handleGithubLink}
                 >
-                    Fork me on GitHub
+                    Web MiniDisc Pro upstream source
                 </Link>
             </ListItemText>
         </MenuItem>
@@ -450,7 +396,6 @@ export const FactoryTopMenu = function() {
             >
                 {submenuItems}
             </Menu>
-            <input type="file" ref={hiddenFileInputRef} style={{ display: 'none' }} onChange={handleTOCUpload} />
         </React.Fragment>
     );
 };

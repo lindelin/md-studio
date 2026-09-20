@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ModeFlag, getTitleByTrackNumber, type DiscAddress, type ToC } from 'netmd-tocmanip';
 import type { AdvancedTocWritePreview } from '../../application/contracts';
 import { INTERACTIVE_ADVANCED_AUTHORIZATION } from '../../application/interactive-authorization';
@@ -16,6 +16,7 @@ import {
 } from '../../domain/raw-toc-editor';
 import { useApplicationClient, useApplicationWorkspace } from '../use-application-client';
 import { inspectRawTocData } from './workbench-raw-toc';
+import './workbench.css';
 
 const EDITED_TOC_CONFIRMATION = 'WRITE EDITED TOC';
 
@@ -44,7 +45,21 @@ const modeFlags = [
     [ModeFlag.F_WRITABLE, 'Writable'],
 ] as const;
 
-export function WorkbenchTocEditor({ open, onClose, onMessage }: { open: boolean; onClose(): void; onMessage(message: string): void }) {
+export function WorkbenchTocEditor({
+    open,
+    embedded = false,
+    writeEnabled = true,
+    writeDisabledReason = 'This device cannot write raw TOC sectors.',
+    onClose,
+    onMessage,
+}: {
+    open: boolean;
+    embedded?: boolean;
+    writeEnabled?: boolean;
+    writeDisabledReason?: string;
+    onClose(): void;
+    onMessage(message: string): void;
+}) {
     const client = useApplicationClient();
     const workspace = useApplicationWorkspace();
     const [loaded, setLoaded] = useState<LoadedToc | null>(null);
@@ -56,6 +71,7 @@ export function WorkbenchTocEditor({ open, onClose, onMessage }: { open: boolean
     const [discardAction, setDiscardAction] = useState<'close' | 'reload' | null>(null);
     const [review, setReview] = useState<TocReview | null>(null);
     const [confirmation, setConfirmation] = useState('');
+    const backupInput = useRef<HTMLInputElement>(null);
 
     const load = useCallback(async () => {
         const device = client.getWorkspaceSnapshot().device;
@@ -126,6 +142,32 @@ export function WorkbenchTocEditor({ open, onClose, onMessage }: { open: boolean
         if (busy) return;
         if (modified) setDiscardAction('reload');
         else void load();
+    };
+
+    const loadBackup = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file || !loaded) return;
+        setBusy(true);
+        setStatus(`Loading ${file.name} as a local draft…`);
+        try {
+            const document = parseRawTocEditorData(new Uint8Array(await file.arrayBuffer()));
+            const latest = client.getWorkspaceSnapshot().device;
+            if (latest?.sessionId !== loaded.expectedSessionId || latest.revision !== loaded.expectedRevision) {
+                throw new Error('The device or disc changed after this editor was loaded. Reload before importing a backup.');
+            }
+            setLoaded({ ...loaded, draft: document.toc });
+            setModified(true);
+            setReview(null);
+            setConfirmation('');
+            setSelection({ kind: 'map', index: 0 });
+            setStatus(null);
+            onMessage(`Loaded ${file.name} as a local TOC draft. The disc has not been changed.`);
+        } catch (error) {
+            setStatus(error instanceof Error ? error.message : 'Could not load the TOC backup.');
+        } finally {
+            setBusy(false);
+        }
     };
 
     const discard = () => {
@@ -217,11 +259,15 @@ export function WorkbenchTocEditor({ open, onClose, onMessage }: { open: boolean
     if (!open) return null;
 
     return (
-        <div className="workbench__modal-backdrop workbench__toc-editor-backdrop" role="presentation" onMouseDown={requestClose}>
+        <div
+            className={`workbench__modal-backdrop workbench__toc-editor-backdrop ${embedded ? 'is-embedded' : ''}`}
+            role="presentation"
+            onMouseDown={embedded ? undefined : requestClose}
+        >
             <section
                 className="workbench__modal workbench__toc-editor"
                 role="dialog"
-                aria-modal="true"
+                aria-modal={embedded ? undefined : true}
                 aria-labelledby="workbench-toc-editor-title"
                 onMouseDown={(event) => event.stopPropagation()}
             >
@@ -232,6 +278,16 @@ export function WorkbenchTocEditor({ open, onClose, onMessage }: { open: boolean
                         <p>Edit a local draft of sectors 0–3. Reference sectors 4–5 are preserved byte for byte.</p>
                     </div>
                     <div className="workbench__toc-editor-actions">
+                        <button className="secondary-button" onClick={() => backupInput.current?.click()} disabled={busy || !loaded}>
+                            Load backup
+                        </button>
+                        <input
+                            ref={backupInput}
+                            type="file"
+                            accept=".bin,application/octet-stream"
+                            hidden
+                            onChange={(event) => void loadBackup(event)}
+                        />
                         <button className="secondary-button" onClick={requestReload} disabled={busy}>
                             Reload disc
                         </button>
@@ -299,8 +355,8 @@ export function WorkbenchTocEditor({ open, onClose, onMessage }: { open: boolean
                         </div>
 
                         <footer className="workbench__toc-editor-footer">
-                            <span>{modified ? 'Unsaved local draft' : 'Draft matches the loaded TOC'}</span>
-                            <button className="danger-button" onClick={() => void reviewChanges()} disabled={busy || !modified}>
+                            <span>{!writeEnabled ? writeDisabledReason : modified ? 'Unsaved local draft' : 'Draft matches the loaded TOC'}</span>
+                            <button className="danger-button" onClick={() => void reviewChanges()} disabled={busy || !modified || !writeEnabled}>
                                 {busy ? 'Checking…' : 'Review write'}
                             </button>
                         </footer>

@@ -5,7 +5,6 @@ import { AppDispatch, RootState } from '../store';
 import { actions as appStateActions } from '../app-feature';
 import { downloadBlob, getTracks, Promised } from '../../utils';
 import { ExploitCapability } from '../../services/interfaces/capabilities';
-import { parseTOC, getTitleByTrackNumber, reconstructTOC, updateFlagAllFragmentsOfTrack, ModeFlag, ToC } from 'netmd-tocmanip';
 import { downloadTracks, exportCSV } from '../actions';
 import JSZip from 'jszip';
 import { AtracRecoveryConfig } from 'netmd-exploits';
@@ -19,14 +18,6 @@ import type { RawTocPatchKind } from '../../domain/raw-toc-patch';
 function decodeBase64(data: string) {
     const binary = atob(data);
     return Uint8Array.from(binary, (character) => character.charCodeAt(0));
-}
-
-function encodeBase64(data: Uint8Array) {
-    let binary = '';
-    for (let offset = 0; offset < data.byteLength; offset += 32_768) {
-        binary += String.fromCharCode(...data.subarray(offset, Math.min(offset + 32_768, data.byteLength)));
-    }
-    return btoa(binary);
 }
 
 function resolveExploitCapabilities(names: string[]) {
@@ -57,99 +48,6 @@ export function initializeFactoryMode() {
                     factoryActions.setFirmwareVersion(info.firmwareVersion),
                 ])
             );
-        } finally {
-            dispatch(appStateActions.setLoading(false));
-        }
-    };
-}
-
-export function readToc() {
-    return async function(dispatch: AppDispatch) {
-        dispatch(appStateActions.setLoading(true));
-        try {
-            const [infoResult, tocResult] = await Promise.all([
-                getApplicationClient().execute({ type: 'advanced.inspect' }),
-                getApplicationClient().execute({ type: 'advanced.readToc' }),
-            ]);
-            if (!infoResult.ok) throw new Error(infoResult.error.message);
-            if (!tocResult.ok) throw new Error(tocResult.error.message);
-            const info = infoResult.advancedInfo;
-            const tocDump = tocResult.advancedToc;
-            if (!info || !tocDump) throw new Error('Advanced TOC inspection returned an incomplete result.');
-            const data = decodeBase64(tocDump.dataBase64);
-            const sectors = Array.from({ length: tocDump.sectorCount }, (_, index) =>
-                data.slice(index * tocDump.sectorSize, (index + 1) * tocDump.sectorSize)
-            );
-            const newToc = parseTOC(...sectors);
-            dispatch(
-                batchActions([
-                    factoryActions.setToc(newToc),
-                    factoryActions.setExploitCapabilities(resolveExploitCapabilities(info.capabilities)),
-                    factoryActions.setFirmwareVersion(info.firmwareVersion),
-                    factoryActions.setModified(false),
-                ])
-            );
-        } finally {
-            dispatch(appStateActions.setLoading(false));
-        }
-    };
-}
-
-export function editFragmentMode(index: number, mode: number) {
-    return async function(dispatch: AppDispatch, getState: () => RootState) {
-        const toc = JSON.parse(JSON.stringify(getState().factory.toc));
-        if (toc.trackFragmentList[index].mode !== mode) {
-            dispatch(factoryActions.setModified(true));
-        }
-        toc.trackFragmentList[index].mode = mode;
-        dispatch(factoryActions.setToc(toc));
-    };
-}
-
-export function writeModifiedTOC() {
-    return async function(dispatch: AppDispatch, getState: () => RootState) {
-        dispatch(appStateActions.setLoading(true));
-        try {
-            const toc = getState().factory.toc!;
-            const sectors = reconstructTOC(toc, false);
-            const data = new Uint8Array(2352 * 6);
-            for (let index = 0; index < 6; index += 1) data.set(sectors[index]!, index * 2352);
-            const client = getApplicationClient();
-            const preparedDevice = client.getWorkspaceSnapshot().device;
-            if (!preparedDevice) throw new Error('No MiniDisc device is connected.');
-            const dataBase64 = encodeBase64(data);
-            const previewResult = await client.execute({ type: 'advanced.previewTocWrite', dataBase64 });
-            if (!previewResult.ok) throw new Error(previewResult.error.message);
-            const preview = previewResult.advancedTocWritePreview;
-            if (!preview) throw new Error('The device did not return a raw TOC write preview.');
-            if (preview.changedWritableBytes === 0) {
-                window.alert('The edited TOC matches the writable sectors on the disc. No write is needed.');
-                dispatch(factoryActions.setModified(false));
-                return;
-            }
-            const reviewedDevice = client.getWorkspaceSnapshot().device;
-            if (
-                reviewedDevice?.sessionId !== preparedDevice.sessionId ||
-                reviewedDevice.revision !== preparedDevice.revision
-            ) {
-                throw new Error('The connected device or disc changed while the edited TOC was being reviewed. Review it again.');
-            }
-            const confirmation = 'WRITE EDITED TOC';
-            const supplied = window.prompt(
-                `The edited TOC changes ${preview.changedWritableBytes.toLocaleString()} byte${preview.changedWritableBytes === 1 ? '' : 's'} in writable sector${preview.changedWritableSectors.length === 1 ? '' : 's'} ${preview.changedWritableSectors.join(', ')}.\n\nCurrent SHA-256: ${preview.currentSha256}\nProposed SHA-256: ${preview.proposedSha256}\n\nA malformed TOC can make every track unreadable. Type ${confirmation} to continue.`
-            );
-            if (supplied !== confirmation) return;
-            const result = await client.execute({
-                type: 'advanced.writeToc',
-                dataBase64,
-                confirmation: { confirmed: true, reason: 'Confirmed after reviewing the edited TOC checksums and byte changes.' },
-                expectedRevision: preparedDevice.revision,
-                interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
-                expectedCurrentTocSha256: preview.currentSha256,
-            });
-            if (!result.ok) throw new Error(result.error.message);
-            if (!result.snapshot) throw new Error('Writing the advanced TOC did not return the device state.');
-            dispatch(factoryActions.setModified(false));
         } finally {
             dispatch(appStateActions.setLoading(false));
         }
@@ -195,35 +93,15 @@ export function downloadRom() {
 }
 
 export function downloadToc(callback: (blob: Blob, name: string) => void = downloadBlob) {
-    return async function(dispatch: AppDispatch, getState: () => RootState) {
+    return async function(dispatch: AppDispatch) {
         dispatch(appStateActions.setLoading(true));
         try {
             const result = await getApplicationClient().execute({ type: 'advanced.readToc' });
             if (!result.ok) throw new Error(result.error.message);
             if (!result.advancedToc) throw new Error('Advanced TOC export did not return data.');
-            const fileName = `toc_${getTitleByTrackNumber(getState().factory.toc!, 0 /* Disc */)}.bin`;
+            const discTitle = getApplicationClient().getWorkspaceSnapshot().device?.disc?.title || 'disc';
+            const fileName = `toc_${discTitle.replace(/[<>:"/\\|?*]/g, '_')}.bin`;
             callback(new Blob([decodeBase64(result.advancedToc.dataBase64)]), fileName);
-        } finally {
-            dispatch(appStateActions.setLoading(false));
-        }
-    };
-}
-
-export function uploadToc(file: File) {
-    return async function(dispatch: AppDispatch) {
-        if (file.size !== 2352 * 6) {
-            window.alert('Not a valid TOC file');
-            return;
-        }
-        dispatch(appStateActions.setLoading(true));
-        try {
-            const data = new Uint8Array(await file.arrayBuffer());
-            const sectors = [];
-            for (let i = 0; i < 6; i++) {
-                sectors.push(data.slice(i * 2352, (i + 1) * 2352));
-            }
-            const toc = parseTOC(...sectors);
-            dispatch(batchActions([factoryActions.setModified(true), factoryActions.setToc(toc)]));
         } finally {
             dispatch(appStateActions.setLoading(false));
         }
@@ -343,26 +221,6 @@ export function enableFactoryRippingModeInMainUi() {
     };
 }
 
-export function stripSCMS() {
-    return async function(dispatch: AppDispatch, getState: () => RootState) {
-        const toc = JSON.parse(JSON.stringify(getState().factory.toc));
-        for (let track = 1; track <= toc?.nTracks; track++) {
-            updateFlagAllFragmentsOfTrack(toc, track, ModeFlag.F_SCMS_DIG_COPY | ModeFlag.F_SCMS_UNRESTRICTED, true);
-        }
-        dispatch(batchActions([factoryActions.setModified(true), factoryActions.setToc(toc)]));
-    };
-}
-
-export function stripTrProtect() {
-    return async function(dispatch: AppDispatch, getState: () => RootState) {
-        const toc = JSON.parse(JSON.stringify(getState().factory.toc));
-        for (let track = 1; track <= toc?.nTracks; track++) {
-            updateFlagAllFragmentsOfTrack(toc, track, ModeFlag.F_WRITABLE, true);
-        }
-        dispatch(batchActions([factoryActions.setModified(true), factoryActions.setToc(toc)]));
-    };
-}
-
 export function applyTocFlagPatch(kind: RawTocPatchKind) {
     return async function(dispatch: AppDispatch) {
         const labels =
@@ -420,18 +278,13 @@ export function archiveDisc() {
             const disallowedCharacters = /[<>:"/\\|?*]/g;
             callback = (blob: Blob, fileName: string) => zip!.file(fileName.replace(disallowedCharacters, '_'), blob);
         }
-        let toc = getState().factory.toc;
-        if (!toc) {
-            await readToc()(dispatch);
-            toc = getState().factory.toc!;
-        }
+        const disc = getApplicationClient().getWorkspaceSnapshot().device?.disc;
+        if (!disc) throw new Error('No MiniDisc is loaded.');
 
-        await downloadToc(callback)(dispatch, getState);
+        await downloadToc(callback)(dispatch);
         await exportCSV(callback)(dispatch, getState);
 
-        const indexes = Array(toc.nTracks)
-            .fill(0)
-            .map((_, i) => i);
+        const indexes = getTracks(disc).map((track) => track.index);
         if (canDownloadTracks) {
             await downloadTracks(indexes, false, callback)(dispatch, getState);
         } else {
@@ -505,16 +358,6 @@ export function toggleDiscSwapDetection() {
             dispatch(appStateActions.setLoading(false));
         }
     };
-}
-
-export function writeRecoveryTOC() {
-    return async function(dispatch: AppDispatch, getState: () => RootState) {
-        const toc: ToC = JSON.parse(JSON.stringify(getState().factory.toc));
-        toc.nTracks = 1;
-        toc.discNonEmpty = 1;
-        toc.nextFreeTrackSlot = 2;
-        toc.trackMap[1] = 1;
-    }
 }
 
 export function enterServiceMode() {
