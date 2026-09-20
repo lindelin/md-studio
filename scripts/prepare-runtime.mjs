@@ -39,6 +39,13 @@ async function copyRuntimeAsset(sourceSegments, destinationName) {
     }
 }
 
+async function allFilesExist(relativePaths) {
+    const states = await Promise.all(
+        relativePaths.map((relativePath) => stat(path.join(repositoryRoot, ...relativePath.split('/'))).catch(() => null))
+    );
+    return states.every((state) => state?.isFile());
+}
+
 await mkdir(runtimeDirectory, { recursive: true });
 await Promise.all([
     copyRuntimeAsset(['node_modules', '@ffmpeg', 'ffmpeg', 'dist', 'worker.min.js'], 'ffmpeg-worker.min.js'),
@@ -49,12 +56,19 @@ const unstagedDiff = git(['diff', '--numstat'], '');
 const stagedDiff = git(['diff', '--cached', '--numstat'], '');
 const at3reJavascript = await stat(path.join(repositoryRoot, 'public', 'at3re-harness.js')).catch(() => null);
 const at3reWasm = await stat(path.join(repositoryRoot, 'public', 'at3re-harness.wasm')).catch(() => null);
+const atrac3OsIncluded = await allFilesExist([
+    'public/atrac3vm/libv86.js',
+    'public/atrac3vm/v86-patched.wasm',
+    'public/atrac3vm/seabios.bin',
+    'public/atrac3vm/kernel.bin',
+    'public/atrac3vm/system.cmi',
+]);
 const versionInfo = [
     '// This file has been auto-generated. Please do not modify.',
     `export const GIT_HASH = ${JSON.stringify(git(['rev-parse', '--short', 'HEAD'], 'unknown'))};`,
     `export const GIT_DIFF = ${JSON.stringify(String(countChangedLines(`${unstagedDiff}\n${stagedDiff}`)))};`,
     `export const BUILD_DATE = ${JSON.stringify(new Date().toISOString())};`,
-    `export const ATRACOS_INCLUDED = ${Number((await stat(path.join(repositoryRoot, 'public', 'atrac3vm', 'system.cmi')).catch(() => null))?.isFile() ?? false)};`,
+    `export const ATRACOS_INCLUDED = ${Number(atrac3OsIncluded)};`,
     `export const AT3RE_INCLUDED = ${Number(Boolean(at3reJavascript?.isFile() && at3reWasm?.isFile()))};`,
     '',
 ].join('\n');

@@ -70,21 +70,6 @@
       }
     },
     {
-      "path": "public/worker.dev.js",
-      "role": "Legacy FFmpeg browser worker retained from the upstream distribution",
-      "present": true,
-      "bytes": 39571,
-      "sha256": "e597a0eccf6f2862a8228b3caaf7aafd5d8345e5503ccf1ff3779f16b509811f",
-      "optional": false,
-      "reviewRequired": true,
-      "source": {
-        "kind": "repository-binary",
-        "repository": "https://github.com/ffmpegjs/FFmpeg",
-        "buildInstructions": "extra/BUILD_FFMPEGJS.md",
-        "license": "Review required: exact binary provenance is not recorded"
-      }
-    },
-    {
       "path": "public/atracdenc.js",
       "role": "Open-source ATRAC encoder compiled as a single-file Emscripten module",
       "present": true,
@@ -103,11 +88,9 @@
     {
       "path": "public/atrac3vm/libv86.js",
       "role": "Patched v86 JavaScript runtime for the optional Atrac3OS encoder",
-      "present": true,
-      "bytes": 335199,
-      "sha256": "90ed9b7d5a6b3edd740599fc9c51609dae941d35b32ce6dcac4676b491a08ae6",
-      "optional": false,
-      "reviewRequired": false,
+      "present": false,
+      "optional": true,
+      "reviewRequired": true,
       "source": {
         "kind": "repository-binary",
         "repository": "https://github.com/copy/v86",
@@ -119,11 +102,9 @@
     {
       "path": "public/atrac3vm/v86-patched.wasm",
       "role": "Patched v86 WebAssembly runtime for the optional Atrac3OS encoder",
-      "present": true,
-      "bytes": 2024680,
-      "sha256": "eed1990b2cfeec3cdae679d7fc64e085d70eccecf4dbfcb9fc14048ee0251f54",
-      "optional": false,
-      "reviewRequired": false,
+      "present": false,
+      "optional": true,
+      "reviewRequired": true,
       "source": {
         "kind": "repository-binary",
         "repository": "https://github.com/copy/v86",
@@ -135,10 +116,8 @@
     {
       "path": "public/atrac3vm/seabios.bin",
       "role": "SeaBIOS image used by the optional Atrac3OS virtual machine",
-      "present": true,
-      "bytes": 131072,
-      "sha256": "73e3f359102e3a9982c35fce98eb7cd08f18303ac7f1ba6ebfbe6cdc1c244d98",
-      "optional": false,
+      "present": false,
+      "optional": true,
       "reviewRequired": true,
       "source": {
         "kind": "repository-binary",

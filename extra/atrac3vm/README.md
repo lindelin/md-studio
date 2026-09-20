@@ -19,3 +19,13 @@ Just follow the instructions at [v86](https://copy.sh/v86). Note that they provi
 Before launching the `make all` command, replace the v86 files with those in the `patched/` directory.
 
 The patched files are based on commit `b6c940d0d481a43d`.
+
+## Enabling Atrac3OS in a local build
+
+The prebuilt v86 runtime and SeaBIOS image are intentionally not distributed by default. After building the patched v86 revision, copy these outputs into `public/atrac3vm/`:
+
+- `libv86.js`
+- `v86-patched.wasm`
+- `seabios.bin`
+
+Also build Atrac3OS as described in `../atrac3os/README.md` and copy `kernel.bin` and `system.cmi` into the same directory. The application exposes the Atrac3OS encoder only when all five files are present. Run `npm run runtime-assets:update` after adding or replacing any of them and review the generated hashes and provenance before redistribution.

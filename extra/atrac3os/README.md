@@ -24,6 +24,8 @@ Note: you'll need a working Docker installation
 
 In `./output` you'll find the `kernel.bin` and `system.cmi` files
 
+Copy both files to `public/atrac3vm/` together with the three patched v86/SeaBIOS artifacts documented in `../atrac3vm/README.md`. The application keeps this optional encoder hidden unless the complete five-file runtime is present.
+
 
 ## Credits:
 

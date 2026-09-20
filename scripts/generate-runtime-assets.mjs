@@ -54,17 +54,6 @@ const definitions = [
         reviewRequired: true,
     },
     {
-        path: 'public/worker.dev.js',
-        role: 'Legacy FFmpeg browser worker retained from the upstream distribution',
-        source: {
-            kind: 'repository-binary',
-            repository: 'https://github.com/ffmpegjs/FFmpeg',
-            buildInstructions: 'extra/BUILD_FFMPEGJS.md',
-            license: 'Review required: exact binary provenance is not recorded',
-        },
-        reviewRequired: true,
-    },
-    {
         path: 'public/atracdenc.js',
         role: 'Open-source ATRAC encoder compiled as a single-file Emscripten module',
         source: {
@@ -86,6 +75,8 @@ const definitions = [
             buildInstructions: 'extra/atrac3vm/README.md',
             license: 'BSD-2-Clause',
         },
+        optional: true,
+        reviewRequired: true,
     },
     {
         path: 'public/atrac3vm/v86-patched.wasm',
@@ -97,6 +88,8 @@ const definitions = [
             buildInstructions: 'extra/atrac3vm/README.md',
             license: 'BSD-2-Clause',
         },
+        optional: true,
+        reviewRequired: true,
     },
     {
         path: 'public/atrac3vm/seabios.bin',
@@ -107,6 +100,7 @@ const definitions = [
             buildInstructions: 'extra/atrac3vm/README.md',
             license: 'Review required: exact SeaBIOS revision is not recorded',
         },
+        optional: true,
         reviewRequired: true,
     },
     {
