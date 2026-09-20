@@ -10,8 +10,8 @@ import {
     isSequential,
 } from '../../utils';
 import { actions as appActions } from '../../redux/app-feature';
-import { actions as dumpDialogActions } from '../../redux/dump-dialog-feature';
 import { useApplicationClient, useApplicationWorkspace, useUpdateApplicationSettings } from '../use-application-client';
+import type { AdvancedBadSectorDecision } from '../../application/contracts';
 import { getDefaultRecordingFormat, getRecordingCodec } from '../../application/device-profile';
 import type { ImportQueueItem } from '../../application/import-queue';
 import type { ImportPreview } from '../../application/import-preview';
@@ -64,8 +64,6 @@ import { TopMenu } from '../topmenu';
 import { DiscProtectedDialog } from '../disc-protected-dialog';
 import { RenameDialog } from '../rename-dialog';
 import { ErrorDialog } from '../error-dialog';
-import { FactoryModeBadSectorDialog } from '../factory/factory-bad-sector-dialog';
-import { DumpDialog } from '../dump-dialog';
 import { FactoryModeNoticeDialog } from '../factory/factory-notice-dialog';
 import { AboutDialog } from '../about-dialog';
 import { ChangelogDialog } from '../changelog-dialog';
@@ -75,6 +73,12 @@ import { WorkbenchSettings } from './workbench-settings';
 import { WorkbenchTrackTransfer } from './workbench-track-transfer';
 import { WorkbenchTrackRecognition } from './workbench-track-recognition';
 import { WorkbenchTools } from './workbench-tools';
+import { WorkbenchBadSectorPrompt } from './workbench-bad-sector-prompt';
+import type {
+    AdvancedBadSectorChoice,
+    AdvancedBadSectorPrompt,
+    AdvancedBadSectorPromptHandler,
+} from './workbench-advanced-recovery';
 
 import './workbench.css';
 
@@ -142,7 +146,7 @@ export const Workbench = () => {
     const [dirtyDraftFields, setDirtyDraftFields] = useState<WorkbenchDraftField[]>([]);
     const [groupDraft, setGroupDraft] = useState('');
     const [groupDialogOpen, setGroupDialogOpen] = useState(false);
-    const [trackTransferOpen, setTrackTransferOpen] = useState(false);
+    const [trackTransferMode, setTrackTransferMode] = useState<'export' | 'record' | 'recovery' | null>(null);
     const [trackRecognitionOpen, setTrackRecognitionOpen] = useState(false);
     const [taskCenterOpen, setTaskCenterOpen] = useState(false);
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -154,6 +158,9 @@ export const Workbench = () => {
     const [formatIndex, setFormatIndex] = useState<[number, number]>(device?.recording.defaultFormat ?? [0, 0]);
     const [message, setMessage] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
+    const [badSectorPrompt, setBadSectorPrompt] = useState<AdvancedBadSectorPrompt | null>(null);
+    const badSectorResolver = useRef<((choice: AdvancedBadSectorChoice) => void) | null>(null);
+    const sessionBadSectorDecision = useRef<AdvancedBadSectorDecision | null>(null);
     const previousImportCount = useRef(imports.length);
     const acknowledgedAttentionTaskIds = useRef(
         new Set(
@@ -302,6 +309,7 @@ export const Workbench = () => {
     const canEject = capabilities.includes('disc.eject');
     const canPlayback = capabilities.includes('playback.control');
     const canDownload = capabilities.includes('track.download');
+    const useRecoveryExport = factoryModeRippingInMainUi && capabilities.includes('advanced.factory');
     const canMoveTrack = capabilities.includes('track.move');
     const canCreateGroup = capabilities.includes('group.create');
     const canDeleteGroup = capabilities.includes('group.delete');
@@ -323,6 +331,35 @@ export const Workbench = () => {
     useEffect(() => {
         if (!selectedEncoderSupport.gapless) setEnableGapless(false);
     }, [selectedEncoderSupport.gapless]);
+
+    useEffect(() => {
+        sessionBadSectorDecision.current = null;
+        setBadSectorPrompt(null);
+        return () => {
+            badSectorResolver.current?.({ decision: 'abort', rememberForExport: false, rememberForSession: false });
+            badSectorResolver.current = null;
+        };
+    }, [device?.sessionId]);
+
+    const requestBadSectorChoice: AdvancedBadSectorPromptHandler = useCallback((prompt) => {
+        const remembered = sessionBadSectorDecision.current;
+        if (remembered) {
+            return Promise.resolve({ decision: remembered, rememberForExport: true, rememberForSession: true });
+        }
+        badSectorResolver.current?.({ decision: 'abort', rememberForExport: false, rememberForSession: false });
+        return new Promise((resolve) => {
+            badSectorResolver.current = resolve;
+            setBadSectorPrompt(prompt);
+        });
+    }, []);
+
+    const resolveBadSectorChoice = useCallback((choice: AdvancedBadSectorChoice) => {
+        if (choice.rememberForSession) sessionBadSectorDecision.current = choice.decision;
+        const resolve = badSectorResolver.current;
+        badSectorResolver.current = null;
+        setBadSectorPrompt(null);
+        resolve?.(choice);
+    }, []);
 
     useEffect(() => {
         if (!writeReviewOpen || !device || !selectedFormat || imports.length === 0) {
@@ -641,11 +678,7 @@ export const Workbench = () => {
 
     const openTrackTransfer = () => {
         if (selectedTrackIndexes.length === 0) return;
-        if (factoryModeRippingInMainUi) {
-            dispatch(dumpDialogActions.setVisible(true));
-            return;
-        }
-        setTrackTransferOpen(true);
+        setTrackTransferMode(useRecoveryExport ? 'recovery' : canDownload ? 'export' : 'record');
     };
 
     const cancelTask = (id: string) => {
@@ -851,7 +884,7 @@ export const Workbench = () => {
                                 <span>Ctrl/⌘ click toggles · Shift click extends the selection</span>
                                 <div>
                                     <button onClick={() => setTrackRecognitionOpen(true)} disabled={!canPlayback && !device?.capabilities.includes('advanced.factory')}><MusicNoteRoundedIcon /> Recognize</button>
-                                    <button onClick={openTrackTransfer}><DownloadRoundedIcon /> {canDownload || factoryModeRippingInMainUi ? 'Export' : 'Record'}</button>
+                                    <button onClick={openTrackTransfer}><DownloadRoundedIcon /> {canDownload || useRecoveryExport ? 'Export' : 'Record'}</button>
                                     <button onClick={() => { setGroupDraft(''); setGroupDialogOpen(true); }} disabled={!canGroupSelection}><CreateNewFolderRoundedIcon /> Group</button>
                                     <button onClick={ungroupSelected} disabled={!canDeleteGroup || selectedNamedGroups.length === 0}><FolderOffRoundedIcon /> Ungroup</button>
                                 </div>
@@ -1043,24 +1076,31 @@ export const Workbench = () => {
             <DiscProtectedDialog />
             <RenameDialog />
             <ErrorDialog />
-            <FactoryModeBadSectorDialog />
-            {factoryModeRippingInMainUi ? <DumpDialog trackIndexes={selectedTrackIndexes} isCapableOfDownload isExploitDownload /> : null}
             <FactoryModeNoticeDialog />
             <AboutDialog />
             <ChangelogDialog />
             <PanicDialog />
 
-            {trackTransferOpen && device ? (
+            {trackTransferMode && device ? (
                 <WorkbenchTrackTransfer
-                    mode={canDownload ? 'export' : 'record'}
+                    mode={trackTransferMode}
                     tracks={selectedTracks}
                     expectedRevision={device.revision}
-                    onClose={() => setTrackTransferOpen(false)}
+                    requestBadSectorChoice={requestBadSectorChoice}
+                    onClose={() => setTrackTransferMode(null)}
                     onTaskStarted={(id, nextMessage) => {
                         setSelectedTaskId(id);
                         setTaskCenterOpen(true);
                         setMessage(nextMessage);
                     }}
+                />
+            ) : null}
+
+            {badSectorPrompt ? (
+                <WorkbenchBadSectorPrompt
+                    key={`${badSectorPrompt.address}:${badSectorPrompt.count}:${badSectorPrompt.seconds}`}
+                    prompt={badSectorPrompt}
+                    onChoose={resolveBadSectorChoice}
                 />
             ) : null}
 

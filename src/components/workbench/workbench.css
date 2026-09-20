@@ -407,6 +407,15 @@
 .workbench__transfer-monitor strong { color: #d6e6ed; font-size: 10px; }
 .workbench__transfer-monitor small { margin-top: 3px; color: #728994; font-size: 8px; line-height: 1.4; }
 .workbench__transfer-monitor button svg, .workbench__modal-actions button svg { width: 16px; height: 16px; }
+.workbench__bad-sector-backdrop { z-index: 1800; }
+.workbench__bad-sector-modal { width: min(560px, 100%); }
+.workbench__bad-sector-icon { float: right; color: #efbd63; font-size: 32px !important; }
+.workbench__bad-sector-modal p strong { color: #e8f3f8; }
+.workbench__bad-sector-options { display: grid; gap: 7px; margin-top: 14px; border: 1px solid #5d5038; border-radius: 6px; padding: 11px 12px; background: #252219; }
+.workbench__bad-sector-options label { display: grid; grid-template-columns: 17px minmax(0, 1fr); align-items: center; gap: 8px; color: #dac99f; font-size: 9px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.workbench__bad-sector-options label.is-disabled { opacity: .45; }
+.workbench__bad-sector-options input { width: 14px; height: 14px; margin: 0; accent-color: #efbd63; }
+.workbench__bad-sector-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 .workbench__recognition-modal { width: min(860px, 100%); max-height: calc(100vh - 48px); overflow: auto; }
 .workbench__recognition-controls { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(190px, .65fr); align-items: end; gap: 12px; }
 .workbench__recognition-input { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; border: 1px solid #304754; border-radius: 6px; padding: 10px 12px; background: #101d25; }

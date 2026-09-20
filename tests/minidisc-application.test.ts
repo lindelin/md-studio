@@ -784,8 +784,23 @@ describe('MiniDiscApplication', () => {
                 if (finalization.error) throw finalization.error;
             },
         });
-        await application.refresh();
+        const snapshot = await application.refresh();
         const files: number[] = [];
+
+        await assert.rejects(
+            () =>
+                application.exportAdvancedTracks(
+                    [0],
+                    false,
+                    { nerawDownload: false, shouldCancel: () => false, handleBadSector: async () => 'abort' },
+                    INTERACTIVE_ADVANCED_AUTHORIZATION,
+                    () => undefined,
+                    () => undefined,
+                    { sessionId: snapshot.sessionId, revision: snapshot.revision + 1 }
+                ),
+            { code: 'STALE_REVISION' }
+        );
+        assert.deepEqual(actions, []);
 
         const completed = await application.exportAdvancedTracks(
             [1, 0],
@@ -793,7 +808,8 @@ describe('MiniDiscApplication', () => {
             { nerawDownload: false, shouldCancel: () => false, handleBadSector: async () => 'skip' },
             INTERACTIVE_ADVANCED_AUTHORIZATION,
             (_index, progress) => actions.push(`progress:${progress.read}`),
-            (_index, data) => files.push(data.data[0])
+            (_index, data) => files.push(data.data[0]),
+            { sessionId: snapshot.sessionId, revision: snapshot.revision }
         );
 
         assert.equal(completed, 2);

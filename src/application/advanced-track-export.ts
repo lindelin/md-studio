@@ -11,6 +11,7 @@ export interface AdvancedTrackExportRequest {
     convertToWav: boolean;
     nerawDownload: boolean;
     useSlowerExploit: boolean;
+    expectedRevision?: number;
 }
 
 export type AdvancedBadSectorHandler = (
@@ -32,6 +33,12 @@ export class BrowserAdvancedTrackExporter {
             throw new ApplicationError('INVALID_INPUT', 'NERAW export cannot be converted to WAV.');
         }
         const snapshot = await application.refresh(false);
+        if (request.expectedRevision !== undefined && request.expectedRevision !== snapshot.revision) {
+            throw new ApplicationError('STALE_REVISION', 'The disc changed after this recovery export was prepared.', {
+                expectedRevision: request.expectedRevision,
+                actualRevision: snapshot.revision,
+            });
+        }
         if (!snapshot.disc) throw new ApplicationError('NO_DISC', 'Insert a disc before exporting tracks.');
         const tracks = getTracks(snapshot.disc);
         const requested = new Set(request.indexes);
@@ -47,7 +54,16 @@ export class BrowserAdvancedTrackExporter {
             'tracks'
         );
         tasks.start(task.id, 'preparing');
-        void this.run(task.id, request, selected, application, tasks, sink, handleBadSector);
+        void this.run(
+            task.id,
+            request,
+            selected,
+            application,
+            tasks,
+            sink,
+            handleBadSector,
+            { sessionId: snapshot.sessionId, revision: snapshot.revision }
+        );
         return tasks.get(task.id);
     }
 
@@ -58,7 +74,8 @@ export class BrowserAdvancedTrackExporter {
         application: MiniDiscApplication,
         tasks: TaskManager,
         sink: TrackExportSink,
-        handleBadSector: AdvancedBadSectorHandler
+        handleBadSector: AdvancedBadSectorHandler,
+        expectedDeviceVersion: { sessionId: string; revision: number }
     ) {
         const files: string[] = [];
         try {
@@ -105,7 +122,8 @@ export class BrowserAdvancedTrackExporter {
                         currentLabel: fileName,
                         currentPercent: 100,
                     });
-                }
+                },
+                expectedDeviceVersion
             );
             if (tasks.get(taskId).status !== 'running') return;
             if (tasks.isCancellationRequested(taskId)) {

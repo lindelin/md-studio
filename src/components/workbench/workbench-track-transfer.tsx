@@ -4,13 +4,18 @@ import MicRoundedIcon from '@mui/icons-material/MicRounded';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import StopRoundedIcon from '@mui/icons-material/StopRounded';
 import { requestBrowserAudioDevices, type BrowserAudioDevice } from '../../application/browser-audio-devices';
-import type { DisplayTrack } from '../../utils';
-import { useApplicationClient } from '../use-application-client';
+import { downloadBlob, type DisplayTrack } from '../../utils';
+import { useApplicationClient, useApplicationWorkspace } from '../use-application-client';
+import {
+    createAdvancedBadSectorHandler,
+    type AdvancedBadSectorPromptHandler,
+} from './workbench-advanced-recovery';
 
 export interface WorkbenchTrackTransferProps {
-    mode: 'export' | 'record';
+    mode: 'export' | 'record' | 'recovery';
     tracks: DisplayTrack[];
     expectedRevision: number;
+    requestBadSectorChoice: AdvancedBadSectorPromptHandler;
     onClose(): void;
     onTaskStarted(id: string, message: string): void;
 }
@@ -23,11 +28,15 @@ export const WorkbenchTrackTransfer = ({
     mode,
     tracks,
     expectedRevision,
+    requestBadSectorChoice,
     onClose,
     onTaskStarted,
 }: WorkbenchTrackTransferProps) => {
     const client = useApplicationClient();
-    const [convertToWav, setConvertToWav] = useState(false);
+    const workspace = useApplicationWorkspace();
+    const [exportFormat, setExportFormat] = useState<'original' | 'wav' | 'neraw'>(
+        mode === 'recovery' && workspace.settings.values.factoryModeNERAWDownload ? 'neraw' : 'original'
+    );
     const [devices, setDevices] = useState<BrowserAudioDevice[]>([]);
     const [inputDeviceId, setInputDeviceId] = useState('');
     const [loadingDevices, setLoadingDevices] = useState(mode === 'record');
@@ -132,20 +141,40 @@ export const WorkbenchTrackTransfer = ({
         setError(null);
         try {
             if (mode === 'record') await stopLocalPreview();
-            const result = await client.execute(
-                mode === 'export'
-                    ? { type: 'track.export', indexes, convertToWav, expectedRevision }
-                    : { type: 'track.record', indexes, deviceId: inputDeviceId, expectedRevision }
-            );
-            if (!result.ok) throw new Error(result.error.message);
-            if (!result.task) throw new Error(`${mode === 'export' ? 'Export' : 'Recording'} did not start.`);
+            const task =
+                mode === 'recovery'
+                    ? await client.startLocalAdvancedTrackExport(
+                          {
+                              indexes,
+                              convertToWav: exportFormat === 'wav',
+                              nerawDownload: exportFormat === 'neraw',
+                              useSlowerExploit: workspace.settings.values.factoryModeUseSlowerExploit,
+                              expectedRevision,
+                          },
+                          (data, fileName) =>
+                              downloadBlob(new Blob([new Uint8Array(data)], { type: 'application/octet-stream' }), fileName),
+                          createAdvancedBadSectorHandler(requestBadSectorChoice)
+                      )
+                    : await client
+                          .execute(
+                              mode === 'export'
+                                  ? { type: 'track.export', indexes, convertToWav: exportFormat === 'wav', expectedRevision }
+                                  : { type: 'track.record', indexes, deviceId: inputDeviceId, expectedRevision }
+                          )
+                          .then((result) => {
+                              if (!result.ok) throw new Error(result.error.message);
+                              if (!result.task) throw new Error(`${mode === 'export' ? 'Export' : 'Recording'} did not start.`);
+                              return result.task;
+                          });
             previewPlayback.current = false;
             onClose();
             onTaskStarted(
-                result.task.id,
-                mode === 'export'
-                    ? `Export started for ${tracks.length} track${tracks.length === 1 ? '' : 's'}.`
-                    : `Audio-input recording started for ${tracks.length} track${tracks.length === 1 ? '' : 's'}.`
+                task.id,
+                mode === 'recovery'
+                    ? `Recovery export started for ${tracks.length} track${tracks.length === 1 ? '' : 's'}. Keep USB connected.`
+                    : mode === 'export'
+                      ? `Export started for ${tracks.length} track${tracks.length === 1 ? '' : 's'}.`
+                      : `Audio-input recording started for ${tracks.length} track${tracks.length === 1 ? '' : 's'}.`
             );
         } catch (reason) {
             setError(errorMessage(reason));
@@ -154,7 +183,9 @@ export const WorkbenchTrackTransfer = ({
     };
 
     const canStart =
-        !busy && tracks.length > 0 && (mode === 'export' || (!loadingDevices && !previewPending && inputDeviceId !== ''));
+        !busy && tracks.length > 0 && (mode !== 'record' || (!loadingDevices && !previewPending && inputDeviceId !== ''));
+
+    const isExport = mode === 'export' || mode === 'recovery';
 
     return (
         <div className="workbench__modal-backdrop" role="presentation" onMouseDown={() => !busy && close()}>
@@ -165,13 +196,17 @@ export const WorkbenchTrackTransfer = ({
                 aria-labelledby="workbench-transfer-title"
                 onMouseDown={(event) => event.stopPropagation()}
             >
-                <span className="workbench__eyebrow">{mode === 'export' ? 'EXPORT TRACKS' : 'RECORD THROUGH AUDIO INPUT'}</span>
+                <span className="workbench__eyebrow">
+                    {mode === 'recovery' ? 'RECOVERY EXPORT' : mode === 'export' ? 'EXPORT TRACKS' : 'RECORD THROUGH AUDIO INPUT'}
+                </span>
                 <h2 id="workbench-transfer-title">
-                    {mode === 'export' ? 'Export' : 'Record'} {tracks.length} selected track{tracks.length === 1 ? '' : 's'}
+                    {isExport ? 'Export' : 'Record'} {tracks.length} selected track{tracks.length === 1 ? '' : 's'}
                 </h2>
                 <p>
-                    {mode === 'export'
-                        ? 'Choose whether to keep the device audio format or create standard WAV files.'
+                    {mode === 'recovery'
+                        ? 'Read audio with the supported Homebrew recovery path. Keep USB connected; a damaged sector may require a decision.'
+                        : mode === 'export'
+                          ? 'Choose whether to keep the device audio format or create standard WAV files.'
                         : 'Connect the MiniDisc line-out to a computer audio input, monitor it, then start the recording task.'}
                 </p>
 
@@ -182,16 +217,22 @@ export const WorkbenchTrackTransfer = ({
                     {tracks.length > 4 ? <small>+ {tracks.length - 4} more tracks</small> : null}
                 </div>
 
-                {mode === 'export' ? (
+                {isExport ? (
                     <div className="workbench__transfer-options" role="radiogroup" aria-label="Export format">
-                        <label className={convertToWav ? '' : 'is-selected'}>
-                            <input type="radio" name="export-format" checked={!convertToWav} onChange={() => setConvertToWav(false)} />
+                        <label className={exportFormat === 'original' ? 'is-selected' : ''}>
+                            <input type="radio" name="export-format" checked={exportFormat === 'original'} onChange={() => setExportFormat('original')} />
                             <span>Original device format<small>Fastest option and preserves the source codec.</small></span>
                         </label>
-                        <label className={convertToWav ? 'is-selected' : ''}>
-                            <input type="radio" name="export-format" checked={convertToWav} onChange={() => setConvertToWav(true)} />
+                        <label className={exportFormat === 'wav' ? 'is-selected' : ''}>
+                            <input type="radio" name="export-format" checked={exportFormat === 'wav'} onChange={() => setExportFormat('wav')} />
                             <span>Convert to WAV<small>Creates broadly compatible uncompressed audio files.</small></span>
                         </label>
+                        {mode === 'recovery' ? (
+                            <label className={exportFormat === 'neraw' ? 'is-selected' : ''}>
+                                <input type="radio" name="export-format" checked={exportFormat === 'neraw'} onChange={() => setExportFormat('neraw')} />
+                                <span>Raw NERAW stream<small>Preserves sector layout for expert recovery; cannot be converted to WAV.</small></span>
+                            </label>
+                        ) : null}
                     </div>
                 ) : (
                     <>
@@ -218,8 +259,8 @@ export const WorkbenchTrackTransfer = ({
                 <div className="workbench__modal-actions">
                     <button className="secondary-button" onClick={close} disabled={busy}>Cancel</button>
                     <button className="primary-button" onClick={() => void start()} disabled={!canStart}>
-                        {mode === 'export' ? <DownloadRoundedIcon /> : <MicRoundedIcon />}
-                        {busy ? 'Starting…' : mode === 'export' ? 'Start export' : 'Start recording'}
+                        {isExport ? <DownloadRoundedIcon /> : <MicRoundedIcon />}
+                        {busy ? 'Starting…' : mode === 'recovery' ? 'Start recovery export' : mode === 'export' ? 'Start export' : 'Start recording'}
                     </button>
                 </div>
             </section>

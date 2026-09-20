@@ -9,12 +9,23 @@ describe('BrowserAdvancedTrackExporter', () => {
         const application = {
             async refresh() {
                 return {
+                    sessionId: 'advanced-session',
+                    revision: 7,
                     disc: {
                         groups: [{ tracks: [{ index: 0, title: 'Recovered', duration: 60 }] }],
                     },
                 };
             },
-            async exportAdvancedTracks(indexes: number[], _slower: boolean, _options: unknown, _authorization: symbol, onProgress: Function, onTrack: Function) {
+            async exportAdvancedTracks(
+                indexes: number[],
+                _slower: boolean,
+                _options: unknown,
+                _authorization: symbol,
+                onProgress: Function,
+                onTrack: Function,
+                expectedDeviceVersion: { sessionId: string; revision: number }
+            ) {
+                assert.deepEqual(expectedDeviceVersion, { sessionId: 'advanced-session', revision: 7 });
                 onProgress(indexes[0], { read: 4, total: 8, action: 'READ', sector: '20' });
                 await onTrack(indexes[0], { data: Uint8Array.from([1, 2, 3]), extension: 'aea' });
                 return 1;
@@ -24,7 +35,7 @@ describe('BrowserAdvancedTrackExporter', () => {
         const files: { name: string; data: number[] }[] = [];
 
         const started = await new BrowserAdvancedTrackExporter().start(
-            { indexes: [0], convertToWav: false, nerawDownload: false, useSlowerExploit: true },
+            { indexes: [0], convertToWav: false, nerawDownload: false, useSlowerExploit: true, expectedRevision: 7 },
             application,
             tasks,
             (data, name) => files.push({ name, data: [...data] }),
@@ -39,5 +50,25 @@ describe('BrowserAdvancedTrackExporter', () => {
         assert.equal(completed.status, 'succeeded');
         assert.deepEqual(files, [{ name: '01. Recovered.aea', data: [1, 2, 3] }]);
         assert.deepEqual(completed.result, { exportedTracks: 1, files: ['01. Recovered.aea'] });
+    });
+
+    it('rejects a recovery plan prepared for an older disc revision', async () => {
+        const application = {
+            async refresh() {
+                return { revision: 8, disc: { groups: [{ tracks: [{ index: 0, title: 'Changed', duration: 60 }] }] } };
+            },
+        } as unknown as MiniDiscApplication;
+
+        await assert.rejects(
+            () =>
+                new BrowserAdvancedTrackExporter().start(
+                    { indexes: [0], convertToWav: false, nerawDownload: false, useSlowerExploit: false, expectedRevision: 7 },
+                    application,
+                    new TaskManager(),
+                    () => undefined,
+                    async () => 'abort'
+                ),
+            /disc changed after this recovery export was prepared/i
+        );
     });
 });

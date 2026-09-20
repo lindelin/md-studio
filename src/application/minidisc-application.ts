@@ -295,7 +295,8 @@ export class MiniDiscApplication {
         options: AdvancedTrackReadOptions,
         interactiveAuthorization: typeof INTERACTIVE_ADVANCED_AUTHORIZATION,
         onProgress: (index: number, progress: AdvancedTrackReadProgress) => void,
-        onTrack: (index: number, data: AdvancedTrackData) => void | Promise<void>
+        onTrack: (index: number, data: AdvancedTrackData) => void | Promise<void>,
+        expectedDeviceVersion?: { sessionId: string; revision: number }
     ): Promise<number> {
         return this.runAdvancedTrackDownloadSession(useSlowerExploit, interactiveAuthorization, async (readTrack) => {
             const disc = this.requireDisc();
@@ -310,15 +311,17 @@ export class MiniDiscApplication {
                 if (options.shouldCancel()) break;
             }
             return completed;
-        });
+        }, expectedDeviceVersion);
     }
 
     runAdvancedTrackDownloadSession<T>(
         useSlowerExploit: boolean,
         interactiveAuthorization: typeof INTERACTIVE_ADVANCED_AUTHORIZATION,
-        operation: (readTrack: AdvancedTrackReader) => Promise<T>
+        operation: (readTrack: AdvancedTrackReader) => Promise<T>,
+        expectedDeviceVersion?: { sessionId: string; revision: number }
     ): Promise<T> {
         return this.serial(async () => {
+            this.assertDeviceVersion(expectedDeviceVersion, 'export');
             this.requireInteractiveAdvancedAuthorization(interactiveAuthorization);
             this.requireCapability('advanced.factory');
             this.requireDisc();
