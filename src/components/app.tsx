@@ -16,7 +16,7 @@ import { useApplicationSettings, useApplicationWorkspace } from './use-applicati
 const Toc = lazy(() => import('./factory/factory'));
 const Controls = lazy(() => import('./controls'));
 const Welcome = lazy(() => import('./welcome'));
-const Main = lazy(() => import('./main'));
+const Workbench = lazy(() => import('./workbench/workbench'));
 const W95App = lazy(() => import('./win95/app').then(({ W95App }) => ({ default: W95App })));
 const useStyles = makeStyles()((theme) => ({
     layout: {
@@ -42,10 +42,11 @@ const useStyles = makeStyles()((theme) => ({
             marginTop: theme.spacing(2),
             marginBottom: theme.spacing(1),
             padding: theme.spacing(3),
-            height: 200,
+            height: 'auto',
+            minHeight: 300,
         },
         [forWideDesktop(theme)]: {
-            height: 250,
+            minHeight: 340,
         },
     },
     paperShowsList: {
@@ -74,6 +75,7 @@ const useStyles = makeStyles()((theme) => ({
     },
     copyrightTypography: {
         textAlign: 'center',
+        marginTop: theme.spacing(1),
     },
     backdrop: {
         zIndex: theme.zIndex.drawer + 1000,
@@ -231,6 +233,28 @@ const InternalApp = () => {
     const canListContent = useApplicationWorkspace().device?.capabilities.includes('content.read') ?? false;
     const { classes, cx } = useStyles();
 
+    if (mainView === 'MAIN') {
+        return (
+            <React.Fragment>
+                <CssBaseline />
+                <Suspense
+                    fallback={
+                        <Backdrop open={true}>
+                            <CircularProgress color="info" />
+                        </Backdrop>
+                    }
+                >
+                    <Workbench />
+                </Suspense>
+                {loading ? (
+                    <Backdrop className={classes.backdrop} open={loading}>
+                        <CircularProgress color="info" />
+                    </Backdrop>
+                ) : null}
+            </React.Fragment>
+        );
+    }
+
     return (
         <React.Fragment>
             <CssBaseline />
@@ -250,10 +274,9 @@ const InternalApp = () => {
                         })}
                     >
                         {mainView === 'WELCOME' ? <Welcome /> : null}
-                        {mainView === 'MAIN' ? <Main /> : null}
                         {mainView === 'FACTORY' ? <Toc /> : null}
 
-                        <Box className={classes.controlsContainer}>{mainView === 'MAIN' ? <Controls /> : null}</Box>
+                        <Box className={classes.controlsContainer}>{mainView === 'WELCOME' ? <Controls /> : null}</Box>
                     </Paper>
                     <Typography variant="body2" color="textSecondary" className={classes.copyrightTypography}>
                         {'© '}

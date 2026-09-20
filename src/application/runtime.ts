@@ -201,6 +201,12 @@ export function getApplicationClient() {
                             return { connected: false, method: null, message };
                         }
 
+                        // Binding a session creates the application workspace, but the
+                        // first device snapshot is populated by refresh. Do this before
+                        // reporting a successful connection so every UI and automation
+                        // client observes a fully initialized device.
+                        await session.application.refresh(true);
+
                         serviceRegistry.workspaceStore.setConnection({
                             phase: 'connected',
                             serviceName: request.name,
