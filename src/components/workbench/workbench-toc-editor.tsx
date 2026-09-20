@@ -78,19 +78,19 @@ export function WorkbenchTocEditor({
     const load = useCallback(async () => {
         const device = client.getWorkspaceSnapshot().device;
         if (!device) {
-            setStatus('Connect a device and insert a disc before opening the TOC editor.');
+            setStatus(t('Connect a device and insert a disc before opening the TOC editor.'));
             return;
         }
         setBusy(true);
-        setStatus('Reading all six raw TOC sectors…');
+        setStatus(t('Reading all six raw TOC sectors…'));
         try {
             const result = await client.execute({ type: 'advanced.readToc' });
             if (!result.ok) throw new Error(result.error.message);
-            if (!result.advancedToc) throw new Error('The device did not return raw TOC data.');
+            if (!result.advancedToc) throw new Error(t('The device did not return raw TOC data.'));
             const document = parseRawTocEditorData(decodeBase64(result.advancedToc.dataBase64));
             const latest = client.getWorkspaceSnapshot().device;
             if (latest?.sessionId !== device.sessionId || latest.revision !== device.revision) {
-                throw new Error('The device or disc changed while the TOC was being read. Reload the editor.');
+                throw new Error(t('The device or disc changed while the TOC was being read. Reload the editor.'));
             }
             setLoaded({
                 source: document.source,
@@ -103,11 +103,11 @@ export function WorkbenchTocEditor({
             setStatus(null);
         } catch (error) {
             setLoaded(null);
-            setStatus(error instanceof Error ? error.message : 'Could not read the raw TOC.');
+            setStatus(error instanceof Error ? error.message : t('Could not read the raw TOC.'));
         } finally {
             setBusy(false);
         }
-    }, [client]);
+    }, [client, t]);
 
     useEffect(() => {
         if (!open) {
@@ -151,12 +151,12 @@ export function WorkbenchTocEditor({
         event.target.value = '';
         if (!file || !loaded) return;
         setBusy(true);
-        setStatus(`Loading ${file.name} as a local draft…`);
+        setStatus(language === 'zh-CN' ? `正在将 ${file.name} 载入为本地草稿…` : `Loading ${file.name} as a local draft…`);
         try {
             const document = parseRawTocEditorData(new Uint8Array(await file.arrayBuffer()));
             const latest = client.getWorkspaceSnapshot().device;
             if (latest?.sessionId !== loaded.expectedSessionId || latest.revision !== loaded.expectedRevision) {
-                throw new Error('The device or disc changed after this editor was loaded. Reload before importing a backup.');
+                throw new Error(t('The device or disc changed after this editor was loaded. Reload before importing a backup.'));
             }
             setLoaded({ ...loaded, draft: document.toc });
             setModified(true);
@@ -164,9 +164,11 @@ export function WorkbenchTocEditor({
             setConfirmation('');
             setSelection({ kind: 'map', index: 0 });
             setStatus(null);
-            onMessage(`Loaded ${file.name} as a local TOC draft. The disc has not been changed.`);
+            onMessage(language === 'zh-CN'
+                ? `已将 ${file.name} 载入为本地 TOC 草稿，碟片尚未改变。`
+                : `Loaded ${file.name} as a local TOC draft. The disc has not been changed.`);
         } catch (error) {
-            setStatus(error instanceof Error ? error.message : 'Could not load the TOC backup.');
+            setStatus(error instanceof Error ? error.message : t('Could not load the TOC backup.'));
         } finally {
             setBusy(false);
         }
@@ -183,20 +185,20 @@ export function WorkbenchTocEditor({
         if (!loaded || !modified) return;
         const latest = client.getWorkspaceSnapshot().device;
         if (latest?.sessionId !== loaded.expectedSessionId || latest.revision !== loaded.expectedRevision) {
-            setStatus('The device or disc changed after this draft was loaded. Reload before reviewing it.');
+            setStatus(t('The device or disc changed after this draft was loaded. Reload before reviewing it.'));
             return;
         }
         setBusy(true);
-        setStatus('Comparing the edited TOC with the current disc…');
+        setStatus(t('Comparing the edited TOC with the current disc…'));
         try {
             const proposed = reconstructRawTocEditorData(loaded.draft, loaded.source);
             const source = await inspectRawTocData(proposed);
             const result = await client.execute({ type: 'advanced.previewTocWrite', dataBase64: source.dataBase64 });
             if (!result.ok) throw new Error(result.error.message);
-            if (!result.advancedTocWritePreview) throw new Error('The device did not return a TOC write preview.');
+            if (!result.advancedTocWritePreview) throw new Error(t('The device did not return a TOC write preview.'));
             const current = client.getWorkspaceSnapshot().device;
             if (current?.sessionId !== loaded.expectedSessionId || current.revision !== loaded.expectedRevision) {
-                throw new Error('The device or disc changed while the draft was being compared. Reload the editor.');
+                throw new Error(t('The device or disc changed while the draft was being compared. Reload the editor.'));
             }
             setReview({
                 dataBase64: source.dataBase64,
@@ -208,7 +210,7 @@ export function WorkbenchTocEditor({
             setStatus(null);
         } catch (error) {
             setReview(null);
-            setStatus(error instanceof Error ? error.message : 'Could not review the edited TOC.');
+            setStatus(error instanceof Error ? error.message : t('Could not review the edited TOC.'));
         } finally {
             setBusy(false);
         }
@@ -220,11 +222,11 @@ export function WorkbenchTocEditor({
         if (latest?.sessionId !== review.expectedSessionId || latest.revision !== review.expectedRevision) {
             setReview(null);
             setConfirmation('');
-            setStatus('The device or disc changed after this write was reviewed. Reload the editor.');
+            setStatus(t('The device or disc changed after this write was reviewed. Reload the editor.'));
             return;
         }
         setBusy(true);
-        setStatus('Writing the four reviewed UTOC sectors…');
+        setStatus(t('Writing the four reviewed UTOC sectors…'));
         try {
             const result = await client.execute({
                 type: 'advanced.writeToc',
@@ -238,14 +240,14 @@ export function WorkbenchTocEditor({
                 interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
             });
             if (!result.ok) throw new Error(result.error.message);
-            if (!result.snapshot) throw new Error('Writing the TOC did not return refreshed device state.');
+            if (!result.snapshot) throw new Error(t('Writing the TOC did not return refreshed device state.'));
             setReview(null);
             setConfirmation('');
             setModified(false);
-            onMessage('Wrote the reviewed visual TOC draft and refreshed the disc.');
+            onMessage(t('Wrote the reviewed visual TOC draft and refreshed the disc.'));
             onClose();
         } catch (error) {
-            setStatus(error instanceof Error ? error.message : 'Could not write the edited TOC.');
+            setStatus(error instanceof Error ? error.message : t('Could not write the edited TOC.'));
         } finally {
             setBusy(false);
         }

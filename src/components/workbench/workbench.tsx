@@ -317,17 +317,19 @@ export const Workbench = () => {
                     if (added > 0) setContentView('plan');
                     if (result.failures.length > 0) {
                         const first = result.failures[0];
-                        setMessage(
-                            `${added > 0 ? `${added} added. ` : ''}${result.failures.length} file${result.failures.length === 1 ? '' : 's'} skipped: ${first.name} — ${first.reason}`
-                        );
+                        setMessage(language === 'zh-CN'
+                            ? `${added > 0 ? `已添加 ${added} 个文件。` : ''}跳过 ${result.failures.length} 个文件：${first.name} — ${first.reason}`
+                            : `${added > 0 ? `${added} added. ` : ''}${result.failures.length} file${result.failures.length === 1 ? '' : 's'} skipped: ${first.name} — ${first.reason}`);
                     } else {
-                        setMessage(`${added} audio file${added === 1 ? '' : 's'} added to the recording plan.`);
+                        setMessage(language === 'zh-CN'
+                            ? `已将 ${added} 个音频文件加入录制计划。`
+                            : `${added} audio file${added === 1 ? '' : 's'} added to the recording plan.`);
                     }
                 })
                 .catch((error) => setMessage(errorMessage(error)))
                 .finally(() => setBusy(false));
         },
-        [client, device, workspace.imports.revision, workspace.settings.values]
+        [client, device, language, workspace.imports.revision, workspace.settings.values]
     );
     const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
         onDrop,
@@ -537,7 +539,7 @@ export const Workbench = () => {
                 expectedRevision: device.revision,
             });
             setDiscEditorOpen(false);
-            setMessage('MiniDisc title updated.');
+            setMessage(t('MiniDisc title updated.'));
         });
     };
     const canGroupSelection =
@@ -596,7 +598,9 @@ export const Workbench = () => {
                 });
             }
             setDirtyDraftFields([]);
-            setMessage(appliedCount > 1 ? `Changes saved to ${appliedCount} items.` : 'Changes saved.');
+            setMessage(language === 'zh-CN'
+                ? appliedCount > 1 ? `已保存 ${appliedCount} 个项目的更改。` : '更改已保存。'
+                : appliedCount > 1 ? `Changes saved to ${appliedCount} items.` : 'Changes saved.');
         });
     };
 
@@ -750,7 +754,7 @@ export const Workbench = () => {
                 expectedRevision: device.revision,
             });
             setGroupDialogOpen(false);
-            setMessage('Group created.');
+            setMessage(t('Group created.'));
         });
     };
 
@@ -762,7 +766,7 @@ export const Workbench = () => {
                 indexes: selectedNamedGroups.map((group) => group.index),
                 expectedRevision: device.revision,
             });
-            setMessage(selectedNamedGroups.length === 1 ? 'Group removed.' : 'Groups removed.');
+            setMessage(t(selectedNamedGroups.length === 1 ? 'Group removed.' : 'Groups removed.'));
         });
     };
 
@@ -774,7 +778,7 @@ export const Workbench = () => {
                 update: { index: selectedGroup.index, title: groupDraft },
                 expectedRevision: device.revision,
             });
-            setMessage('Group name updated.');
+            setMessage(t('Group name updated.'));
         });
     };
 
@@ -788,7 +792,7 @@ export const Workbench = () => {
                     [device.recording.specName]: next,
                 },
             });
-            setMessage('Recording mode updated for the current device type.');
+            setMessage(t('Recording mode updated for the current device type.'));
         });
     };
 
@@ -802,9 +806,9 @@ export const Workbench = () => {
             const task = workspace.tasks.find((candidate) => candidate.id === id);
             await execute({ type: 'task.cancel', id });
             setMessage(
-                task?.kind === 'disc.write'
+                t(task?.kind === 'disc.write'
                     ? 'Batch end requested. This does not interrupt the track already recording; later tracks will not start. Keep USB connected while the recording light is flashing.'
-                    : 'Cancellation requested. The current operation will stop at its next safe boundary.'
+                    : 'Cancellation requested. The current operation will stop at its next safe boundary.')
             );
         });
     };
@@ -847,11 +851,11 @@ export const Workbench = () => {
                 expectedDeviceRevision: writePreview.deviceRevision,
                 interactiveHomebrewAuthorization: INTERACTIVE_HOMEBREW_AUTHORIZATION,
             });
-            if (!result.task) throw new Error('The recording task did not start.');
+            if (!result.task) throw new Error(t('The recording task did not start.'));
             setWriteReviewOpen(false);
             setSelectedTaskId(result.task.id);
             setTaskCenterOpen(true);
-            setMessage('Recording started. Keep the USB cable connected until the task finishes.');
+            setMessage(t('Recording started. Keep the USB cable connected until the task finishes.'));
         });
     };
 
@@ -871,9 +875,9 @@ export const Workbench = () => {
 
     const copyTaskOutput = async (value: string, label: string) => {
         try {
-            if (!navigator.clipboard) throw new Error('Clipboard access is unavailable in this browser.');
+            if (!navigator.clipboard) throw new Error(t('Clipboard access is unavailable in this browser.'));
             await navigator.clipboard.writeText(value);
-            setMessage(`Copied ${label}.`);
+            setMessage(language === 'zh-CN' ? `已复制${label}。` : `Copied ${label}.`);
         } catch (error) {
             setMessage(errorMessage(error));
         }

@@ -58,7 +58,7 @@ export const WorkbenchLibrary = ({
 
     const refreshLibrary = useCallback(async () => {
         setBusy(true);
-        setStatus('Refreshing library…');
+        setStatus(t('Refreshing library…'));
         const result = await client.execute({ type: 'library.refreshSummary' });
         setBusy(false);
         if (!result.ok) {
@@ -66,7 +66,7 @@ export const WorkbenchLibrary = ({
             return;
         }
         setStatus(null);
-    }, [client]);
+    }, [client, t]);
 
     useEffect(() => {
         if (library.status === 'idle') void refreshLibrary();
@@ -81,7 +81,9 @@ export const WorkbenchLibrary = ({
             if (library.status !== 'ready') return;
             const currentRequest = ++requestId.current;
             setBusy(true);
-            setStatus(searchQuery ? `Searching for “${searchQuery}”…` : 'Loading folder…');
+            setStatus(searchQuery
+                ? language === 'zh-CN' ? `正在搜索“${searchQuery}”…` : `Searching for “${searchQuery}”…`
+                : t('Loading folder…'));
             const result = searchQuery
                 ? await client.execute({
                       type: 'library.search',
@@ -106,7 +108,7 @@ export const WorkbenchLibrary = ({
             }
             const page = searchQuery ? result.librarySearch : result.libraryPage;
             if (!page) {
-                setStatus('The library returned no page data.');
+                setStatus(t('The library returned no page data.'));
                 return;
             }
             const nextItems: LibraryDisplayItem[] = searchQuery
@@ -121,7 +123,7 @@ export const WorkbenchLibrary = ({
             setTotal(page.total);
             setStatus(null);
         },
-        [client, library.revision, library.status, path, searchQuery]
+        [client, language, library.revision, library.status, path, searchQuery, t]
     );
 
     useEffect(() => {
@@ -216,7 +218,9 @@ export const WorkbenchLibrary = ({
     const importSelected = async () => {
         if (selectedTracks.length === 0) return;
         setBusy(true);
-        setStatus(`Adding ${selectedTracks.length} track${selectedTracks.length === 1 ? '' : 's'} to the recording plan…`);
+        setStatus(language === 'zh-CN'
+            ? `正在将 ${selectedTracks.length} 首曲目加入录制计划…`
+            : `Adding ${selectedTracks.length} track${selectedTracks.length === 1 ? '' : 's'} to the recording plan…`);
         const result = await client.execute({
             type: 'library.import',
             paths: selectedTracks.map((track) => track.path),
@@ -242,9 +246,9 @@ export const WorkbenchLibrary = ({
     const libraryMessage =
         status ??
         (library.status === 'loading'
-            ? 'Loading library database…'
+            ? t('Loading library database…')
             : library.status === 'error'
-              ? library.error ?? 'The library could not be loaded.'
+              ? library.error ?? t('The library could not be loaded.')
               : null);
 
     const activateBrowserRow = (row: LibraryBrowserRow) => {

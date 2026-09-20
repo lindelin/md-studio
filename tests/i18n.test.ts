@@ -20,6 +20,8 @@ describe('UI language', () => {
         assert.equal(translate('zh-CN', 'Start recording'), '开始录音');
         assert.equal(translate('zh-CN', 'SONG RECOGNITION'), '歌曲识别');
         assert.equal(translate('zh-CN', 'VISUAL RAW TOC EDITOR'), '可视化原始 TOC 编辑器');
+        assert.equal(translate('zh-CN', 'Disc maintenance'), '碟片维护');
+        assert.equal(translate('zh-CN', 'Format as Hi-MD'), '格式化为 Hi-MD');
         assert.equal(translate('zh-CN', 'WRITE TOC'), 'WRITE TOC');
     });
 });

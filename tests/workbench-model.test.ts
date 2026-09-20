@@ -14,10 +14,13 @@ import {
     getTaskCancellationPresentation,
     getTaskErrorDetail,
     getSelfTestReadiness,
+    getDiscMaintenanceConfirmationToken,
     isActiveUninterruptibleWrite,
+    isDiscMaintenanceConfirmationValid,
     libraryPathKey,
     localizeTaskLabel,
     localizeTaskMessage,
+    localizeSelfTestReadinessReason,
     resolveRowNavigationIndex,
     summarizeTaskResult,
     taskProgressPercent,
@@ -302,6 +305,28 @@ describe('Studio Workbench device diagnostics', () => {
         });
         assert.equal(getSelfTestReadiness({ ...device, disc: { ...device.disc!, trackCount: 1 } }).ready, false);
         assert.equal(getSelfTestReadiness({ ...device, capabilities: capabilities.slice(1) }).ready, false);
+    });
+
+    it('localizes dynamic missing-capability guidance without translating capability ids', () => {
+        assert.equal(
+            localizeSelfTestReadinessReason('The connected device is missing: metadata.fullWidth, playback.control.', 'zh-CN'),
+            '当前设备缺少以下能力：metadata.fullWidth, playback.control。'
+        );
+        assert.equal(
+            localizeSelfTestReadinessReason('The connected device is missing: metadata.fullWidth.', 'en'),
+            'The connected device is missing: metadata.fullWidth.'
+        );
+    });
+});
+
+describe('Studio Workbench disc maintenance', () => {
+    it('requires distinct exact English confirmation tokens for destructive disc operations', () => {
+        assert.equal(getDiscMaintenanceConfirmationToken('erase'), 'ERASE DISC');
+        assert.equal(getDiscMaintenanceConfirmationToken('formatHimd'), 'FORMAT HI-MD');
+        assert.equal(isDiscMaintenanceConfirmationValid('erase', 'ERASE DISC'), true);
+        assert.equal(isDiscMaintenanceConfirmationValid('erase', 'erase disc'), false);
+        assert.equal(isDiscMaintenanceConfirmationValid('formatHimd', 'FORMAT HI-MD'), true);
+        assert.equal(isDiscMaintenanceConfirmationValid('formatHimd', 'ERASE DISC'), false);
     });
 });
 

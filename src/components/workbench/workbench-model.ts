@@ -168,6 +168,29 @@ export function getSelfTestReadiness(device?: Pick<DeviceSnapshot, 'capabilities
     return { ready: true, reason: 'This disc can run the complete 14-step destructive self-test.' };
 }
 
+export function localizeSelfTestReadinessReason(reason: string, language: 'en' | 'zh-CN') {
+    if (language === 'en') return reason;
+    const missing = reason.match(/^The connected device is missing: (.+)\.$/);
+    if (missing) return `当前设备缺少以下能力：${missing[1]}。`;
+    const reasons: Record<string, string> = {
+        'Connect a device with an inserted test disc.': '请连接设备并插入测试碟。',
+        'The inserted disc is read-only or write-protected.': '插入的碟片为只读或已写保护。',
+        'The self-test needs a disposable disc containing at least two tracks.': '自检需要一张至少包含两首曲目的可擦写测试碟。',
+        'This disc can run the complete 14-step destructive self-test.': '这张碟片可以执行完整的 14 步破坏性自检。',
+    };
+    return reasons[reason] ?? reason;
+}
+
+export type DiscMaintenanceAction = 'erase' | 'formatHimd';
+
+export function getDiscMaintenanceConfirmationToken(action: DiscMaintenanceAction) {
+    return action === 'erase' ? 'ERASE DISC' : 'FORMAT HI-MD';
+}
+
+export function isDiscMaintenanceConfirmationValid(action: DiscMaintenanceAction, confirmation: string) {
+    return confirmation === getDiscMaintenanceConfirmationToken(action);
+}
+
 export type RecognitionTitleFormat = 'title' | 'album-title' | 'artist-title' | 'title-artist' | 'artist-album-title';
 
 export function formatRecognitionTitle(

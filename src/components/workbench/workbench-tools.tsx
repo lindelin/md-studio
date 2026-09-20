@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import BugReportRoundedIcon from '@mui/icons-material/BugReportRounded';
 import DataObjectRoundedIcon from '@mui/icons-material/DataObjectRounded';
+import DeleteForeverRoundedIcon from '@mui/icons-material/DeleteForeverRounded';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import GridViewRoundedIcon from '@mui/icons-material/GridViewRounded';
 import MemoryRoundedIcon from '@mui/icons-material/MemoryRounded';
@@ -16,7 +17,15 @@ import { executeSessionEndingCommand } from '../../application/device-session-tr
 import { INTERACTIVE_ADVANCED_AUTHORIZATION } from '../../application/interactive-authorization';
 import { downloadBlob, formatTimeFromSeconds } from '../../utils';
 import { useApplicationClient, useApplicationWorkspace } from '../use-application-client';
-import { buildAdvancedExportFileName, defaultMetadataTrackSelection, getSelfTestReadiness } from './workbench-model';
+import {
+    buildAdvancedExportFileName,
+    defaultMetadataTrackSelection,
+    getDiscMaintenanceConfirmationToken,
+    getSelfTestReadiness,
+    isDiscMaintenanceConfirmationValid,
+    localizeSelfTestReadinessReason,
+    type DiscMaintenanceAction,
+} from './workbench-model';
 import {
     advancedMaintenanceActions,
     canRunAdvancedMaintenanceAction,
@@ -70,6 +79,14 @@ export const WorkbenchTools = ({
     const [tocSummary, setTocSummary] = useState<{ bytes: number; sha256: string } | null>(null);
     const [selfTestOpen, setSelfTestOpen] = useState(false);
     const [selfTestConfirmation, setSelfTestConfirmation] = useState('');
+    const [discMaintenanceReview, setDiscMaintenanceReview] = useState<{
+        action: DiscMaintenanceAction;
+        expectedSessionId: string;
+        expectedRevision: number;
+        discTitle: string;
+        trackCount: number;
+    } | null>(null);
+    const [discMaintenanceConfirmation, setDiscMaintenanceConfirmation] = useState('');
     const [maintenanceAction, setMaintenanceAction] = useState<AdvancedMaintenanceAction | null>(null);
     const [maintenanceConfirmation, setMaintenanceConfirmation] = useState('');
     const [spUploadSpeedupEnabled, setSpUploadSpeedupEnabled] = useState(false);
@@ -99,10 +116,15 @@ export const WorkbenchTools = ({
         capabilities.includes('group.create') &&
         capabilities.includes('group.delete');
     const selfTestReadiness = getSelfTestReadiness(device ?? undefined);
+    const discIsWritable = Boolean(disc?.writable && !disc.writeProtected);
+    const canEraseDisc = discIsWritable && capabilities.includes('disc.erase');
+    const canFormatHimd = discIsWritable && capabilities.includes('disc.formatHimd');
 
     useEffect(() => {
         setAdvancedInfo(null);
         setTocSummary(null);
+        setDiscMaintenanceReview(null);
+        setDiscMaintenanceConfirmation('');
         setMaintenanceAction(null);
         setMaintenanceConfirmation('');
         setSpUploadSpeedupEnabled(false);
@@ -115,11 +137,80 @@ export const WorkbenchTools = ({
     }, [device?.sessionId]);
 
     useEffect(() => {
+        setDiscMaintenanceReview(null);
+        setDiscMaintenanceConfirmation('');
         setRawTocReview(null);
         setRawTocConfirmation('');
         setRawTocPatchReview(null);
         setRawTocPatchConfirmation('');
     }, [device?.revision]);
+
+    const openDiscMaintenanceReview = (action: DiscMaintenanceAction) => {
+        if (!device || !disc) return;
+        if (action === 'erase' ? !canEraseDisc : !canFormatHimd) return;
+        setDiscMaintenanceConfirmation('');
+        setDiscMaintenanceReview({
+            action,
+            expectedSessionId: device.sessionId,
+            expectedRevision: device.revision,
+            discTitle: disc.title || disc.fullWidthTitle || 'Untitled MiniDisc',
+            trackCount: disc.trackCount,
+        });
+    };
+
+    const closeDiscMaintenanceReview = () => {
+        if (busy) return;
+        setDiscMaintenanceReview(null);
+        setDiscMaintenanceConfirmation('');
+    };
+
+    const runDiscMaintenance = async () => {
+        if (!discMaintenanceReview) return;
+        if (!isDiscMaintenanceConfirmationValid(discMaintenanceReview.action, discMaintenanceConfirmation)) return;
+        const currentDevice = client.getWorkspaceSnapshot().device;
+        if (
+            currentDevice?.sessionId !== discMaintenanceReview.expectedSessionId ||
+            currentDevice.revision !== discMaintenanceReview.expectedRevision
+        ) {
+            setStatus(t('The connected device or disc changed after this review opened. Review the operation again.'));
+            setDiscMaintenanceReview(null);
+            setDiscMaintenanceConfirmation('');
+            return;
+        }
+        setBusy(true);
+        setStatus(t(discMaintenanceReview.action === 'erase' ? 'Erasing the MiniDisc…' : 'Formatting the disc as Hi-MD…'));
+        try {
+            const result = await client.execute(
+                discMaintenanceReview.action === 'erase'
+                    ? {
+                          type: 'disc.erase',
+                          confirmation: {
+                              confirmed: true,
+                              reason: 'Confirmed in Studio Workbench after reviewing permanent removal of all disc content.',
+                          },
+                          expectedRevision: discMaintenanceReview.expectedRevision,
+                      }
+                    : {
+                          type: 'disc.formatHimd',
+                          confirmation: {
+                              confirmed: true,
+                              reason: 'Confirmed in Studio Workbench after reviewing destructive Hi-MD formatting.',
+                          },
+                          expectedRevision: discMaintenanceReview.expectedRevision,
+                      }
+            );
+            if (!result.ok) throw new Error(result.error.message);
+            const action = discMaintenanceReview.action;
+            setDiscMaintenanceReview(null);
+            setDiscMaintenanceConfirmation('');
+            setStatus(null);
+            onMessage(t(action === 'erase' ? 'MiniDisc erased.' : 'MiniDisc formatted as Hi-MD.'));
+        } catch (error) {
+            setStatus(error instanceof Error ? error.message : t('Could not complete disc maintenance.'));
+        } finally {
+            setBusy(false);
+        }
+    };
 
     const closeSelfTest = () => {
         if (busy) return;
@@ -147,19 +238,19 @@ export const WorkbenchTools = ({
 
     const exportCsv = async () => {
         setBusy(true);
-        setStatus('Preparing metadata export…');
+        setStatus(t('Preparing metadata export…'));
         try {
             const result = await client.execute({ type: 'metadata.exportCsv' });
             if (!result.ok) throw new Error(result.error.message);
-            if (!result.metadataCsv) throw new Error('Metadata export did not return a CSV document.');
+            if (!result.metadataCsv) throw new Error(t('Metadata export did not return a CSV document.'));
             downloadBlob(
                 new Blob([result.metadataCsv.text], { type: 'text/csv;charset=utf-8' }),
                 result.metadataCsv.fileName
             );
             setStatus(null);
-            onMessage(`Saved ${result.metadataCsv.fileName}.`);
+            onMessage(language === 'zh-CN' ? `已保存 ${result.metadataCsv.fileName}。` : `Saved ${result.metadataCsv.fileName}.`);
         } catch (error) {
-            setStatus(error instanceof Error ? error.message : 'Could not export disc metadata.');
+            setStatus(error instanceof Error ? error.message : t('Could not export disc metadata.'));
         } finally {
             setBusy(false);
         }
@@ -171,13 +262,13 @@ export const WorkbenchTools = ({
         if (!file || !device) return;
         const expectedRevision = device.revision;
         setBusy(true);
-        setStatus(`Checking ${file.name}…`);
+        setStatus(language === 'zh-CN' ? `正在检查 ${file.name}…` : `Checking ${file.name}…`);
         setPlan(null);
         try {
             const text = await file.text();
             const result = await client.execute({ type: 'metadata.planCsv', text });
             if (!result.ok) throw new Error(result.error.message);
-            if (!result.metadataPlan) throw new Error('Metadata import did not return a validation plan.');
+            if (!result.metadataPlan) throw new Error(t('Metadata import did not return a validation plan.'));
             setSourceName(file.name);
             setSourceText(text);
             setPlan(result.metadataPlan);
@@ -189,7 +280,7 @@ export const WorkbenchTools = ({
             setSourceText('');
             setPlannedRevision(undefined);
             setIncludedTrackIndexes([]);
-            setStatus(error instanceof Error ? error.message : 'Could not read the metadata file.');
+            setStatus(error instanceof Error ? error.message : t('Could not read the metadata file.'));
         } finally {
             setBusy(false);
         }
@@ -204,7 +295,7 @@ export const WorkbenchTools = ({
     const applyCsv = async () => {
         if (!plan || !sourceText || plannedRevision === undefined) return;
         setBusy(true);
-        setStatus('Applying reviewed metadata…');
+        setStatus(t('Applying reviewed metadata…'));
         try {
             const result = await client.execute({
                 type: 'metadata.applyCsv',
@@ -219,9 +310,11 @@ export const WorkbenchTools = ({
             setIncludedTrackIndexes([]);
             setPlannedRevision(undefined);
             setStatus(null);
-            onMessage(`Applied disc metadata and ${includedTrackIndexes.length} reviewed track update${includedTrackIndexes.length === 1 ? '' : 's'}.`);
+            onMessage(language === 'zh-CN'
+                ? `已应用碟片元数据和 ${includedTrackIndexes.length} 项已审阅的曲目更新。`
+                : `Applied disc metadata and ${includedTrackIndexes.length} reviewed track update${includedTrackIndexes.length === 1 ? '' : 's'}.`);
         } catch (error) {
-            setStatus(error instanceof Error ? error.message : 'Could not apply the metadata file.');
+            setStatus(error instanceof Error ? error.message : t('Could not apply the metadata file.'));
         } finally {
             setBusy(false);
         }
@@ -229,16 +322,16 @@ export const WorkbenchTools = ({
 
     const inspectDevice = async () => {
         setBusy(true);
-        setStatus('Reading device firmware and advanced capabilities…');
+        setStatus(t('Reading device firmware and advanced capabilities…'));
         try {
             const result = await client.execute({ type: 'advanced.inspect' });
             if (!result.ok) throw new Error(result.error.message);
-            if (!result.advancedInfo) throw new Error('The device did not return advanced information.');
+            if (!result.advancedInfo) throw new Error(t('The device did not return advanced information.'));
             setAdvancedInfo(result.advancedInfo);
             setStatus(null);
         } catch (error) {
             setAdvancedInfo(null);
-            setStatus(error instanceof Error ? error.message : 'Could not inspect the device.');
+            setStatus(error instanceof Error ? error.message : t('Could not inspect the device.'));
         } finally {
             setBusy(false);
         }
@@ -247,7 +340,7 @@ export const WorkbenchTools = ({
     const startSelfTest = async () => {
         if (selfTestConfirmation !== 'ERASE') return;
         setBusy(true);
-        setStatus('Starting the destructive device self-test…');
+        setStatus(t('Starting the destructive device self-test…'));
         try {
             const result = await client.execute({
                 type: 'diagnostics.selfTest',
@@ -257,13 +350,13 @@ export const WorkbenchTools = ({
                 },
             });
             if (!result.ok) throw new Error(result.error.message);
-            if (!result.task) throw new Error('The device self-test did not return a task.');
+            if (!result.task) throw new Error(t('The device self-test did not return a task.'));
             setSelfTestOpen(false);
             setSelfTestConfirmation('');
             setStatus(null);
-            onTaskStarted(result.task.id, 'Device self-test started. The test disc will be erased if all steps complete.');
+            onTaskStarted(result.task.id, t('Device self-test started. The test disc will be erased if all steps complete.'));
         } catch (error) {
-            setStatus(error instanceof Error ? error.message : 'Could not start the device self-test.');
+            setStatus(error instanceof Error ? error.message : t('Could not start the device self-test.'));
         } finally {
             setBusy(false);
         }
@@ -272,19 +365,21 @@ export const WorkbenchTools = ({
     const exportRawToc = async () => {
         if (!device || !disc) return;
         setBusy(true);
-        setStatus('Reading six raw TOC sectors…');
+        setStatus(t('Reading six raw TOC sectors…'));
         try {
             const result = await client.execute({ type: 'advanced.readToc' });
             if (!result.ok) throw new Error(result.error.message);
-            if (!result.advancedToc) throw new Error('The device did not return a raw TOC backup.');
+            if (!result.advancedToc) throw new Error(t('The device did not return a raw TOC backup.'));
             const data = decodeBase64(result.advancedToc.dataBase64);
             const fileName = buildAdvancedExportFileName('toc', disc.title || device.deviceName);
             downloadBlob(new Blob([data], { type: 'application/octet-stream' }), fileName);
             setTocSummary({ bytes: result.advancedToc.byteLength, sha256: result.advancedToc.sha256 });
             setStatus(null);
-            onMessage(`Saved ${fileName} with SHA-256 ${result.advancedToc.sha256.slice(0, 12)}….`);
+            onMessage(language === 'zh-CN'
+                ? `已保存 ${fileName}，SHA-256 为 ${result.advancedToc.sha256.slice(0, 12)}…。`
+                : `Saved ${fileName} with SHA-256 ${result.advancedToc.sha256.slice(0, 12)}….`);
         } catch (error) {
-            setStatus(error instanceof Error ? error.message : 'Could not export the raw TOC.');
+            setStatus(error instanceof Error ? error.message : t('Could not export the raw TOC.'));
         } finally {
             setBusy(false);
         }
@@ -297,17 +392,17 @@ export const WorkbenchTools = ({
         const expectedSessionId = device.sessionId;
         const expectedRevision = device.revision;
         setBusy(true);
-        setStatus(`Checking ${file.name} against the inserted disc…`);
+        setStatus(language === 'zh-CN' ? `正在将 ${file.name} 与当前碟片比较…` : `Checking ${file.name} against the inserted disc…`);
         setRawTocReview(null);
         setRawTocConfirmation('');
         try {
             const source = await inspectRawTocData(new Uint8Array(await file.arrayBuffer()));
             const result = await client.execute({ type: 'advanced.previewTocWrite', dataBase64: source.dataBase64 });
             if (!result.ok) throw new Error(result.error.message);
-            if (!result.advancedTocWritePreview) throw new Error('The device did not return a raw TOC write preview.');
+            if (!result.advancedTocWritePreview) throw new Error(t('The device did not return a raw TOC write preview.'));
             const latest = client.getWorkspaceSnapshot().device;
             if (latest?.sessionId !== expectedSessionId || latest.revision !== expectedRevision) {
-                throw new Error('The connected device or disc changed while the TOC file was being checked. Choose it again.');
+                throw new Error(t('The connected device or disc changed while the TOC file was being checked. Choose it again.'));
             }
             setRawTocReview({
                 sourceName: file.name,
@@ -318,7 +413,7 @@ export const WorkbenchTools = ({
             });
             setStatus(null);
         } catch (error) {
-            setStatus(error instanceof Error ? error.message : 'Could not review the raw TOC backup.');
+            setStatus(error instanceof Error ? error.message : t('Could not review the raw TOC backup.'));
         } finally {
             setBusy(false);
         }
@@ -331,13 +426,13 @@ export const WorkbenchTools = ({
             latest?.sessionId !== rawTocReview.expectedSessionId ||
             latest.revision !== rawTocReview.expectedRevision
         ) {
-            setStatus('The connected device or disc changed after this TOC was reviewed. Choose the file again.');
+            setStatus(t('The connected device or disc changed after this TOC was reviewed. Choose the file again.'));
             setRawTocReview(null);
             setRawTocConfirmation('');
             return;
         }
         setBusy(true);
-        setStatus('Writing the reviewed raw TOC…');
+        setStatus(t('Writing the reviewed raw TOC…'));
         try {
             const result = await client.execute({
                 type: 'advanced.writeToc',
@@ -351,14 +446,14 @@ export const WorkbenchTools = ({
                 interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
             });
             if (!result.ok) throw new Error(result.error.message);
-            if (!result.snapshot) throw new Error('Writing the raw TOC did not return the refreshed device state.');
+            if (!result.snapshot) throw new Error(t('Writing the raw TOC did not return the refreshed device state.'));
             const sourceName = rawTocReview.sourceName;
             setRawTocReview(null);
             setRawTocConfirmation('');
             setStatus(null);
-            onMessage(`Wrote the reviewed sectors from ${sourceName} and refreshed the disc.`);
+            onMessage(language === 'zh-CN' ? `已写入 ${sourceName} 中审阅过的扇区并刷新碟片。` : `Wrote the reviewed sectors from ${sourceName} and refreshed the disc.`);
         } catch (error) {
-            setStatus(error instanceof Error ? error.message : 'Could not write the raw TOC.');
+            setStatus(error instanceof Error ? error.message : t('Could not write the raw TOC.'));
         } finally {
             setBusy(false);
         }
@@ -369,21 +464,25 @@ export const WorkbenchTools = ({
         const expectedSessionId = device.sessionId;
         const expectedRevision = device.revision;
         setBusy(true);
-        setStatus(`Reviewing ${action.label.toLowerCase()}…`);
+        setStatus(language === 'zh-CN' ? `正在审阅“${t(action.label)}”…` : `Reviewing ${action.label.toLowerCase()}…`);
         setRawTocPatchReview(null);
         setRawTocPatchConfirmation('');
         try {
             const result = await client.execute({ type: 'advanced.previewTocPatch', kind: action.kind });
             if (!result.ok) throw new Error(result.error.message);
-            if (!result.advancedTocPatch) throw new Error('The device did not return a raw TOC change preview.');
+            if (!result.advancedTocPatch) throw new Error(t('The device did not return a raw TOC change preview.'));
             const latest = client.getWorkspaceSnapshot().device;
             if (latest?.sessionId !== expectedSessionId || latest.revision !== expectedRevision) {
-                throw new Error('The connected device or disc changed while the TOC flags were being reviewed. Review them again.');
+                throw new Error(t('The connected device or disc changed while the TOC flags were being reviewed. Review them again.'));
             }
             setRawTocPatchReview({ action, preview: result.advancedTocPatch, expectedSessionId, expectedRevision });
             setStatus(null);
         } catch (error) {
-            setStatus(error instanceof Error ? error.message : `Could not review ${action.label.toLowerCase()}.`);
+            setStatus(error instanceof Error
+                ? error.message
+                : language === 'zh-CN'
+                  ? `无法审阅“${t(action.label)}”。`
+                  : `Could not review ${action.label.toLowerCase()}.`);
         } finally {
             setBusy(false);
         }
@@ -396,13 +495,13 @@ export const WorkbenchTools = ({
             latest?.sessionId !== rawTocPatchReview.expectedSessionId ||
             latest.revision !== rawTocPatchReview.expectedRevision
         ) {
-            setStatus('The connected device or disc changed after this TOC change was reviewed. Review it again.');
+            setStatus(t('The connected device or disc changed after this TOC change was reviewed. Review it again.'));
             setRawTocPatchReview(null);
             setRawTocPatchConfirmation('');
             return;
         }
         setBusy(true);
-        setStatus(`Applying ${rawTocPatchReview.action.label.toLowerCase()}…`);
+        setStatus(language === 'zh-CN' ? `正在应用“${t(rawTocPatchReview.action.label)}”…` : `Applying ${rawTocPatchReview.action.label.toLowerCase()}…`);
         try {
             const result = await client.execute({
                 type: 'advanced.applyTocPatch',
@@ -416,14 +515,14 @@ export const WorkbenchTools = ({
                 interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
             });
             if (!result.ok) throw new Error(result.error.message);
-            if (!result.snapshot) throw new Error('Changing the raw TOC flags did not return the refreshed device state.');
+            if (!result.snapshot) throw new Error(t('Changing the raw TOC flags did not return the refreshed device state.'));
             const label = rawTocPatchReview.action.label;
             setRawTocPatchReview(null);
             setRawTocPatchConfirmation('');
             setStatus(null);
-            onMessage(`${label} completed and the disc was refreshed.`);
+            onMessage(language === 'zh-CN' ? `“${t(label)}”已完成，碟片已刷新。` : `${label} completed and the disc was refreshed.`);
         } catch (error) {
-            setStatus(error instanceof Error ? error.message : 'Could not change the raw TOC flags.');
+            setStatus(error instanceof Error ? error.message : t('Could not change the raw TOC flags.'));
         } finally {
             setBusy(false);
         }
@@ -432,7 +531,7 @@ export const WorkbenchTools = ({
     const exportAdvancedMemory = async (kind: 'ram' | 'firmware') => {
         if (!device) return;
         setBusy(true);
-        setStatus(`Starting ${kind === 'ram' ? 'RAM' : 'firmware'} export…`);
+        setStatus(language === 'zh-CN' ? `正在开始导出${kind === 'ram' ? ' RAM' : '固件'}…` : `Starting ${kind === 'ram' ? 'RAM' : 'firmware'} export…`);
         try {
             const task = await client.startLocalAdvancedMemoryExport(kind, (region, data) => {
                 const prefix = region === 'ROM' ? 'firmware' : region.toLowerCase();
@@ -440,9 +539,15 @@ export const WorkbenchTools = ({
                 downloadBlob(new Blob([new Uint8Array(data)], { type: 'application/octet-stream' }), fileName);
             });
             setStatus(null);
-            onTaskStarted(task.id, `${kind === 'ram' ? 'RAM' : 'Firmware'} export started. Keep the device connected until every region is saved.`);
+            onTaskStarted(task.id, language === 'zh-CN'
+                ? `${kind === 'ram' ? 'RAM' : '固件'}导出已开始。保存完所有区域前请保持设备连接。`
+                : `${kind === 'ram' ? 'RAM' : 'Firmware'} export started. Keep the device connected until every region is saved.`);
         } catch (error) {
-            setStatus(error instanceof Error ? error.message : `Could not start the ${kind} export.`);
+            setStatus(error instanceof Error
+                ? error.message
+                : language === 'zh-CN'
+                  ? `无法开始${kind === 'ram' ? ' RAM' : '固件'}导出。`
+                  : `Could not start the ${kind} export.`);
         } finally {
             setBusy(false);
         }
@@ -451,7 +556,7 @@ export const WorkbenchTools = ({
     const runAdvancedMaintenance = async () => {
         if (!maintenanceAction || !isAdvancedMaintenanceConfirmationValid(maintenanceAction, maintenanceConfirmation)) return;
         setBusy(true);
-        setStatus(`Applying ${maintenanceAction.label}…`);
+        setStatus(language === 'zh-CN' ? `正在应用“${t(maintenanceAction.label)}”…` : `Applying ${maintenanceAction.label}…`);
         try {
             let command: ApplicationCommand;
             switch (maintenanceAction.id) {
@@ -502,9 +607,13 @@ export const WorkbenchTools = ({
             setMaintenanceAction(null);
             setMaintenanceConfirmation('');
             setStatus(null);
-            onMessage(`${label} updated for this device session.`);
+            onMessage(language === 'zh-CN' ? `当前设备会话的“${t(label)}”已更新。` : `${label} updated for this device session.`);
         } catch (error) {
-            setStatus(error instanceof Error ? error.message : `Could not apply ${maintenanceAction.label}.`);
+            setStatus(error instanceof Error
+                ? error.message
+                : language === 'zh-CN'
+                  ? `无法应用“${t(maintenanceAction.label)}”。`
+                  : `Could not apply ${maintenanceAction.label}.`);
         } finally {
             setBusy(false);
         }
@@ -534,6 +643,16 @@ export const WorkbenchTools = ({
                     <button className="secondary-button" onClick={() => fileInput.current?.click()} disabled={!canImportMetadata || busy}><UploadFileRoundedIcon /> {t('Choose CSV')}</button>
                     <input ref={fileInput} type="file" accept=".csv,text/csv" hidden onChange={(event) => void chooseCsv(event)} />
                 </article>
+                {(capabilities.includes('disc.erase') || capabilities.includes('disc.formatHimd')) ? (
+                    <article className="workbench__tool-card is-danger workbench__maintenance-card">
+                        <DeleteForeverRoundedIcon />
+                        <div><h3>{t('Disc maintenance')}</h3><p>{t('Erase every track and group, or format a compatible disc as Hi-MD. Both operations permanently remove the current contents.')}</p><small>{t(discIsWritable ? 'Only operations supported by the connected device are shown.' : 'The inserted disc is read-only or write-protected.')}</small></div>
+                        <div className="workbench__maintenance-actions">
+                            {capabilities.includes('disc.erase') ? <button className="danger-button" onClick={() => openDiscMaintenanceReview('erase')} disabled={!canEraseDisc || busy}>{t('Erase MiniDisc')}</button> : null}
+                            {capabilities.includes('disc.formatHimd') ? <button className="danger-button" onClick={() => openDiscMaintenanceReview('formatHimd')} disabled={!canFormatHimd || busy}>{t('Format as Hi-MD')}</button> : null}
+                        </div>
+                    </article>
+                ) : null}
                 <article className="workbench__tool-card">
                     <MemoryRoundedIcon />
                     <div><h3>{t('Device information')}</h3><p>{t('Read the firmware version and supported Homebrew capabilities without changing disc content.')}</p></div>
@@ -590,7 +709,7 @@ export const WorkbenchTools = ({
                 </article>
                 <article className="workbench__tool-card is-danger">
                     <BugReportRoundedIcon />
-                    <div><h3>{t('Destructive device self-test')}</h3><p>{t('Verify titles, ordering, playback, deletion and erase behavior. The inserted disc will be emptied.')}</p><small>{t(selfTestReadiness.reason)}</small></div>
+                    <div><h3>{t('Destructive device self-test')}</h3><p>{t('Verify titles, ordering, playback, deletion and erase behavior. The inserted disc will be emptied.')}</p><small>{localizeSelfTestReadinessReason(selfTestReadiness.reason, language)}</small></div>
                     <button className="danger-button" onClick={() => setSelfTestOpen(true)} disabled={!selfTestReadiness.ready || busy}><BugReportRoundedIcon /> {t('Review self-test')}</button>
                 </article>
             </div>
@@ -644,6 +763,33 @@ export const WorkbenchTools = ({
                         <button className="primary-button" onClick={() => void applyCsv()} disabled={busy || !canImportMetadata}>{t('Apply reviewed metadata')}</button>
                     </footer>
                 </section>
+            ) : null}
+
+            {discMaintenanceReview ? (
+                <div className="workbench__modal-backdrop" role="presentation" onMouseDown={closeDiscMaintenanceReview}>
+                    <section className="workbench__modal workbench__maintenance-modal" role="alertdialog" aria-modal="true" aria-labelledby="workbench-disc-maintenance-title" aria-describedby="workbench-disc-maintenance-description" onMouseDown={(event) => event.stopPropagation()}>
+                        <span className="workbench__eyebrow">{t('DESTRUCTIVE DISC MAINTENANCE')}</span>
+                        <h2 id="workbench-disc-maintenance-title">{t(discMaintenanceReview.action === 'erase' ? 'Erase this MiniDisc?' : 'Format this disc as Hi-MD?')}</h2>
+                        <p id="workbench-disc-maintenance-description">{t(discMaintenanceReview.action === 'erase' ? 'Every track, group and title on this MiniDisc will be permanently removed.' : 'Formatting changes the disc to Hi-MD and permanently removes all current tracks, groups and titles.')}</p>
+                        <div className="workbench__write-warning">
+                            {language === 'zh-CN'
+                                ? `“${discMaintenanceReview.discTitle}”当前包含 ${discMaintenanceReview.trackCount} 首曲目。此操作无法撤销。`
+                                : `“${discMaintenanceReview.discTitle}” currently contains ${discMaintenanceReview.trackCount} track${discMaintenanceReview.trackCount === 1 ? '' : 's'}. This cannot be undone.`}
+                        </div>
+                        <label>
+                            {language === 'zh-CN'
+                                ? `输入 ${getDiscMaintenanceConfirmationToken(discMaintenanceReview.action)} 以继续`
+                                : `Type ${getDiscMaintenanceConfirmationToken(discMaintenanceReview.action)} to continue`}
+                            <input autoFocus value={discMaintenanceConfirmation} onChange={(event) => setDiscMaintenanceConfirmation(event.target.value)} />
+                        </label>
+                        <div className="workbench__modal-actions">
+                            <button className="secondary-button" onClick={closeDiscMaintenanceReview} disabled={busy}>{t('Keep disc contents')}</button>
+                            <button className="danger-button" onClick={() => void runDiscMaintenance()} disabled={busy || !isDiscMaintenanceConfirmationValid(discMaintenanceReview.action, discMaintenanceConfirmation)}>
+                                <DeleteForeverRoundedIcon /> {t(discMaintenanceReview.action === 'erase' ? 'Erase MiniDisc' : 'Format as Hi-MD')}
+                            </button>
+                        </div>
+                    </section>
+                </div>
             ) : null}
 
             {selfTestOpen ? (

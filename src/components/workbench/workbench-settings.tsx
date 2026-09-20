@@ -94,27 +94,27 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
         void client.execute({ type: 'services.get' }).then((result) => {
             if (!active) return;
             if (!result.ok || !result.services) {
-                setStatus(result.ok ? 'The service catalog returned no data.' : result.error.message);
+                setStatus(result.ok ? t('The service catalog returned no data.') : result.error.message);
                 return;
             }
             setCatalog(result.services);
             setEncoderId((current) => current ?? result.services!.audioEncoders[settings.audioExportService]?.id ?? null);
         });
         return () => { active = false; };
-    }, [client, settings.audioExportService]);
+    }, [client, settings.audioExportService, t]);
 
     const apply = useCallback(async (changes: UserSettingsUpdate, successMessage: string) => {
         setBusy(true);
         setStatus(null);
         try {
             await updateSettings(changes);
-            onMessage(successMessage);
+            onMessage(t(successMessage));
         } catch (error) {
             setStatus(error instanceof Error ? error.message : String(error));
         } finally {
             setBusy(false);
         }
-    }, [onMessage, updateSettings]);
+    }, [onMessage, t, updateSettings]);
 
     const selectedEncoder = catalog?.audioEncoders.find((service) => service.id === encoderId);
     const selectedLibrary = libraryIndex === -1 ? undefined : catalog?.libraries[libraryIndex];
