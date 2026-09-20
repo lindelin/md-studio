@@ -170,7 +170,7 @@ function createServer() {
         'minidisc_get_settings',
         {
             description:
-                'Read shared appearance, metadata, archive, and advanced-mode preferences. Local bridge authorization is intentionally excluded.',
+                'Read shared appearance, metadata, encoder, library, and advanced-mode preferences. Local bridge authorization is intentionally excluded.',
             inputSchema: z.object({}),
         },
         async () => execute({ type: 'settings.get' })

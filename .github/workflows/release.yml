@@ -29,7 +29,7 @@ jobs:
           mkdir -p minidisc-workspace/docs
           cp -R dist/. minidisc-workspace/
           cp README.md CONTRIBUTING.md LICENSE NOTICE.md SECURITY.md THIRD_PARTY_LICENSES.md RUNTIME_ASSETS.json minidisc-workspace/
-          cp docs/USER-GUIDE.md minidisc-workspace/docs/
+          cp -R docs/. minidisc-workspace/docs/
           zip -r "minidisc-workspace-${GITHUB_REF_NAME}.zip" minidisc-workspace
       - uses: softprops/action-gh-release@v3
         with:
