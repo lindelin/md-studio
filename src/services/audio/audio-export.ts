@@ -36,22 +36,28 @@ export abstract class DefaultFfmpegAudioExportService implements AudioExportServ
 
     async prepare(file: File) {
         this.loglines = [];
-        await this.loadFfmpeg();
+        try {
+            await this.loadFfmpeg();
 
-        const ext = file.name.split('.').slice(-1);
-        if (ext.length === 0) {
-            throw new Error(`Unrecognized file format: ${file.name}`);
+            const ext = file.name.split('.').slice(-1);
+            if (ext.length === 0) {
+                throw new Error(`Unrecognized file format: ${file.name}`);
+            }
+
+            this.inFileName = `inAudioFile.${ext[0]}`;
+            this.outFileNameNoExt = `outAudioFile`;
+
+            await this.ffmpegProcess.write(this.inFileName, file);
+        } catch (error) {
+            this.releaseFfmpegProcess();
+            throw error;
         }
-
-        this.inFileName = `inAudioFile.${ext[0]}`;
-        this.outFileNameNoExt = `outAudioFile`;
-
-        await this.ffmpegProcess.write(this.inFileName, file);
     }
 
     async loadFfmpeg() {
         const { createWorker } = await import('@ffmpeg/ffmpeg');
-        this.ffmpegProcess = createWorker({
+        this.releaseFfmpegProcess();
+        const process = createWorker({
             logger: (payload: LogPayload) => {
                 this.loglines.push(payload);
                 console.log(payload.action, payload.message);
@@ -59,7 +65,13 @@ export abstract class DefaultFfmpegAudioExportService implements AudioExportServ
             corePath: getPublicPathFor('ffmpeg-core.js'),
             workerPath: getPublicPathFor('runtime/ffmpeg-worker.min.js'),
         });
-        await this.ffmpegProcess.load();
+        this.ffmpegProcess = process;
+        try {
+            await process.load();
+        } catch (error) {
+            if (this.ffmpegProcess === process) this.releaseFfmpegProcess();
+            throw error;
+        }
     }
 
     async volumeDetect() {
@@ -124,8 +136,17 @@ export abstract class DefaultFfmpegAudioExportService implements AudioExportServ
             if (format.codec === 'A3+') return await this.encodeATRAC3Plus(parameters, callback);
             throw new Error('Invalid format');
         } finally {
-            this.ffmpegProcess?.worker.terminate();
-            this.ffmpegProcess = undefined;
+            this.releaseFfmpegProcess();
+        }
+    }
+
+    protected releaseFfmpegProcess() {
+        const process = this.ffmpegProcess;
+        this.ffmpegProcess = undefined;
+        try {
+            process?.worker.terminate();
+        } catch {
+            // Cleanup must not replace the conversion or preparation result.
         }
     }
 
