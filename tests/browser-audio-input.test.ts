@@ -36,7 +36,7 @@ describe('BrowserAudioInput', () => {
             return true;
         });
 
-        input.startPreview('preview-device');
+        await input.startPreview('preview-device');
         const data = await input.captureWav('capture-device', 250, (value) => progress.push(value), () => false);
 
         assert.deepEqual([...data], [1, 2, 3]);
@@ -76,5 +76,24 @@ describe('BrowserAudioInput', () => {
 
         await assert.rejects(() => input.captureWav('line-in', 250, () => {}, () => false), /capture failed/);
         assert.deepEqual(events, ['input:open', 'record:start', 'record:stop', 'input:close']);
+    });
+
+    it('serializes rapid preview replacements and keeps only the latest input active', async () => {
+        const events: string[] = [];
+        const recorder = {
+            async stopTestInput() {
+                events.push('stop');
+            },
+            async playTestInput(deviceId: string) {
+                events.push(`play:${deviceId}`);
+            },
+        } as unknown as MediaRecorderService;
+        const input = new BrowserAudioInput(recorder);
+
+        const first = input.startPreview('first');
+        const second = input.startPreview('second');
+        await Promise.all([first, second]);
+
+        assert.deepEqual(events, ['stop', 'stop', 'play:second']);
     });
 });

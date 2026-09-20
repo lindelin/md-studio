@@ -148,7 +148,9 @@ export const SongRecognitionDialog = () => {
         (ev: React.ChangeEvent<{ value: unknown }>) => {
             const deviceId = ev.target.value as string;
             setInputDeviceId(deviceId);
-            applicationClient.startLocalAudioInputPreview(deviceId);
+            void applicationClient.startLocalAudioInputPreview(deviceId).catch((error) =>
+                window.alert(error instanceof Error ? error.message : String(error))
+            );
         },
         [applicationClient, setInputDeviceId]
     );
@@ -160,7 +162,7 @@ export const SongRecognitionDialog = () => {
 
     const stopAudioInput = useCallback(() => {
         setInputDeviceId('');
-        applicationClient.stopLocalAudioInputPreview();
+        void applicationClient.stopLocalAudioInputPreview();
     }, [applicationClient]);
 
     const handleChangeImportMethod = useCallback(

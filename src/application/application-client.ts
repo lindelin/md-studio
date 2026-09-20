@@ -63,8 +63,8 @@ export interface ApplicationClient {
         operation: (playback: PlaybackSession) => Promise<T>
     ): Promise<T>;
     initializeLocalMediaServices(): Promise<void>;
-    startLocalAudioInputPreview(deviceId: string): void;
-    stopLocalAudioInputPreview(): void;
+    startLocalAudioInputPreview(deviceId: string): Promise<void>;
+    stopLocalAudioInputPreview(): Promise<void>;
     captureLocalAudioInput(
         deviceId: string,
         durationMs: number,
@@ -167,9 +167,9 @@ export class InProcessApplicationClient implements ApplicationClient {
         if (!this.localMediaServices) {
             throw new Error('Browser audio input is unavailable in this application environment.');
         }
-        this.localMediaServices.audioInput.startPreview(deviceId);
+        return this.localMediaServices.audioInput.startPreview(deviceId);
     };
-    stopLocalAudioInputPreview = () => this.localMediaServices?.audioInput.stopPreview();
+    stopLocalAudioInputPreview = () => this.localMediaServices?.audioInput.stopPreview() ?? Promise.resolve();
     captureLocalAudioInput = (
         deviceId: string,
         durationMs: number,

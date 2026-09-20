@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, WindowHeader, Fieldset, Select } from 'react95';
 import { Controls } from '../controls';
 import { DialogOverlay, DialogWindow, DialogFooter, DialogWindowContent, WindowCloseIcon, FooterButton } from './common';
+import { requestBrowserAudioDevices } from '../../application/browser-audio-devices';
 
 export const W95DumpDialog = (props: {
     handleClose: () => void;
@@ -20,14 +21,9 @@ export const W95DumpDialog = (props: {
 
     useEffect(() => {
         async function updateDeviceList() {
-            await navigator.mediaDevices.getUserMedia({ audio: true });
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const inputDevices = devices
-                .filter(device => device.kind === 'audioinput')
-                .map(device => ({ deviceId: device.deviceId, label: device.label }));
-            setInputDevices(inputDevices);
+            setInputDevices(await requestBrowserAudioDevices());
         }
-        updateDeviceList();
+        void updateDeviceList().catch((error) => console.error('Could not list browser audio inputs.', error));
     }, [setInputDevices]);
 
     if (!props.visible) {

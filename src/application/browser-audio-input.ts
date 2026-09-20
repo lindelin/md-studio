@@ -4,8 +4,8 @@ import { sleepWithProgressCallback } from '../utils';
 type DurationWaiter = typeof sleepWithProgressCallback;
 
 export interface LocalAudioInput {
-    startPreview(deviceId: string): void;
-    stopPreview(): void;
+    startPreview(deviceId: string): Promise<void>;
+    stopPreview(): Promise<void>;
     captureWav(
         deviceId: string,
         durationMs: number,
@@ -15,18 +15,33 @@ export interface LocalAudioInput {
 }
 
 export class BrowserAudioInput implements LocalAudioInput {
+    private previewRequest = 0;
+    private previewOperation: Promise<void> = Promise.resolve();
+
     constructor(
         private readonly recorder: MediaRecorderService,
         private readonly waitForDuration: DurationWaiter = sleepWithProgressCallback
     ) {}
 
     startPreview(deviceId: string) {
-        this.recorder.stopTestInput();
-        this.recorder.playTestInput(deviceId);
+        const request = ++this.previewRequest;
+        return this.queuePreview(async () => {
+            await this.recorder.stopTestInput();
+            if (request !== this.previewRequest) return;
+            await this.recorder.playTestInput(deviceId);
+            if (request !== this.previewRequest) await this.recorder.stopTestInput();
+        });
     }
 
     stopPreview() {
-        this.recorder.stopTestInput();
+        this.previewRequest += 1;
+        return this.queuePreview(() => this.recorder.stopTestInput());
+    }
+
+    private queuePreview(operation: () => Promise<void>) {
+        const next = this.previewOperation.catch(() => undefined).then(operation);
+        this.previewOperation = next;
+        return next;
     }
 
     async captureWav(

@@ -8,26 +8,31 @@ export class MediaRecorderService {
     public analyserNode?: AnalyserNode;
     public gainNode?: GainNode;
 
-    playTestInput(deviceId: string) {
-        this.audioContext = new AudioContext();
-        this.gainNode = this.audioContext.createGain();
-        this.analyserNode = this.audioContext.createAnalyser();
+    async playTestInput(deviceId: string) {
+        await this.stopTestInput();
+        const audioContext = new AudioContext();
+        this.audioContext = audioContext;
+        this.gainNode = audioContext.createGain();
+        this.analyserNode = audioContext.createAnalyser();
 
-        this.initStream(deviceId).then(() => {
-            const source = this.audioContext!.createMediaStreamSource(this.stream!);
-            source.connect(this.gainNode!);
-            this.gainNode!.connect(this.analyserNode!);
-            this.analyserNode!.connect(this.audioContext!.destination);
-        });
+        try {
+            await this.initStream(deviceId);
+            if (this.audioContext !== audioContext) return;
+            const source = audioContext.createMediaStreamSource(this.stream!);
+            source.connect(this.gainNode);
+            this.gainNode.connect(this.analyserNode);
+            this.analyserNode.connect(audioContext.destination);
+        } catch (error) {
+            if (this.audioContext === audioContext) await this.stopTestInput();
+            throw error;
+        }
     }
 
-    stopTestInput() {
-        if (!this.audioContext) {
-            return;
-        }
-        this.audioContext?.close();
+    async stopTestInput() {
+        const audioContext = this.audioContext;
         delete this.audioContext;
-        this.closeStream();
+        if (audioContext && audioContext.state !== 'closed') await audioContext.close();
+        await this.closeStream();
     }
 
     async initStream(deviceId: string) {
@@ -75,6 +80,7 @@ export class MediaRecorderService {
 
     async closeStream() {
         this.stream?.getTracks().forEach((track) => track.stop());
+        delete this.stream;
     }
 
     async exportRecorded() {

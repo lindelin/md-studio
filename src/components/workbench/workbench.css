@@ -320,8 +320,8 @@
 .workbench__modal h2 { margin: 7px 0 8px; font-size: 20px; }
 .workbench__modal p { margin: 0 0 20px; color: var(--wb-muted); font-size: 11px; line-height: 1.5; }
 .workbench__modal label { display: block; color: #8498a5; font-size: 9px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
-.workbench__modal input:not([type="checkbox"]) { width: 100%; height: 40px; margin-top: 7px; border: 1px solid #3a5361; border-radius: 5px; outline: 0; padding: 0 11px; color: #edf6fa; background: #0f1b22; text-transform: none; }
-.workbench__modal input:not([type="checkbox"]):focus { border-color: var(--wb-accent); box-shadow: 0 0 0 2px rgba(32,174,243,.12); }
+.workbench__modal input:not([type="checkbox"]):not([type="radio"]) { width: 100%; height: 40px; margin-top: 7px; border: 1px solid #3a5361; border-radius: 5px; outline: 0; padding: 0 11px; color: #edf6fa; background: #0f1b22; text-transform: none; }
+.workbench__modal input:not([type="checkbox"]):not([type="radio"]):focus { border-color: var(--wb-accent); box-shadow: 0 0 0 2px rgba(32,174,243,.12); }
 .workbench__modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
 .workbench__write-modal { width: min(560px, 100%); max-height: calc(100vh - 48px); overflow: auto; }
 .workbench__write-pending { display: flex; align-items: center; gap: 9px; border: 1px solid #315064; border-radius: 5px; padding: 12px; color: #9ec6d9; background: #112733; font-size: 10px; }
@@ -336,6 +336,23 @@
 .workbench__write-option span, .workbench__write-option small { display: block; }
 .workbench__write-option small { margin-top: 3px; color: #718692; font-size: 8px; font-weight: 400; line-height: 1.45; }
 .workbench__write-option.is-disabled { opacity: .48; cursor: default; }
+.workbench__transfer-modal { width: min(580px, 100%); max-height: calc(100vh - 48px); overflow: auto; }
+.workbench__transfer-tracks { display: grid; gap: 1px; margin-bottom: 15px; overflow: hidden; border: 1px solid #2e4654; border-radius: 6px; background: #2e4654; }
+.workbench__transfer-tracks span { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 7px; padding: 8px 11px; color: #cadbe3; background: #101d25; font-size: 10px; }
+.workbench__transfer-tracks span b { color: #6f8996; font-size: 9px; }
+.workbench__transfer-tracks small { padding: 7px 11px; color: #79909b; background: #101d25; font-size: 8px; }
+.workbench__transfer-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.workbench__transfer-options label { display: grid; grid-template-columns: 17px minmax(0, 1fr); align-items: start; gap: 8px; border: 1px solid #304754; border-radius: 6px; padding: 11px; color: #d5e4eb; background: #101d25; cursor: pointer; font-size: 10px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.workbench__transfer-options label.is-selected { border-color: var(--wb-accent); background: #112b38; }
+.workbench__transfer-options input { width: 14px; height: 14px; margin: 1px 0 0; accent-color: var(--wb-accent); }
+.workbench__transfer-options span, .workbench__transfer-options small { display: block; }
+.workbench__transfer-options small { margin-top: 4px; color: #77909c; font-size: 8px; font-weight: 400; line-height: 1.4; }
+.workbench__transfer-select select { display: block; width: 100%; height: 40px; margin-top: 7px; border: 1px solid #3a5361; border-radius: 5px; padding: 0 10px; color: #edf6fa; background: #0f1b22; font-size: 10px; }
+.workbench__transfer-monitor { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; margin-top: 12px; border: 1px solid #2f4653; border-radius: 6px; padding: 10px 11px; background: #101d25; }
+.workbench__transfer-monitor strong, .workbench__transfer-monitor small { display: block; }
+.workbench__transfer-monitor strong { color: #d6e6ed; font-size: 10px; }
+.workbench__transfer-monitor small { margin-top: 3px; color: #728994; font-size: 8px; line-height: 1.4; }
+.workbench__transfer-monitor button svg, .workbench__modal-actions button svg { width: 16px; height: 16px; }
 
 @media (max-width: 1100px) {
     .workbench { grid-template-columns: 76px minmax(0, 1fr); }
@@ -394,4 +411,7 @@
     .workbench__selection-bar { min-height: 76px; align-items: flex-start; flex-wrap: wrap; padding-block: 9px; }
     .workbench__selection-bar > span { display: none; }
     .workbench__selection-bar > div { width: 100%; margin-left: 0; }
+    .workbench__transfer-options { grid-template-columns: 1fr; }
+    .workbench__transfer-monitor { grid-template-columns: 1fr 1fr; }
+    .workbench__transfer-monitor > div { grid-column: 1 / -1; }
 }

@@ -9,6 +9,7 @@ import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import Typography from '@mui/material/Typography';
 import { makeStyles } from 'tss-react/mui';
+import { requestBrowserAudioDevices } from '../application/browser-audio-devices';
 
 const useStyles = makeStyles()((theme) => ({
     container: {
@@ -39,14 +40,9 @@ export function LineInDeviceSelect({ handleChange, inputDeviceId }: { handleChan
 
     useEffect(() => {
         async function updateDeviceList() {
-            await navigator.mediaDevices.getUserMedia({ audio: true });
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const inputDevices = devices
-                .filter((device) => device.kind === 'audioinput')
-                .map((device) => ({ deviceId: device.deviceId, label: device.label }));
-            setInputDevices(inputDevices);
+            setInputDevices(await requestBrowserAudioDevices());
         }
-        updateDeviceList();
+        void updateDeviceList().catch((error) => console.error('Could not list browser audio inputs.', error));
     }, [setInputDevices]);
     return (
         <React.Fragment>

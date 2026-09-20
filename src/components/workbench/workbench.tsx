@@ -70,6 +70,7 @@ import { ChangelogDialog } from '../changelog-dialog';
 import { PanicDialog } from '../panic-dialog';
 import { WorkbenchLibrary } from './workbench-library';
 import { WorkbenchSettings } from './workbench-settings';
+import { WorkbenchTrackTransfer } from './workbench-track-transfer';
 
 import './workbench.css';
 
@@ -137,6 +138,7 @@ export const Workbench = () => {
     const [dirtyDraftFields, setDirtyDraftFields] = useState<WorkbenchDraftField[]>([]);
     const [groupDraft, setGroupDraft] = useState('');
     const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+    const [trackTransferOpen, setTrackTransferOpen] = useState(false);
     const [taskCenterOpen, setTaskCenterOpen] = useState(false);
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [writeReviewOpen, setWriteReviewOpen] = useState(false);
@@ -382,6 +384,10 @@ export const Workbench = () => {
     const sortedSelectedTrackIndexes = useMemo(
         () => [...selectedTrackIndexes].sort((left, right) => left - right),
         [selectedTrackIndexes]
+    );
+    const selectedTracks = useMemo(
+        () => tracks.filter((track) => selectedTrackIndexes.includes(track.index)),
+        [selectedTrackIndexes, tracks]
     );
     const selectedImportCount = selectedImportIds.length;
     const selectedTrackCount = selectedTrackIndexes.length;
@@ -630,7 +636,11 @@ export const Workbench = () => {
 
     const openTrackTransfer = () => {
         if (selectedTrackIndexes.length === 0) return;
-        dispatch(dumpDialogActions.setVisible(true));
+        if (factoryModeRippingInMainUi) {
+            dispatch(dumpDialogActions.setVisible(true));
+            return;
+        }
+        setTrackTransferOpen(true);
     };
 
     const cancelTask = (id: string) => {
@@ -1018,12 +1028,26 @@ export const Workbench = () => {
             <RenameDialog />
             <ErrorDialog />
             <FactoryModeBadSectorDialog />
-            <DumpDialog trackIndexes={selectedTrackIndexes} isCapableOfDownload={canDownload || factoryModeRippingInMainUi} isExploitDownload={factoryModeRippingInMainUi} />
+            {factoryModeRippingInMainUi ? <DumpDialog trackIndexes={selectedTrackIndexes} isCapableOfDownload isExploitDownload /> : null}
             <SongRecognitionDialog />
             <FactoryModeNoticeDialog />
             <AboutDialog />
             <ChangelogDialog />
             <PanicDialog />
+
+            {trackTransferOpen && device ? (
+                <WorkbenchTrackTransfer
+                    mode={canDownload ? 'export' : 'record'}
+                    tracks={selectedTracks}
+                    expectedRevision={device.revision}
+                    onClose={() => setTrackTransferOpen(false)}
+                    onTaskStarted={(id, nextMessage) => {
+                        setSelectedTaskId(id);
+                        setTaskCenterOpen(true);
+                        setMessage(nextMessage);
+                    }}
+                />
+            ) : null}
 
             {writeReviewOpen ? (
                 <div className="workbench__modal-backdrop" role="presentation" onMouseDown={() => !busy && setWriteReviewOpen(false)}>

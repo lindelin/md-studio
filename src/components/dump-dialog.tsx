@@ -52,7 +52,7 @@ export const DumpDialog = ({
 
     const handleClose = useCallback(() => {
         setInputDeviceId('');
-        applicationClient.stopLocalAudioInputPreview();
+        void applicationClient.stopLocalAudioInputPreview();
         dispatch(dumpDialogActions.setVisible(false));
     }, [applicationClient, dispatch]);
 
@@ -61,7 +61,9 @@ export const DumpDialog = ({
             if (isCapableOfDownload) return;
             const deviceId = ev.target.value as string;
             setInputDeviceId(deviceId);
-            applicationClient.startLocalAudioInputPreview(deviceId);
+            void applicationClient.startLocalAudioInputPreview(deviceId).catch((error) =>
+                console.error('Could not preview the selected audio input.', error)
+            );
         },
         [applicationClient, setInputDeviceId, isCapableOfDownload]
     );

@@ -92,9 +92,9 @@ export function getApplicationClient() {
             audioInput: {
                 startPreview: (deviceId: string) => {
                     if (!serviceRegistry.localAudioInput) throw new Error('Browser audio input is unavailable.');
-                    serviceRegistry.localAudioInput.startPreview(deviceId);
+                    return serviceRegistry.localAudioInput.startPreview(deviceId);
                 },
-                stopPreview: () => serviceRegistry.localAudioInput?.stopPreview(),
+                stopPreview: () => serviceRegistry.localAudioInput?.stopPreview() ?? Promise.resolve(),
                 captureWav: (
                     deviceId: string,
                     durationMs: number,
