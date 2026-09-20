@@ -14,6 +14,7 @@ import { waitForApplicationTask } from '../../application/application-client';
 import { INTERACTIVE_ADVANCED_AUTHORIZATION } from '../../application/interactive-authorization';
 import { executeSessionEndingCommand } from '../../application/device-session-transition';
 import { usesLegacyTaskPresentation } from '../../frontend/task-presentation';
+import type { RawTocPatchKind } from '../../domain/raw-toc-patch';
 
 function decodeBase64(data: string) {
     const binary = atob(data);
@@ -335,6 +336,51 @@ export function stripTrProtect() {
             updateFlagAllFragmentsOfTrack(toc, track, ModeFlag.F_WRITABLE, true);
         }
         dispatch(batchActions([factoryActions.setModified(true), factoryActions.setToc(toc)]));
+    };
+}
+
+export function applyTocFlagPatch(kind: RawTocPatchKind) {
+    return async function(dispatch: AppDispatch) {
+        const labels =
+            kind === 'unrestrict-scms'
+                ? { name: 'Remove SCMS restrictions', token: 'UNLOCK SCMS' }
+                : { name: 'Clear track protection', token: 'UNPROTECT TRACKS' };
+        const client = getApplicationClient();
+        const preparedDevice = client.getWorkspaceSnapshot().device;
+        if (!preparedDevice) throw new Error('No MiniDisc device is connected.');
+        dispatch(appStateActions.setLoading(true));
+        try {
+            const previewResult = await client.execute({ type: 'advanced.previewTocPatch', kind });
+            if (!previewResult.ok) throw new Error(previewResult.error.message);
+            const preview = previewResult.advancedTocPatch;
+            if (!preview) throw new Error('The device did not return a raw TOC change preview.');
+            if (preview.changedFragments === 0) {
+                window.alert(`${labels.name} is already applied. No write is needed.`);
+                return;
+            }
+            const reviewedDevice = client.getWorkspaceSnapshot().device;
+            if (
+                reviewedDevice?.sessionId !== preparedDevice.sessionId ||
+                reviewedDevice.revision !== preparedDevice.revision
+            ) {
+                throw new Error('The connected device or disc changed while the TOC flags were being reviewed. Review them again.');
+            }
+            const supplied = window.prompt(
+                `${labels.name} will change ${preview.changedFragments} fragment${preview.changedFragments === 1 ? '' : 's'} across ${preview.changedTracks} track${preview.changedTracks === 1 ? '' : 's'}. Type ${labels.token} to continue.`
+            );
+            if (supplied !== labels.token) return;
+            const result = await client.execute({
+                type: 'advanced.applyTocPatch',
+                kind,
+                expectedCurrentTocSha256: preview.currentSha256,
+                confirmation: { confirmed: true, reason: `Confirmed ${labels.name} in the compatibility menu.` },
+                expectedRevision: preparedDevice.revision,
+                interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
+            });
+            if (!result.ok) throw new Error(result.error.message);
+        } finally {
+            dispatch(appStateActions.setLoading(false));
+        }
     };
 }
 

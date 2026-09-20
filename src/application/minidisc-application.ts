@@ -2,6 +2,7 @@ import {
     ApplicationError,
     type AdvancedDeviceGateway,
     type AdvancedTocDump,
+    type AdvancedTocPatchPreview,
     type AdvancedMemoryDump,
     type AdvancedMemoryKind,
     type AdvancedMemoryProgress,
@@ -34,6 +35,14 @@ import { sleep } from '../utils';
 import { INTERACTIVE_ADVANCED_AUTHORIZATION } from './interactive-authorization';
 import { ImportPreviewError, type ImportPreview, type ImportPreviewTrack } from './import-preview';
 import { getRecordingCodec } from './device-profile';
+import {
+    isRawTocPatchKind,
+    planRawTocPatch,
+    RAW_TOC_SECTOR_SIZE,
+    RAW_TOC_WRITABLE_SECTOR_COUNT,
+    RAW_TOC_WRITABLE_BYTE_LENGTH,
+    type RawTocPatchKind,
+} from '../domain/raw-toc-patch';
 
 export const MINIDISC_SELF_TEST_STEP_COUNT = 14;
 
@@ -187,20 +196,63 @@ export class MiniDiscApplication {
             const gateway = this.requireAdvancedGateway();
             await this.requireExploitCapability(gateway, 'flushUTOC');
             if (expectedCurrentTocSha256 !== undefined) {
-                if (!/^[a-f0-9]{64}$/i.test(expectedCurrentTocSha256)) {
-                    throw new ApplicationError('INVALID_INPUT', 'The expected raw TOC checksum is invalid.');
-                }
-                const current = await this.readRawTocFromGateway(gateway);
-                if (current.sha256 !== expectedCurrentTocSha256.toLowerCase()) {
-                    throw new ApplicationError(
-                        'STALE_REVISION',
-                        'The raw TOC changed after this write was reviewed. Export and review it again before writing.',
-                        { expectedSha256: expectedCurrentTocSha256.toLowerCase(), actualSha256: current.sha256 }
-                    );
-                }
+                await this.requireCurrentRawToc(gateway, expectedCurrentTocSha256);
             }
             for (let index = 0; index < writableSectorCount; index += 1) {
                 await gateway.writeTocSector(index, data.slice(index * sectorSize, (index + 1) * sectorSize));
+            }
+            await gateway.flushToc();
+        });
+    }
+
+    previewRawTocPatch(kind: RawTocPatchKind): Promise<AdvancedTocPatchPreview> {
+        return this.serial(async () => {
+            this.requireRawTocPatchKind(kind);
+            this.requireWritableDisc('advanced.factory');
+            const gateway = this.requireAdvancedGateway();
+            await this.requireExploitCapability(gateway, 'flushUTOC');
+            const current = await this.readRawTocFromGateway(gateway);
+            const currentData = decodeBase64(current.dataBase64);
+            const plan = planRawTocPatch(currentData, kind);
+            return {
+                kind,
+                totalTracks: plan.totalTracks,
+                changedTracks: plan.changedTracks,
+                changedFragments: plan.changedFragments,
+                currentSha256: current.sha256,
+                proposedSha256: await digestHex(plan.data),
+                currentWritableSha256: await digestHex(currentData.subarray(0, RAW_TOC_WRITABLE_BYTE_LENGTH)),
+                proposedWritableSha256: await digestHex(plan.data.subarray(0, RAW_TOC_WRITABLE_BYTE_LENGTH)),
+            };
+        });
+    }
+
+    applyRawTocPatch(
+        kind: RawTocPatchKind,
+        expectedCurrentTocSha256: string,
+        confirmation?: DestructiveConfirmation,
+        expectedRevision?: number,
+        interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION
+    ) {
+        return this.mutate('advanced.factory', expectedRevision, async () => {
+            this.requireRawTocPatchKind(kind);
+            this.requireInteractiveAdvancedAuthorization(interactiveAuthorization);
+            this.requireConfirmation(
+                confirmation,
+                'Changing raw TOC protection flags can make tracks unreadable and requires explicit confirmation.'
+            );
+            const gateway = this.requireAdvancedGateway();
+            await this.requireExploitCapability(gateway, 'flushUTOC');
+            const current = await this.requireCurrentRawToc(gateway, expectedCurrentTocSha256);
+            const plan = planRawTocPatch(decodeBase64(current.dataBase64), kind);
+            if (plan.changedFragments === 0) {
+                throw new ApplicationError('INVALID_INPUT', 'The selected raw TOC change is already applied.');
+            }
+            for (let index = 0; index < RAW_TOC_WRITABLE_SECTOR_COUNT; index += 1) {
+                await gateway.writeTocSector(
+                    index,
+                    plan.data.slice(index * RAW_TOC_SECTOR_SIZE, (index + 1) * RAW_TOC_SECTOR_SIZE)
+                );
             }
             await gateway.flushToc();
         });
@@ -223,14 +275,34 @@ export class MiniDiscApplication {
         }
         const data = new Uint8Array(sectorSize * sectorCount);
         sectors.forEach((sector, index) => data.set(sector, index * sectorSize));
-        const digest = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', data));
         return {
             sectorSize,
             sectorCount,
             byteLength: data.byteLength,
-            sha256: Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join(''),
+            sha256: await digestHex(data),
             dataBase64: encodeBase64(data),
         };
+    }
+
+    private async requireCurrentRawToc(gateway: AdvancedDeviceGateway, expectedSha256: string) {
+        if (!/^[a-f0-9]{64}$/i.test(expectedSha256)) {
+            throw new ApplicationError('INVALID_INPUT', 'The expected raw TOC checksum is invalid.');
+        }
+        const current = await this.readRawTocFromGateway(gateway);
+        if (current.sha256 !== expectedSha256.toLowerCase()) {
+            throw new ApplicationError(
+                'STALE_REVISION',
+                'The raw TOC changed after this write was reviewed. Export and review it again before writing.',
+                { expectedSha256: expectedSha256.toLowerCase(), actualSha256: current.sha256 }
+            );
+        }
+        return current;
+    }
+
+    private requireRawTocPatchKind(kind: unknown): asserts kind is RawTocPatchKind {
+        if (!isRawTocPatchKind(kind)) {
+            throw new ApplicationError('INVALID_INPUT', 'The raw TOC flag change is not supported.');
+        }
     }
 
     runTetris(
@@ -969,6 +1041,13 @@ function encodeBase64(data: Uint8Array) {
         binary += String.fromCharCode(...data.subarray(offset, Math.min(offset + 32_768, data.byteLength)));
     }
     return btoa(binary);
+}
+
+async function digestHex(data: Uint8Array) {
+    const stable = new Uint8Array(data.byteLength);
+    stable.set(data);
+    const digest = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', stable));
+    return Array.from(digest, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 function decodeBase64(data: string) {

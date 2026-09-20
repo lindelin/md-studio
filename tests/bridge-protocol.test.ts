@@ -90,6 +90,21 @@ describe('bridge protocol validation', () => {
                 parseBridgeMessage({
                     type: 'request',
                     protocolVersion: BRIDGE_PROTOCOL_VERSION,
+                    id: 'advanced-patch-1',
+                    command: {
+                        type: 'advanced.applyTocPatch',
+                        kind: 'unrestrict-scms',
+                        expectedCurrentTocSha256: 'a'.repeat(64),
+                        confirmation: { confirmed: true, reason: 'Forged JSON confirmation' },
+                    },
+                }),
+            /restricted to the local browser UI/
+        );
+        assert.throws(
+            () =>
+                parseBridgeMessage({
+                    type: 'request',
+                    protocolVersion: BRIDGE_PROTOCOL_VERSION,
                     id: 'library-1',
                     command: { type: 'library.refresh' },
                 }),

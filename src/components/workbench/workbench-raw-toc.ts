@@ -1,9 +1,39 @@
-export const RAW_TOC_SECTOR_SIZE = 2352;
-export const RAW_TOC_SECTOR_COUNT = 6;
-export const RAW_TOC_WRITABLE_SECTOR_COUNT = 4;
-export const RAW_TOC_BYTE_LENGTH = RAW_TOC_SECTOR_SIZE * RAW_TOC_SECTOR_COUNT;
-export const RAW_TOC_WRITABLE_BYTE_LENGTH = RAW_TOC_SECTOR_SIZE * RAW_TOC_WRITABLE_SECTOR_COUNT;
+import {
+    RAW_TOC_BYTE_LENGTH,
+    RAW_TOC_WRITABLE_BYTE_LENGTH,
+} from '../../domain/raw-toc-patch';
+import type { RawTocPatchKind } from '../../domain/raw-toc-patch';
+
+export {
+    RAW_TOC_BYTE_LENGTH,
+    RAW_TOC_SECTOR_COUNT,
+    RAW_TOC_SECTOR_SIZE,
+    RAW_TOC_WRITABLE_BYTE_LENGTH,
+    RAW_TOC_WRITABLE_SECTOR_COUNT,
+} from '../../domain/raw-toc-patch';
 export const RAW_TOC_CONFIRMATION = 'WRITE TOC';
+
+export interface RawTocPatchAction {
+    kind: RawTocPatchKind;
+    label: string;
+    description: string;
+    confirmation: string;
+}
+
+export const rawTocPatchActions: RawTocPatchAction[] = [
+    {
+        kind: 'unrestrict-scms',
+        label: 'Remove SCMS restrictions',
+        description: 'Set both SCMS permission bits on every fragment of every track.',
+        confirmation: 'UNLOCK SCMS',
+    },
+    {
+        kind: 'mark-tracks-writable',
+        label: 'Clear track protection',
+        description: 'Set the writable flag on every fragment of every track.',
+        confirmation: 'UNPROTECT TRACKS',
+    },
+];
 
 export interface RawTocFileInspection {
     byteLength: number;
@@ -33,6 +63,10 @@ export async function inspectRawTocData(data: Uint8Array): Promise<RawTocFileIns
 
 export function isRawTocConfirmationValid(value: string) {
     return value === RAW_TOC_CONFIRMATION;
+}
+
+export function isRawTocPatchConfirmationValid(action: RawTocPatchAction, value: string) {
+    return value === action.confirmation;
 }
 
 async function sha256(data: Uint8Array) {

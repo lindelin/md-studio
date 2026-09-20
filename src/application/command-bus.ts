@@ -2,6 +2,7 @@ import type {
     DestructiveConfirmation,
     AdvancedDeviceInfo,
     AdvancedTocDump,
+    AdvancedTocPatchPreview,
     DeviceSnapshot,
     GroupMetadataUpdate,
     HiMDTrackMetadataUpdate,
@@ -37,6 +38,7 @@ import type {
 } from './library-catalog';
 import type { ServiceCatalogSnapshot } from './service-catalog';
 import type { ImportPreview } from './import-preview';
+import type { RawTocPatchKind } from '../domain/raw-toc-patch';
 
 export type LibraryImportFactory = (paths: string[][], expectedLibraryRevision?: number) => ImportQueueInput[];
 
@@ -55,6 +57,7 @@ export type ApplicationCommand =
     | { type: 'metadata.applyCsv'; text: string; includedTrackIndexes: number[]; expectedRevision?: number }
     | { type: 'advanced.inspect' }
     | { type: 'advanced.readToc' }
+    | { type: 'advanced.previewTocPatch'; kind: RawTocPatchKind }
     | {
           type: 'advanced.writeToc';
           dataBase64: string;
@@ -62,6 +65,14 @@ export type ApplicationCommand =
           expectedRevision?: number;
           interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION;
           expectedCurrentTocSha256?: string;
+      }
+    | {
+          type: 'advanced.applyTocPatch';
+          kind: RawTocPatchKind;
+          expectedCurrentTocSha256: string;
+          confirmation?: DestructiveConfirmation;
+          expectedRevision?: number;
+          interactiveAuthorization?: typeof INTERACTIVE_ADVANCED_AUTHORIZATION;
       }
     | {
           type: 'advanced.runTetris';
@@ -149,6 +160,7 @@ export interface CommandSuccess {
     metadataPlan?: MetadataImportPlan;
     advancedInfo?: AdvancedDeviceInfo;
     advancedToc?: AdvancedTocDump;
+    advancedTocPatch?: AdvancedTocPatchPreview;
     settings?: SettingsSnapshot;
     library?: LibraryCatalogSnapshot;
     libraryState?: LibraryCatalogState;
@@ -411,6 +423,9 @@ export class ApplicationCommandBus {
             if (command.type === 'advanced.readToc') {
                 return { ok: true, advancedToc: await application.readRawToc() };
             }
+            if (command.type === 'advanced.previewTocPatch') {
+                return { ok: true, advancedTocPatch: await application.previewRawTocPatch(command.kind) };
+            }
             if (command.type === 'advanced.runTetris') {
                 await application.runTetris(command.confirmation, command.interactiveAuthorization);
                 return { ok: true };
@@ -469,6 +484,15 @@ export class ApplicationCommandBus {
                         command.expectedRevision,
                         command.interactiveAuthorization,
                         command.expectedCurrentTocSha256
+                    );
+                    break;
+                case 'advanced.applyTocPatch':
+                    snapshot = await application.applyRawTocPatch(
+                        command.kind,
+                        command.expectedCurrentTocSha256,
+                        command.confirmation,
+                        command.expectedRevision,
+                        command.interactiveAuthorization
                     );
                     break;
                 case 'track.renameMany':

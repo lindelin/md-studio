@@ -220,6 +220,46 @@ describe('ApplicationCommandBus import writing', () => {
         assert.equal(result.ok && result.snapshot?.revision, 8);
     });
 
+    it('routes raw TOC flag previews and browser-authorized applications', async () => {
+        let appliedKind = '';
+        let appliedHash = '';
+        const preview = {
+            kind: 'unrestrict-scms' as const,
+            totalTracks: 2,
+            changedTracks: 1,
+            changedFragments: 2,
+            currentSha256: 'a'.repeat(64),
+            proposedSha256: 'b'.repeat(64),
+            currentWritableSha256: 'c'.repeat(64),
+            proposedWritableSha256: 'd'.repeat(64),
+        };
+        const application = {
+            async previewRawTocPatch() {
+                return preview;
+            },
+            async applyRawTocPatch(kind: string, expectedHash: string) {
+                appliedKind = kind;
+                appliedHash = expectedHash;
+                return { revision: 9 };
+            },
+        } as unknown as MiniDiscApplication;
+        const bus = new ApplicationCommandBus(application, new TaskManager(), new ImportQueue());
+
+        const previewResult = await bus.execute({ type: 'advanced.previewTocPatch', kind: 'unrestrict-scms' });
+        const applyResult = await bus.execute({
+            type: 'advanced.applyTocPatch',
+            kind: 'unrestrict-scms',
+            expectedCurrentTocSha256: preview.currentSha256,
+            confirmation: { confirmed: true, reason: 'Confirmed in test.' },
+            expectedRevision: 8,
+        });
+
+        assert.deepEqual(previewResult.ok && previewResult.advancedTocPatch, preview);
+        assert.equal(appliedKind, 'unrestrict-scms');
+        assert.equal(appliedHash, preview.currentSha256);
+        assert.equal(applyResult.ok && applyResult.snapshot?.revision, 9);
+    });
+
     it('rejects unknown runtime commands instead of reporting a false success', async () => {
         const bus = new ApplicationCommandBus({} as MiniDiscApplication, new TaskManager(), new ImportQueue());
         const result = await bus.execute({ type: 'unknown.command' } as any);

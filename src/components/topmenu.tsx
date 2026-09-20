@@ -293,14 +293,14 @@ export const TopMenu = function (props: {
     }, [dispatch, handleMenuClose]);
 
     const handleStripSCMS = useCallback(async () => {
-        const { readToc, stripSCMS, writeModifiedTOC } = await loadFactoryActions();
-        dispatch(dispatchQueue(readToc(), stripSCMS(), writeModifiedTOC()));
+        const { applyTocFlagPatch } = await loadFactoryActions();
+        dispatch(applyTocFlagPatch('unrestrict-scms'));
         handleMenuClose();
     }, [dispatch, handleMenuClose]);
 
     const handleAllUnprotect = useCallback(async () => {
-        const { readToc, stripTrProtect, writeModifiedTOC } = await loadFactoryActions();
-        dispatch(dispatchQueue(readToc(), stripTrProtect(), writeModifiedTOC()));
+        const { applyTocFlagPatch } = await loadFactoryActions();
+        dispatch(applyTocFlagPatch('mark-tracks-writable'));
         handleMenuClose();
     }, [dispatch, handleMenuClose]);
 

@@ -5,6 +5,8 @@ import {
     canReviewRawTocWrite,
     inspectRawTocData,
     isRawTocConfirmationValid,
+    isRawTocPatchConfirmationValid,
+    rawTocPatchActions,
     RAW_TOC_BYTE_LENGTH,
     RAW_TOC_CONFIRMATION,
     RAW_TOC_WRITABLE_BYTE_LENGTH,
@@ -40,5 +42,13 @@ describe('Studio Workbench raw TOC review', () => {
         assert.equal(isRawTocConfirmationValid(RAW_TOC_CONFIRMATION), true);
         assert.equal(isRawTocConfirmationValid('write toc'), false);
         assert.equal(isRawTocConfirmationValid(`${RAW_TOC_CONFIRMATION} `), false);
+    });
+
+    it('uses distinct exact confirmations for each raw TOC flag change', () => {
+        const scms = rawTocPatchActions.find((action) => action.kind === 'unrestrict-scms')!;
+        const writable = rawTocPatchActions.find((action) => action.kind === 'mark-tracks-writable')!;
+        assert.equal(isRawTocPatchConfirmationValid(scms, 'UNLOCK SCMS'), true);
+        assert.equal(isRawTocPatchConfirmationValid(scms, 'UNPROTECT TRACKS'), false);
+        assert.equal(isRawTocPatchConfirmationValid(writable, 'UNPROTECT TRACKS'), true);
     });
 });

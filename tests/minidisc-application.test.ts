@@ -657,6 +657,75 @@ describe('MiniDiscApplication', () => {
         assert.deepEqual(calls, ['read', 'read']);
     });
 
+    it('previews and applies targeted raw TOC flag changes against the reviewed checksum', async () => {
+        const { gateway } = makeGateway();
+        const data = new Uint8Array(2352 * 6);
+        data[30] = 1;
+        data[31] = 1;
+        data[47] = 2;
+        data[49] = 1;
+        data[315] = 0x10;
+        const written: { index: number; data: Uint8Array }[] = [];
+        let flushed = 0;
+        const application = new MiniDiscApplication(gateway, undefined, {
+            async readInfo() {
+                return { firmwareVersion: 'S1.600', capabilities: ['flushUTOC'] };
+            },
+            async readTocSector(index) {
+                return data.slice(index * 2352, (index + 1) * 2352);
+            },
+            async writeTocSector(index, sector) {
+                written.push({ index, data: sector.slice() });
+            },
+            async flushToc() {
+                flushed += 1;
+            },
+            async runTetris() {},
+            async setSpUploadSpeedup() {},
+            async setDiscSwapDetectionDisabled() {},
+            async enableHimdFullMode() {},
+            async enterServiceMode() {},
+            async readRam() {
+                return new Uint8Array();
+            },
+            async readFirmware() {
+                return { ram: new Uint8Array(), rom: new Uint8Array() };
+            },
+        });
+        await application.refresh();
+
+        const preview = await application.previewRawTocPatch('unrestrict-scms');
+        assert.equal(preview.totalTracks, 1);
+        assert.equal(preview.changedTracks, 1);
+        assert.equal(preview.changedFragments, 1);
+        assert.notEqual(preview.currentWritableSha256, preview.proposedWritableSha256);
+
+        await assert.rejects(
+            () =>
+                application.applyRawTocPatch(
+                    'unrestrict-scms',
+                    'f'.repeat(64),
+                    { confirmed: true, reason: 'Confirmed in test.' },
+                    0,
+                    INTERACTIVE_ADVANCED_AUTHORIZATION
+                ),
+            { code: 'STALE_REVISION' }
+        );
+        assert.equal(written.length, 0);
+
+        const snapshot = await application.applyRawTocPatch(
+            'unrestrict-scms',
+            preview.currentSha256,
+            { confirmed: true, reason: 'Confirmed in test.' },
+            0,
+            INTERACTIVE_ADVANCED_AUTHORIZATION
+        );
+        assert.deepEqual(written.map(({ index }) => index), [0, 1, 2, 3]);
+        assert.equal(written[0].data[315] & 0x60, 0x60);
+        assert.equal(flushed, 1);
+        assert.equal(snapshot.revision, 1);
+    });
+
     it('checks exploit capabilities and confirmation before advanced device actions', async () => {
         const { gateway } = makeGateway();
         const actions: string[] = [];

@@ -5,6 +5,7 @@ export const BRIDGE_FILE_CHUNK_SIZE = 1024 * 1024;
 const MAX_BASE64_CHARS = Math.ceil(BRIDGE_FILE_CHUNK_SIZE / 3) * 4;
 const BROWSER_ONLY_COMMANDS = new Set([
     'advanced.writeToc',
+    'advanced.applyTocPatch',
     'advanced.runTetris',
     'advanced.setSpUploadSpeedup',
     'advanced.setDiscSwapDetectionDisabled',

@@ -1,5 +1,6 @@
 import type { Codec, Disc, DeviceStatus, Group, RecordingCodec, TitleParameter } from '../services/interfaces/netmd';
 import type { ImportPreviewCalculation, ImportPreviewTrack } from './import-preview';
+import type { RawTocPatchKind } from '../domain/raw-toc-patch';
 
 export type ApplicationCapability =
     | 'content.read'
@@ -79,6 +80,17 @@ export interface AdvancedTocDump {
     byteLength: number;
     sha256: string;
     dataBase64: string;
+}
+
+export interface AdvancedTocPatchPreview {
+    kind: RawTocPatchKind;
+    totalTracks: number;
+    changedTracks: number;
+    changedFragments: number;
+    currentSha256: string;
+    proposedSha256: string;
+    currentWritableSha256: string;
+    proposedWritableSha256: string;
 }
 
 export type AdvancedMemoryKind = 'ram' | 'firmware';

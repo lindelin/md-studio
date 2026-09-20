@@ -235,6 +235,17 @@ function createServer() {
         async () => execute({ type: 'advanced.readToc' })
     );
     server.registerTool(
+        'minidisc_preview_toc_flag_change',
+        {
+            description:
+                'Read the current raw TOC and preview how many tracks and fragments would change when removing SCMS restrictions or marking every track writable. This never writes the disc.',
+            inputSchema: z.object({
+                kind: z.enum(['unrestrict-scms', 'mark-tracks-writable']),
+            }),
+        },
+        async ({ kind }) => execute({ type: 'advanced.previewTocPatch', kind })
+    );
+    server.registerTool(
         'minidisc_rename_disc',
         {
             description: 'Rename the current disc and return its refreshed state.',

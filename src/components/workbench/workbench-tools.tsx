@@ -9,7 +9,7 @@ import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded';
 import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import type { MetadataImportPlan } from '../../domain/metadata-import';
-import type { AdvancedDeviceInfo } from '../../application/contracts';
+import type { AdvancedDeviceInfo, AdvancedTocPatchPreview } from '../../application/contracts';
 import type { ApplicationCommand } from '../../application/command-bus';
 import { executeSessionEndingCommand } from '../../application/device-session-transition';
 import { INTERACTIVE_ADVANCED_AUTHORIZATION } from '../../application/interactive-authorization';
@@ -26,8 +26,11 @@ import {
     canReviewRawTocWrite,
     inspectRawTocData,
     isRawTocConfirmationValid,
+    isRawTocPatchConfirmationValid,
+    rawTocPatchActions,
     RAW_TOC_CONFIRMATION,
     RAW_TOC_WRITABLE_SECTOR_COUNT,
+    type RawTocPatchAction,
     type RawTocFileInspection,
 } from './workbench-raw-toc';
 
@@ -75,6 +78,13 @@ export const WorkbenchTools = ({
         expectedRevision: number;
     } | null>(null);
     const [rawTocConfirmation, setRawTocConfirmation] = useState('');
+    const [rawTocPatchReview, setRawTocPatchReview] = useState<{
+        action: RawTocPatchAction;
+        preview: AdvancedTocPatchPreview;
+        expectedSessionId: string;
+        expectedRevision: number;
+    } | null>(null);
+    const [rawTocPatchConfirmation, setRawTocPatchConfirmation] = useState('');
 
     const canImportMetadata =
         Boolean(disc?.writable) &&
@@ -94,11 +104,15 @@ export const WorkbenchTools = ({
         setDiscSwapDetectionDisabled(false);
         setRawTocReview(null);
         setRawTocConfirmation('');
+        setRawTocPatchReview(null);
+        setRawTocPatchConfirmation('');
     }, [device?.sessionId]);
 
     useEffect(() => {
         setRawTocReview(null);
         setRawTocConfirmation('');
+        setRawTocPatchReview(null);
+        setRawTocPatchConfirmation('');
     }, [device?.revision]);
 
     const closeSelfTest = () => {
@@ -117,6 +131,12 @@ export const WorkbenchTools = ({
         if (busy) return;
         setRawTocReview(null);
         setRawTocConfirmation('');
+    };
+
+    const closeRawTocPatchReview = () => {
+        if (busy) return;
+        setRawTocPatchReview(null);
+        setRawTocPatchConfirmation('');
     };
 
     const exportCsv = async () => {
@@ -333,6 +353,71 @@ export const WorkbenchTools = ({
         }
     };
 
+    const previewRawTocPatch = async (action: RawTocPatchAction) => {
+        if (!device || !disc) return;
+        const expectedSessionId = device.sessionId;
+        const expectedRevision = device.revision;
+        setBusy(true);
+        setStatus(`Reviewing ${action.label.toLowerCase()}…`);
+        setRawTocPatchReview(null);
+        setRawTocPatchConfirmation('');
+        try {
+            const result = await client.execute({ type: 'advanced.previewTocPatch', kind: action.kind });
+            if (!result.ok) throw new Error(result.error.message);
+            if (!result.advancedTocPatch) throw new Error('The device did not return a raw TOC change preview.');
+            const latest = client.getWorkspaceSnapshot().device;
+            if (latest?.sessionId !== expectedSessionId || latest.revision !== expectedRevision) {
+                throw new Error('The connected device or disc changed while the TOC flags were being reviewed. Review them again.');
+            }
+            setRawTocPatchReview({ action, preview: result.advancedTocPatch, expectedSessionId, expectedRevision });
+            setStatus(null);
+        } catch (error) {
+            setStatus(error instanceof Error ? error.message : `Could not review ${action.label.toLowerCase()}.`);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const applyRawTocPatch = async () => {
+        if (!rawTocPatchReview || !isRawTocPatchConfirmationValid(rawTocPatchReview.action, rawTocPatchConfirmation)) return;
+        const latest = client.getWorkspaceSnapshot().device;
+        if (
+            latest?.sessionId !== rawTocPatchReview.expectedSessionId ||
+            latest.revision !== rawTocPatchReview.expectedRevision
+        ) {
+            setStatus('The connected device or disc changed after this TOC change was reviewed. Review it again.');
+            setRawTocPatchReview(null);
+            setRawTocPatchConfirmation('');
+            return;
+        }
+        setBusy(true);
+        setStatus(`Applying ${rawTocPatchReview.action.label.toLowerCase()}…`);
+        try {
+            const result = await client.execute({
+                type: 'advanced.applyTocPatch',
+                kind: rawTocPatchReview.action.kind,
+                expectedCurrentTocSha256: rawTocPatchReview.preview.currentSha256,
+                confirmation: {
+                    confirmed: true,
+                    reason: `Confirmed ${rawTocPatchReview.action.label} in the Studio Workbench raw TOC review.`,
+                },
+                expectedRevision: rawTocPatchReview.expectedRevision,
+                interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
+            });
+            if (!result.ok) throw new Error(result.error.message);
+            if (!result.snapshot) throw new Error('Changing the raw TOC flags did not return the refreshed device state.');
+            const label = rawTocPatchReview.action.label;
+            setRawTocPatchReview(null);
+            setRawTocPatchConfirmation('');
+            setStatus(null);
+            onMessage(`${label} completed and the disc was refreshed.`);
+        } catch (error) {
+            setStatus(error instanceof Error ? error.message : 'Could not change the raw TOC flags.');
+        } finally {
+            setBusy(false);
+        }
+    };
+
     const exportAdvancedMemory = async (kind: 'ram' | 'firmware') => {
         if (!device) return;
         setBusy(true);
@@ -460,6 +545,15 @@ export const WorkbenchTools = ({
                     <div><h3>Restore raw TOC</h3><p>Compare a six-sector backup with the inserted disc before writing the four writable UTOC sectors.</p><small>{advancedInfo ? 'Requires the flushUTOC capability and a writable disc.' : 'Inspect the device before choosing a backup.'}</small></div>
                     <button className="danger-button" onClick={() => tocFileInput.current?.click()} disabled={!canReviewRawTocWrite(disc, advancedInfo?.capabilities) || busy}><UploadFileRoundedIcon /> Choose TOC</button>
                     <input ref={tocFileInput} type="file" accept=".bin,application/octet-stream" hidden onChange={(event) => void chooseRawToc(event)} />
+                </article>
+                <article className="workbench__tool-card is-danger workbench__maintenance-card">
+                    <TuneRoundedIcon />
+                    <div><h3>Track protection flags</h3><p>Preview targeted raw TOC changes for SCMS permissions or track writability.</p><small>{advancedInfo ? 'Requires the flushUTOC capability and a writable disc.' : 'Inspect the device before reviewing a change.'}</small></div>
+                    <div className="workbench__maintenance-actions">
+                        {rawTocPatchActions.map((action) => (
+                            <button className="danger-button" key={action.kind} onClick={() => void previewRawTocPatch(action)} disabled={!canReviewRawTocWrite(disc, advancedInfo?.capabilities) || busy}>{action.label}</button>
+                        ))}
+                    </div>
                 </article>
                 <article className="workbench__tool-card">
                     <SaveAltRoundedIcon />
@@ -620,6 +714,45 @@ export const WorkbenchTools = ({
                                 disabled={busy || rawTocReview.current.writableSha256 === rawTocReview.source.writableSha256 || !isRawTocConfirmationValid(rawTocConfirmation)}
                             >
                                 {busy ? 'Writing…' : 'Write reviewed TOC'}
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            ) : null}
+
+            {rawTocPatchReview ? (
+                <div className="workbench__modal-backdrop" role="presentation" onMouseDown={closeRawTocPatchReview}>
+                    <section className="workbench__modal workbench__maintenance-modal" role="dialog" aria-modal="true" aria-labelledby="workbench-toc-patch-title" onMouseDown={(event) => event.stopPropagation()}>
+                        <span className="workbench__eyebrow">RAW TOC FLAG CHANGE</span>
+                        <h2 id="workbench-toc-patch-title">{rawTocPatchReview.action.label}?</h2>
+                        <p>{rawTocPatchReview.action.description}</p>
+                        <dl className="workbench__review-grid">
+                            <div><dt>Tracks on disc</dt><dd>{rawTocPatchReview.preview.totalTracks}</dd></div>
+                            <div><dt>Tracks changed</dt><dd>{rawTocPatchReview.preview.changedTracks}</dd></div>
+                            <div><dt>Fragments changed</dt><dd>{rawTocPatchReview.preview.changedFragments}</dd></div>
+                            <div><dt>Current TOC</dt><dd>{rawTocPatchReview.preview.currentSha256}</dd></div>
+                            <div><dt>Current writable sectors</dt><dd>{rawTocPatchReview.preview.currentWritableSha256}</dd></div>
+                            <div><dt>Proposed writable sectors</dt><dd>{rawTocPatchReview.preview.proposedWritableSha256}</dd></div>
+                        </dl>
+                        <div className="workbench__write-warning">
+                            This writes raw TOC flag bits on the inserted disc. Keep USB and device power stable until the disc refresh completes.
+                        </div>
+                        {rawTocPatchReview.preview.changedFragments === 0 ? (
+                            <div className="workbench__tools-empty"><CheckCircleRoundedIcon /> This change is already applied. No write is needed.</div>
+                        ) : (
+                            <label>
+                                Type {rawTocPatchReview.action.confirmation} to continue
+                                <input autoFocus value={rawTocPatchConfirmation} onChange={(event) => setRawTocPatchConfirmation(event.target.value)} />
+                            </label>
+                        )}
+                        <div className="workbench__modal-actions">
+                            <button className="secondary-button" onClick={closeRawTocPatchReview} disabled={busy}>Cancel</button>
+                            <button
+                                className="danger-button"
+                                onClick={() => void applyRawTocPatch()}
+                                disabled={busy || rawTocPatchReview.preview.changedFragments === 0 || !isRawTocPatchConfirmationValid(rawTocPatchReview.action, rawTocPatchConfirmation)}
+                            >
+                                {busy ? 'Applying…' : 'Apply reviewed change'}
                             </button>
                         </div>
                     </section>
