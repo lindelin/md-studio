@@ -1,149 +1,54 @@
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import CheckCircleOutlineRoundedIcon from '@mui/icons-material/CheckCircleOutlineRounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import LaunchRoundedIcon from '@mui/icons-material/LaunchRounded';
+import LibraryMusicRoundedIcon from '@mui/icons-material/LibraryMusicRounded';
+import SecurityRoundedIcon from '@mui/icons-material/SecurityRounded';
+import UsbRoundedIcon from '@mui/icons-material/UsbRounded';
 import React, { useCallback, useState } from 'react';
-import { useDispatch, batchActions } from '../frontend-utils';
+import { batchActions, useDispatch, useShallowEqualSelector } from '../frontend-utils';
+import { initializeParameters } from '../custom-parameters';
 import { deleteService } from '../redux/actions';
-
-import { useShallowEqualSelector } from '../frontend-utils';
-
-import { makeStyles } from 'tss-react/mui';
-import Typography from '@mui/material/Typography';
-import FormControl from '@mui/material/FormControl';
-import FormHelperText from '@mui/material/FormHelperText';
-import Alert from '@mui/material/Alert';
-import Tooltip from '@mui/material/Tooltip';
-import Box from '@mui/material/Box';
-import Link from '@mui/material/Link';
-import IconButton from '@mui/material/IconButton';
-
-import DeleteIcon from '@mui/icons-material/Delete';
-import AddIcon from '@mui/icons-material/Add';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-
-import { TopMenu } from './topmenu';
-import ChromeIconPath from '../images/chrome-icon.svg';
-
-import SplitButton, { OptionType } from './split-button';
-import {
-    doesServiceRequireChrome,
-    getConnectButtonName,
-    getSimpleServices,
-    Services,
-} from '../services/interface-service-manager';
-
-import { OtherDeviceDialog } from './other-device-dialog';
-import { AboutDialog } from './about-dialog';
-import { WorkbenchSettingsDialog } from './workbench/workbench-settings-dialog';
-
-import { actions as otherDialogActions } from '../redux/other-device-feature';
 import { actions as appActions } from '../redux/app-feature';
 import { actions as errorDialogActions } from '../redux/error-dialog-feature';
-import { initializeParameters } from '../custom-parameters';
+import { actions as otherDialogActions } from '../redux/other-device-feature';
+import { doesServiceRequireChrome, getSimpleServices, Services } from '../services/interface-service-manager';
+import ChromeIconPath from '../images/chrome-icon.svg';
+import { AboutDialog } from './about-dialog';
+import { OtherDeviceDialog } from './other-device-dialog';
+import { TopMenu } from './topmenu';
 import { useApplicationClient, useApplicationWorkspace } from './use-application-client';
 import { useI18n } from './use-i18n';
-
-const useStyles = makeStyles()((theme) => ({
-    main: {
-        position: 'relative',
-        flex: '1 1 auto',
-        display: 'flex',
-        justifyContent: 'center',
-        flexDirection: 'column',
-        alignItems: 'center',
-    },
-    buttonBox: {
-        marginTop: theme.spacing(3),
-        minWidth: 200,
-    },
-    deleteButton: {
-        width: theme.spacing(2),
-        height: theme.spacing(2),
-        verticalAlign: 'middle',
-        marginLeft: theme.spacing(-0.5),
-        marginRight: theme.spacing(1.5),
-    },
-    standardOption: {
-        marginLeft: theme.spacing(3),
-    },
-    spacing: {
-        marginTop: theme.spacing(1),
-    },
-    notice: {
-        marginTop: theme.spacing(2),
-        backgroundColor: 'unset',
-    },
-    chromeLogo: {
-        marginTop: theme.spacing(1),
-        width: 96,
-        height: 96,
-    },
-    why: {
-        alignSelf: 'flex-start',
-        marginTop: theme.spacing(3),
-    },
-    headBox: {
-        display: 'flex',
-        justifyContent: 'space-between',
-    },
-    connectContainer: {
-        flex: '1 1 auto',
-        display: 'flex',
-        justifyContent: 'center',
-        flexDirection: 'column',
-        alignItems: 'center',
-    },
-    supportContainer: {
-        flex: '1 1 auto',
-        display: 'flex',
-        justifyContent: 'center',
-        flexDirection: 'column',
-        alignItems: 'center',
-    },
-}));
+import { WorkbenchSettingsDialog } from './workbench/workbench-settings-dialog';
+import './welcome.css';
 
 export const Welcome = () => {
-    const { language, t } = useI18n();
-    const { classes } = useStyles();
+    const { t } = useI18n();
     const dispatch = useDispatch();
     const applicationClient = useApplicationClient();
-    const workspace = useApplicationWorkspace();
-    const { connection } = workspace;
+    const { connection } = useApplicationWorkspace();
     const { browserSupported, runningChrome, availableServices, lastSelectedService } = useShallowEqualSelector(
         (state) => state.appState
     );
-    const pairingFailed = connection.phase === 'error';
-    const pairingMessage = connection.message ?? '';
-    const connectingInProgress = connection.phase === 'connecting';
-    const simpleServicesLength = getSimpleServices().length;
-    if (pairingMessage.toLowerCase().match(/denied/)) {
-        // show linux instructions
-    }
-    // Access denied.
-
-    const deleteCustom = useCallback(
-        (event: React.SyntheticEvent, index: number) => {
-            event.stopPropagation();
-            dispatch(deleteService(index));
-        },
-        [dispatch]
-    );
-
     const [showWhyUnsupported, setWhyUnsupported] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const openSettings = useCallback(() => setSettingsOpen(true), []);
     const closeSettings = useCallback(() => setSettingsOpen(false), []);
-    const handleLearnWhy = (event: React.SyntheticEvent) => {
-        event.preventDefault();
-        setWhyUnsupported(true);
-    };
+    const simpleServicesLength = getSimpleServices().length;
+    const selectedIndex = availableServices[lastSelectedService] ? lastSelectedService : 0;
+    const selectedService = availableServices[selectedIndex];
+    const selectedServiceIsCustom = selectedIndex >= simpleServicesLength;
+    const connecting = connection.phase === 'connecting';
+    const connectionFailed = connection.phase === 'error';
+    const selectedServiceUnavailable = Boolean(
+        selectedService && doesServiceRequireChrome(selectedService) && !runningChrome
+    );
 
-    const forceContinue = (event: React.SyntheticEvent) => {
-        event.preventDefault();
-        dispatch(appActions.setBrowserSupported(true));
-    };
-
-    async function connectToService(index: number) {
-        dispatch(appActions.setLastSelectedService(index));
+    const connectToService = async () => {
+        if (!selectedService) return;
+        dispatch(appActions.setLastSelectedService(selectedIndex));
         try {
-            const result = await applicationClient.connectLocalDevice(availableServices[index]);
+            const result = await applicationClient.connectLocalDevice(selectedService);
             if (result.connected) {
                 dispatch(
                     batchActions([
@@ -156,177 +61,101 @@ export const Welcome = () => {
         } catch (error) {
             console.error(error);
         }
-    }
+    };
 
-    const options: OptionType[] = availableServices.map((n, i) => ({
-        name: (() => {
-            const name = getConnectButtonName(n);
-            if (language !== 'zh-CN') return name;
-            if (name === 'Connect') return '连接设备';
-            return name.startsWith('Connect to ') ? `连接 ${name.slice('Connect to '.length)}` : name;
-        })(),
-        switchTo: true,
-        handler: () => connectToService(i),
-        id: i,
-        disabled: !runningChrome && doesServiceRequireChrome(availableServices[i]),
-    }));
-
-    const firstService = Services.find((n) => n.customParameters);
-    if (firstService) {
-        options.push({
-            name: t('Add Custom Device'),
-            switchTo: false,
-            handler: () =>
-                dispatch(
-                    batchActions([
-                        otherDialogActions.setVisible(true),
-                        otherDialogActions.setSelectedServiceIndex(0),
-                        otherDialogActions.setCustomParameters(initializeParameters(firstService.customParameters)),
-                    ])
-                ),
-            customAddIcon: true,
-        });
-    }
-
-    const mapToEntry = (option: OptionType) => {
-        return option.id >= simpleServicesLength ? (
-            <React.Fragment>
-                <IconButton aria-label={`${t('Remove custom device')} ${option.name}`} className={classes.deleteButton} size="small" onClick={(e) => deleteCustom(e, option.id)}>
-                    <DeleteIcon />
-                </IconButton>
-                {option.name}
-            </React.Fragment>
-        ) : option.customAddIcon ? (
-            <React.Fragment>
-                <IconButton aria-label={t('add custom device')} className={classes.deleteButton} size="small">
-                    <AddIcon />
-                </IconButton>
-                {option.name}
-            </React.Fragment>
-        ) : (
-            <span className={classes.standardOption}>{option.name}</span>
+    const addCustomDevice = () => {
+        const firstService = Services.find((service) => service.customParameters);
+        if (!firstService?.customParameters) return;
+        dispatch(
+            batchActions([
+                otherDialogActions.setVisible(true),
+                otherDialogActions.setSelectedServiceIndex(0),
+                otherDialogActions.setCustomParameters(initializeParameters(firstService.customParameters)),
+            ])
         );
     };
 
+    const removeSelectedCustomDevice = () => {
+        if (!selectedServiceIsCustom) return;
+        dispatch(deleteService(selectedIndex));
+    };
+
     return (
-        <React.Fragment>
-            <Box className={classes.headBox}>
-                <Typography component="h1" variant="h4">
-                    {t('MiniDisc Workspace')}
-                </Typography>
+        <div className="welcome-workspace">
+            <header className="welcome-workspace__header">
+                <div className="welcome-workspace__brand">
+                    <span className="welcome-workspace__brand-mark" aria-hidden="true"><UsbRoundedIcon /></span>
+                    <span><strong>{t('MiniDisc Workspace')}</strong><small>{t('Local first · Open source')}</small></span>
+                </div>
                 <TopMenu onShowSettings={openSettings} />
-            </Box>
-            <Typography component="h2" variant="body2">
-                {t('Brings NetMD Devices to the Web')}
-            </Typography>
-            <Box className={classes.main}>
-                {browserSupported ? (
-                    <React.Fragment>
-                        <div className={classes.connectContainer}>
-                            <Typography component="h2" variant="subtitle1" align="center" className={classes.spacing}>
-                                {t('Press the button to connect to a NetMD device')}
-                            </Typography>
+            </header>
 
-                            <SplitButton
-                                options={options}
-                                color="primary"
-                                boxClassName={classes.buttonBox}
-                                width={200}
-                                disabled={doesServiceRequireChrome(availableServices[lastSelectedService]) && !runningChrome}
-                                selectedIndex={lastSelectedService}
-                                dropdownMapping={mapToEntry}
-                                loading={connectingInProgress}
-                            />
+            <main className="welcome-workspace__main">
+                <section className="welcome-workspace__hero">
+                    <span className="welcome-workspace__eyebrow">{t('MINIDISC, MODERNIZED')}</span>
+                    <h1>{t('Your MiniDisc, organized.')}</h1>
+                    <p>{t('Connect, arrange, record and recover from one focused workspace.')}</p>
+                    <div className="welcome-workspace__proofs" aria-label={t('Application highlights')}>
+                        <span><UsbRoundedIcon />{t('Local USB control')}</span>
+                        <span><CheckCircleOutlineRoundedIcon />{t('No account required')}</span>
+                        <span><SecurityRoundedIcon />{t('Open source')}</span>
+                    </div>
+                </section>
 
-                            <FormControl
-                                error={true}
-                                className={classes.spacing}
-                                style={{ visibility: pairingFailed ? 'visible' : 'hidden' }}
-                            >
-                                <FormHelperText>{pairingMessage}</FormHelperText>
-                            </FormControl>
-                            {!window.native?.interface && navigator.userAgent.includes('Vivaldi') && (
-                                <Tooltip
-                                    title={
-                                        <span>
-                                            {t("Vivaldi's implementation of WebUSB is broken.")}
-                                            <br />
-                                            {t("If you are using Vivaldi, most of this app's features will be broken.")}
-                                            <br />
-                                            {t('Please switch to a different Chromium-based browser.')}
-                                        </span>
-                                    }
-                                >
-                                    <Alert severity="info" className={classes.notice}>
-                                        <b>{t('Notice for users of the Vivaldi web browser')}</b> <br />
-                                    </Alert>
-                                </Tooltip>
-                            )}
-                        </div>
-                        <div>
-                            <Typography component="h2" variant="subtitle1" align="center" className={classes.spacing}>
-                                <Link rel="noopener noreferrer" target="_blank" href="https://www.minidisc.wiki/guides/webminidisc">
-                                    <span style={{ verticalAlign: 'middle' }}>{t('First time here? Read the guide')}</span>{' '}
-                                    <OpenInNewIcon style={{ verticalAlign: 'middle' }} fontSize="inherit" />
-                                </Link>
-                            </Typography>
-                        </div>
-                    </React.Fragment>
-                ) : (
-                    <React.Fragment>
-                        <Typography component="h2" variant="subtitle1" align="center" className={classes.spacing}>
-                            {t('This Web browser is not supported.')}&nbsp;
-                            <Link rel="noopener noreferrer" href="#" onClick={handleLearnWhy}>
-                                {t('Learn Why')}
-                            </Link>
-                        </Typography>
+                <section className="welcome-workspace__connect-card" aria-labelledby="welcome-connect-title">
+                    {browserSupported ? (
+                        <>
+                            <span className="welcome-workspace__eyebrow">{t('CONNECT A DEVICE')}</span>
+                            <h2 id="welcome-connect-title">{t('Choose how to connect')}</h2>
+                            <p>{t('Select the adapter that matches your recorder or local service.')}</p>
+                            <label className="welcome-workspace__field">
+                                <span>{t('Connection method')}</span>
+                                <select value={selectedIndex} disabled={connecting} onChange={(event) => dispatch(appActions.setLastSelectedService(Number(event.target.value)))}>
+                                    {availableServices.map((service, index) => <option value={index} key={`${service.name}:${index}`}>{service.name}</option>)}
+                                </select>
+                            </label>
+                            <div className="welcome-workspace__actions">
+                                <button className="welcome-workspace__primary" disabled={connecting || selectedServiceUnavailable || !selectedService} onClick={() => void connectToService()}><UsbRoundedIcon />{connecting ? t('Connecting…') : t('Connect device')}</button>
+                                <button className="welcome-workspace__secondary" disabled={connecting} onClick={addCustomDevice}><AddRoundedIcon />{t('Add custom device')}</button>
+                                {selectedServiceIsCustom ? <button className="welcome-workspace__danger" disabled={connecting} onClick={removeSelectedCustomDevice}><DeleteOutlineRoundedIcon />{t('Remove')}</button> : null}
+                            </div>
+                            {selectedServiceUnavailable ? <div className="welcome-workspace__notice">{t('The selected connection needs a Chromium browser with WebUSB.')}</div> : null}
+                            {connectionFailed ? <div className="welcome-workspace__error" role="alert"><strong>{t('Connection failed')}</strong><span>{connection.message}</span></div> : null}
+                            {!window.native?.interface && navigator.userAgent.includes('Vivaldi') ? <div className="welcome-workspace__notice"><strong>{t('Notice for users of the Vivaldi web browser')}</strong><span>{t("Vivaldi's implementation of WebUSB is broken.")} {t('Please switch to a different Chromium-based browser.')}</span></div> : null}
+                            <a className="welcome-workspace__guide" rel="noopener noreferrer" target="_blank" href="https://www.minidisc.wiki/guides/webminidisc">{t('First time here? Read the guide')}<LaunchRoundedIcon /></a>
+                        </>
+                    ) : (
+                        <>
+                            <img className="welcome-workspace__browser-icon" alt={t('Chrome logo')} src={ChromeIconPath} />
+                            <span className="welcome-workspace__eyebrow">{t('BROWSER REQUIREMENTS')}</span>
+                            <h2 id="welcome-connect-title">{t('This browser cannot connect directly to USB MiniDisc devices.')}</h2>
+                            <p>{t('Use a Chromium browser for WebUSB, or continue if you only need a remote device.')}</p>
+                            <div className="welcome-workspace__actions">
+                                <a className="welcome-workspace__primary" rel="noopener noreferrer" target="_blank" href="https://www.google.com/chrome/">Chrome<LaunchRoundedIcon /></a>
+                                <button className="welcome-workspace__secondary" onClick={() => dispatch(appActions.setBrowserSupported(true))}>{t('Continue for remote devices')}</button>
+                            </div>
+                            <button className="welcome-workspace__text-button" onClick={() => setWhyUnsupported((visible) => !visible)}>{t('Why WebUSB is required')}</button>
+                            {showWhyUnsupported ? <ul className="welcome-workspace__requirements"><li>{t('WebUSB is needed to control the NetMD device via the USB connection to your computer.')}</li><li>{t('WebAssembly is used to convert the music to a MiniDisc compatible format')}</li></ul> : null}
+                        </>
+                    )}
+                </section>
+            </main>
 
-                        <Link rel="noopener noreferrer" target="_blank" href="https://www.google.com/chrome/">
-                            <img alt={t('Chrome logo')} src={ChromeIconPath} className={classes.chromeLogo} />
-                        </Link>
+            <section className="welcome-workspace__features" aria-label={t('Application highlights')}>
+                <article><LibraryMusicRoundedIcon /><div><strong>{t('Built for real collections')}</strong><p>{t('Arrange tracks and groups before recording, with capacity and title checks.')}</p></div></article>
+                <article><CheckCircleOutlineRoundedIcon /><div><strong>{t('One queue for every workflow')}</strong><p>{t('The interface, MCP and CLI share the same plan and task state.')}</p></div></article>
+                <article><SecurityRoundedIcon /><div><strong>{t('Safer advanced tools')}</strong><p>{t('Destructive actions require a review and exact confirmation.')}</p></div></article>
+            </section>
 
-                        <Typography component="h2" variant="subtitle1" align="center" className={classes.spacing}>
-                            {t('Try using')}{' '}
-                            <Link rel="noopener noreferrer" target="_blank" href="https://www.google.com/chrome/">
-                                Chrome
-                            </Link>{' '}
-                            {t('instead')}
-                        </Typography>
+            <footer className="welcome-workspace__footer">
+                <span>{t('Independent open-source project derived from Web MiniDisc Pro.')}</span>
+                <span>© Stefano Brilli, Asivery · {new Date().getFullYear()}</span>
+            </footer>
 
-                        <Typography component="p" variant="subtitle1" align="center" className={classes.spacing}>
-                            {t('If you want to connect to a remote device, click')}{' '}
-                            <Link rel="noopener noreferrer" href="#" onClick={forceContinue}>
-                                {t('here')}
-                            </Link>{' '}
-                            {t('to load the app anyway.')}
-                        </Typography>
-
-                        {showWhyUnsupported ? (
-                            <>
-                                <Typography component="p" variant="body2" className={classes.why}>
-                                    {t('MiniDisc Workspace requires a browser that supports both')}{' '}
-                                    <Link rel="noopener noreferrer" target="_blank" href="https://wicg.github.io/webusb/">
-                                        WebUSB
-                                    </Link>{' '}
-                                    {t('and')}{' '}
-                                    <Link rel="noopener noreferrer" target="_blank" href="https://webassembly.org/">
-                                        WebAssembly
-                                    </Link>
-                                    .
-                                </Typography>
-                                <ul>
-                                    <li>{t('WebUSB is needed to control the NetMD device via the USB connection to your computer.')}</li>
-                                    <li>{t('WebAssembly is used to convert the music to a MiniDisc compatible format')}</li>
-                                </ul>
-                            </>
-                        ) : null}
-                    </React.Fragment>
-                )}
-            </Box>
             <WorkbenchSettingsDialog open={settingsOpen} onClose={closeSettings} />
             <AboutDialog />
             <OtherDeviceDialog />
-        </React.Fragment>
+        </div>
     );
 };
 
