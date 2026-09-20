@@ -291,7 +291,7 @@ export const Services: ServicePrototype[] = [
     },
 ];
 
-if (window.native?.nwInterface) {
+if (typeof window !== 'undefined' && window.native?.nwInterface) {
     Services.push({
         id: 'network-walkman-native',
         name: 'NetworkWM',

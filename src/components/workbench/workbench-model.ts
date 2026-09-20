@@ -261,6 +261,7 @@ export function localizeTaskMessage(message: string, language: 'en' | 'zh-CN') {
         'Check the source audio, encoder, and device connection before retrying the write.': '检查源音频、编码器和设备连接，然后重试写入。',
         'The recording task stopped before all tracks were transferred.': '录制任务在所有曲目传输完成前停止。',
         'The recording task stopped unexpectedly.': '录制任务意外停止。',
+        'The device session ended before the task completed.': '设备会话在任务完成前已结束。',
         'Reconnect the device, refresh its state, and verify what completed before retrying.': '重新连接设备并刷新状态；确认已完成的内容后再重试。',
     };
     return messages[message] ?? message;

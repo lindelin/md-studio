@@ -173,6 +173,10 @@ describe('Studio Workbench task presentation', () => {
     it('localizes task recovery messages while preserving unknown device errors', () => {
         assert.equal(localizeTaskMessage('The device returned no audio for track 3.', 'zh-CN'), '设备没有返回曲目 3 的音频。');
         assert.equal(
+            localizeTaskMessage('The device session ended before the task completed.', 'zh-CN'),
+            '设备会话在任务完成前已结束。'
+        );
+        assert.equal(
             localizeTaskMessage('Check the device connection and output directory, then retry the export.', 'zh-CN'),
             '检查设备连接和输出目录，然后重试导出。'
         );
