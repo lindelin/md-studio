@@ -28,6 +28,7 @@ Runtime data intentionally replaces reference-only placeholders: device name, ca
 - Disc refresh, eject, settings, application menu, Automation, Tools, Help, and About have reachable controls.
 - The bottom status opens a Task Center backed by Workspace Task history; its empty state, task list/detail structure, status distinctions, result/error regions, cancellation control and responsive layout are present without a second state store.
 - Escape closes the Task Center even while focus remains on the footer trigger.
+- A failed MockMD export automatically opens and selects its Task Center entry, shows the device error and recovery action, and leaves zero legacy progress/error dialogs mounted in the modern workbench.
 - Empty, disconnected, busy, selected, disabled, and connected states render without layout failure.
 - 1024 × 768 collapses the sidebar and hides lower-priority columns without horizontal page overflow.
 - 760 × 900 moves navigation to the bottom and stacks the inspector below the track plan.
@@ -44,6 +45,7 @@ Runtime data intentionally replaces reference-only placeholders: device name, ca
 - P2: the first workbench pass exposed only one selected track and had no visible group/export controls. Fixed with multi-select, group lifecycle actions, move controls and the existing export/record dialog.
 - P2: the first recording-plan view still allowed only one selected item and mouse-only row navigation. Fixed with a shared ordered-selection model, keyboard focus, batch removal and tested shared metadata rules.
 - P2: long-task state still required opening legacy progress dialogs. Fixed with a persistent footer entry and a unified Task Center that exposes the same Workspace Task lifecycle, partial result and recovery information.
+- P2: task failures were briefly duplicated in the Task Center and the legacy Error dialog. Fixed with an explicit shell presentation policy: Studio Workbench owns terminal task feedback while Win95 and Factory surfaces keep compatibility dialogs.
 - P3: the reference includes free-form notes. Notes remain a future queue feature because the shared contracts do not model them yet.
 
 ## Result
