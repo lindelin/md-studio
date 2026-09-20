@@ -10,6 +10,7 @@ The project is under active reconstruction. The stable NetMD and HiMD protocol i
 -   Disc, track, group, half-width, full-width, and HiMD metadata editing
 -   Playback control, track ordering, deletion, erase, eject, HiMD format, and device flush
 -   Audio import, browser-side transcoding, NetMD upload, supported-device download, recording, and factory tools inherited from Web MiniDisc Pro
+-   A session-local folder library that indexes local audio and sends selected tracks through the configured local encoder
 -   Revision-checked application commands and observable long-running tasks
 -   Local MCP tools and a scriptable CLI over a loopback-only browser bridge
 -   Simplified Chinese by default, with complete English support and an immediate, persisted language switch
@@ -87,6 +88,8 @@ The application layer owns validation, revisions, destructive confirmation, seri
 ## Local execution boundary
 
 Audio files, metadata editing, transcoding, task queues, caches, and device communication run on the user's computer. A hosted web build serves static application files only: it does not upload audio, proxy USB traffic, run encoding jobs, or store disc contents. The desktop build uses the same local application core. **Online services** are disabled by default; this policy is enforced by the application command layer and again at each remote request boundary.
+
+The Library can index a folder selected through the browser. Its file handles, metadata index, search, and audio reads stay in the current browser session. Browser security does not let the application silently restore folder access after a reload, so the folder must be selected again; no local path or file content is uploaded or written into browser storage.
 
 Remote NetMD, the remote encoder, the remote library, and song recognition require the user to enable **Settings → Online services** explicitly. Remote NetMD is blocked both before connection and before each HTTP or WebSocket request. Turning the permission off switches a selected remote encoder back to an available local encoder, clears the remote library selection, and blocks subsequent requests from an existing Remote NetMD service. Any future online metadata lookup or AI-assisted suggestion must be optional, disabled independently, and show the exact text fields that will leave the computer before the request is sent. Audio bytes and device data are excluded from those future integrations by default.
 

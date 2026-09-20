@@ -5,6 +5,7 @@ import AudiotrackRoundedIcon from '@mui/icons-material/AudiotrackRounded';
 import CheckBoxOutlineBlankRoundedIcon from '@mui/icons-material/CheckBoxOutlineBlankRounded';
 import CheckBoxRoundedIcon from '@mui/icons-material/CheckBoxRounded';
 import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
+import FolderOpenRoundedIcon from '@mui/icons-material/FolderOpenRounded';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import { useApplicationClient, useApplicationWorkspace } from '../use-application-client';
@@ -18,6 +19,7 @@ import {
 } from './workbench-model';
 import { calculateVirtualListWindow, scrollOffsetForVirtualIndex } from './workbench-virtual-list';
 import { useI18n } from '../use-i18n';
+import type { LocalDatabase, LocalTrackMetadata } from '../../services/library/library';
 
 const PAGE_SIZE = 100;
 const LIBRARY_ROW_HEIGHT = 51;
@@ -55,6 +57,33 @@ export const WorkbenchLibrary = ({
     const [pendingFocusIndex, setPendingFocusIndex] = useState<number | null>(null);
     const requestId = useRef(0);
     const listRef = useRef<HTMLDivElement>(null);
+    const folderInputRef = useRef<HTMLInputElement>(null);
+
+    const chooseLocalFolder = () => folderInputRef.current?.click();
+
+    const loadLocalFolder = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(event.currentTarget.files ?? []);
+        event.currentTarget.value = '';
+        if (files.length === 0) return;
+        setBusy(true);
+        setStatus(t('Reading local folder…'));
+        try {
+            const snapshot = await client.loadLocalLibraryFiles(files);
+            setPath([]);
+            setSearchDraft('');
+            setSearchQuery('');
+            setSelectedTracks([]);
+            setStatus(
+                language === 'zh-CN'
+                    ? `本地文件夹已就绪 · 已索引 ${countLibraryTracks(snapshot.database)} 首曲目`
+                    : `Local folder ready · ${countLibraryTracks(snapshot.database)} tracks indexed`
+            );
+        } catch (error) {
+            setStatus(t(error instanceof Error ? error.message : String(error)));
+        } finally {
+            setBusy(false);
+        }
+    };
 
     const refreshLibrary = useCallback(async () => {
         setBusy(true);
@@ -62,7 +91,7 @@ export const WorkbenchLibrary = ({
         const result = await client.execute({ type: 'library.refreshSummary' });
         setBusy(false);
         if (!result.ok) {
-            setStatus(result.error.message);
+            setStatus(t(result.error.message));
             return;
         }
         setStatus(null);
@@ -102,7 +131,7 @@ export const WorkbenchLibrary = ({
             if (currentRequest !== requestId.current) return;
             setBusy(false);
             if (!result.ok) {
-                setStatus(result.error.message);
+                setStatus(t(result.error.message));
                 if (!append) setItems([]);
                 return;
             }
@@ -229,7 +258,7 @@ export const WorkbenchLibrary = ({
         });
         setBusy(false);
         if (!result.ok) {
-            setStatus(result.error.message);
+            setStatus(t(result.error.message));
             return;
         }
         const count = selectedTracks.length;
@@ -248,7 +277,7 @@ export const WorkbenchLibrary = ({
         (library.status === 'loading'
             ? t('Loading library database…')
             : library.status === 'error'
-              ? library.error ?? t('The library could not be loaded.')
+              ? t(library.error ?? 'The library could not be loaded.')
               : null);
 
     const activateBrowserRow = (row: LibraryBrowserRow) => {
@@ -363,6 +392,8 @@ export const WorkbenchLibrary = ({
                     <p>{library.status === 'ready' ? (language === 'zh-CN' ? `已索引 ${library.entryCount} 项 · 当前显示 ${total} 项` : `${library.entryCount} indexed entries · ${total} in this view`) : t('Connect a configured library service to browse audio.')}</p>
                 </div>
                 <div className="workbench__library-actions">
+                    <input ref={folderInputRef} type="file" accept="audio/*,.aea,.oma,.aa3" multiple hidden onChange={(event) => void loadLocalFolder(event)} {...({ webkitdirectory: '', directory: '' } as React.InputHTMLAttributes<HTMLInputElement>)} />
+                    <button className="secondary-button" onClick={chooseLocalFolder} disabled={busy}><FolderOpenRoundedIcon /> {t('Choose local folder')}</button>
                     <button className="secondary-button" onClick={() => void refreshLibrary()} disabled={busy}><RefreshRoundedIcon /> {t('Refresh')}</button>
                     <button className="primary-button" onClick={() => void importSelected()} disabled={busy || selectedTracks.length === 0}><AddRoundedIcon /> {selectedTracks.length ? (language === 'zh-CN' ? `添加 ${selectedTracks.length} 首到计划` : `Add ${selectedTracks.length} to plan`) : t('Add to plan')}</button>
                 </div>
@@ -380,7 +411,7 @@ export const WorkbenchLibrary = ({
                 </form>
             </div>
 
-            {libraryMessage ? <div className={`workbench__library-message ${library.status === 'error' ? 'is-error' : ''}`}><span>{libraryMessage}</span>{library.status === 'error' ? <button onClick={onOpenSettings}>{t('Open settings')}</button> : null}</div> : null}
+            {libraryMessage ? <div className={`workbench__library-message ${library.status === 'error' ? 'is-error' : ''}`}><span>{libraryMessage}</span>{library.status === 'error' ? <><button onClick={chooseLocalFolder}>{t('Choose local folder')}</button><button onClick={onOpenSettings}>{t('Open settings')}</button></> : null}</div> : null}
 
             <div className="workbench__library-content">
                 <div className="workbench__library-browser">
@@ -422,3 +453,11 @@ export const WorkbenchLibrary = ({
         </section>
     );
 };
+
+function countLibraryTracks(database: LocalDatabase | null): number {
+    if (!database) return 0;
+    return Object.values(database).reduce(
+        (total, entry) => total + (typeof (entry as LocalTrackMetadata).duration === 'number' ? 1 : countLibraryTracks(entry as LocalDatabase)),
+        0
+    );
+}

@@ -29,4 +29,11 @@ describe('independent project identity', () => {
             (error: NodeJS.ErrnoException) => error.code === 'ENOENT'
         );
     });
+
+    it('offers a local folder library without changing the legacy remote service index', () => {
+        assert.equal(LibraryServices[0].id, 'remote-library');
+        assert.equal(LibraryServices[1].id, 'browser-folder');
+        assert.notEqual(LibraryServices[1].requiresOnlineServices, true);
+        assert.deepEqual(LibraryServices[1].customParameters, undefined);
+    });
 });

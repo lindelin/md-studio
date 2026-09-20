@@ -176,7 +176,19 @@ export class LibraryCatalog {
         const service = this.activeService;
         if (!service) throw new ApplicationError('INVALID_INPUT', 'Refresh the library before selecting audio.');
         const reference = selection.path.join('/');
-        return (params) => service.processLocalLibraryFile(reference, params);
+        if (!service.processLocalLibraryFile) {
+            throw new ApplicationError('INVALID_INPUT', 'This library uses the configured local audio encoder.');
+        }
+        return (params) => service.processLocalLibraryFile!(reference, params);
+    }
+
+    createFileResolver(path: string[], expectedRevision?: number): (() => Promise<File>) | null {
+        const [selection] = this.resolveTracks([path], expectedRevision);
+        const service = this.activeService;
+        if (!service) throw new ApplicationError('INVALID_INPUT', 'Refresh the library before selecting audio.');
+        if (!service.resolveLocalLibraryFile) return null;
+        const reference = selection.path.join('/');
+        return () => service.resolveLocalLibraryFile!(reference);
     }
 
     list(path: string[] = [], offset = 0, limit = 100, expectedRevision?: number): LibraryCatalogPage {

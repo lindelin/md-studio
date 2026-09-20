@@ -372,6 +372,38 @@ describe('InProcessApplicationClient', () => {
         assert.deepEqual([...new Uint8Array(result)], [1, 2, 3]);
     });
 
+    it('keeps local folder files inside the browser client boundary', async () => {
+        const tasks = new TaskManager();
+        const imports = new ImportQueue();
+        const workspace = new WorkspaceStore(tasks, imports, new SettingsStore(null));
+        const selected: File[][] = [];
+        const client = new InProcessApplicationClient(
+            { async execute() { return { ok: true }; } },
+            workspace,
+            imports,
+            async () => tasks.create('export', 'Local export'),
+            async () => tasks.create('advanced.memory-export', 'Memory export'),
+            async () => tasks.create('advanced.track-export', 'Advanced export'),
+            runAdvancedSession,
+            runUploadSession,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            async (files) => {
+                selected.push(files);
+                return { revision: 1, status: 'ready', database: {}, error: null };
+            }
+        );
+        const file = new File([Uint8Array.from([1])], 'track.wav', { type: 'audio/wav' });
+
+        const snapshot = await client.loadLocalLibraryFiles([file]);
+
+        assert.equal(snapshot.status, 'ready');
+        assert.deepEqual(selected, [[file]]);
+    });
+
     it('routes browser device sessions without exposing protocol services to the UI', async () => {
         const tasks = new TaskManager();
         const imports = new ImportQueue();

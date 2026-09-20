@@ -17,6 +17,7 @@ import type { ExportParams } from '../services/audio/audio-export';
 import type { LocalAudioInput } from './browser-audio-input';
 import type { CustomParameters } from '../custom-parameters';
 import type { TrackRecognitionRequest, TrackRecognitionTaskResult } from './browser-track-recognizer';
+import type { LibraryCatalogSnapshot } from './library-catalog';
 
 export type LocalAdvancedMemorySink = (region: AdvancedMemoryRegion, data: Uint8Array) => void | Promise<void>;
 
@@ -72,6 +73,7 @@ export interface ApplicationClient {
         isCancelled: () => boolean
     ): Promise<Uint8Array>;
     createLocalLibraryFileProcessor(filePath: string): (params: ExportParams) => Promise<ArrayBuffer>;
+    loadLocalLibraryFiles(files: File[]): Promise<LibraryCatalogSnapshot>;
     getWorkspaceSnapshot(): WorkspaceSnapshot;
     subscribe(listener: () => void): () => void;
 }
@@ -110,7 +112,8 @@ export class InProcessApplicationClient implements ApplicationClient {
             connect(request: LocalDeviceConnectionRequest): Promise<LocalDeviceConnectionResult>;
             disconnect(finalize?: boolean): Promise<void>;
         },
-        private readonly localTrackRecognition?: (request: TrackRecognitionRequest) => Promise<TaskSnapshot<TrackRecognitionTaskResult>>
+        private readonly localTrackRecognition?: (request: TrackRecognitionRequest) => Promise<TaskSnapshot<TrackRecognitionTaskResult>>,
+        private readonly localLibraryLoader?: (files: File[]) => Promise<LibraryCatalogSnapshot>
     ) {}
 
     execute = (command: ApplicationCommand) => this.commands.execute(command);
@@ -186,6 +189,12 @@ export class InProcessApplicationClient implements ApplicationClient {
             throw new Error('The local library is unavailable in this application environment.');
         }
         return this.localLibraryFileProcessor(filePath);
+    };
+    loadLocalLibraryFiles = (files: File[]) => {
+        if (!this.localLibraryLoader) {
+            throw new Error('Local folder selection is unavailable in this application environment.');
+        }
+        return this.localLibraryLoader(files);
     };
     getWorkspaceSnapshot = this.workspace.getSnapshot;
     subscribe = this.workspace.subscribe;

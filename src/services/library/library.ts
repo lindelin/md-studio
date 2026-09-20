@@ -12,5 +12,6 @@ export type LocalDatabase = { [filename: string]: LocalDatabase | LocalTrackMeta
 
 export interface LibraryService {
     getDatabase(): Promise<LocalDatabase>;
-    processLocalLibraryFile(filePath: string, params: ExportParams): Promise<ArrayBuffer>;
+    processLocalLibraryFile?(filePath: string, params: ExportParams): Promise<ArrayBuffer>;
+    resolveLocalLibraryFile?(filePath: string): Promise<File>;
 }

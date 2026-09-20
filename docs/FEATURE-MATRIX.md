@@ -70,8 +70,8 @@ Status meanings:
 | Browser audio-input recording | Hardware check | Local microphone/line input | Device enumeration, preview replacement, cleanup and task state are covered; real input acceptance remains. |
 | Song recognition | Optional online | Local sampling + external recognition request | Disabled with online services. A strict local-only release must remove it or replace the matcher with a local implementation. |
 | Library workspace UI | Ready | Workbench + `LibraryCatalog` | Navigation, search, paging, selection and import are covered. |
-| Built-in local folder library | Missing | — | Local file import works, but there is no persistent browser/desktop folder catalog yet. |
-| Remote HTTP library | Optional online | External server | Disabled by default. It should not be the only catalog implementation in a local-only release. |
+| Built-in local folder library | Ready | Browser-session file handles + local encoder | Folder selection, bounded indexing, metadata, search, paging and import are local. Browser permission is intentionally reselected after reload. |
+| Remote HTTP library | Optional online | External server | Disabled by default. The local folder library is the normal server-free catalog path. |
 
 ## Advanced maintenance
 
@@ -98,9 +98,8 @@ The friendly tool surface is: `minidisc_get_workspace`, `minidisc_list_services`
 ## Release acceptance still open
 
 1. Decide and enforce the final local-only product profile. Remote encoder, remote library, Remote NetMD and external song recognition are currently optional and disabled by default; the strict interpretation is to remove them from the official build.
-2. Add a built-in local folder library or remove the Library promise from the first release. Browser file import already provides a complete local recording workflow.
-3. Verify standard export and successful file-result presentation on a download-capable NetMD device.
-4. Verify representative HiMD metadata/export and Network Walkman operations without weakening capability gates.
-5. Verify browser audio-input recording and, if recognition remains, define a local recognition implementation.
-6. Verify device-specific advanced backup/recovery and Homebrew write paths only on explicitly disposable media.
-7. Capture final release screenshots after the product profile is frozen, then repeat the clean-install, build, license and runtime-asset release gates.
+2. Verify standard export and successful file-result presentation on a download-capable NetMD device.
+3. Verify representative HiMD metadata/export and Network Walkman operations without weakening capability gates.
+4. Verify browser audio-input recording and, if recognition remains, define a local recognition implementation.
+5. Verify device-specific advanced backup/recovery and Homebrew write paths only on explicitly disposable media.
+6. Capture final release screenshots after the product profile is frozen, then repeat the clean-install, build, license and runtime-asset release gates.

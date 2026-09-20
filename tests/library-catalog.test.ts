@@ -138,6 +138,27 @@ describe('LibraryCatalog', () => {
         assert.deepEqual([...new Uint8Array(result)], [9]);
     });
 
+    it('resolves browser-folder files without bypassing the configured local encoder', async () => {
+        const file = new File([Uint8Array.from([1])], 'track.flac', { type: 'audio/flac' });
+        const service: LibraryService = {
+            async getDatabase() {
+                return { Album: { 'track.flac': { artist: 'Artist', album: 'Album', title: 'Track', duration: 4 } } };
+            },
+            async resolveLocalLibraryFile(path) {
+                assert.equal(path, 'Album/track.flac');
+                return file;
+            },
+        };
+        const catalog = new LibraryCatalog(() => service);
+        await catalog.refresh();
+
+        const resolveFile = catalog.createFileResolver(['Album', 'track.flac'], 1);
+
+        assert.ok(resolveFile);
+        assert.equal(await resolveFile(), file);
+        assert.throws(() => catalog.createFileProcessor(['Album', 'track.flac'], 1), /configured local audio encoder/i);
+    });
+
     it('bounds hostile or accidentally recursive catalog shapes', () => {
         let database: Record<string, unknown> = {};
         const root = database;

@@ -39,6 +39,12 @@ export const LibraryServices: LibraryServicePrototype[] = [
         description:
             'A remote library with a built-in encoder. It sends pre-encoded audio to MiniDisc Workspace to reduce bandwidth use.',
     },
+    {
+        id: 'browser-folder',
+        name: 'Local Folder',
+        load: async () => (await import('./library/browser-folder-library')).BrowserFolderLibraryService,
+        description: 'Browse audio from a folder selected on this computer. Files and metadata remain in the browser session.',
+    },
 ];
 
 export async function createLibraryService(
