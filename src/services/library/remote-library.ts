@@ -5,6 +5,41 @@ import { DefaultFfmpegAudioExportService, ExportParams } from '../audio/audio-ex
 import { LibraryService, LocalDatabase } from './library';
 
 const MAX_TRIES = 3;
+const DATABASE_TIMEOUT_MS = 30_000;
+const AUDIO_TIMEOUT_MS = 120_000;
+
+export async function retryRemoteLibraryRequest<T>(
+    label: string,
+    operation: (signal: AbortSignal) => Promise<T>,
+    options: { attempts?: number; timeoutMs?: number } = {}
+): Promise<T> {
+    const attempts = options.attempts ?? MAX_TRIES;
+    const timeoutMs = options.timeoutMs ?? DATABASE_TIMEOUT_MS;
+    if (!Number.isInteger(attempts) || attempts < 1 || attempts > 10) {
+        throw new Error('Remote library attempts must be a whole number from 1 to 10.');
+    }
+    if (!Number.isFinite(timeoutMs) || timeoutMs < 1) {
+        throw new Error('Remote library timeout must be a positive number of milliseconds.');
+    }
+
+    let lastMessage = 'Unknown error.';
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            return await operation(controller.signal);
+        } catch (error) {
+            lastMessage = controller.signal.aborted
+                ? `Timed out after ${timeoutMs} ms.`
+                : error instanceof Error
+                  ? error.message
+                  : String(error);
+        } finally {
+            clearTimeout(timeout);
+        }
+    }
+    throw new Error(`${label} failed after ${attempts} attempts. ${lastMessage}`);
+}
 
 export class RemoteLibraryService extends DefaultFfmpegAudioExportService implements LibraryService {
     // These methods are required by the DefaultFFMPEGAudioExport service, but since
@@ -36,10 +71,15 @@ export class RemoteLibraryService extends DefaultFfmpegAudioExportService implem
         if (!dbPage.pathname.endsWith('/')) dbPage.pathname += '/';
         dbPage.pathname += 'database';
         dbPage.searchParams.append('cache', Math.random() + '');
-        const resp = await fetch(dbPage);
-        if (!resp.ok) throw new Error(`Library database request failed with HTTP ${resp.status}.`);
-        const json = await resp.json();
-        return json as LocalDatabase;
+        return retryRemoteLibraryRequest(
+            'Library database request',
+            async (signal) => {
+                const response = await fetch(dbPage, { signal });
+                if (!response.ok) throw new Error(`HTTP ${response.status}.`);
+                return (await response.json()) as LocalDatabase;
+            },
+            { timeoutMs: DATABASE_TIMEOUT_MS }
+        );
     }
 
     async processLocalLibraryFile(filePath: string, params: ExportParams): Promise<ArrayBuffer> {
@@ -49,23 +89,18 @@ export class RemoteLibraryService extends DefaultFfmpegAudioExportService implem
             if (!rawURL.pathname.endsWith('/')) rawURL.pathname += '/';
             rawURL.pathname += 'get_local';
             rawURL.searchParams.set('file_name', filePath);
-            let response: Response | null = null;
-            for (let i = 0; i < MAX_TRIES; i++) {
-                try {
-                    const candidate = await fetch(rawURL);
-                    if (!candidate.ok) throw new Error(`Library audio request failed with HTTP ${candidate.status}.`);
-                    response = candidate;
-                    break;
-                } catch (ex) {
-                    console.log('Error while fetching: ' + ex);
-                }
-            }
-            if (response === null) {
-                throw new Error('Failed to convert audio!');
-            }
+            const audio = await retryRemoteLibraryRequest(
+                'Library audio request',
+                async (signal) => {
+                    const response = await fetch(rawURL, { signal });
+                    if (!response.ok) throw new Error(`HTTP ${response.status}.`);
+                    return response.blob();
+                },
+                { timeoutMs: AUDIO_TIMEOUT_MS }
+            );
             const fileTokens = filePath.split('/');
             const fileName = fileTokens[fileTokens.length - 1];
-            const asFile = new File([await response.blob()], fileName);
+            const asFile = new File([audio], fileName);
             await this.prepare(asFile);
             return this.export(params);
         } else {
@@ -99,22 +134,21 @@ export class RemoteLibraryService extends DefaultFfmpegAudioExportService implem
             encodingURL.searchParams.set('type', encoderFormat);
             encodingURL.searchParams.set('file_name', filePath);
             if (enableReplayGain !== undefined) encodingURL.searchParams.set('applyReplaygain', enableReplayGain.toString());
-            let response: Response | null = null;
-            for (let i = 0; i < MAX_TRIES; i++) {
-                try {
-                    response = await fetch(encodingURL.href);
-                    if (!response.ok) throw new Error(`Library transcode request failed with HTTP ${response.status}.`);
+            return retryRemoteLibraryRequest(
+                'Library transcode request',
+                async (signal) => {
+                    const response = await fetch(encodingURL.href, { signal });
+                    if (!response.ok) throw new Error(`HTTP ${response.status}.`);
                     const source = await response.arrayBuffer();
                     const content = new Uint8Array(source);
                     const file = new File([content], 'test.at3');
-                    const headerLength = (await getATRACWAVEncoding(file))!.headerLength;
+                    const encoding = await getATRACWAVEncoding(file);
+                    if (!encoding) throw new Error('The remote encoder returned an invalid ATRAC WAV file.');
+                    const headerLength = encoding.headerLength;
                     return source.slice(headerLength);
-                } catch (ex) {
-                    console.log('Error while fetching: ' + ex);
-                }
-            }
-
-            throw new Error('Failed to transcode audio!');
+                },
+                { timeoutMs: AUDIO_TIMEOUT_MS }
+            );
         }
     }
 }
