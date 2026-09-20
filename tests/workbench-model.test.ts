@@ -10,6 +10,7 @@ import {
     defaultMetadataTrackSelection,
     findTaskNeedingAttention,
     formatRecognitionTitle,
+    getTaskOutputFiles,
     getTaskErrorDetail,
     getSelfTestReadiness,
     isActiveUninterruptibleWrite,
@@ -150,6 +151,30 @@ describe('Studio Workbench task presentation', () => {
             summarizeTaskResult({ writtenTracks: 2, files: ['a.oma', 'b.oma'], internal: { token: 'hidden' } }),
             ['Written: 2', 'Files: 2']
         );
+    });
+
+    it('extracts bounded output file entries without exposing arbitrary result fields', () => {
+        assert.deepEqual(
+            getTaskOutputFiles({
+                files: ['C:\\Exports\\01. Song.oma', '/tmp/02. Song.wav', '', 42],
+                internal: { token: 'hidden' },
+            }),
+            {
+                total: 2,
+                files: [
+                    { value: 'C:\\Exports\\01. Song.oma', label: '01. Song.oma' },
+                    { value: '/tmp/02. Song.wav', label: '02. Song.wav' },
+                ],
+            }
+        );
+        assert.deepEqual(getTaskOutputFiles({ files: ['a', 'b', 'c'] }, 2), {
+            total: 3,
+            files: [
+                { value: 'a', label: 'a' },
+                { value: 'b', label: 'b' },
+            ],
+        });
+        assert.deepEqual(getTaskOutputFiles({ files: 'not-an-array' }), { files: [], total: 0 });
     });
 
     it('selects only new failed or interrupted tasks for attention', () => {

@@ -292,6 +292,18 @@
 .workbench__task-detail dd { overflow: hidden; margin: 0; color: #d4e1e7; text-overflow: ellipsis; white-space: nowrap; }
 .workbench__task-result { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
 .workbench__task-result span { border: 1px solid #315064; border-radius: 4px; padding: 5px 8px; color: #9ec6d9; background: #152b37; font-size: 9px; }
+.workbench__task-outputs { display: grid; gap: 8px; margin-bottom: 16px; border: 1px solid #2f4b5b; border-radius: 6px; padding: 10px; background: #101b23; }
+.workbench__task-outputs > div { display: flex; align-items: center; justify-content: space-between; color: #dce9ef; font-size: 10px; }
+.workbench__task-outputs > div span, .workbench__task-outputs > small { color: #6f8793; font-size: 8px; }
+.workbench__task-outputs ul { display: grid; max-height: 150px; gap: 2px; overflow: auto; margin: 0; padding: 0; list-style: none; }
+.workbench__task-outputs li { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; border-top: 1px solid var(--wb-border-soft); padding: 6px 2px; }
+.workbench__task-outputs li > span { min-width: 0; }
+.workbench__task-outputs li strong, .workbench__task-outputs li small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workbench__task-outputs li strong { color: #bfd3dc; font-size: 9px; font-weight: 500; }
+.workbench__task-outputs li small { margin-top: 2px; color: #637985; font-size: 7px; }
+.workbench__task-outputs button { display: inline-flex; min-height: 25px; align-items: center; gap: 4px; border: 1px solid #315064; border-radius: 4px; padding: 0 7px; color: #9ec6d9; background: #152b37; font-size: 8px; cursor: pointer; }
+.workbench__task-outputs button:hover { color: #fff; border-color: #477288; }
+.workbench__task-outputs button svg { font-size: 13px; }
 .workbench__task-error { display: grid; gap: 6px; margin-bottom: 16px; border: 1px solid #653c45; border-radius: 5px; padding: 11px 12px; color: #dca2a6; background: #271a20; font-size: 9px; }
 .workbench__task-error strong { color: #ffadb1; font-size: 10px; }
 .workbench__task-error p { margin: 2px 0 0; color: #bd8e92; line-height: 1.45; }

@@ -217,6 +217,24 @@ export function summarizeTaskResult(result: unknown) {
     return lines;
 }
 
+export interface TaskOutputFile {
+    value: string;
+    label: string;
+}
+
+export function getTaskOutputFiles(result: unknown, limit = 100): { files: TaskOutputFile[]; total: number } {
+    if (!result || typeof result !== 'object' || Array.isArray(result)) return { files: [], total: 0 };
+    const raw = (result as Record<string, unknown>).files;
+    if (!Array.isArray(raw)) return { files: [], total: 0 };
+    const values = raw.filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+    const safeLimit = Number.isInteger(limit) ? Math.max(0, limit) : 100;
+    const files = values.slice(0, safeLimit).map((value) => ({
+        value,
+        label: value.split(/[\\/]/).filter(Boolean).at(-1) ?? value,
+    }));
+    return { files, total: values.length };
+}
+
 export function findTaskNeedingAttention<T extends { id: string; status: string }>(
     tasks: T[],
     acknowledgedTaskIds: ReadonlySet<string>

@@ -23,6 +23,7 @@ import {
     canStartRecording,
     findTaskNeedingAttention,
     getTaskErrorDetail,
+    getTaskOutputFiles,
     isActiveUninterruptibleWrite,
     resolveRowNavigationIndex,
     summarizeTaskResult,
@@ -60,6 +61,7 @@ import CreateNewFolderRoundedIcon from '@mui/icons-material/CreateNewFolderRound
 import FolderOffRoundedIcon from '@mui/icons-material/FolderOffRounded';
 import SelectAllRoundedIcon from '@mui/icons-material/SelectAllRounded';
 import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded';
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 
 import { TopMenu } from '../topmenu';
 import { DiscProtectedDialog } from '../disc-protected-dialog';
@@ -373,6 +375,7 @@ export const Workbench = () => {
     );
     const selectedTask = recentTasks.find((task) => task.id === selectedTaskId) ?? recentTasks[0] ?? null;
     const selectedTaskResultLines = selectedTask ? summarizeTaskResult(selectedTask.result) : [];
+    const selectedTaskOutputs = selectedTask ? getTaskOutputFiles(selectedTask.result) : { files: [], total: 0 };
     const selectedTaskErrorDetail = getTaskErrorDetail(selectedTask?.error);
     const activeTaskCount = workspace.tasks.filter((task) => task.status === 'running' || task.status === 'queued').length;
 
@@ -815,6 +818,16 @@ export const Workbench = () => {
             : formatTimeFromSeconds(disc.total)
         : '—';
 
+    const copyTaskOutput = async (value: string, label: string) => {
+        try {
+            if (!navigator.clipboard) throw new Error('Clipboard access is unavailable in this browser.');
+            await navigator.clipboard.writeText(value);
+            setMessage(`Copied ${label}.`);
+        } catch (error) {
+            setMessage(errorMessage(error));
+        }
+    };
+
     const renderPlanRow = (row: PlanItem) => {
         const isSelected =
             row.kind === 'track'
@@ -1120,6 +1133,23 @@ export const Workbench = () => {
                                         {selectedTaskResultLines.length > 0 ? (
                                             <div className="workbench__task-result">
                                                 {selectedTaskResultLines.map((line) => <span key={line}>{line}</span>)}
+                                            </div>
+                                        ) : null}
+                                        {selectedTaskOutputs.total > 0 ? (
+                                            <div className="workbench__task-outputs">
+                                                <div>
+                                                    <strong>Output files</strong>
+                                                    <span>{selectedTaskOutputs.total} completed</span>
+                                                </div>
+                                                <ul>
+                                                    {selectedTaskOutputs.files.map((file, index) => (
+                                                        <li key={`${file.value}:${index}`}>
+                                                            <span title={file.value}><strong>{file.label}</strong>{file.value !== file.label ? <small>{file.value}</small> : null}</span>
+                                                            <button aria-label={`Copy ${file.label}`} onClick={() => void copyTaskOutput(file.value, file.label)}><ContentCopyRoundedIcon /> Copy</button>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                                {selectedTaskOutputs.total > selectedTaskOutputs.files.length ? <small>Showing the first {selectedTaskOutputs.files.length} files.</small> : null}
                                             </div>
                                         ) : null}
                                         {selectedTask.error ? (
