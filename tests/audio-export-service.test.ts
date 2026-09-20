@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import type { CodecFamily } from '../src/services/interfaces/netmd.ts';
 import {
     DefaultFfmpegAudioExportService,
+    getFfmpegInputExtension,
     type ExportParams,
 } from '../src/services/audio/audio-export.ts';
 
@@ -36,6 +37,24 @@ const params: ExportParams = {
 };
 
 describe('DefaultFfmpegAudioExportService cleanup', () => {
+    it('uses a bounded safe extension for the FFmpeg virtual input file', async () => {
+        assert.equal(getFfmpegInputExtension('track.FLAC'), 'flac');
+        assert.equal(getFfmpegInputExtension('track'), 'bin');
+        assert.equal(getFfmpegInputExtension('track.wav -map 0'), 'bin');
+        assert.equal(getFfmpegInputExtension(`track.${'a'.repeat(17)}`), 'bin');
+
+        let writtenName = '';
+        const process = {
+            write: async (name: string) => { writtenName = name; },
+            worker: { terminate: () => undefined },
+        } as unknown as FfmpegProcess;
+        const service = new TestAudioExportService(process, async () => new ArrayBuffer(0));
+
+        await service.prepare(new File([], 'track.wav -map 0'));
+        assert.equal(writtenName, 'inAudioFile.bin');
+        await service.export(params);
+    });
+
     it('terminates and forgets the worker when input preparation fails', async () => {
         let terminated = 0;
         const process = {

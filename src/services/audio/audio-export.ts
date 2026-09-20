@@ -23,6 +23,11 @@ export interface AudioExportService {
     getSupport(codec: CodecFamily): { state: 'perfect' | 'mediocre' | 'unsupported'; gapless: boolean };
 }
 
+export function getFfmpegInputExtension(fileName: string) {
+    const match = fileName.trim().match(/\.([a-z0-9]{1,16})$/i);
+    return match?.[1].toLowerCase() ?? 'bin';
+}
+
 export abstract class DefaultFfmpegAudioExportService implements AudioExportService {
     public ffmpegProcess?: FfmpegWorker;
     public loglines: { action: string; message: string }[] = [];
@@ -37,16 +42,10 @@ export abstract class DefaultFfmpegAudioExportService implements AudioExportServ
     async prepare(file: File) {
         this.loglines = [];
         try {
-            await this.loadFfmpeg();
-
-            const ext = file.name.split('.').slice(-1);
-            if (ext.length === 0) {
-                throw new Error(`Unrecognized file format: ${file.name}`);
-            }
-
-            this.inFileName = `inAudioFile.${ext[0]}`;
+            this.inFileName = `inAudioFile.${getFfmpegInputExtension(file.name)}`;
             this.outFileNameNoExt = `outAudioFile`;
 
+            await this.loadFfmpeg();
             await this.ffmpegProcess.write(this.inFileName, file);
         } catch (error) {
             this.releaseFfmpegProcess();
