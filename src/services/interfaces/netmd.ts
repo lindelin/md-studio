@@ -62,6 +62,7 @@ import netmdExploits from 'netmd-exploits';
 import netmdTocmanip from 'netmd-tocmanip';
 import { HiMDCodecName } from 'himd-js';
 import { makeNetMDEncryptPacketIterator } from './netmd-encrypt-worker';
+import { createNetMDTransferGuard } from './netmd-transfer-guard';
 import { Capability, ExploitCapability } from './capabilities';
 export { Capability, ExploitCapability } from './capabilities';
 
@@ -687,7 +688,7 @@ export class NetMDUSBService extends NetMDService {
     @asyncMutex
     async prepareUpload() {
         await prepareDownload(this.netmdInterface!);
-        this.currentSession = new MDSession(this.netmdInterface!);
+        this.currentSession = new MDSession(createNetMDTransferGuard(this.netmdInterface!));
         await this.currentSession.init();
     }
 
