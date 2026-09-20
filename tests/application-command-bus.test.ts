@@ -273,6 +273,19 @@ describe('ApplicationCommandBus import writing', () => {
         });
     });
 
+    it('rejects a write cancellation command that cannot skip any remaining track', async () => {
+        const tasks = new TaskManager();
+        const task = tasks.create('disc.write', 'Write one track', 1, 'tracks');
+        tasks.start(task.id, 'transferring');
+        const bus = new ApplicationCommandBus(undefined, tasks, new ImportQueue());
+
+        const result = await bus.execute({ type: 'task.cancel', id: task.id });
+
+        assert.equal(result.ok, false);
+        assert.match(!result.ok ? result.error.message : '', /cannot be interrupted safely/);
+        assert.equal(tasks.get(task.id).cancellationRequested, false);
+    });
+
     it('starts a background write through the injected application adapter', async () => {
         const tasks = new TaskManager();
         const imports = new ImportQueue();

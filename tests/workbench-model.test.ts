@@ -184,6 +184,11 @@ describe('Studio Workbench task presentation', () => {
             true
         );
         assert.equal(canRequestTaskCancellation({ ...finalTrack, phase: 'converting' }), true);
+        assert.equal(canRequestTaskCancellation({ ...finalTrack, phase: 'finalizing' }), false);
+        assert.equal(
+            canRequestTaskCancellation({ ...finalTrack, phase: 'converting', progress: { completed: 1, total: 1 } }),
+            false
+        );
     });
 });
 

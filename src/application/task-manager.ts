@@ -1,3 +1,5 @@
+import { canRequestTaskCancellation } from './task-cancellation-policy';
+
 export type TaskStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled' | 'interrupted';
 
 export type TaskPhase = 'queued' | 'preparing' | 'converting' | 'transferring' | 'finalizing' | 'complete';
@@ -137,6 +139,13 @@ export class TaskManager {
 
     requestCancellation(id: string) {
         return this.updateActive(id, (task) => {
+            if (!canRequestTaskCancellation(task)) {
+                throw new Error(
+                    task.kind === 'disc.write'
+                        ? 'The active MiniDisc track cannot be interrupted safely and there are no remaining tracks to skip. Keep USB connected until recording finishes.'
+                        : 'This task no longer has cancellable work remaining.'
+                );
+            }
             task.cancellationRequested = true;
         });
     }

@@ -40,6 +40,19 @@ describe('TaskManager', () => {
         assert.equal(manager.cancel(task.id).status, 'cancelled');
     });
 
+    it('rejects cancellation when a write has no remaining track boundary', () => {
+        const manager = new TaskManager();
+        const task = manager.create('disc.write', 'Write one track', 1, 'tracks');
+        manager.start(task.id, 'transferring');
+
+        assert.throws(() => manager.requestCancellation(task.id), /cannot be interrupted safely/);
+        assert.equal(manager.isCancellationRequested(task.id), false);
+
+        manager.setPhase(task.id, 'finalizing');
+        assert.throws(() => manager.requestCancellation(task.id), /cannot be interrupted safely/);
+        assert.equal(manager.isCancellationRequested(task.id), false);
+    });
+
     it('rejects invalid progress and updates after completion', () => {
         const manager = new TaskManager();
         const task = manager.create('disc.write', 'Write a track');
