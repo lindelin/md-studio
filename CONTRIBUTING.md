@@ -27,7 +27,9 @@ Run `npm run licenses:update` after dependency changes and `npm run runtime-asse
 
 ## Architecture rules
 
-- Keep stable NetMD, Hi-MD, and Network Walkman protocol behavior behind device gateways.
+- Treat the existing NetMD, Hi-MD, Network Walkman, encoder, and advanced-device services as the canonical implementation of supported hardware behavior. Reuse them through thin device gateways; do not copy or independently reimplement a working protocol operation in the application, UI, MCP, or CLI layers.
+- Change protocol or device-service behavior only for a reproduced defect, a documented missing capability, or a required upstream compatibility update. Keep the change narrow and add regression evidence at the service or gateway boundary.
+- Keep stable protocol behavior behind device gateways. Gateways translate capabilities, parameters, and serializable results; they must not grow into a second device implementation.
 - Put validation, revisions, capabilities, destructive confirmation, serialization, and transactions in the application layer.
 - Expose long operations through Task Manager. Command acceptance is not completion.
 - Read device, disc, import queue, settings, and task truth from Workspace Store.
