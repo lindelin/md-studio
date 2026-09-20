@@ -850,6 +850,7 @@ export const Workbench = () => {
                 ) : section === 'tools' ? (
                     <WorkbenchTools
                         onMessage={setMessage}
+                        onSessionEnded={() => dispatch(appActions.setMainView('WELCOME'))}
                         onTaskStarted={(id, nextMessage) => {
                             setSelectedTaskId(id);
                             setTaskCenterOpen(true);

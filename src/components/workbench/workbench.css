@@ -330,6 +330,10 @@
 .workbench__tool-card.is-danger > svg { color: #df7d82; }
 .workbench__tool-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .workbench__tool-actions button { min-width: 74px; padding-inline: 10px; }
+.workbench__maintenance-card { grid-template-columns: 26px minmax(170px, 1fr); }
+.workbench__maintenance-actions { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.workbench__maintenance-actions button { min-height: 32px; padding: 6px 9px; white-space: normal; }
+.workbench__maintenance-modal { width: min(560px, 100%); }
 .workbench__tools-empty, .workbench__tools-warning { display: flex; align-items: center; gap: 9px; margin-top: 14px; border: 1px solid #315064; border-radius: 6px; padding: 12px 14px; color: #9ec6d9; background: #112733; font-size: 10px; }
 .workbench__tools-empty svg, .workbench__tools-warning svg { flex: 0 0 auto; font-size: 18px; }
 .workbench__tools-warning { border-color: #705f3e; color: #e7c486; background: #2c281d; }

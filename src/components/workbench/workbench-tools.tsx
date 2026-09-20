@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import BugReportRoundedIcon from '@mui/icons-material/BugReportRounded';
 import DataObjectRoundedIcon from '@mui/icons-material/DataObjectRounded';
@@ -10,9 +10,18 @@ import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded';
 import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import type { MetadataImportPlan } from '../../domain/metadata-import';
 import type { AdvancedDeviceInfo } from '../../application/contracts';
+import type { ApplicationCommand } from '../../application/command-bus';
+import { executeSessionEndingCommand } from '../../application/device-session-transition';
+import { INTERACTIVE_ADVANCED_AUTHORIZATION } from '../../application/interactive-authorization';
 import { downloadBlob, formatTimeFromSeconds } from '../../utils';
 import { useApplicationClient, useApplicationWorkspace } from '../use-application-client';
 import { buildAdvancedExportFileName, defaultMetadataTrackSelection, getSelfTestReadiness } from './workbench-model';
+import {
+    advancedMaintenanceActions,
+    canRunAdvancedMaintenanceAction,
+    isAdvancedMaintenanceConfirmationValid,
+    type AdvancedMaintenanceAction,
+} from './workbench-advanced-maintenance';
 
 function decodeBase64(data: string) {
     const binary = atob(data);
@@ -22,9 +31,11 @@ function decodeBase64(data: string) {
 export const WorkbenchTools = ({
     onMessage,
     onTaskStarted,
+    onSessionEnded,
 }: {
     onMessage(message: string): void;
     onTaskStarted(id: string, message: string): void;
+    onSessionEnded(): void;
 }) => {
     const client = useApplicationClient();
     const workspace = useApplicationWorkspace();
@@ -43,6 +54,10 @@ export const WorkbenchTools = ({
     const [tocSummary, setTocSummary] = useState<{ bytes: number; sha256: string } | null>(null);
     const [selfTestOpen, setSelfTestOpen] = useState(false);
     const [selfTestConfirmation, setSelfTestConfirmation] = useState('');
+    const [maintenanceAction, setMaintenanceAction] = useState<AdvancedMaintenanceAction | null>(null);
+    const [maintenanceConfirmation, setMaintenanceConfirmation] = useState('');
+    const [spUploadSpeedupEnabled, setSpUploadSpeedupEnabled] = useState(false);
+    const [discSwapDetectionDisabled, setDiscSwapDetectionDisabled] = useState(false);
 
     const canImportMetadata =
         Boolean(disc?.writable) &&
@@ -53,10 +68,25 @@ export const WorkbenchTools = ({
         capabilities.includes('group.delete');
     const selfTestReadiness = getSelfTestReadiness(device ?? undefined);
 
+    useEffect(() => {
+        setAdvancedInfo(null);
+        setTocSummary(null);
+        setMaintenanceAction(null);
+        setMaintenanceConfirmation('');
+        setSpUploadSpeedupEnabled(false);
+        setDiscSwapDetectionDisabled(false);
+    }, [device?.sessionId]);
+
     const closeSelfTest = () => {
         if (busy) return;
         setSelfTestOpen(false);
         setSelfTestConfirmation('');
+    };
+
+    const closeMaintenanceReview = () => {
+        if (busy) return;
+        setMaintenanceAction(null);
+        setMaintenanceConfirmation('');
     };
 
     const exportCsv = async () => {
@@ -223,6 +253,81 @@ export const WorkbenchTools = ({
         }
     };
 
+    const runAdvancedMaintenance = async () => {
+        if (!maintenanceAction || !isAdvancedMaintenanceConfirmationValid(maintenanceAction, maintenanceConfirmation)) return;
+        setBusy(true);
+        setStatus(`Applying ${maintenanceAction.label}…`);
+        try {
+            let command: ApplicationCommand;
+            switch (maintenanceAction.id) {
+                case 'sp-speedup':
+                    command = {
+                        type: 'advanced.setSpUploadSpeedup',
+                        enabled: !spUploadSpeedupEnabled,
+                        interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
+                    };
+                    break;
+                case 'disc-swap':
+                    command = {
+                        type: 'advanced.setDiscSwapDetectionDisabled',
+                        disabled: !discSwapDetectionDisabled,
+                        interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
+                    };
+                    break;
+                case 'tetris':
+                    command = {
+                        type: 'advanced.runTetris',
+                        confirmation: { confirmed: true, reason: 'Confirmed in the Studio Workbench advanced maintenance review.' },
+                        interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
+                    };
+                    break;
+                case 'himd-full':
+                    command = {
+                        type: 'advanced.enableHimdFullMode',
+                        confirmation: { confirmed: true, reason: 'Confirmed in the Studio Workbench advanced maintenance review.' },
+                        interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
+                    };
+                    break;
+                case 'service-mode':
+                    command = {
+                        type: 'advanced.enterServiceMode',
+                        confirmation: { confirmed: true, reason: 'Confirmed in the Studio Workbench advanced maintenance review.' },
+                        interactiveAuthorization: INTERACTIVE_ADVANCED_AUTHORIZATION,
+                    };
+                    break;
+            }
+
+            if (maintenanceAction.endsSession) {
+                await executeSessionEndingCommand(client, command);
+                setMaintenanceAction(null);
+                setMaintenanceConfirmation('');
+                setStatus(null);
+                onSessionEnded();
+                return;
+            }
+
+            const result = await client.execute(command);
+            if (!result.ok) throw new Error(result.error.message);
+            if (maintenanceAction.id === 'sp-speedup') setSpUploadSpeedupEnabled((enabled) => !enabled);
+            if (maintenanceAction.id === 'disc-swap') setDiscSwapDetectionDisabled((disabled) => !disabled);
+            const label = maintenanceAction.label;
+            setMaintenanceAction(null);
+            setMaintenanceConfirmation('');
+            setStatus(null);
+            onMessage(`${label} updated for this device session.`);
+        } catch (error) {
+            setStatus(error instanceof Error ? error.message : `Could not apply ${maintenanceAction.label}.`);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const maintenanceButtonLabel = (action: AdvancedMaintenanceAction) => {
+        if (action.id === 'sp-speedup') return spUploadSpeedupEnabled ? 'Disable speedup' : 'Enable speedup';
+        if (action.id === 'disc-swap') return discSwapDetectionDisabled ? 'Restore detection' : 'Disable detection';
+        return action.label;
+    };
+
     return (
         <section className="workbench__tools">
             <header>
@@ -257,6 +362,22 @@ export const WorkbenchTools = ({
                     <div className="workbench__tool-actions">
                         <button className="secondary-button" onClick={() => void exportAdvancedMemory('ram')} disabled={!advancedInfo?.capabilities.includes('readRam') || busy}>RAM</button>
                         <button className="secondary-button" onClick={() => void exportAdvancedMemory('firmware')} disabled={!advancedInfo?.capabilities.includes('readFirmware') || busy}>Firmware</button>
+                    </div>
+                </article>
+                <article className="workbench__tool-card is-danger workbench__maintenance-card">
+                    <TuneRoundedIcon />
+                    <div><h3>Advanced device modes</h3><p>Review browser-authorized Homebrew patches and session-ending device modes.</p><small>{advancedInfo ? 'Only actions supported by this firmware are enabled.' : 'Inspect the device before reviewing an action.'}</small></div>
+                    <div className="workbench__maintenance-actions">
+                        {advancedMaintenanceActions.map((action) => (
+                            <button
+                                className={action.endsSession ? 'danger-button' : 'secondary-button'}
+                                key={action.id}
+                                onClick={() => { setMaintenanceAction(action); setMaintenanceConfirmation(''); }}
+                                disabled={busy || !canRunAdvancedMaintenanceAction(action, advancedInfo?.capabilities)}
+                            >
+                                {maintenanceButtonLabel(action)}
+                            </button>
+                        ))}
                     </div>
                 </article>
                 <article className="workbench__tool-card is-danger">
@@ -328,6 +449,36 @@ export const WorkbenchTools = ({
                         <div className="workbench__modal-actions">
                             <button className="secondary-button" onClick={closeSelfTest} disabled={busy}>Cancel</button>
                             <button className="danger-button" onClick={() => void startSelfTest()} disabled={busy || selfTestConfirmation !== 'ERASE'}>Erase disc and run test</button>
+                        </div>
+                    </section>
+                </div>
+            ) : null}
+
+            {maintenanceAction ? (
+                <div className="workbench__modal-backdrop" role="presentation" onMouseDown={closeMaintenanceReview}>
+                    <section className="workbench__modal workbench__maintenance-modal" role="dialog" aria-modal="true" aria-labelledby="workbench-maintenance-title" onMouseDown={(event) => event.stopPropagation()}>
+                        <span className="workbench__eyebrow">ADVANCED DEVICE MODE</span>
+                        <h2 id="workbench-maintenance-title">{maintenanceButtonLabel(maintenanceAction)}?</h2>
+                        <p>{maintenanceAction.description}</p>
+                        <div className="workbench__write-warning">
+                            This runs unsupported Homebrew code on the connected device. Keep USB and device power stable until the operation finishes.
+                            {maintenanceAction.endsSession ? ' The current MiniDisc session will disconnect afterward.' : ''}
+                        </div>
+                        {maintenanceAction.confirmationToken ? (
+                            <label>
+                                Type {maintenanceAction.confirmationToken} to continue
+                                <input autoFocus value={maintenanceConfirmation} onChange={(event) => setMaintenanceConfirmation(event.target.value)} />
+                            </label>
+                        ) : null}
+                        <div className="workbench__modal-actions">
+                            <button className="secondary-button" onClick={closeMaintenanceReview} disabled={busy}>Cancel</button>
+                            <button
+                                className={maintenanceAction.endsSession ? 'danger-button' : 'primary-button'}
+                                onClick={() => void runAdvancedMaintenance()}
+                                disabled={busy || !isAdvancedMaintenanceConfirmationValid(maintenanceAction, maintenanceConfirmation)}
+                            >
+                                {busy ? 'Applying…' : 'Apply device mode'}
+                            </button>
                         </div>
                     </section>
                 </div>
