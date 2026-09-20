@@ -1,45 +1,17 @@
-import React, { useState, useCallback } from 'react';
-import { useDispatch } from '../frontend-utils';
-import { useShallowEqualSelector } from '../frontend-utils';
-
-import { actions as appActions } from '../redux/app-feature';
-
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
-import DialogTitle from '@mui/material/DialogTitle';
-import Slide, { SlideProps } from '@mui/material/Slide';
-import Button from '@mui/material/Button';
+import React, { useCallback, useState } from 'react';
+import { useDispatch, useShallowEqualSelector } from '../frontend-utils';
 import Warning from '../images/md_lock.svg?react';
-import { Checkbox, FormControlLabel } from '@mui/material';
-import { makeStyles } from 'tss-react/mui';
-import { useUpdateApplicationSettings } from './use-application-client';
+import { actions as appActions } from '../redux/app-feature';
+import { AppDialog } from './app-dialog';
 import { useI18n } from './use-i18n';
-
-const Transition = React.forwardRef(function Transition(props: SlideProps, ref: React.Ref<unknown>) {
-    return <Slide direction="up" ref={ref} {...props} />;
-});
-
-const useStyles = makeStyles()((theme) => ({
-    svg: {
-        '& .text': {
-            fill: theme.palette.text.primary,
-        },
-        margin: 'auto',
-        marginBottom: theme.spacing(3),
-        display: 'block',
-    },
-}));
+import { useUpdateApplicationSettings } from './use-application-client';
 
 export const DiscProtectedDialog = () => {
     const { t } = useI18n();
     const dispatch = useDispatch();
     const updateSettings = useUpdateApplicationSettings();
-    const { classes } = useStyles();
-
     const visible = useShallowEqualSelector((state) => state.appState.discProtectedDialogVisible);
-    const [doNotShowAgain, setDoNotShowAgain] = useState<boolean>(false);
+    const [doNotShowAgain, setDoNotShowAgain] = useState(false);
 
     const handleClose = useCallback(() => {
         if (doNotShowAgain) {
@@ -51,30 +23,21 @@ export const DiscProtectedDialog = () => {
     }, [dispatch, doNotShowAgain, updateSettings]);
 
     return (
-        <Dialog
+        <AppDialog
             open={visible}
-            maxWidth={'sm'}
-            fullWidth={true}
-            TransitionComponent={Transition}
-            aria-labelledby="disc-protected-dialog-slide-title"
+            size="small"
+            title={t('Write Protected Disc')}
+            onClose={handleClose}
+            actions={<button className="app-dialog__button--primary" onClick={handleClose}>{t('OK')}</button>}
         >
-            <DialogTitle id="disc-protected-dialog-slide-title">{t('Write Protected Disc')}</DialogTitle>
-            <DialogContent>
-                <Warning className={classes.svg} />
-                <DialogContentText>{t('The disc you have inserted is write protected.')}</DialogContentText>
-                <DialogContentText>
-                    {t("You'll be able to use playback transport controls and disc ripping/archival functions, but not write or edit anything.")}
-                </DialogContentText>
-                <DialogContentText>{t('Please eject, then unlock, and re-insert the disc if you need to make changes.')}</DialogContentText>
-
-                <FormControlLabel
-                    label={t('Do not show again')}
-                    control={<Checkbox checked={doNotShowAgain} onChange={(val) => setDoNotShowAgain(val.target.checked)} />}
-                />
-            </DialogContent>
-            <DialogActions>
-                <Button onClick={handleClose}>{t('OK')}</Button>
-            </DialogActions>
-        </Dialog>
+            <Warning className="app-dialog__warning-illustration" />
+            <p>{t('The disc you have inserted is write protected.')}</p>
+            <p>{t("You'll be able to use playback transport controls and disc ripping/archival functions, but not write or edit anything.")}</p>
+            <p>{t('Please eject, then unlock, and re-insert the disc if you need to make changes.')}</p>
+            <label className="app-dialog__check">
+                <input type="checkbox" checked={doNotShowAgain} onChange={(event) => setDoNotShowAgain(event.target.checked)} />
+                <span>{t('Do not show again')}</span>
+            </label>
+        </AppDialog>
     );
 };

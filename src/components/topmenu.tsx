@@ -10,19 +10,11 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
-import { makeStyles } from 'tss-react/mui';
 import { useDispatch } from '../frontend-utils';
 import { actions as appActions } from '../redux/app-feature';
 import { useI18n } from './use-i18n';
 
-const useStyles = makeStyles()((theme) => ({
-    listItemIcon: {
-        minWidth: theme.spacing(5),
-    },
-}));
-
 export const TopMenu = function ({ onShowSettings }: { onShowSettings: () => void }) {
-    const { classes } = useStyles();
     const dispatch = useDispatch();
     const { t } = useI18n();
     const helpLinkRef = React.useRef<null | HTMLAnchorElement>(null);
@@ -59,16 +51,16 @@ export const TopMenu = function ({ onShowSettings }: { onShowSettings: () => voi
             </IconButton>
             <Menu id="actions-menu" anchorEl={menuAnchorEl} keepMounted open={menuOpen} onClose={handleMenuClose}>
                 <MenuItem onClick={handleShowSettings}>
-                    <ListItemIcon className={classes.listItemIcon}><SettingsIcon fontSize="small" /></ListItemIcon>
+                    <ListItemIcon sx={{ minWidth: 40 }}><SettingsIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>{t('Settings')}</ListItemText>
                 </MenuItem>
                 <Divider />
                 <MenuItem onClick={handleShowAbout}>
-                    <ListItemIcon className={classes.listItemIcon}><InfoIcon fontSize="small" /></ListItemIcon>
+                    <ListItemIcon sx={{ minWidth: 40 }}><InfoIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>{t('About')}</ListItemText>
                 </MenuItem>
                 <MenuItem onClick={handleHelpLink}>
-                    <ListItemIcon className={classes.listItemIcon}><HelpIcon fontSize="small" /></ListItemIcon>
+                    <ListItemIcon sx={{ minWidth: 40 }}><HelpIcon fontSize="small" /></ListItemIcon>
                     <ListItemText>
                         <Link
                             rel="noopener noreferrer"

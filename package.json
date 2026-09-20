@@ -57,7 +57,6 @@
         "redux-batched-actions": "^0.5.0",
         "shazam-api": "^0.3.0",
         "stream-browserify": "^3.0.0",
-        "tss-react": "^4.9.3",
         "util": "^0.12.5",
         "vite-plugin-svgr": "^4.3.0",
         "ws": "8.21.3",
