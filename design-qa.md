@@ -21,6 +21,7 @@ Runtime data intentionally replaces reference-only placeholders: device name, ca
 - Single, Ctrl/Command, Shift-range and select-all track selection feed the same action set and application menu.
 - Recording-plan rows use the same selection model, support batch removal, and apply Artist/Album edits across the selected items while keeping titles scoped to the focused row.
 - Enter/Space select a focused row; Up/Down move focus and selection through the current table.
+- Home/End and PageUp/PageDown move focus and selection across long tables; row navigation uses one roving Tab stop so focus, selection and Inspector stay aligned.
 - Inspector metadata changes update the shared application state and row content.
 - MockMD verified group creation, group rename, ungrouping, track movement controls and batch export/record entry points.
 - Disc rows show their recorded format; only the recording-plan view exposes the writable recording format control.
