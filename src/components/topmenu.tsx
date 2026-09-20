@@ -21,7 +21,7 @@ const useStyles = makeStyles()((theme) => ({
     },
 }));
 
-export const TopMenu = function ({ onShowSettings }: { onShowSettings?: () => void }) {
+export const TopMenu = function ({ onShowSettings }: { onShowSettings: () => void }) {
     const { classes } = useStyles();
     const dispatch = useDispatch();
     const { t } = useI18n();
@@ -34,10 +34,9 @@ export const TopMenu = function ({ onShowSettings }: { onShowSettings?: () => vo
     }, []);
 
     const handleShowSettings = useCallback(() => {
-        if (onShowSettings) onShowSettings();
-        else dispatch(appActions.showSettingsDialog(true));
+        onShowSettings();
         handleMenuClose();
-    }, [dispatch, handleMenuClose, onShowSettings]);
+    }, [handleMenuClose, onShowSettings]);
 
     const handleShowAbout = useCallback(() => {
         dispatch(appActions.showAboutDialog(true));

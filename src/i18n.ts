@@ -3,6 +3,9 @@ export type ResolvedUiLanguage = Exclude<UiLanguagePreference, 'system'>;
 
 const zhCN: Record<string, string> = {
     'Settings': '设置',
+    'DESKTOP': '桌面版',
+    'Desktop integration': '桌面版集成',
+    'Run': '运行',
     'Error': '错误',
     'OK': '确定',
     'Add': '添加',

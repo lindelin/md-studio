@@ -30,8 +30,8 @@ import {
 } from '../services/interface-service-manager';
 
 import { OtherDeviceDialog } from './other-device-dialog';
-import { SettingsDialog } from './settings-dialog';
 import { AboutDialog } from './about-dialog';
+import { WorkbenchSettingsDialog } from './workbench/workbench-settings-dialog';
 
 import { actions as otherDialogActions } from '../redux/other-device-feature';
 import { actions as appActions } from '../redux/app-feature';
@@ -127,6 +127,9 @@ export const Welcome = () => {
     );
 
     const [showWhyUnsupported, setWhyUnsupported] = useState(false);
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const openSettings = useCallback(() => setSettingsOpen(true), []);
+    const closeSettings = useCallback(() => setSettingsOpen(false), []);
     const handleLearnWhy = (event: React.SyntheticEvent) => {
         event.preventDefault();
         setWhyUnsupported(true);
@@ -211,7 +214,7 @@ export const Welcome = () => {
                 <Typography component="h1" variant="h4">
                     {t('MiniDisc Workspace')}
                 </Typography>
-                <TopMenu />
+                <TopMenu onShowSettings={openSettings} />
             </Box>
             <Typography component="h2" variant="body2">
                 {t('Brings NetMD Devices to the Web')}
@@ -320,7 +323,7 @@ export const Welcome = () => {
                     </React.Fragment>
                 )}
             </Box>
-            <SettingsDialog />
+            <WorkbenchSettingsDialog open={settingsOpen} onClose={closeSettings} />
             <AboutDialog />
             <OtherDeviceDialog />
         </React.Fragment>

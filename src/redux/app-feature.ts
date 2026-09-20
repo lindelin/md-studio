@@ -16,7 +16,6 @@ export interface AppState {
     runningChrome: boolean;
     aboutDialogVisible: boolean;
     discProtectedDialogVisible: boolean;
-    settingsDialogVisible: boolean;
     hasNotificationSupport: boolean;
     localBridgeEnabled: boolean;
     availableServices: ServiceConstructionInfo[];
@@ -36,7 +35,6 @@ export const buildInitialState = (): AppState => {
         runningChrome: true,
         aboutDialogVisible: false,
         discProtectedDialogVisible: false,
-        settingsDialogVisible: false,
         hasNotificationSupport: true,
         localBridgeEnabled: loadPreference('minidiscLocalBridgeEnabled', false, isBoolean),
         availableServices,
@@ -75,9 +73,6 @@ export const slice = createSlice({
         },
         showDiscProtectedDialog: (state, action: PayloadAction<boolean>) => {
             state.discProtectedDialogVisible = action.payload;
-        },
-        showSettingsDialog: (state, action: PayloadAction<boolean>) => {
-            state.settingsDialogVisible = action.payload;
         },
         setLocalBridgeEnabled: (state, action: PayloadAction<boolean>) => {
             state.localBridgeEnabled = action.payload;
