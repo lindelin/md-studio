@@ -1,8 +1,8 @@
 # MiniDisc Workspace
 
-MiniDisc Workspace is a local-first application for organizing, writing, playing, and exporting MiniDisc media. It is being rebuilt around a shared application command layer so the browser UI, MCP server, and CLI use the same device state, validation, task progress, and safety rules.
+MiniDisc Workspace is a local-first application for organizing, writing, playing, and exporting MiniDisc media. A shared application command layer lets the browser UI, MCP server, and CLI use the same device state, validation, task progress, and safety rules.
 
-The project is under active reconstruction. The stable NetMD and HiMD protocol implementations are retained while device orchestration and the user interface move onto the shared application command and workspace model.
+The 0.1.0 release candidate retains the established NetMD and HiMD protocol implementations while replacing the former application shell with the bilingual Studio Workbench and a shared command and workspace model.
 
 ## Current capabilities
 
@@ -15,6 +15,16 @@ The project is under active reconstruction. The stable NetMD and HiMD protocol i
 -   Local MCP tools and a scriptable CLI over a loopback-only browser bridge
 -   Simplified Chinese by default, with complete English support and an immediate, persisted language switch
 -   Safe preference loading that isolates a damaged setting instead of clearing the complete browser store
+
+## Interface
+
+The default interface is Simplified Chinese. English can be selected immediately in Settings and is persisted locally.
+
+![MiniDisc Workspace welcome screen in Simplified Chinese](docs/screenshots/01-welcome-zh.png)
+
+![Studio Workbench connected to the built-in MockMD adapter](docs/screenshots/03-workbench-zh.png)
+
+Additional release screenshots, including the English workbench, local automation view, tools and built-in help, are in [`docs/screenshots`](docs/screenshots).
 
 ## Requirements
 
