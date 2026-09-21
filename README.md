@@ -8,6 +8,10 @@
 
 **[Download for Windows](https://github.com/lindelin/md-studio/releases/latest)** · **[User manual](docs/manual/en.md)** · **[Report a problem](https://github.com/lindelin/md-studio/issues)**
 
+![MD Studio device and settings screen in English](docs/images/md-studio-english.png)
+
+The desktop app follows the system language on first launch and can be switched between English, 日本語 and 简体中文 in Settings.
+
 ## From a folder of music to a finished MD
 
 1. Install MD Studio and connect your recorder by USB.

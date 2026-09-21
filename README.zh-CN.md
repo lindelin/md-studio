@@ -6,6 +6,10 @@
 
 **[下载 Windows 版](https://github.com/lindelin/md-studio/releases/latest)** · **[中文使用手册](docs/manual/zh-CN.md)** · **[反馈问题](https://github.com/lindelin/md-studio/issues)**
 
+![MD Studio 中文设备与设置界面](docs/images/md-studio-zh-cn.png)
+
+桌面应用首次启动时跟随系统语言，也可以在设置中切换 English、日本語和简体中文。
+
 ## 从一张专辑到一张 MD
 
 1. 安装 MD Studio，用 USB 连接碟机。

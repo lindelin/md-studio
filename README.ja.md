@@ -6,6 +6,10 @@
 
 **[Windows 版をダウンロード](https://github.com/lindelin/md-studio/releases/latest)** · **[日本語マニュアル](docs/manual/ja.md)** · **[不具合を報告](https://github.com/lindelin/md-studio/issues)**
 
+![MD Studio のデバイス・設定画面](docs/images/md-studio-english.png)
+
+初回起動時はシステム言語に従い、設定から日本語・English・简体中文を切り替えられます。
+
 ## 音楽フォルダーから、お気に入りの MD へ
 
 1. MD Studio をインストールし、レコーダーを USB で接続。
