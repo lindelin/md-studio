@@ -26,6 +26,8 @@ import {
     getTaskCancellationPresentation,
     getTaskErrorDetail,
     getTaskOutputFiles,
+    getDiscMaintenanceConfirmationToken,
+    isDiscMaintenanceConfirmationValid,
     isActiveUninterruptibleWrite,
     localizeTaskLabel,
     localizeTaskMessage,
@@ -34,6 +36,7 @@ import {
     taskProgressPercent,
     updateOrderedSelection,
     type WorkbenchDraftField,
+    type DiscMaintenanceAction,
 } from './workbench-model';
 import { calculateVirtualListWindow, scrollOffsetForVirtualIndex } from './workbench-virtual-list';
 
@@ -62,6 +65,7 @@ import FolderOffRoundedIcon from '@mui/icons-material/FolderOffRounded';
 import SelectAllRoundedIcon from '@mui/icons-material/SelectAllRounded';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
 
 import { TopMenu } from '../topmenu';
 import { AboutDialog } from '../about-dialog';
@@ -133,6 +137,11 @@ export const Workbench = () => {
     const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
     const [writeReviewOpen, setWriteReviewOpen] = useState(false);
     const [discEditorOpen, setDiscEditorOpen] = useState(false);
+    const [maintenanceReview, setMaintenanceReview] = useState<{
+        action: DiscMaintenanceAction;
+        expectedRevision: number;
+    } | null>(null);
+    const [maintenanceConfirmation, setMaintenanceConfirmation] = useState('');
     const [deleteReview, setDeleteReview] = useState<{
         tracks: { index: number; title: string }[];
         expectedRevision: number;
@@ -342,6 +351,9 @@ export const Workbench = () => {
     const canRenameGroup = capabilities.includes('group.rename');
     const canRenameDisc = capabilities.includes('disc.rename');
     const canRenameFullWidthDisc = capabilities.includes('metadata.fullWidth');
+    const canEraseDisc = capabilities.includes('disc.erase');
+    const canFormatHimd = capabilities.includes('disc.formatHimd');
+    const canMaintainDisc = canEraseDisc || canFormatHimd;
     const measurementIsBytes = device?.recording.measurementUnits === 'bytes';
     const usedPercent = disc?.total ? Math.min(100, Math.max(0, (disc.used / disc.total) * 100)) : 0;
     const queuedDuration = imports.reduce((total, item) => total + (item.duration ?? 0), 0);
@@ -743,6 +755,40 @@ export const Workbench = () => {
     };
 
     const refresh = () => void run(async () => void (await execute({ type: 'disc.refresh', dropCache: true })));
+    const openDiscMaintenance = () => {
+        if (!device || !disc || !canMaintainDisc) return;
+        setMaintenanceConfirmation('');
+        setMaintenanceReview({ action: canEraseDisc ? 'erase' : 'formatHimd', expectedRevision: device.revision });
+    };
+    const selectDiscMaintenanceAction = (action: DiscMaintenanceAction) => {
+        if ((action === 'erase' && !canEraseDisc) || (action === 'formatHimd' && !canFormatHimd)) return;
+        setMaintenanceConfirmation('');
+        setMaintenanceReview((current) => current ? { ...current, action } : current);
+    };
+    const confirmDiscMaintenance = () => {
+        if (!maintenanceReview || !isDiscMaintenanceConfirmationValid(maintenanceReview.action, maintenanceConfirmation)) return;
+        const review = maintenanceReview;
+        void run(async () => {
+            const confirmation = {
+                confirmed: true as const,
+                reason: review.action === 'erase'
+                    ? 'User confirmed MD disc initialization in the workbench.'
+                    : 'User confirmed Hi-MD formatting in the workbench.',
+            };
+            if (review.action === 'erase') {
+                await execute({ type: 'disc.erase', confirmation, expectedRevision: review.expectedRevision });
+            } else {
+                await execute({ type: 'disc.formatHimd', confirmation, expectedRevision: review.expectedRevision });
+            }
+            setMaintenanceReview(null);
+            setMaintenanceConfirmation('');
+            setSelectedKey(null);
+            setSelectedTrackIndexes([]);
+            setMessage(review.action === 'erase'
+                ? labelText('MD 碟片已初始化。', 'MD disc initialized.')
+                : labelText('碟片已格式化为 Hi-MD。', 'Disc formatted as Hi-MD.'));
+        });
+    };
     const eject = () => void run(async () => {
         if (canEject) await execute({ type: 'disc.eject', expectedRevision: device?.revision });
         await client.disconnectLocalDevice(true);
@@ -903,6 +949,7 @@ export const Workbench = () => {
                     <div className="workbench__header-actions">
                         <span className={`workbench__status ${device ? 'is-online' : ''}`}><i />{t(device ? 'Connected' : 'Disconnected')}</span>
                         <button className="icon-button" aria-label={t('Refresh disc')} onClick={refresh} disabled={!disc || busy}><RefreshRoundedIcon /></button>
+                        {canMaintainDisc ? <button className="workbench__maintenance-button" aria-label={labelText('初始化碟片', 'Initialize disc')} title={labelText('清除碟片内容或格式化为 Hi-MD', 'Erase the disc or format it as Hi-MD')} onClick={openDiscMaintenance} disabled={!disc || busy || Boolean(activeTask)}><RestartAltRoundedIcon /><span>{labelText('初始化碟片', 'Initialize disc')}</span></button> : null}
                         <button className="workbench__eject-button" aria-label={t(canEject ? 'Eject disc' : 'Disconnect device')} title={t(canEject ? 'Eject disc' : 'Disconnect USB, then remove the disc using the recorder.')} onClick={eject} disabled={!device || busy || Boolean(activeTask)}><EjectIcon /><span>{t(canEject ? 'Eject' : 'Disconnect')}</span></button>
                         <TopMenu onShowAbout={() => setAboutOpen(true)} onShowHelp={() => setHelpOpen(true)} onShowSettings={() => setSection('settings')} />
                     </div>
@@ -1259,6 +1306,29 @@ export const Workbench = () => {
                         {hasFullWidth ? <label className="workbench__modal-field">{labelText('全角组名', 'Full-width group name')}<input value={groupFullWidthDraft} onChange={(event) => setGroupFullWidthDraft(event.target.value)} /></label> : null}
                         {isNetMD ? titleGuide : null}
                         <div className="workbench__modal-actions"><button className="secondary-button" onClick={() => setGroupDialogOpen(false)}>{t('Cancel')}</button><button className="primary-button" onClick={createGroup} disabled={!groupDraft.trim() || !canGroupSelection || busy}>{t('Create group')}</button></div>
+                    </section>
+                </div>
+            ) : null}
+            {maintenanceReview ? (
+                <div className="workbench__modal-backdrop" role="presentation" onMouseDown={() => !busy && setMaintenanceReview(null)}>
+                    <section className="workbench__modal" role="alertdialog" aria-modal="true" aria-labelledby="workbench-maintenance-title" aria-describedby="workbench-maintenance-description" onMouseDown={(event) => event.stopPropagation()}>
+                        <span className="workbench__eyebrow">{labelText('碟片初始化', 'DISC INITIALIZATION')}</span>
+                        <h2 id="workbench-maintenance-title">{labelText('初始化这张碟片？', 'Initialize this disc?')}</h2>
+                        {canEraseDisc && canFormatHimd ? <div className="workbench__maintenance-options" role="group" aria-label={labelText('初始化方式', 'Initialization method')}>
+                            <button className={maintenanceReview.action === 'erase' ? 'is-active' : ''} onClick={() => selectDiscMaintenanceAction('erase')}>{labelText('初始化为 MD', 'Initialize as MD')}</button>
+                            <button className={maintenanceReview.action === 'formatHimd' ? 'is-active' : ''} onClick={() => selectDiscMaintenanceAction('formatHimd')}>{labelText('格式化为 Hi-MD', 'Format as Hi-MD')}</button>
+                        </div> : null}
+                        <p id="workbench-maintenance-description">{maintenanceReview.action === 'erase'
+                            ? labelText('将永久删除当前 MD 上的全部曲目、分组和碟片标题。碟片会保持 MD 模式。', 'This permanently removes every track, group and disc title. The disc remains in MD mode.')
+                            : labelText('将碟片转换为 Hi-MD，并永久删除当前所有曲目、分组和标题。', 'This converts the disc to Hi-MD and permanently removes every track, group and title.')}</p>
+                        <label className="workbench__modal-field">{labelText('请输入以下文字确认', 'Type the following text to confirm')}
+                            <strong className="workbench__confirmation-token">{getDiscMaintenanceConfirmationToken(maintenanceReview.action)}</strong>
+                            <input autoFocus value={maintenanceConfirmation} onChange={(event) => setMaintenanceConfirmation(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !busy) confirmDiscMaintenance(); }} />
+                        </label>
+                        <div className="workbench__modal-actions">
+                            <button className="secondary-button" onClick={() => setMaintenanceReview(null)} disabled={busy}>{labelText('取消', 'Cancel')}</button>
+                            <button className="danger-button" onClick={confirmDiscMaintenance} disabled={busy || !isDiscMaintenanceConfirmationValid(maintenanceReview.action, maintenanceConfirmation)}><RestartAltRoundedIcon />{maintenanceReview.action === 'erase' ? labelText('初始化 MD', 'Initialize MD') : labelText('格式化为 Hi-MD', 'Format as Hi-MD')}</button>
+                        </div>
                     </section>
                 </div>
             ) : null}

@@ -81,6 +81,12 @@
 .icon-button svg, .workbench__header-actions > button svg { font-size: 20px; }
 .workbench__eject-button { display: inline-flex !important; width: auto !important; min-width: 82px; gap: 8px; padding: 0 13px; border: 1px solid var(--studio-border) !important; }
 .workbench__eject-button span { font-size: 11px; }
+.workbench__maintenance-button { display: inline-flex !important; width: auto !important; min-width: 104px; gap: 7px; padding: 0 12px; border: 1px solid var(--studio-border) !important; }
+.workbench__maintenance-button span { font-size: 11px; white-space: nowrap; }
+.workbench__maintenance-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0 2px; }
+.workbench__maintenance-options button { min-height: 38px; border: 1px solid var(--studio-border); border-radius: 5px; color: var(--studio-muted); background: var(--studio-surface-raised); cursor: pointer; }
+.workbench__maintenance-options button.is-active { color: var(--studio-accent); border-color: var(--studio-accent); background: var(--studio-surface-selected); }
+.workbench__confirmation-token { display: block; margin: 7px 0; color: var(--studio-danger); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; letter-spacing: .04em; }
 
 .workbench__disc-overview { display: grid; grid-template-columns: 82px minmax(220px, 1fr) minmax(240px, 330px) minmax(190px, 260px); align-items: center; gap: 22px; border-bottom: 1px solid var(--wb-border); padding: 24px 31px; background: linear-gradient(95deg, var(--studio-surface-raised), var(--studio-surface)); }
 .workbench__disc-icon { display: grid; width: 76px; height: 76px; place-items: center; border: 1px solid var(--studio-border); border-radius: 50%; color: var(--studio-accent); background: var(--studio-surface-raised); box-shadow: 0 8px 20px rgba(0,0,0,.18); }
