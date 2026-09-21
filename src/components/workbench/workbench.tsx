@@ -930,7 +930,7 @@ export const Workbench = () => {
                     <dl className="workbench__device-facts">
                         <div><dt>{t('Device')}</dt><dd>{device?.deviceName || '—'}</dd></div>
                         <div><dt>{t('Connection')}</dt><dd>{workspace.connection.phase === 'connected' ? `USB (${workspace.connection.serviceName || 'MiniDisc'})` : '—'}</dd></div>
-                        <div><dt>{t('Mode')}</dt><dd>{codecLabel(selectedFormat)}</dd></div>
+                        <div><dt>{labelText('设备模式', 'Device mode')}</dt><dd>{device ? (isNetMD ? 'NetMD' : 'Hi-MD') : '—'}</dd></div>
                         <div><dt>{t('Disc')}</dt><dd>{disc?.writable ? t('Writable') : disc ? t('Read only') : '—'}</dd></div>
                     </dl>
                 </section>
@@ -1073,7 +1073,7 @@ export const Workbench = () => {
                         ) : (
                             <label>{t('Recorded mode')}<input value={codecLabel(selectedDiscTrack?.encoding)} disabled /></label>
                         )}
-                        <div className="workbench__format-note"><BoltRoundedIcon /><span><strong>{codecLabel(selectedFormat)}</strong><small>{contentView === 'plan' ? (selectedFormat ? `${selectedFormat.bitrate} kbps` : t('Uses the device default')) : t('Recorded mode is shown in the track list')}</small></span></div>
+                        {contentView === 'plan' ? <div className="workbench__format-note"><BoltRoundedIcon /><span><strong>{labelText('待录制模式', 'Planned recording mode')} · {codecLabel(selectedFormat)}</strong><small>{labelText('各曲目的最终模式以列表为准，不改变已录制曲目。', 'See each track’s final mode in the list. Recorded tracks are unchanged.')}</small></span></div> : null}
                         <div className="workbench__divider" />
                         <button className="danger-button" onClick={removeSelected} disabled={!selected || busy}><DeleteOutlineIcon /> {selected?.kind === 'track' ? (selectedTrackIndexes.length > 1 ? (language === 'zh-CN' ? `删除 ${selectedTrackIndexes.length} 首曲目` : `Delete ${selectedTrackIndexes.length} tracks`) : t('Delete from disc')) : (selectedImportIds.length > 1 ? (language === 'zh-CN' ? `移除 ${selectedImportIds.length} 首曲目` : `Remove ${selectedImportIds.length} tracks`) : t('Remove from plan'))}</button>
                     </aside>
