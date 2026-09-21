@@ -9,7 +9,7 @@ import { stageLocalAudioImport } from './local-audio-import.ts';
 import { normalizeCliRecordingFormat } from './cli-recording-format.ts';
 
 function help() {
-    return `MiniDisc Workspace CLI
+    return `MD Studio CLI
 
 Usage:
   npm run cli -- status

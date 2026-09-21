@@ -102,7 +102,7 @@ async function start() {
         if (closing) return;
         event.preventDefault();
         void isBusy().then(busy => {
-            if (busy) { void dialog.showMessageBox(mainWindow,{message:'录制任务尚未结束，请先等待或在应用内取消。 / Wait for the active task or cancel it in the app.'}); return; }
+            if (busy) { void dialog.showMessageBox(mainWindow,{type:'warning',title:'任务仍在进行 / Task still active',message:'请保持碟机供电和 USB 连接。可在任务中心请求“当前曲目完成后结束批次”，或等待任务完成。 / Keep the recorder powered and USB connected. Use Task Center to end the batch after the current track, or wait for completion.'}); return; }
             closing = true; mainWindow.close();
         }).catch(error => dialog.showErrorBox('MD Studio',String(error)));
     });
@@ -138,7 +138,7 @@ async function start() {
         } finally {driverInstalling=false;}
     });
     ipcMain.handle('desktop:skill',async event => { trusted(event); const result=await dialog.showOpenDialog(mainWindow,{properties:['openDirectory','createDirectory']}); if(result.canceled) return; const source=app.isPackaged ? join(resources,'skills','md-metadata-curator') : join(root,'skills','md-metadata-curator'); await cp(source,join(result.filePaths[0],'md-metadata-curator'),{recursive:true,errorOnExist:true,force:false}); return 'OK'; });
-    Menu.setApplicationMenu(Menu.buildFromTemplate([{label:'MD Studio',submenu:[{label:'AI、CLI 与驱动 / Connections & drivers',click:openControl},{role:'quit'}]},{label:'查看 / View',submenu:[{role:'resetZoom'},{role:'zoomIn'},{role:'zoomOut'},{role:'toggleDevTools'}]}]));
+    Menu.setApplicationMenu(Menu.buildFromTemplate([{label:'MD Studio',submenu:[{label:'打开设置 / Open Settings',click:openControl},{role:'quit'}]},{label:'查看 / View',submenu:[{role:'resetZoom'},{role:'zoomIn'},{role:'zoomOut'},{role:'toggleDevTools'}]}]));
     await mainWindow.loadURL(uiOrigin);
     app.on('will-quit', () => { void mcp?.close(); void runtime.close(); server.close(); });
     app.on('window-all-closed',() => app.quit());

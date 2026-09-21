@@ -1,6 +1,6 @@
-# MiniDisc Workspace user guide
+# MD Studio user guide
 
-MiniDisc Workspace keeps the browser, local automation, and the connected recorder on one shared task and device state. The browser owns USB access. MCP and CLI requests are forwarded to that open browser session.
+MD Studio keeps the interface, local automation and connected recorder on one shared task and device state. The desktop app or browser owns USB access; MCP and CLI requests use that same open session.
 
 ## Start the application
 
@@ -78,14 +78,14 @@ npm run cli -- tasks
 
 The bridge listens only on `127.0.0.1` by default. Set `MINIDISC_BRIDGE_TOKEN` and configure the same token in the browser when other local users or processes are not trusted. Do not expose the bridge port to a LAN or the public internet.
 
-CLI and MCP use the same revisions, confirmations, task states, and device transaction queue as Studio Workbench. A command returning a task ID means the task was accepted; inspect the task until it reaches a terminal state before treating the operation as complete.
+CLI and MCP use the same revisions, confirmations, task states and device transaction queue as MD Studio. A command returning a task ID means the task was accepted; inspect the task until it reaches a terminal state before treating the operation as complete.
 
 ## Recover from a disconnect
 
 1. If a write light is flashing, allow the recorder to finish when possible.
 2. Close duplicate MiniDisc tabs or other software that may own WebUSB.
 3. Reconnect the cable and wait for the recorder to become ready.
-4. Connect once from MiniDisc Workspace, refresh the disc, and verify its title, track count, duration, and remaining capacity.
+4. Connect once from MD Studio, refresh the disc, and verify its title, track count, duration, and remaining capacity.
 5. Check Task Center for a failed or interrupted task before retrying. Do not assume a queued item was written just because the transfer dialog disappeared.
 
 After reconnecting, always use the refreshed workspace revision. Previously prepared automation commands and write previews are intentionally rejected as stale.

@@ -37,7 +37,7 @@ export class SettingsResetErrorBoundary extends React.Component<
                     lineHeight: 1.5,
                 }}
             >
-                <h1>{isChinese ? 'MiniDisc Workspace 无法启动' : 'MiniDisc Workspace could not start'}</h1>
+                <h1>{isChinese ? 'MD Studio 无法启动' : 'MD Studio could not start'}</h1>
                 <p>{isChinese ? '请先重新加载应用。如果问题仍然存在，请仅重置本应用保存的设置。' : "Reload the app first. If the problem continues, reset only this app's saved settings."}</p>
                 <pre style={{ overflow: 'auto', padding: 16, background: 'rgba(127, 127, 127, 0.15)' }}>{message}</pre>
                 {this.state.resetFailed ? (

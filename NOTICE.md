@@ -1,6 +1,6 @@
-# MiniDisc Workspace notices
+# MD Studio notices
 
-MiniDisc Workspace is an independent project derived from Web MiniDisc Pro. It is distributed under the GNU General Public License version 2.0; the complete license text is in `LICENSE`.
+MD Studio is an independent project derived from Web MiniDisc Pro. It is distributed under the GNU General Public License version 2.0; the complete license text is in `LICENSE`.
 
 ## Project lineage
 

@@ -1,8 +1,9 @@
 {
-    "name": "minidisc-workspace",
+    "name": "md-studio",
     "private": true,
     "version": "0.1.0",
-    "license": "GPL-2.0",
+    "license": "GPL-2.0-only",
+    "author": "MD Studio contributors",
     "packageManager": "npm@11.5.1",
     "engines": {
         "node": ">=20.19"
@@ -84,7 +85,7 @@
         "vite": "^6.3.5",
         "vite-plugin-pwa": "^0.21.1"
     },
-    "description": "A local-first MiniDisc workspace with a modern UI and shared automation API",
+    "description": "A local-first studio for making MDs with a bilingual interface, CLI and MCP",
     "overrides": {
         "expr-eval": "npm:expr-eval-fork@3.0.1"
     },
@@ -98,7 +99,11 @@
         "files": [
             "desktop-build/**",
             "dist/**",
-            "package.json"
+            "package.json",
+            "LICENSE",
+            "NOTICE.md",
+            "THIRD_PARTY_LICENSES.md",
+            "README.md"
         ],
         "extraResources": [
             {
@@ -120,11 +125,17 @@
         ],
         "win": {
             "icon": "desktop/icon.ico",
-            "target": "nsis"
+            "target": "nsis",
+            "artifactName": "MD-Studio-Setup-${version}.${ext}"
         },
         "nsis": {
             "oneClick": false,
-            "allowToChangeInstallationDirectory": true
+            "allowToChangeInstallationDirectory": true,
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true,
+            "shortcutName": "MD Studio",
+            "uninstallDisplayName": "MD Studio",
+            "license": "LICENSE"
         }
     }
 }

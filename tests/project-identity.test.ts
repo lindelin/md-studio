@@ -6,7 +6,7 @@ import { AudioServices } from '../src/services/audio-export-service-manager.ts';
 import { Services } from '../src/services/interface-service-manager.ts';
 
 describe('independent project identity', () => {
-    it('publishes MiniDisc Workspace as the package, document, and PWA identity', async () => {
+    it('publishes MD Studio as the package, document, and PWA identity', async () => {
         const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')) as {
             name?: string;
             description?: string;
@@ -14,8 +14,8 @@ describe('independent project identity', () => {
         const indexHtml = await readFile(new URL('../index.html', import.meta.url), 'utf8');
         const viteConfig = await readFile(new URL('../vite.config.ts', import.meta.url), 'utf8');
 
-        assert.equal(packageJson.name, 'minidisc-workspace');
-        assert.match(packageJson.description ?? '', /MiniDisc workspace/i);
+        assert.equal(packageJson.name, 'md-studio');
+        assert.match(packageJson.description ?? '', /making MDs/i);
         assert.match(indexHtml, /<title>MD Studio<\/title>/);
         assert.match(viteConfig, /"name": "MD Studio"/);
         assert.match(viteConfig, /"short_name": "MD Studio"/);

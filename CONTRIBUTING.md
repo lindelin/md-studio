@@ -1,6 +1,6 @@
-# Contributing to MiniDisc Workspace
+# Contributing to MD Studio
 
-MiniDisc Workspace is an independent GPL-2.0 project derived from Web MiniDisc Pro. Preserve upstream authorship, the Git history, `NOTICE.md`, and dependency license notices when contributing or redistributing builds.
+MD Studio is an independent GPL-2.0 project derived from Web MiniDisc Pro. Preserve upstream authorship, the Git history, `NOTICE.md`, and dependency license notices when contributing or redistributing builds.
 
 ## Development setup
 

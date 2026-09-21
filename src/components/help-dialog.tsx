@@ -11,6 +11,7 @@ type HelpDialogProps = {
 export const HelpDialog = ({ open, onClose }: HelpDialogProps) => {
     const { t, language } = useI18n();
     const zh = language === 'zh-CN';
+    const desktop = Boolean(window.mdDesktop);
 
     return (
         <AppDialog open={open} onClose={onClose} title={t('Help & Support')} size="large">
@@ -21,21 +22,24 @@ export const HelpDialog = ({ open, onClose }: HelpDialogProps) => {
                         <li>{t('Connect your recorder and choose the matching connection method.')}</li>
                         <li>{t('Import local audio, then review titles, order, groups and recording modes.')}</li>
                         <li>{t('Review the capacity estimate before starting the write task.')}</li>
-                        <li>{t('Follow progress and saved files in the task center.')}</li>
+                        <li>{zh ? '在任务中心确认写入完成，再断开 USB 或关闭工作室。' : 'Wait for a completed task in Task Center before disconnecting USB or closing Studio.'}</li>
                     </ol>
                 </section>
 
                 <section>
-                    <h3>{zh ? '用 AI 接管制作（MCP）' : 'Make an MD with AI (MCP)'}</h3>
-                    <ol>
-                        <li>{zh ? '保持此页面打开，在页面中连接碟机。在设置的“AI 接入（MCP）”中打开“允许 AI 协助制作 MD”，保存后重新连接设备。' : 'Keep this page open and connect the recorder. Enable the local bridge in Settings, save, then reconnect.'}</li>
-                        <li>{zh ? '在支持本地 STDIO MCP 的 AI 客户端中添加下方配置，把 C:/MD-Studio 替换为本项目所在文件夹。需要本机已安装 Node.js 并完成 npm install。' : 'Add the configuration below to an AI client supporting local STDIO MCP. Replace C:/MD-Studio with this project folder. Install Node.js and run npm install first.'}</li>
-                    </ol>
-                    <pre>{JSON.stringify({ mcpServers: { 'md-studio': { command: 'cmd.exe', args: ['/c', 'npm', '--prefix', 'C:/MD-Studio', 'run', 'mcp'] } } }, null, 2)}</pre>
-                    <p>{zh ? '连接类型：STDIO。客户端负责启动 MCP 进程；不要同时手动启动第二份。它通过本机 127.0.0.1:47123 与页面通信。仅支持远程 URL 的 MCP 客户端不能直接使用此配置。' : 'Transport: STDIO. Let the client launch one MCP process. It connects to this page at 127.0.0.1:47123. Clients supporting only remote MCP URLs cannot use this configuration directly.'}</p>
-                    <p>{zh ? '连接成功后，让 AI 调用 minidisc_get_workspace 检查设备。提供音频的本地路径、曲序、标题、分组和 SP / LP2 / LP4 要求。AI 应先导入并预览容量，按你的录制授权写入，再查询任务直到实际完成。' : 'Ask AI to call minidisc_get_workspace to check the device. Supply local audio paths, order, titles, groups and SP / LP2 / LP4. AI should stage files, preview capacity, write with your authorization, and check the task until completion.'}</p>
+                    <h3>{zh ? 'AI 制作、MCP 与 CLI' : 'AI creation, MCP and CLI'}</h3>
+                    {desktop ? (
+                        <ol>
+                            <li>{zh ? '打开侧栏“AI 制作”，开启 MCP，然后复制本机连接地址。' : 'Open AI Creation in the sidebar, enable MCP, then copy the local connection URL.'}</li>
+                            <li>{zh ? '把完整地址粘贴到支持本地 HTTP MCP 的 AI 客户端。地址含临时密钥，不要分享；每次重新开启都会生成新地址。' : 'Paste the full URL into an AI client that supports local HTTP MCP. The URL contains a temporary key; do not share it. A new URL is created each time MCP is enabled.'}</li>
+                            <li>{zh ? '导出并安装“MD 标签整理 Skill”，让 AI 理解普通标题、全角标题、日文读音和分组规则。' : 'Export and install the MD metadata Skill so the AI understands normal titles, full-width titles, Japanese readings and groups.'}</li>
+                            <li>{zh ? '不使用 MCP 时，可复制 CLI 入口。CLI 与界面共用设备、队列和任务状态。' : 'If you do not use MCP, copy the CLI launcher. CLI and the interface share the same device, queue and task state.'}</li>
+                        </ol>
+                    ) : (
+                        <p>{zh ? '网页版可完成本地制盘。AI 接管需要在本机运行项目附带的 MCP 桥接程序；桌面版已将 MCP、CLI 和 Skill 导出集成到“AI 制作”。' : 'The web app can make MDs locally. AI control requires the bundled MCP bridge to run on this computer; the desktop app integrates MCP, CLI and Skill export under AI Creation.'}</p>
+                    )}
+                    <p>{zh ? '让 AI 先读取工作室状态并整理录制计划，展示曲序、普通标题、全角标题、分组、模式和容量；确认后再写入，并持续查询任务直到设备报告完成。' : 'Have the AI read Studio state and prepare a recording plan first. Review order, normal and full-width titles, groups, mode and capacity before writing, then keep checking the task until the device reports completion.'}</p>
                     <blockquote>{zh ? '把 C:/Music/Album 里的音频按曲序整理，使用 LP2，碟名设为 Album。先给我确认曲目、分组和容量，再开始写盘。' : 'Prepare the audio in C:/Music/Album in track order, use LP2 and name the disc Album. Show me the tracks, groups and capacity before writing.'}</blockquote>
-                    <p>{zh ? '找不到设备：先在页面连接 USB。连接失败：检查桥接开关、MCP 进程和 47123 端口是否被另一份程序占用。音频读取与转码在本机完成；AI 客户端自身如何处理提示和曲目信息取决于该客户端。' : 'No device: connect USB in this page first. Bridge failure: check the switch, MCP process and port 47123 for a second process. Audio reading and conversion remain local; handling of prompts and track information depends on the AI client.'}</p>
                 </section>
                 <section>
                     <h3>{zh ? 'MD 文件夹（Group）' : 'MD folders (Groups)'}</h3>
@@ -45,6 +49,7 @@ export const HelpDialog = ({ open, onClose }: HelpDialogProps) => {
                     <h3>{t('Recording and stopping')}</h3>
                     <p>{t('A track already recording cannot be interrupted safely. End batch stops later tracks from starting, but the current track continues until the recorder finishes it.')}</p>
                     <p>{t('Keep the recorder powered and USB connected while its recording light is flashing.')}</p>
+                    <p>{zh ? '如果 USB 断开或碟机掉电，请重新连接并刷新碟片。任务中心会保留已完成数量；核对碟片后只重试剩余曲目。' : 'After USB loss or power failure, reconnect and refresh the disc. Task Center preserves the completed count; verify the disc and retry only the remaining tracks.'}</p>
                 </section>
 
                 <section>
@@ -52,7 +57,7 @@ export const HelpDialog = ({ open, onClose }: HelpDialogProps) => {
                     <ul>
                         <li>{t('Close other MiniDisc apps and browser tabs that may be using the recorder.')}</li>
                         <li>{t('Reconnect USB, confirm the recorder has power, then try again.')}</li>
-                        <li>{t('On Windows, the recorder must use a compatible WinUSB driver.')}</li>
+                        <li>{desktop ? (zh ? '在“设置 → 设备驱动”查看 WinUSB 状态；需要时按提示打开集成的 Zadig 安装器。' : 'Check WinUSB under Settings → Device driver; when needed, follow the integrated Zadig installer guidance.') : t('On Windows, the recorder must use a compatible WinUSB driver.')}</li>
                     </ul>
                 </section>
 

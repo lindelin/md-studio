@@ -1,10 +1,10 @@
-# MiniDisc Workspace 0.1.0
+# MD Studio 0.1.0
 
-MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniDisc Pro. It keeps the existing NetMD, HiMD, Network Walkman, encoder, upload, download, playback, and advanced-maintenance implementations while introducing a new application boundary and primary interface.
+MD Studio 0.1.0 is the first independent release derived from Web MiniDisc Pro. It keeps the established device, encoder and transfer implementations while introducing a focused bilingual interface and one shared application boundary for the UI, CLI and MCP.
 
 ## Highlights
 
-- Studio Workbench replaces the former main workspace with a device overview, disc and recording-plan tables, inspector, settings, tools, and one task center.
+- MD Studio replaces the former main workspace with a device overview, disc and recording-plan tables, inspector, settings, AI access and one task center.
 - The interface starts in Simplified Chinese and retains complete English support, including runtime task states, validation, recovery guidance, and advanced maintenance workflows.
 - Browser UI, MCP, and CLI share revision-checked application commands, import queue state, device snapshots, and long-running tasks.
 - Local-path automation reads audio tags and duration before staging, while file bytes remain behind short-lived local handles until conversion starts.

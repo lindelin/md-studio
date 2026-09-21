@@ -1,6 +1,6 @@
 # Feature matrix and release acceptance
 
-This matrix is the release contract for MiniDisc Workspace. It records whether an upstream capability still exists, which product boundary owns it, and what evidence is still required before the first independent release.
+This matrix is the release contract for MD Studio. It records whether an upstream capability still exists, which product boundary owns it, and what evidence is still required before the first independent release.
 
 Status meanings:
 
@@ -13,7 +13,7 @@ Status meanings:
 
 | Capability | Status | Primary boundary | Evidence / remaining acceptance |
 |---|---|---|---|
-| Studio Workbench shell | Ready | React + `ApplicationClient` | Desktop and narrow viewport browser QA; device, disc, recording plan, inspector, tasks, settings, automation and tools are reachable. |
+| MD Studio shell | Ready | React + `ApplicationClient` | Desktop and narrow viewport browser QA; device, disc, recording plan, inspector, tasks, settings and AI access are reachable. |
 | Simplified Chinese and English | Ready | Shared i18n model | Static translation coverage plus live language switching and reload persistence. |
 | In-app help and troubleshooting | Ready | Shared `HelpDialog` | Welcome, Workbench sidebar and application menu open the same bilingual first-use, recording-stop, USB and local-processing guidance. |
 | Shared application commands | Ready | `ApplicationCommandBus` | UI, MCP and CLI use the same validation, revisions, errors and task state. |
@@ -32,7 +32,7 @@ Status meanings:
 
 | Area | Capability | UI | Application command / client | MCP / CLI | Status and evidence |
 |---|---|---:|---:|---:|---|
-| Session | Connect, cached reconnect, disconnect and recovery | Yes | Browser client | No | Ready; MockMD and MZ-N920 verified, with bounded cached reconnect. |
+| Session | Connect, cached reconnect, disconnect and recovery | Yes | `device.connect` + browser client | CLI | Ready; MockMD and MZ-N920 verified, with bounded cached reconnect. |
 | Disc | Refresh content and device status | Yes | `disc.refresh`, `device.pollStatus` | Yes | Ready; cache invalidation and external-disc revision changes are covered. |
 | Disc | Rename half-width/full-width or HiMD title | Yes | `disc.rename` | Yes | Ready on MockMD and MZ-N920; HiMD hardware check remains. |
 | Disc | Capacity, write protection and title limits | Yes | Workspace snapshot | Yes | Ready; frame/byte capacity and NetMD title-cell allocation are covered. |
@@ -87,7 +87,7 @@ Status meanings:
 
 The serializable command surface currently contains:
 
-`workspace.get`, `services.get`, `settings.get`, `settings.update`, `disc.refresh`, `device.pollStatus`, `disc.rename`, `disc.erase`, `disc.formatHimd`, `device.flush`, `disc.eject`, `metadata.exportCsv`, `metadata.planCsv`, `metadata.applyCsv`, `advanced.inspect`, `advanced.readToc`, `advanced.previewTocWrite`, `advanced.previewTocPatch`, `advanced.writeToc`, `advanced.applyTocPatch`, `advanced.setSpUploadSpeedup`, `advanced.setDiscSwapDetectionDisabled`, `advanced.enableHimdFullMode`, `advanced.enterServiceMode`, `track.renameMany`, `track.renameHimdMany`, `track.move`, `track.export`, `track.record`, `track.deleteMany`, `group.rename`, `group.create`, `group.deleteMany`, `playback.control`, `diagnostics.selfTest`, `task.list`, `task.get`, `task.cancel`, `import.list`, `import.add`, `import.update`, `import.updateMany`, `import.move`, `import.remove`, `import.clear`, `import.preview`, and `import.write`.
+`workspace.get`, `services.get`, `device.connect`, `settings.get`, `settings.update`, `disc.refresh`, `device.pollStatus`, `disc.rename`, `disc.erase`, `disc.formatHimd`, `device.flush`, `disc.eject`, `metadata.exportCsv`, `metadata.planCsv`, `metadata.applyCsv`, `advanced.inspect`, `advanced.readToc`, `advanced.previewTocWrite`, `advanced.previewTocPatch`, `advanced.writeToc`, `advanced.applyTocPatch`, `advanced.setSpUploadSpeedup`, `advanced.setDiscSwapDetectionDisabled`, `advanced.enableHimdFullMode`, `advanced.enterServiceMode`, `track.renameMany`, `track.renameHimdMany`, `track.move`, `track.export`, `track.record`, `track.deleteMany`, `group.rename`, `group.create`, `group.deleteMany`, `playback.control`, `diagnostics.selfTest`, `task.list`, `task.get`, `task.cancel`, `import.list`, `import.add`, `import.update`, `import.updateMany`, `import.move`, `import.remove`, `import.clear`, `import.preview`, and `import.write`.
 
 The local MCP server exposes 30 friendly tools over the same command bus. Raw TOC application, device memory reads, recovery export, Homebrew upload authorization and device mode changes remain browser-only because their in-memory capabilities cannot be represented by a JSON client.
 
@@ -99,7 +99,7 @@ The friendly tool surface is: `minidisc_get_workspace`, `minidisc_list_services`
 2. Verify representative HiMD metadata/export and Network Walkman operations without weakening capability gates.
 3. Verify browser audio-input recording.
 4. Verify device-specific advanced backup/recovery and Homebrew write paths only on explicitly disposable media.
-5. Final release screenshots are captured in `docs/screenshots`; repeat the already-passing clean-install and release gates after the last hardware-acceptance change.
+5. Capture final release screenshots only after the last UI acceptance change; repeat the clean-install and release gates afterward.
 
 
 Local music-library browsing, indexing, settings, and commands were removed at the user's request. Import audio files directly into the recording plan.

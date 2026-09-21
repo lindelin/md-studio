@@ -1,116 +1,96 @@
-# MiniDisc Workspace
+# MD Studio
 
-MiniDisc Workspace is a local-first application for organizing, writing, playing, and exporting MiniDisc media. A shared application command layer lets the browser UI, MCP server, and CLI use the same device state, validation, task progress, and safety rules.
+MD Studio 是一个本机优先的 MD 制作工具，提供中英双语界面、Windows 桌面版、CLI 和可选的 MCP 接口。音频读取、标签整理、转码和设备通信均在用户电脑上完成。
 
-The 0.1.0 release candidate retains the established NetMD and HiMD protocol implementations while replacing the former application shell with the bilingual Studio Workbench and a shared command and workspace model.
+MD Studio is a local-first tool for making MDs with a bilingual interface, a Windows desktop app, CLI access and optional MCP automation. Audio import, metadata work, transcoding and USB communication run on the user's computer.
 
-## Current capabilities
+## 功能 / Features
 
--   USB NetMD, restricted and full HiMD, DRM-free Network Walkman, and MockMD connections
--   Disc, track, group, half-width, full-width, and HiMD metadata editing
--   Playback control, track ordering, deletion, erase, eject, HiMD format, and device flush
--   Audio import, browser-side transcoding, NetMD upload, supported-device download, recording, and factory tools inherited from Web MiniDisc Pro
--   Revision-checked application commands and observable long-running tasks
--   Local MCP tools and a scriptable CLI over a loopback-only browser bridge
--   Simplified Chinese by default, with complete English support and an immediate, persisted language switch
--   Safe preference loading that isolates a damaged setting instead of clearing the complete browser store
+- 连接 netmd-js 与 himd-js 支持的 NetMD、Hi-MD 和兼容设备。
+- 导入本地音频，整理曲序、普通标题、全角标题和 MD 文件夹（Group）。
+- 使用 SP、LP2、LP4 或 MONO 预检容量并写入碟片。
+- 编辑碟名和曲名，管理分组、播放和设备支持的碟片操作。
+- Windows 桌面版内置 CLI、可开关的本机 HTTP MCP 服务以及 MD 标签整理 Skill。
+- 自动检测 Windows 驱动；需要时从设置中打开经过校验的 Zadig 2.9 安装器。
+- 所有界面操作、CLI 和 MCP 共用同一设备会话、录制计划与任务状态。
 
-## Interface
+## Windows 桌面版 / Windows desktop
 
-The default interface is Simplified Chinese. English can be selected immediately in Settings and is persisted locally.
+运行 `MD-Studio-Setup-<version>.exe`，安装后从开始菜单或桌面打开 **MD Studio**。桌面版自带运行环境，无需安装 Node.js，也不需要下载源码。
 
-![MiniDisc Workspace welcome screen in Simplified Chinese](docs/screenshots/01-welcome-zh.png)
+NetMD 通常需要 WinUSB。打开 **设置 → 设备驱动** 查看检测结果；只有需要 WinUSB 且可以安全处理的接口会显示安装入口。Zadig 仍是交互式安装器，请核对设备名称与 USB ID 后再选择 WinUSB。不要替换 Hi-MD 存储接口或其他 USB 设备的驱动。
 
-![Studio Workbench connected to the built-in MockMD adapter](docs/screenshots/03-workbench-zh.png)
+The installer includes the runtime, CLI, metadata Skill and the verified Zadig payload. Driver replacement is always explicit and requires Windows administrator approval.
 
-Additional release screenshots, including the English workbench, local automation view, tools and built-in help, are in [`docs/screenshots`](docs/screenshots).
+## 基本流程 / Basic workflow
 
-## Requirements
+1. 给碟机供电并连接 USB，在 MD Studio 中连接设备。
+2. 导入音频并检查曲序、标题、全角标题、分组和录制模式。
+3. 查看容量预检，确认后开始写入。
+4. 在任务中心等待设备报告完成，再拔出 USB 或取出碟片。
 
--   Node.js 20.19 or newer and npm
--   A Chromium-based browser with WebUSB support
--   A compatible MiniDisc device and USB cable for hardware operations
--   On Windows, a compatible WinUSB driver for the device; the MiniDisc Wiki has current [Windows setup instructions](https://www.minidisc.wiki/guides/webminidisc/requirements#windows)
+正在录制的单首曲目无法在所有机型上安全中断。“当前曲目完成后结束批次”只会阻止后续曲目开始；录制灯停止前请保持碟机供电和 USB 连接。如果发生掉电或断线，请重新连接并刷新碟片，核对已经完成的曲目后只重试剩余内容。
 
-MockMD is available for development without hardware.
+An active track cannot be interrupted safely on every recorder. Ending a batch stops later tracks from starting after the current track finishes. Keep the recorder powered and USB connected while its recording light is flashing.
 
-For normal recording, export, recovery, and troubleshooting flows, see the [user guide](docs/USER-GUIDE.md). The [feature matrix](docs/FEATURE-MATRIX.md) records migrated capabilities and outstanding hardware acceptance. For ChatGPT, MCP, and scripting setup, see the [automation guide](docs/AUTOMATION.md). Contributors should read [CONTRIBUTING.md](CONTRIBUTING.md) before changing device or task code. The first independent release is described in the [0.1.0 release notes](docs/RELEASE-NOTES-0.1.0.md).
+## CLI
 
-## Run locally
+桌面版启动时会生成：
 
 ```text
-npm ci
-npm run dev
+%APPDATA%\MD Studio\mdstudio.cmd
 ```
 
-Open the local URL printed by Vite. The runtime preparation step is cross-platform and copies the required encoder and worker assets before development and production builds.
+示例：
 
-Useful commands:
+```powershell
+& "$env:APPDATA\MD Studio\mdstudio.cmd" connect
+& "$env:APPDATA\MD Studio\mdstudio.cmd" workspace
+& "$env:APPDATA\MD Studio\mdstudio.cmd" add "C:\Music\Album\01.flac"
+& "$env:APPDATA\MD Studio\mdstudio.cmd" preview LP2
+& "$env:APPDATA\MD Studio\mdstudio.cmd" write LP2
+```
 
-```text
+`preview` 不写入设备；`write` 会实际录制并等待任务结束。桌面应用必须保持打开。
+
+## AI 与 MCP / AI and MCP
+
+在侧栏打开 **AI 制作**，开启 MCP 后复制完整的本机地址到支持本地 HTTP MCP 的客户端。地址只绑定 `127.0.0.1`，包含临时访问密钥，并在每次重新开启时轮换。不要分享该地址。
+
+导出并安装随应用提供的 **MD 标签整理 Skill**，可帮助 AI 处理半角标题、全角标题、日文读音、艺术家、专辑和 MD 分组。AI 应先展示录制计划与容量，获得用户的实际写盘指令后再启动任务，并查询任务直到完成。
+
+MCP support is included; final client-specific acceptance remains on the release checklist.
+
+## Web 版 / Web build
+
+网页版只分发静态文件，音频与设备任务仍在浏览器本机执行。USB 连接需要支持 WebUSB 的 Chromium 浏览器以及兼容驱动。CLI 与 MCP 的源码开发桥接方式见 [自动化文档](docs/AUTOMATION.md)。
+
+## 开发 / Development
+
+要求 Node.js 20.19 或更高版本以及 npm 11。
+
+```powershell
+npm install
+npm run dev
 npm test
 npm run build
-npm run mcp
-npm run cli -- status
-npm run cli -- workspace
-npm run cli -- tasks
-npm run cli -- imports
-npm run cli -- write "C:\\Music\\Track 01.wav" "C:\\Music\\Track 02.flac"
-npm run cli -- export "C:\\Music\\MiniDisc export" 1 2 3 --wav
+npm run desktop:prepare
+npm run desktop:pack
 ```
 
-The CLI also accepts a complete application command:
+发布前还应运行：
 
-```text
-npm run cli -- command '{"type":"playback.control","command":{"action":"play"}}'
+```powershell
+npm run lint
+npm run runtime-assets:release-check
+npm run licenses:check
+npm run audit:production
 ```
 
-On Windows PowerShell, a JSON file is usually easier to quote:
+项目架构和贡献规则见 [CONTRIBUTING.md](CONTRIBUTING.md)，详细用户说明见 [docs/USER-GUIDE.md](docs/USER-GUIDE.md)，当前发行验收状态见 [docs/RELEASE-CHECKLIST.md](docs/RELEASE-CHECKLIST.md)。
 
-```text
-npm run cli -- --file command.json
-```
+## 开源与来源 / License and attribution
 
-The `write` and `export` commands keep the local bridge alive, stream files through opaque handles, and wait until the background task succeeds, fails, or is cancelled. Export track numbers are one-based, matching the app. Add `--codec LP2 --bitrate 132` to override the default recording format.
+MD Studio 使用 [GNU GPL v2](LICENSE) 发布。它基于 [Web MiniDisc Pro](https://github.com/asivery/webminidisc) 及更早的 [Web MiniDisc](https://github.com/cybercase/webminidisc)，并保留其协议层、设备支持和贡献历史。完整来源与第三方说明见 [NOTICE.md](NOTICE.md) 和 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md)。
 
-## Local MCP bridge
-
-Enable **Local MCP and CLI bridge** in the app settings, then reload the app. `npm run mcp` starts an MCP server over standard input/output and a WebSocket bridge on `127.0.0.1:47123`. Keep the browser app open. Device operations continue to run in the browser, which owns the WebUSB session.
-
-The MCP tools cover the complete workspace snapshot, device status, disc and track metadata, groups, playback, deletion and erase with explicit confirmation, HiMD maintenance, task state, local audio staging and writing, and streamed track export to a selected local directory. The workspace snapshot remains available before a device is connected, so clients can prepare imports and settings first. Long transfers return a task identifier for progress and cancellation. Destructive commands require both `confirmed: true` and a non-empty reason. Mutating tools accept `expectedRevision` so a command prepared from stale disc state is rejected before it writes.
-
-The recommended recording sequence is read workspace → stage audio → preview imports → write with the preview's revisions → poll the returned task. The automation guide lists every MCP tool and the browser-only safety boundaries.
-
-Set `MINIDISC_BRIDGE_TOKEN` to require a token, and store the same value in the browser preference `minidiscLocalBridgeToken`. The bridge listens on loopback and accepts local browser origins by default.
-
-## Architecture
-
-```text
-Studio Workbench ─┐
-Local MCP ────────┼── Application command layer ── NetMD / HiMD services ── Device
-CLI ──────────────┘              │
-                           tasks and imports
-```
-
-The application layer owns validation, revisions, destructive confirmation, serialization, task state, and device snapshots. Studio Workbench is the primary interface and reads the same workspace model as MCP and CLI. A small browser-preferences store owns only the selected adapter, custom-device catalog, and local-bridge switch; dialog and form drafts stay in local React state. Redux is no longer a dependency. The obsolete standalone Factory screen has been removed; its supported TOC, recovery, and maintenance operations live in the capability-gated Tools workflow.
-
-## Local execution boundary
-
-Audio files, metadata editing, transcoding, task queues, caches, and device communication run on the user's computer. A hosted web build serves static application files only: it does not upload audio, proxy USB traffic, run encoding jobs, or store disc contents. The desktop build uses the same local application core. The official application contains no remote device adapter, remote encoder, remote library, or external song-recognition client.
-
-
-Any future network integration must be reviewed as a separate product capability. It must disclose the exact data leaving the computer and cannot become part of recording, device access, or the local automation path by default.
-
-## Safety
-
-Treat real discs as valuable media. Delete, erase, and HiMD format operations require explicit confirmation. Automated callers should refresh the disc first and send the returned revision with each prepared mutation.
-
-An active NetMD track transfer cannot currently be stopped safely on every recorder. The stop action is cooperative: it prevents the next track from starting after the current track finishes. If the recorder's write light is flashing, leave USB connected until recording finishes. Do not trust a closed dialog, cancelled browser task, or interrupted encoder as proof that the recorder has stopped.
-
-## License and upstream credit
-
-MiniDisc Workspace is licensed under the [GNU General Public License v2.0](LICENSE).
-
-It is derived from [Web MiniDisc Pro](https://github.com/asivery/webminidisc) by Asivery and contributors, which in turn was derived from [Web MiniDisc](https://github.com/cybercase/webminidisc). Their protocol work, device support, encoder integration, and contributor history remain foundational to this project. The Git history and GPL license are retained.
-
-Major upstream projects include [netmd-js](https://github.com/cybercase/netmd-js), [netmd-exploits](https://github.com/asivery/netmd-exploits), [himd-js](https://github.com/asivery/himd-js), [linux-minidisc](https://github.com/linux-minidisc/linux-minidisc), [FFmpeg](https://ffmpeg.org/), and [Atracdenc](https://github.com/dcherednik/atracdenc). See [NOTICE.md](NOTICE.md) for provenance and redistribution notes, [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for the lockfile-derived dependency inventory, [SECURITY.md](SECURITY.md) for trust boundaries and the tracked dependency exception, and `package-lock.json` for the complete dependency graph. Run `npm run licenses:update` after dependency changes; CI rejects a stale inventory.
+MD、MiniDisc、NetMD、Hi-MD 和 Sony 名称仅用于说明兼容格式与硬件；本项目与 Sony 无隶属或认可关系。

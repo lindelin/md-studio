@@ -21,14 +21,14 @@ The first implementation launches the official, signed Zadig 2.9 interactive ins
 
 The exact binary hash and upstream source version are in vendor/zadig/manifest.json. Source license texts accompany it; preserve the upstream source/rebuild availability and notices when publishing. `prepare-driver.mjs` downloads only the pinned binary and verifies its digest, without execution. Runtime verifies again before launch. Driver installation needs UAC; the main application does not run elevated. After installer exit the assistant scans again; exit alone is not proof of success.
 
-## Acceptance before packaging
+## Acceptance and packaging
 
 1. Launch desktop locally; connect the test MD manually. Check import, both title fields, groups, LP2 recording and actual playback on hardware.
 2. Enable MCP; connect a local HTTP MCP client, list tools and read workspace. Disable and verify calls fail; re-enable with the new URL.
 3. Run the CLI status/import/preview commands while MCP is off; authorize and test writing separately.
 4. Check driver detection with a working driver; it should offer no replacement. Test installation only on a device needing setup, after reviewing the USB ID.
-5. Report UI/driver results before building an installer.
+5. Report UI/driver results before publishing an installer.
 
-`npm run desktop:pack` is configured for an x64 NSIS installer, but must only be run after the user's development-app acceptance. Installer signing, clean-machine driver installation, Windows ARM64 and installer behavior have not been validated. No installer has been produced in this development stage.
+`npm run desktop:pack` creates an x64 NSIS installer under `release/`. Core UI and CLI hardware flows have been accepted. MCP client acceptance, installer signing, clean-machine driver installation, Windows ARM64 and final installer behavior remain release checks until explicitly recorded as complete.
 
 Desktop disables the web PWA service worker and clears only its service-worker/cache storage on startup (not settings). The control window uses an isolated, nonpersistent session with USB permissions denied; it must never own a device connection.

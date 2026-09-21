@@ -919,7 +919,7 @@ export const Workbench = () => {
             <aside className="workbench__sidebar">
                 <div className="workbench__brand">
                     <span className="workbench__brand-mark"><img src="/MiniDisc192.png" alt="" /></span>
-                    <span><strong>{t('Studio Workbench')}</strong><small>{t('MiniDisc Management')}</small></span>
+                    <span><strong>MD Studio</strong><small>{language === 'zh-CN' ? 'MD 制作' : 'MD creation'}</small></span>
                 </div>
 
                 <nav className="workbench__nav" aria-label={t('Workspace')}>

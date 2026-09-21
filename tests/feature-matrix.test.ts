@@ -16,7 +16,7 @@ describe('release feature matrix', () => {
         const commandNames = uniqueMatches(commands, /type:\s*'([^']+)'/g);
         const toolNames = uniqueMatches(mcpServer, /registerTool\(\s*'([^']+)'/g);
 
-        assert.equal(commandNames.length, 47);
+        assert.equal(commandNames.length, 48);
         assert.equal(toolNames.length, 30);
         assert.deepEqual(commandNames.filter((name) => !matrix.includes(`\`${name}\``)), []);
         assert.deepEqual(toolNames.filter((name) => !matrix.includes(`\`${name}\``)), []);

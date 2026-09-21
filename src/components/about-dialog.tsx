@@ -9,12 +9,12 @@ export const AboutDialog = ({ open, onClose }: { open: boolean; onClose(): void 
     return (
         <AppDialog
             open={open}
-            title={t('About MiniDisc Workspace')}
+            title={t('About MD Studio')}
             onClose={onClose}
             actions={<button className="app-dialog__button--primary" onClick={onClose}>{t('Close')}</button>}
         >
             <p>
-                {t('MiniDisc Workspace is derived from')}{' '}
+                {t('MD Studio is derived from')}{' '}
                 <a rel="noopener noreferrer" href="https://github.com/asivery/webminidisc" target="_blank">Web MiniDisc Pro</a>{' '}
                 {t('and uses')}
             </p>
