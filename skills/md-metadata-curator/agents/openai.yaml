@@ -1,0 +1,4 @@
+interface:
+  display_name: "MD 标签整理与制作"
+  short_description: "整理音频信息、日文读音与双标题，按设备能力分组并通过本地 MCP 制作 MD"
+  default_prompt: "使用 $md-metadata-curator 整理这些本地音频的 MD 标签、全角标题和分组，先展示制盘计划。"
