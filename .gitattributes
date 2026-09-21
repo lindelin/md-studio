@@ -1,0 +1,3 @@
+# Generated encoder modules must keep exact bytes for provenance checks.
+/public/ffmpeg-core.js -text -diff
+/public/atracdenc.js -text -diff
