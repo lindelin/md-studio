@@ -460,6 +460,6 @@ describe('ApplicationCommandBus import writing', () => {
         assert.equal(!result.ok && result.error.code, 'PERSISTENCE_FAILED');
         assert.equal(!result.ok && result.error.details?.cause, 'quota exceeded');
         assert.equal(settings.getSnapshot().revision, 0);
-        assert.equal(settings.getSnapshot().values.uiLanguage, 'zh-CN');
+        assert.equal(settings.getSnapshot().values.uiLanguage, 'system');
     });
 });

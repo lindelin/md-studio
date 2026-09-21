@@ -8,7 +8,7 @@ import {
 import { loadPreference } from './preferences';
 
 const isUiLanguagePreference = (value: unknown): value is UiLanguagePreference =>
-    value === 'system' || value === 'en' || value === 'zh-CN';
+    value === 'system' || value === 'en' || value === 'zh-CN' || value === 'ja';
 
 export function getCurrentUiLanguage(browserLanguage = typeof navigator === 'undefined' ? 'en' : navigator.language): ResolvedUiLanguage {
     const preference = loadPreference<UiLanguagePreference>('uiLanguage', DEFAULT_UI_LANGUAGE_PREFERENCE, isUiLanguagePreference);

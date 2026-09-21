@@ -4,9 +4,9 @@ import { DEFAULT_UI_LANGUAGE_PREFERENCE, resolveUiLanguage, translate } from '..
 import { getCurrentUiLanguage, runtimeTranslate } from '../src/runtime-i18n.ts';
 
 describe('UI language', () => {
-    it('starts new installations in Simplified Chinese while keeping explicit English available', () => {
-        assert.equal(DEFAULT_UI_LANGUAGE_PREFERENCE, 'zh-CN');
-        assert.equal(resolveUiLanguage(DEFAULT_UI_LANGUAGE_PREFERENCE, 'en-US'), 'zh-CN');
+    it('follows the system on new installations while honoring explicit languages', () => {
+        assert.equal(DEFAULT_UI_LANGUAGE_PREFERENCE, 'system');
+        assert.equal(resolveUiLanguage(DEFAULT_UI_LANGUAGE_PREFERENCE, 'en-US'), 'en');
         assert.equal(resolveUiLanguage('en', 'zh-CN'), 'en');
     });
 
@@ -50,6 +50,6 @@ describe('UI language', () => {
             runtimeTranslate('This action is not available for Network Walkman devices.', 'zh-CN'),
             'Network Walkman 设备不支持此操作。'
         );
-        assert.equal(runtimeTranslate('MiniDisc recording completed', 'en-US'), 'MD 录制完成');
+        assert.equal(runtimeTranslate('MiniDisc recording completed', 'en-US'), 'MD recording completed');
     });
 });

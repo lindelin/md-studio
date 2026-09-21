@@ -12,6 +12,10 @@ import { isSupportedMD, protectedMDClasses } from './usb-policy';
 import { scanDrivers } from './drivers';
 import { installUsbDevicePicker } from './usb-device-picker';
 import { loadDesktopPreferences, saveDesktopPreferences, type DesktopPreferences } from './preferences';
+function nativeText(zh: string, ja: string, en: string) {
+    const locale = app.getLocale().toLowerCase();
+    return locale.startsWith('zh') ? zh : locale.startsWith('ja') ? ja : en;
+}
 const exec = promisify(execFile);
 const root = app.getAppPath();
 const resources = app.isPackaged ? process.resourcesPath : root;
@@ -44,7 +48,7 @@ async function requestQuit() {
     try {
         if (driverInstalling || await isBusy()) {
             mainWindow.show();
-            await dialog.showMessageBox(mainWindow, { type: 'warning', message: '任务仍在进行，请完成后再退出。 / Finish the active task before quitting.' });
+            await dialog.showMessageBox(mainWindow, { type: 'warning', message: nativeText('任务仍在进行，请完成后再退出。', '処理中のタスクがあります。完了してから終了してください。', 'Finish the active task before quitting.') });
             return;
         }
         quitting = true;
@@ -131,10 +135,10 @@ async function start() {
     const showWindow = () => { mainWindow.show(); mainWindow.focus(); };
     tray.on('double-click', showWindow);
     tray.setContextMenu(Menu.buildFromTemplate([
-        { label: '打开 MD Studio / Open MD Studio', click: showWindow },
-        { label: '设置 / Settings', click: openControl },
+        { label: nativeText('打开 MD Studio', 'MD Studio を開く', 'Open MD Studio'), click: showWindow },
+        { label: nativeText('设置', '設定', 'Settings'), click: openControl },
         { type: 'separator' },
-        { label: '退出 / Quit', click: () => void requestQuit() },
+        { label: nativeText('退出', '終了', 'Quit'), click: () => void requestQuit() },
     ]));
     ipcMain.handle('desktop:open-controls',event => { trusted(event); openControl(); });
     ipcMain.handle('desktop:background',event => { trusted(event); mainWindow.hide(); });
@@ -163,7 +167,7 @@ async function start() {
         trusted(event); if (driverInstalling || await isBusy()) throw new Error('设备忙，请稍后重试 / Device busy');
         const device=(await scanDrivers()).find(d => d.id === id);
         if(!device?.eligible) throw new Error('此设备不需要或不适用 WinUSB 安装 / Device not eligible');
-        const answer=await dialog.showMessageBox(mainWindow,{type:'warning',buttons:['取消 / Cancel','打开安装器 / Open installer'],defaultId:0,cancelId:0,message:`${device.name}\n${device.id}`,detail:'将打开 Zadig。请核对这个设备及 USB ID，并选择 WinUSB。更换驱动可能影响旧软件。不要选择其他设备。 / Verify this device and select WinUSB; replacing its driver may affect legacy software.'});
+        const answer=await dialog.showMessageBox(mainWindow,{type:'warning',buttons:[nativeText('取消', 'キャンセル', 'Cancel'),nativeText('打开安装器', 'インストーラーを開く', 'Open installer')],defaultId:0,cancelId:0,message:`${device.name}\n${device.id}`,detail:nativeText('将打开 Zadig。请核对设备与 USB ID，选择 WinUSB。更换驱动可能影响旧软件。不要选择其他设备。', 'Zadig を開きます。この機器と USB ID を確認し、WinUSB を選択してください。ドライバーの変更は旧ソフトに影響する場合があります。他の機器を選ばないでください。', 'Verify this device and USB ID, then select WinUSB in Zadig. Replacing the driver may affect legacy software. Do not select other devices.')});
         if(answer.response !== 1) return {cancelled:true};
         driverInstalling=true;
         try {
@@ -179,7 +183,7 @@ async function start() {
         } finally {driverInstalling=false;}
     });
     ipcMain.handle('desktop:skill',async event => { trusted(event); const result=await dialog.showOpenDialog(mainWindow,{properties:['openDirectory','createDirectory']}); if(result.canceled) return; const source=app.isPackaged ? join(resources,'skills','md-metadata-curator') : join(root,'skills','md-metadata-curator'); await cp(source,join(result.filePaths[0],'md-metadata-curator'),{recursive:true,errorOnExist:true,force:false}); return 'OK'; });
-    Menu.setApplicationMenu(Menu.buildFromTemplate([{label:'MD Studio',submenu:[{label:'打开设置 / Open Settings',click:openControl},{role:'quit'}]},{label:'查看 / View',submenu:[{role:'resetZoom'},{role:'zoomIn'},{role:'zoomOut'},{role:'toggleDevTools'}]}]));
+    Menu.setApplicationMenu(Menu.buildFromTemplate([{label:'MD Studio',submenu:[{label:nativeText('打开设置', '設定を開く', 'Open Settings'),click:openControl},{role:'quit'}]},{label:nativeText('查看', '表示', 'View'),submenu:[{role:'resetZoom'},{role:'zoomIn'},{role:'zoomOut'},{role:'toggleDevTools'}]}]));
     await mainWindow.loadURL(uiOrigin);
     app.on('will-quit', () => { tray?.destroy(); void mcp?.close(); void runtime.close(); server.close(); });
     app.on('window-all-closed',() => app.quit());

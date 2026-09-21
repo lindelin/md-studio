@@ -38,3 +38,5 @@ yarn-error.log*
 /desktop-build/
 /release/
 /vendor/zadig/*.exe
+# Local release scratch files
+/.tmp-test/

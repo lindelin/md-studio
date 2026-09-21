@@ -58,7 +58,7 @@ if (import.meta.hot) {
 }
 
 Object.defineProperty(window, 'wmdVersion', {
-    value: '0.1.0',
+    value: '1.0.0',
     writable: false,
 });
 

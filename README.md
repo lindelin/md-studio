@@ -1,92 +1,48 @@
-# MD Studio
+# MD Studio — Make MD discs with AI
 
-MD Studio 是一个本机优先的 MD 制作工具，提供中英双语界面、Windows 桌面版、CLI 和可选的 MCP 接口。音频读取、标签整理、转码和设备通信均在用户电脑上完成。
+[English](README.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md)
 
-MD Studio is a local-first tool for making MDs with a bilingual interface, a Windows desktop app, CLI access and optional MCP automation. Audio import, metadata work, transcoding and USB communication run on the user's computer.
+[![Latest release](https://img.shields.io/github/v/release/lindelin/md-studio)](https://github.com/lindelin/md-studio/releases/latest) [![Downloads](https://img.shields.io/github/downloads/lindelin/md-studio/total)](https://github.com/lindelin/md-studio/releases) [![License: GPL v2](https://img.shields.io/badge/license-GPL--2.0-blue)](LICENSE)
 
-## 功能 / Features
+**Let AI handle the tedious part of making an MD: titles, Japanese readings, track order and groups.** MD Studio is a free, open-source Windows app for recording music to MiniDisc through NetMD and Hi-MD. Use it yourself, or connect your AI assistant through MCP or the included CLI.
 
-- 连接 netmd-js 与 himd-js 支持的 NetMD、Hi-MD 和兼容设备。
-- 导入本地音频，整理曲序、普通标题、全角标题和 MD 文件夹（Group）。
-- 使用 SP、LP2、LP4 或 MONO 预检容量并写入碟片。
-- 编辑碟名和曲名，管理分组、播放和设备支持的碟片操作。
-- Windows 桌面版内置 CLI、可开关的本机 HTTP MCP 服务以及 MD 标签整理 Skill。
-- 自动检测 Windows 驱动；需要时从设置中打开经过校验的 Zadig 2.9 安装器。
-- 所有界面操作、CLI 和 MCP 共用同一设备会话、录制计划与任务状态。
+**[Download for Windows](https://github.com/lindelin/md-studio/releases/latest)** · **[User manual](docs/manual/en.md)** · **[Report a problem](https://github.com/lindelin/md-studio/issues)**
 
-## Windows 桌面版 / Windows desktop
+## From a folder of music to a finished MD
 
-运行 `MD-Studio-Setup-<version>.exe`，安装后从开始菜单或桌面打开 **MD Studio**。桌面版自带运行环境，无需安装 Node.js，也不需要下载源码。
+1. Install MD Studio and connect your recorder by USB.
+2. Add your music and choose the recording mode.
+3. Ask AI to organize titles, readings and groups, or edit them yourself.
+4. Review the recording plan and capacity, then start recording.
 
-NetMD 通常需要 WinUSB。打开 **设置 → 设备驱动** 查看检测结果；只有需要 WinUSB 且可以安全处理的接口会显示安装入口。Zadig 仍是交互式安装器，请核对设备名称与 USB ID 后再选择 WinUSB。不要替换 Hi-MD 存储接口或其他 USB 设备的驱动。
+> “Prepare the album in C:/Music/Album for LP2. Use half-width katakana for the Japanese normal titles and the original Japanese for full-width titles. Group by album. Show me the plan before writing.”
 
-The installer includes the runtime, CLI, metadata Skill and the verified Zadig payload. Driver replacement is always explicit and requires Windows administrator approval.
+## Built for making MDs
 
-## 基本流程 / Basic workflow
+- **AI-assisted tags:** an included MD metadata Skill guides your assistant through English/Japanese titles, missing tags, readings and grouping. Review uncertain readings before recording.
+- **NetMD and Hi-MD:** reuse established device libraries; available modes and features depend on the recorder and disc.
+- **Clear recording modes:** SP, LP2, LP4 and MONO where supported, with capacity preview and progress.
+- **One shared studio:** the interface, CLI and MCP use the same device, import queue and tasks.
+- **Set up MCP once:** its local address persists across app restarts. Closing the window keeps the app in the system tray.
+- **English, 日本語, 简体中文:** choose a language and light or dark theme in Settings.
+- **Local audio processing:** audio decoding, conversion and USB transfer run on your PC. No audio-processing server is needed.
 
-1. 给碟机供电并连接 USB，在 MD Studio 中连接设备。
-2. 导入音频并检查曲序、标题、全角标题、分组和录制模式。
-3. 查看容量预检，确认后开始写入。
-4. 在任务中心等待设备报告完成，再拔出 USB 或取出碟片。
+## What you need
 
-正在录制的单首曲目无法在所有机型上安全中断。“当前曲目完成后结束批次”只会阻止后续曲目开始；录制灯停止前请保持碟机供电和 USB 连接。如果发生掉电或断线，请重新连接并刷新碟片，核对已经完成的曲目后只重试剩余内容。
+- Windows 10/11, 64-bit, a compatible USB recorder, a writable MD and reliable power.
+- For AI: your own client with local HTTP MCP support, or an assistant able to run local CLI commands. MD Studio does not include an AI model or subscription. Clients that can only reach cloud servers cannot connect directly to localhost.
+- No source checkout, Node.js or separate encoder installation is needed for the standard desktop workflow. Driver setup includes a verified Zadig installer when WinUSB is needed.
 
-An active track cannot be interrupted safely on every recorder. Ending a batch stops later tracks from starting after the current track finishes. Keep the recorder powered and USB connected while its recording light is flashing.
+The installer is currently unsigned. Download from this repository's Releases page and compare the published SHA-256 checksum. Real-device testing so far includes the Sony MZ-N920; this is not a claim that every recorder has been tested.
 
-## CLI
+## AI, privacy and recording
 
-桌面版启动时会生成：
+Enable MCP in **AI Creation**, copy the full local URL into your client, and export/install the included metadata Skill. The URL contains an access key: keep it private. AI is optional; all regular editing and recording controls remain available.
 
-```text
-%APPDATA%\MD Studio\mdstudio.cmd
-```
+Audio conversion and device communication stay local. Your AI client may send prompts and metadata to its provider under its own settings. Keep power and USB connected until recording finishes; ending a batch waits for the current track to finish safely.
 
-示例：
+Read the [manual](docs/manual/en.md) for setup, title rules, groups, CLI examples and troubleshooting.
 
-```powershell
-& "$env:APPDATA\MD Studio\mdstudio.cmd" connect
-& "$env:APPDATA\MD Studio\mdstudio.cmd" workspace
-& "$env:APPDATA\MD Studio\mdstudio.cmd" add "C:\Music\Album\01.flac"
-& "$env:APPDATA\MD Studio\mdstudio.cmd" preview LP2
-& "$env:APPDATA\MD Studio\mdstudio.cmd" write LP2
-```
+## Open source and credits
 
-`preview` 不写入设备；`write` 会实际录制并等待任务结束。桌面应用必须保持打开。
-
-## AI 与 MCP / AI and MCP
-
-在侧栏打开 **AI 制作**，开启 MCP 后复制完整的本机地址到支持本地 HTTP MCP 的客户端。地址只绑定 `127.0.0.1`，包含临时访问密钥，并在每次重新开启时轮换。不要分享该地址。
-
-导出并安装随应用提供的 **MD 标签整理 Skill**，可帮助 AI 处理半角标题、全角标题、日文读音、艺术家、专辑和 MD 分组。AI 应先展示录制计划与容量，获得用户的实际写盘指令后再启动任务，并查询任务直到完成。
-
-MCP support is included; final client-specific acceptance remains on the release checklist.
-
-## 开发 / Development
-
-要求 Node.js 20.19 或更高版本以及 npm 11。
-
-```powershell
-npm install
-npm run dev
-npm test
-npm run build
-npm run desktop:prepare
-npm run desktop:pack
-```
-
-发布前还应运行：
-
-```powershell
-npm run lint
-npm run runtime-assets:release-check
-npm run licenses:check
-npm run audit:production
-```
-
-项目架构和贡献规则见 [CONTRIBUTING.md](CONTRIBUTING.md)，详细用户说明见 [docs/USER-GUIDE.md](docs/USER-GUIDE.md)，当前发行验收状态见 [docs/RELEASE-CHECKLIST.md](docs/RELEASE-CHECKLIST.md)。
-
-## 开源与来源 / License and attribution
-
-MD Studio 使用 [GNU GPL v2](LICENSE) 发布。它基于 [Web MiniDisc Pro](https://github.com/asivery/webminidisc) 及更早的 [Web MiniDisc](https://github.com/cybercase/webminidisc)，并保留其协议层、设备支持和贡献历史。完整来源与第三方说明见 [NOTICE.md](NOTICE.md) 和 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md)。
-
-MD、MiniDisc、NetMD、Hi-MD 和 Sony 名称仅用于说明兼容格式与硬件；本项目与 Sony 无隶属或认可关系。
+MD Studio is based on [Web MiniDisc Pro](https://github.com/asivery/webminidisc), with thanks to asivery and the NetMD/Hi-MD community. Distributed under [GPL-2.0-only](LICENSE). See [credits](NOTICE.md), [third-party licenses](THIRD_PARTY_LICENSES.md) and [contributing](CONTRIBUTING.md). MiniDisc and device names belong to their respective owners; this is an independent project.

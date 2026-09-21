@@ -1,9 +1,11 @@
-export type UiLanguagePreference = 'system' | 'en' | 'zh-CN';
+import japanese from './locales/ja.json';
+export type UiLanguagePreference = 'system' | 'en' | 'zh-CN' | 'ja';
 export type ResolvedUiLanguage = Exclude<UiLanguagePreference, 'system'>;
 
-export const DEFAULT_UI_LANGUAGE_PREFERENCE: UiLanguagePreference = 'zh-CN';
+export const DEFAULT_UI_LANGUAGE_PREFERENCE: UiLanguagePreference = 'system';
 
 const zhCN: Record<string, string> = {
+    'Audio conversion and device communication run locally. Your AI client may send text and metadata to its provider; check its privacy settings.': '音频转换和设备通信在本机进行。AI 客户端可能向其服务商发送文本和标签信息，请检查它的隐私设置。',
     'Disconnect device': '断开设备连接',
     'Disconnect': '断开连接',
     'Disconnect USB, then remove the disc using the recorder.': '断开 USB 会话后，请在碟机上手动取出碟片。',
@@ -762,14 +764,42 @@ const zhCN: Record<string, string> = {
 
 export function resolveUiLanguage(preference: UiLanguagePreference, browserLanguage = typeof navigator === 'undefined' ? 'en' : navigator.language): ResolvedUiLanguage {
     if (preference !== 'system') return preference;
-    return browserLanguage.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+    const locale = browserLanguage.toLowerCase();
+    return locale.startsWith('zh') ? 'zh-CN' : locale.startsWith('ja') ? 'ja' : 'en';
 }
 
 export function translate(language: ResolvedUiLanguage, message: string) {
-    const text = language === 'zh-CN' ? (zhCN[message] ?? message) : message;
+    const text = language === 'zh-CN' ? (zhCN[message] ?? message) : localizeJapanese(language, message);
     return text.replace(/MiniDisc/gi, 'MD').replace(/工作区/g, '工作室').replace(/Studio Workbench|Workspace|Workbench/gi, 'Studio');
 }
 
 export function hasChineseTranslation(message: string) {
     return Object.prototype.hasOwnProperty.call(zhCN, message);
+}
+
+export function localizeJapanese(language: ResolvedUiLanguage, message: string): string {
+    if (language !== 'ja') return message;
+    const exact = (japanese as Record<string, string>)[message];
+    if (exact) return exact;
+    const patterns: [RegExp, (match: RegExpMatchArray) => string][] = [
+        [/^Write (\d+) tracks? to MiniDisc$/, m => m[1] + ' 曲を MD に書き込み'],
+        [/^Track (\d+)$/, m => '曲 ' + m[1]],
+        [/^(\d+) tracks$/, m => m[1] + ' 曲'],
+        [/^(\d+) selected$/, m => m[1] + ' 曲選択中'],
+        [/^Deleted (\d+) tracks?\.$/, m => m[1] + ' 曲を削除しました。'],
+        [/^(\d+) tracks on disc · (.+)$/, m => m[1] + ' 曲 · ' + m[2]],
+        [/^(\d+)% used · $/, m => '使用済み ' + m[1] + '% · '],
+        [/^(.+) available$/, m => '残り ' + m[1]],
+        [/^Copied (.+)\.$/, m => m[1] + ' をコピーしました。'],
+        [/^(.+) needs attention\. Review the task details before retrying\.$/, m => m[1] + ' の確認が必要です。再試行する前にタスクの詳細をご確認ください。'],
+    ];
+    for (const [pattern, format] of patterns) {
+        const match = message.match(pattern);
+        if (match) return format(match);
+    }
+    return message;
+}
+
+export function hasJapaneseTranslation(message: string) {
+    return Object.prototype.hasOwnProperty.call(japanese, message);
 }

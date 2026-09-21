@@ -79,7 +79,7 @@ const importMetadataChangesSchema = z
 
 function createServer() {
     const server = new McpServer(
-        { name: 'md-studio', version: '0.1.0' },
+        { name: 'md-studio', version: '1.0.0' },
         {
             instructions:
                 'Read the current device and disc state before editing. Pass expectedRevision for edits prepared from an earlier snapshot. Destructive tools require a user-confirmed reason.',

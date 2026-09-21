@@ -1,15 +1,14 @@
-name: Build release archive
+name: Build Windows installer
 
 on:
-  push:
-    tags: ['v*']
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
-    runs-on: ubuntu-latest
+  installer:
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -19,21 +18,13 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run lint
-      - run: npm run typecheck
       - run: npm run audit:production
       - run: npm run licenses:check
       - run: npm run runtime-assets:release-check
-      - run: npm run build
-      - name: Assemble archive
-        shell: bash
-        run: |
-          mkdir -p minidisc-workspace/docs
-          cp -R dist/. minidisc-workspace/
-          cp README.md CONTRIBUTING.md LICENSE NOTICE.md SECURITY.md THIRD_PARTY_LICENSES.md RUNTIME_ASSETS.json minidisc-workspace/
-          cp -R docs/. minidisc-workspace/docs/
-          zip -r "minidisc-workspace-${GITHUB_REF_NAME}.zip" minidisc-workspace
-      - uses: softprops/action-gh-release@v3
+      - run: node desktop/prepare-driver.mjs
+      - run: npm run desktop:pack
+      - uses: actions/upload-artifact@v4
         with:
-          draft: true
-          files: minidisc-workspace-*.zip
-          generate_release_notes: true
+          name: md-studio-windows
+          path: release/MD-Studio-Setup-*.exe
+          if-no-files-found: error

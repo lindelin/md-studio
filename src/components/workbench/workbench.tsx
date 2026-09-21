@@ -1,3 +1,4 @@
+import { localizeJapanese } from '../../i18n';
 import { DesktopConnections } from './desktop-connections';
 import { DeviceConnection } from './device-connection';
 import { useBrowserPreferences } from '../../frontend/use-browser-preferences';
@@ -300,11 +301,11 @@ export const Workbench = () => {
                         const first = result.failures[0];
                         setMessage(language === 'zh-CN'
                             ? `${added > 0 ? `已添加 ${added} 个文件。` : ''}跳过 ${result.failures.length} 个文件：${first.name} — ${first.reason}`
-                            : `${added > 0 ? `${added} added. ` : ''}${result.failures.length} file${result.failures.length === 1 ? '' : 's'} skipped: ${first.name} — ${first.reason}`);
+                            : localizeJapanese(language, `${added > 0 ? `${added} added. ` : ''}${result.failures.length} file${result.failures.length === 1 ? '' : 's'} skipped: ${first.name} — ${first.reason}`));
                     } else {
                         setMessage(language === 'zh-CN'
                             ? `已将 ${added} 个音频文件加入录制计划。`
-                            : `${added} audio file${added === 1 ? '' : 's'} added to the recording plan.`);
+                            : localizeJapanese(language, `${added} audio file${added === 1 ? '' : 's'} added to the recording plan.`));
                     }
                 })
                 .catch((error) => setMessage(errorMessage(error)))
@@ -431,7 +432,7 @@ export const Workbench = () => {
         setSelectedTaskId(attentionTask.id);
         setTaskCenterOpen(true);
         const label = localizeTaskLabel(attentionTask.label, language);
-        setMessage(language === 'zh-CN' ? `${label}需要处理。重试前请检查任务详情。` : `${label} needs attention. Review the task details before retrying.`);
+        setMessage(language === 'zh-CN' ? `${label}需要处理。重试前请检查任务详情。` : localizeJapanese(language, `${label} needs attention. Review the task details before retrying.`));
     }, [language, recentTasks]);
 
     useEffect(() => {
@@ -451,7 +452,7 @@ export const Workbench = () => {
     const activeSelectionCount = selected?.kind === 'import' ? selectedImportCount : selectedTrackCount;
     const isNetMD = device?.recording.titleStorage === 'netmd-toc';
     const hasFullWidth = isNetMD && capabilities.includes('metadata.fullWidth');
-    const labelText = (zh: string, en: string) => language === 'zh-CN' ? zh : en;
+    const labelText = (zh: string, en: string) => language === 'zh-CN' ? zh : localizeJapanese(language, en);
     const titleGuide = <p className="workbench__label-help">{labelText('普通标题：半角英文或半角片假名，如 Blue Sky、ｻｸﾗ。全角标题：全角英文或日文原文，如 Ｂｌｕｅ　Ｓｋｙ、桜。汉字读音需确认，不能只转换全半角。', 'Standard title: half-width English or katakana, e.g. Blue Sky or ｻｸﾗ. Full-width title: full-width English or original Japanese, e.g. Ｂｌｕｅ　Ｓｋｙ or 桜. Confirm kanji readings before creating the standard title.')}</p>;
     const supportsSharedMetadata = selected?.kind === 'import' || capabilities.includes('metadata.himd');
     const metadataApplyCount = supportsSharedMetadata ? Math.max(activeSelectionCount, 1) : 1;
@@ -552,7 +553,7 @@ export const Workbench = () => {
             setDirtyDraftFields([]);
             setMessage(language === 'zh-CN'
                 ? appliedCount > 1 ? `已保存 ${appliedCount} 个项目的更改。` : '更改已保存。'
-                : appliedCount > 1 ? `Changes saved to ${appliedCount} items.` : 'Changes saved.');
+                : localizeJapanese(language, appliedCount > 1 ? `Changes saved to ${appliedCount} items.` : 'Changes saved.'));
         });
     };
 
@@ -572,7 +573,7 @@ export const Workbench = () => {
         setDeleteReview({
             tracks: indexes.map((index) => {
                 const track = tracks.find((candidate) => candidate.index === index);
-                return { index, title: track?.title || (language === 'zh-CN' ? `曲目 ${index + 1}` : `Track ${index + 1}`) };
+                return { index, title: track?.title || (language === 'zh-CN' ? `曲目 ${index + 1}` : localizeJapanese(language, `Track ${index + 1}`)) };
             }),
             expectedRevision: device.revision,
         });
@@ -591,7 +592,7 @@ export const Workbench = () => {
             setDeleteReview(null);
             setSelectedTrackIndexes([]);
             setLastSelectedTrackIndex(null);
-            setMessage(language === 'zh-CN' ? `已删除 ${deleted} 首曲目。` : `Deleted ${deleted} track${deleted === 1 ? '' : 's'}.`);
+            setMessage(language === 'zh-CN' ? `已删除 ${deleted} 首曲目。` : localizeJapanese(language, `Deleted ${deleted} track${deleted === 1 ? '' : 's'}.`));
         });
     };
 
@@ -861,7 +862,7 @@ export const Workbench = () => {
         try {
             if (!navigator.clipboard) throw new Error(t('Clipboard access is unavailable in this browser.'));
             await navigator.clipboard.writeText(value);
-            setMessage(language === 'zh-CN' ? `已复制${label}。` : `Copied ${label}.`);
+            setMessage(language === 'zh-CN' ? `已复制${label}。` : localizeJapanese(language, `Copied ${label}.`));
         } catch (error) {
             setMessage(errorMessage(error));
         }
@@ -925,15 +926,15 @@ export const Workbench = () => {
             <aside className="workbench__sidebar">
                 <div className="workbench__brand">
                     <span className="workbench__brand-mark"><img src="/MiniDisc192.png" alt="" /></span>
-                    <span><strong>MD Studio</strong><small>{language === 'zh-CN' ? 'MD 制作' : 'MD creation'}</small></span>
+                    <span><strong>MD Studio</strong><small>{language === 'zh-CN' ? 'MD 制作' : localizeJapanese(language, 'MD creation')}</small></span>
                 </div>
 
                 <nav className="workbench__nav" aria-label={t('Workspace')}>
                     <button aria-label={t('Device')} aria-current={section === 'device' ? 'page' : undefined} className={section === 'device' ? 'is-active' : ''} onClick={() => setSection('device')}>
                         <UsbRoundedIcon /><span>{t('Device')}</span><i className={device ? 'is-online' : ''} />
                     </button>
-                    <button aria-label={language === 'zh-CN' ? 'AI 制作' : 'AI creation'} aria-current={section === 'automation' ? 'page' : undefined} className={section === 'automation' ? 'is-active' : ''} onClick={() => setSection('automation')}>
-                        <AutoAwesomeIcon /><span>{language === 'zh-CN' ? 'AI 制作' : 'AI creation'}</span>
+                    <button aria-label={language === 'zh-CN' ? 'AI 制作' : localizeJapanese(language, 'AI creation')} aria-current={section === 'automation' ? 'page' : undefined} className={section === 'automation' ? 'is-active' : ''} onClick={() => setSection('automation')}>
+                        <AutoAwesomeIcon /><span>{language === 'zh-CN' ? 'AI 制作' : localizeJapanese(language, 'AI creation')}</span>
                     </button>
                 </nav>
 
@@ -970,13 +971,13 @@ export const Workbench = () => {
                             <h2>{discLabel}</h2>
                             {canRenameDisc ? <button className="icon-button" aria-label={t('Edit MiniDisc title')} onClick={openDiscEditor} disabled={!disc || busy}><EditRoundedIcon /></button> : null}
                         </div>
-                        <p>{disc ? (language === 'zh-CN' ? `碟片中有 ${disc.trackCount} 首曲目 · ${formatDuration(tracks.reduce((sum, track) => sum + track.duration, 0))}` : `${disc.trackCount} tracks on disc · ${formatDuration(tracks.reduce((sum, track) => sum + track.duration, 0))}`) : t('Insert a disc to begin')}</p>
+                        <p>{disc ? (language === 'zh-CN' ? `碟片中有 ${disc.trackCount} 首曲目 · ${formatDuration(tracks.reduce((sum, track) => sum + track.duration, 0))}` : localizeJapanese(language, `${disc.trackCount} tracks on disc · ${formatDuration(tracks.reduce((sum, track) => sum + track.duration, 0))}`)) : t('Insert a disc to begin')}</p>
                     </div>
                     <div className="workbench__capacity">
                         <div><span>{t('USED')}</span><strong>{capacityUsed}</strong></div>
                         <div><span>{t('CAPACITY')}</span><strong>{capacityTotal}</strong></div>
                         <div className="workbench__capacity-meter" role="progressbar" aria-label={t('Disc capacity used')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(usedPercent)}><i style={{ width: `${usedPercent}%` }} /></div>
-                        <small>{language === 'zh-CN' ? `已用 ${Math.round(usedPercent)}% · ` : `${Math.round(usedPercent)}% used · `}{disc ? (language === 'zh-CN' ? `剩余 ${measurementIsBytes ? bytesToHumanReadable(disc.left) : formatTimeFromSeconds(disc.left)}` : `${measurementIsBytes ? bytesToHumanReadable(disc.left) : formatTimeFromSeconds(disc.left)} available`) : t('No media')}</small>
+                        <small>{language === 'zh-CN' ? `已用 ${Math.round(usedPercent)}% · ` : localizeJapanese(language, `${Math.round(usedPercent)}% used · `)}{disc ? (language === 'zh-CN' ? `剩余 ${measurementIsBytes ? bytesToHumanReadable(disc.left) : formatTimeFromSeconds(disc.left)}` : localizeJapanese(language, `${measurementIsBytes ? bytesToHumanReadable(disc.left) : formatTimeFromSeconds(disc.left)} available`)) : t('No media')}</small>
                     </div>
                     <dl className="workbench__device-facts">
                         <div><dt>{t('Device')}</dt><dd>{device?.deviceName || '—'}</dd></div>
@@ -987,16 +988,16 @@ export const Workbench = () => {
                 </section>}
 
                 {section === 'automation' ? (
-                    <section className="workbench__ai" aria-label={language === 'zh-CN' ? 'AI 制作' : 'AI creation'}>
+                    <section className="workbench__ai" aria-label={language === 'zh-CN' ? 'AI 制作' : localizeJapanese(language, 'AI creation')}>
                         {window.mdDesktop ? <DesktopConnections /> : <>
-                        <header><AutoAwesomeIcon /><div><h2>{language === 'zh-CN' ? '让 AI 帮你制作 MD' : 'Create an MD with AI'}</h2><p>{language === 'zh-CN' ? '告诉 AI 用哪些音乐、怎么编排。曲名、曲序和录制进度会同步显示在这里。' : 'Tell AI which music to use and how to arrange it. Titles, track order and recording progress stay visible here.'}</p></div></header>
-                        <div className="workbench__ai-status"><strong>{language === 'zh-CN' ? (localBridgeEnabled ? 'AI 接入已启用' : '尚未启用 AI 接入') : (localBridgeEnabled ? 'AI access enabled' : 'AI access is off')}</strong><p>{language === 'zh-CN' ? (localBridgeEnabled ? '下一步：在 AI 客户端中配置 MCP，并让 AI 检查设备连接。启用开关不代表 AI 已连接。' : '先在设置中启用 AI 接入，再连接你使用的 AI 客户端。') : (localBridgeEnabled ? 'Next: configure MCP in your AI client and ask AI to check the device. Enabling access does not mean a client is connected.' : 'Enable AI access in Settings, then connect your AI client.')}</p></div>
+                        <header><AutoAwesomeIcon /><div><h2>{language === 'zh-CN' ? '让 AI 帮你制作 MD' : localizeJapanese(language, 'Create an MD with AI')}</h2><p>{language === 'zh-CN' ? '告诉 AI 用哪些音乐、怎么编排。曲名、曲序和录制进度会同步显示在这里。' : localizeJapanese(language, 'Tell AI which music to use and how to arrange it. Titles, track order and recording progress stay visible here.')}</p></div></header>
+                        <div className="workbench__ai-status"><strong>{language === 'zh-CN' ? (localBridgeEnabled ? 'AI 接入已启用' : '尚未启用 AI 接入') : localizeJapanese(language, (localBridgeEnabled ? 'AI access enabled' : 'AI access is off'))}</strong><p>{language === 'zh-CN' ? (localBridgeEnabled ? '下一步：在 AI 客户端中配置 MCP，并让 AI 检查设备连接。启用开关不代表 AI 已连接。' : '先在设置中启用 AI 接入，再连接你使用的 AI 客户端。') : localizeJapanese(language, (localBridgeEnabled ? 'Next: configure MCP in your AI client and ask AI to check the device. Enabling access does not mean a client is connected.' : 'Enable AI access in Settings, then connect your AI client.'))}</p></div>
                         <ol className="workbench__ai-steps">
-                            <li><h3>{language === 'zh-CN' ? '启用 AI 接入' : 'Enable AI access'}</h3><p>{language === 'zh-CN' ? '在设置中打开开关，保存后重新连接碟机。' : 'Turn on access in Settings, save, and reconnect the recorder.'}</p><button className="secondary-button" onClick={() => setSection('settings')}>{language === 'zh-CN' ? '前往接入设置' : 'Open access settings'}</button></li>
-                            <li><h3>{language === 'zh-CN' ? '连接你的 AI 客户端' : 'Connect your AI client'}</h3><p>{language === 'zh-CN' ? '使用支持本地 MCP 的客户端。按指南添加配置，并保持此页面打开。' : 'Use a client supporting local MCP. Follow the setup guide and keep this page open.'}</p><button className="secondary-button" onClick={() => setHelpOpen(true)}>{language === 'zh-CN' ? '查看 MCP 配置指南' : 'MCP setup guide'}</button></li>
-                            <li><h3>{language === 'zh-CN' ? '告诉 AI 制盘要求' : 'Describe your MD'}</h3><p>{language === 'zh-CN' ? '提供本地音频路径、曲序、分组和 SP／LP2／LP4 模式，先审阅计划，再授权录制。' : 'Provide local audio paths, order, groups and SP/LP2/LP4 mode. Review the plan before authorizing recording.'}</p></li>
+                            <li><h3>{language === 'zh-CN' ? '启用 AI 接入' : localizeJapanese(language, 'Enable AI access')}</h3><p>{language === 'zh-CN' ? '在设置中打开开关，保存后重新连接碟机。' : localizeJapanese(language, 'Turn on access in Settings, save, and reconnect the recorder.')}</p><button className="secondary-button" onClick={() => setSection('settings')}>{language === 'zh-CN' ? '前往接入设置' : localizeJapanese(language, 'Open access settings')}</button></li>
+                            <li><h3>{language === 'zh-CN' ? '连接你的 AI 客户端' : localizeJapanese(language, 'Connect your AI client')}</h3><p>{language === 'zh-CN' ? '使用支持本地 MCP 的客户端。按指南添加配置，并保持此页面打开。' : localizeJapanese(language, 'Use a client supporting local MCP. Follow the setup guide and keep this page open.')}</p><button className="secondary-button" onClick={() => setHelpOpen(true)}>{language === 'zh-CN' ? '查看 MCP 配置指南' : localizeJapanese(language, 'MCP setup guide')}</button></li>
+                            <li><h3>{language === 'zh-CN' ? '告诉 AI 制盘要求' : localizeJapanese(language, 'Describe your MD')}</h3><p>{language === 'zh-CN' ? '提供本地音频路径、曲序、分组和 SP／LP2／LP4 模式，先审阅计划，再授权录制。' : localizeJapanese(language, 'Provide local audio paths, order, groups and SP/LP2/LP4 mode. Review the plan before authorizing recording.')}</p></li>
                         </ol>
-                        <div className="workbench__ai-example"><h3>{language === 'zh-CN' ? '可以这样对 AI 说' : 'Try this prompt'}</h3><blockquote>{language === 'zh-CN' ? '把 C:/Music/Album 中的音乐按曲序整理，使用 LP2，碟名设为 Album。先给我检查曲名、分组和容量，等我确认后再写盘。' : 'Arrange the music in C:/Music/Album in track order, use LP2 and name the MD Album. Show me titles, groups and capacity, and wait for my confirmation before recording.'}</blockquote><p>{language === 'zh-CN' ? '这段话发给你使用的 AI 客户端；这里用于设置接入和查看制作结果。' : 'Send this to your AI client. This page sets up access and shows the results.'}</p></div>
+                        <div className="workbench__ai-example"><h3>{language === 'zh-CN' ? '可以这样对 AI 说' : localizeJapanese(language, 'Try this prompt')}</h3><blockquote>{language === 'zh-CN' ? '把 C:/Music/Album 中的音乐按曲序整理，使用 LP2，碟名设为 Album。先给我检查曲名、分组和容量，等我确认后再写盘。' : localizeJapanese(language, 'Arrange the music in C:/Music/Album in track order, use LP2 and name the MD Album. Show me titles, groups and capacity, and wait for my confirmation before recording.')}</blockquote><p>{language === 'zh-CN' ? '这段话发给你使用的 AI 客户端；这里用于设置接入和查看制作结果。' : localizeJapanese(language, 'Send this to your AI client. This page sets up access and shows the results.')}</p></div>
                         </>}
                     </section>
                 ) : null}
@@ -1024,8 +1025,8 @@ export const Workbench = () => {
                                 ) : null}
                             </div>
                             <div className="workbench__plan-actions">
-                                {contentView === 'disc' ? <button className="secondary-button" onClick={() => { setGroupDraft(''); setGroupFullWidthDraft(''); setGroupDialogOpen(true); }} disabled={!canCreateGroup || busy}><CreateNewFolderRoundedIcon />{language === 'zh-CN' ? '新建文件夹（Group）' : 'New group'}</button> : null}
-                                <span>{language === 'zh-CN' ? `${planItems.length} 首曲目` : `${planItems.length} tracks`} · {formatDuration(contentView === 'plan' && imports.length ? queuedDuration : tracks.reduce((sum, track) => sum + track.duration, 0))}</span>
+                                {contentView === 'disc' ? <button className="secondary-button" onClick={() => { setGroupDraft(''); setGroupFullWidthDraft(''); setGroupDialogOpen(true); }} disabled={!canCreateGroup || busy}><CreateNewFolderRoundedIcon />{language === 'zh-CN' ? '新建文件夹（Group）' : localizeJapanese(language, 'New group')}</button> : null}
+                                <span>{language === 'zh-CN' ? `${planItems.length} 首曲目` : localizeJapanese(language, `${planItems.length} tracks`)} · {formatDuration(contentView === 'plan' && imports.length ? queuedDuration : tracks.reduce((sum, track) => sum + track.duration, 0))}</span>
                                 {contentView === 'disc' && tracks.length > 0 ? <button className="secondary-button workbench__compact-button" onClick={toggleSelectAllTracks}><SelectAllRoundedIcon /> {t(selectedTrackIndexes.length === tracks.length ? 'Clear' : 'Select all')}</button> : null}
                                 {contentView === 'plan' && imports.length > 0 ? <button className="secondary-button workbench__compact-button" onClick={toggleSelectAllImports}><SelectAllRoundedIcon /> {t(selectedImportIds.length === imports.length ? 'Clear' : 'Select all')}</button> : null}
                                 <button className="secondary-button" onClick={open} disabled={!canUpload}><AddRoundedIcon /> {t('Add audio')}</button>
@@ -1033,10 +1034,10 @@ export const Workbench = () => {
                             </div>
                         </div>
 
-                        {contentView === 'disc' && disc ? <nav className="workbench__groups" aria-label={language === 'zh-CN' ? 'MD 文件夹' : 'MD groups'}>{disc.groups.filter(group => group.title !== null).map(group => <button className="secondary-button" key={group.index} onClick={() => { setSelectedTrackIndexes(group.tracks.map(track => track.index)); if (group.tracks[0]) setSelectedKey(`track:${group.tracks[0].index}`); }}><CreateNewFolderRoundedIcon />{group.title || (language === 'zh-CN' ? '未命名组' : 'Untitled group')} · {group.tracks.length}</button>)}</nav> : null}
+                        {contentView === 'disc' && disc ? <nav className="workbench__groups" aria-label={language === 'zh-CN' ? 'MD 文件夹' : localizeJapanese(language, 'MD groups')}>{disc.groups.filter(group => group.title !== null).map(group => <button className="secondary-button" key={group.index} onClick={() => { setSelectedTrackIndexes(group.tracks.map(track => track.index)); if (group.tracks[0]) setSelectedKey(`track:${group.tracks[0].index}`); }}><CreateNewFolderRoundedIcon />{group.title || (language === 'zh-CN' ? '未命名组' : localizeJapanese(language, 'Untitled group'))} · {group.tracks.length}</button>)}</nav> : null}
                         {contentView === 'disc' && selectedTrackIndexes.length > 0 ? (
                             <div className="workbench__selection-bar">
-                                <strong>{language === 'zh-CN' ? `已选 ${selectedTrackIndexes.length} 首` : `${selectedTrackIndexes.length} selected`}</strong>
+                                <strong>{language === 'zh-CN' ? `已选 ${selectedTrackIndexes.length} 首` : localizeJapanese(language, `${selectedTrackIndexes.length} selected`)}</strong>
                                 <span>{t('Ctrl/⌘ click toggles · Shift click extends the selection')}</span>
                                 <div>
                                     <button onClick={() => { setGroupDraft(''); setGroupFullWidthDraft(''); setGroupDialogOpen(true); }} disabled={!canGroupSelection}><CreateNewFolderRoundedIcon /> {t('Group')}</button>
@@ -1047,7 +1048,7 @@ export const Workbench = () => {
 
                         {contentView === 'plan' && selectedImportIds.length > 0 ? (
                             <div className="workbench__selection-bar">
-                                <strong>{language === 'zh-CN' ? `已选 ${selectedImportIds.length} 首` : `${selectedImportIds.length} selected`}</strong>
+                                <strong>{language === 'zh-CN' ? `已选 ${selectedImportIds.length} 首` : localizeJapanese(language, `${selectedImportIds.length} selected`)}</strong>
                                 <span>{t('Shared Artist and Album edits apply to every selected item')}</span>
                                 <div>
                                     <button onClick={removeSelected}><DeleteOutlineIcon /> {t('Remove from plan')}</button>
@@ -1083,7 +1084,7 @@ export const Workbench = () => {
                     </section>
 
                     <aside className="workbench__inspector">
-                        <div className="workbench__inspector-heading"><div><span className="workbench__eyebrow">{t('INSPECTOR')}</span><h2>{selected ? (activeSelectionCount > 1 ? (language === 'zh-CN' ? `已选择 ${activeSelectionCount} 首曲目` : `${activeSelectionCount} tracks selected`) : (language === 'zh-CN' ? `曲目 ${selected.index + 1}` : `Track ${selected.index + 1}`)) : t('No selection')}</h2></div><MoreHorizIcon /></div>
+                        <div className="workbench__inspector-heading"><div><span className="workbench__eyebrow">{t('INSPECTOR')}</span><h2>{selected ? (activeSelectionCount > 1 ? (language === 'zh-CN' ? `已选择 ${activeSelectionCount} 首曲目` : localizeJapanese(language, `${activeSelectionCount} tracks selected`)) : (language === 'zh-CN' ? `曲目 ${selected.index + 1}` : localizeJapanese(language, `Track ${selected.index + 1}`))) : t('No selection')}</h2></div><MoreHorizIcon /></div>
                         <div className="workbench__label-context"><strong>{device ? (isNetMD ? 'NetMD' : 'Hi-MD') : '—'} · {selected?.kind === 'import' ? labelText('待录制标签', 'Planned labels') : labelText('碟片标签', 'Disc labels')}</strong><p>{selected?.kind === 'import' ? labelText('保存到待录制列表，写盘时才写入 MD。', 'Saved to the recording plan; written to the MD during recording.') : labelText('保存会直接修改 MD 上的标签。', 'Saving updates the labels on the MD.')}</p></div>
                         <label>{isNetMD ? labelText('普通标题 · 半角', 'Standard title · half-width') : labelText('曲名', 'Track title')}<input value={draft.title} disabled={!selected} placeholder={isNetMD ? 'Blue Sky / ｻｸﾗ' : labelText('歌曲原名', 'Original track title')} onChange={(event) => updateDraftField('title', event.target.value)} /></label>
                         {hasFullWidth ? <label>{labelText('全角标题 · 英文全角／日文原文', 'Full-width title · English / Japanese')}<input value={draft.fullWidthTitle} placeholder="Ｂｌｕｅ　Ｓｋｙ / 桜" disabled={!selected} onChange={(event) => updateDraftField('fullWidthTitle', event.target.value)} /></label> : null}
@@ -1128,7 +1129,7 @@ export const Workbench = () => {
                         )}
                         {contentView === 'plan' ? <div className="workbench__format-note"><BoltRoundedIcon /><span><strong>{labelText('待录制模式', 'Planned recording mode')} · {codecLabel(selectedFormat)}</strong><small>{labelText('各曲目的最终模式以列表为准，不改变已录制曲目。', 'See each track’s final mode in the list. Recorded tracks are unchanged.')}</small></span></div> : null}
                         <div className="workbench__divider" />
-                        <button className="danger-button" onClick={removeSelected} disabled={!selected || busy}><DeleteOutlineIcon /> {selected?.kind === 'track' ? (selectedTrackIndexes.length > 1 ? (language === 'zh-CN' ? `删除 ${selectedTrackIndexes.length} 首曲目` : `Delete ${selectedTrackIndexes.length} tracks`) : t('Delete from disc')) : (selectedImportIds.length > 1 ? (language === 'zh-CN' ? `移除 ${selectedImportIds.length} 首曲目` : `Remove ${selectedImportIds.length} tracks`) : t('Remove from plan'))}</button>
+                        <button className="danger-button" onClick={removeSelected} disabled={!selected || busy}><DeleteOutlineIcon /> {selected?.kind === 'track' ? (selectedTrackIndexes.length > 1 ? (language === 'zh-CN' ? `删除 ${selectedTrackIndexes.length} 首曲目` : localizeJapanese(language, `Delete ${selectedTrackIndexes.length} tracks`)) : t('Delete from disc')) : (selectedImportIds.length > 1 ? (language === 'zh-CN' ? `移除 ${selectedImportIds.length} 首曲目` : localizeJapanese(language, `Remove ${selectedImportIds.length} tracks`)) : t('Remove from plan'))}</button>
                     </aside>
                 </div>}
 
@@ -1169,7 +1170,7 @@ export const Workbench = () => {
                                             <div><span className="workbench__eyebrow">{t(selectedTask.kind)}</span><h3>{localizeTaskLabel(selectedTask.label, language)}</h3></div>
                                             <span className={`workbench__task-badge is-${selectedTask.status}`}>{t(taskStatusLabel(selectedTask.status))}</span>
                                         </div>
-                                        <div className="workbench__task-detail-meter" role="progressbar" aria-label={language === 'zh-CN' ? `${localizeTaskLabel(selectedTask.label, language)}进度` : `${selectedTask.label} progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={taskProgressPercent(selectedTask)}><i style={{ width: `${taskProgressPercent(selectedTask)}%` }} /></div>
+                                        <div className="workbench__task-detail-meter" role="progressbar" aria-label={language === 'zh-CN' ? `${localizeTaskLabel(selectedTask.label, language)}进度` : localizeJapanese(language, `${selectedTask.label} progress`)} aria-valuemin={0} aria-valuemax={100} aria-valuenow={taskProgressPercent(selectedTask)}><i style={{ width: `${taskProgressPercent(selectedTask)}%` }} /></div>
                                         <dl>
                                             <div><dt>{t('Phase')}</dt><dd>{t(selectedTask.phase)}</dd></div>
                                             <div><dt>{t('Progress')}</dt><dd>{selectedTask.progress.completed} / {selectedTask.progress.total} {t(selectedTask.progress.unit)}</dd></div>
@@ -1184,7 +1185,7 @@ export const Workbench = () => {
                                             <div className="workbench__task-outputs">
                                                 <div>
                                                     <strong>{t('Output files')}</strong>
-                                                    <span>{language === 'zh-CN' ? `已完成 ${selectedTaskOutputs.total}` : `${selectedTaskOutputs.total} completed`}</span>
+                                                    <span>{language === 'zh-CN' ? `已完成 ${selectedTaskOutputs.total}` : localizeJapanese(language, `${selectedTaskOutputs.total} completed`)}</span>
                                                 </div>
                                                 <ul>
                                                     {selectedTaskOutputs.files.map((file, index) => (
@@ -1194,14 +1195,14 @@ export const Workbench = () => {
                                                         </li>
                                                     ))}
                                                 </ul>
-                                                {selectedTaskOutputs.total > selectedTaskOutputs.files.length ? <small>{language === 'zh-CN' ? `仅显示前 ${selectedTaskOutputs.files.length} 个文件。` : `Showing the first ${selectedTaskOutputs.files.length} files.`}</small> : null}
+                                                {selectedTaskOutputs.total > selectedTaskOutputs.files.length ? <small>{language === 'zh-CN' ? `仅显示前 ${selectedTaskOutputs.files.length} 个文件。` : localizeJapanese(language, `Showing the first ${selectedTaskOutputs.files.length} files.`)}</small> : null}
                                             </div>
                                         ) : null}
                                         {selectedTask.error ? (
                                             <div className="workbench__task-error">
                                                 <strong>{localizeTaskMessage(selectedTask.error.message, language)}</strong>
                                                 {selectedTaskErrorDetail ? <span>{localizeTaskMessage(selectedTaskErrorDetail, language)}</span> : null}
-                                                {selectedTask.error.completedItems !== undefined || selectedTask.error.pendingItems !== undefined ? <span>{language === 'zh-CN' ? `已完成 ${selectedTask.error.completedItems ?? 0} · 待处理 ${selectedTask.error.pendingItems ?? 0}` : `${selectedTask.error.completedItems ?? 0} completed · ${selectedTask.error.pendingItems ?? 0} pending`}</span> : null}
+                                                {selectedTask.error.completedItems !== undefined || selectedTask.error.pendingItems !== undefined ? <span>{language === 'zh-CN' ? `已完成 ${selectedTask.error.completedItems ?? 0} · 待处理 ${selectedTask.error.pendingItems ?? 0}` : localizeJapanese(language, `${selectedTask.error.completedItems ?? 0} completed · ${selectedTask.error.pendingItems ?? 0} pending`)}</span> : null}
                                                 {selectedTask.error.recoveryAction ? <p>{localizeTaskMessage(selectedTask.error.recoveryAction, language)}</p> : null}
                                             </div>
                                         ) : null}
@@ -1223,10 +1224,10 @@ export const Workbench = () => {
 
                 <footer className="workbench__footer">
                     <button className="workbench__task-status" onClick={() => setTaskCenterOpen((open) => !open)} aria-expanded={taskCenterOpen} aria-controls="workbench-task-center">
-                        {activeTask ? <><span className="workbench__task-spinner" /><div><strong>{localizeTaskLabel(activeTask.label, language)}</strong><small>{t(activeTask.phase)} · {Math.round(taskPercent)}%</small></div></> : <><CheckCircleIcon /><div><strong>{t('Ready')}</strong><small>{imports.length ? (language === 'zh-CN' ? `已准备 ${imports.length} 首曲目` : `${imports.length} tracks prepared`) : t('No pending transfer')}</small></div></>}
-                        <em>{activeTaskCount > 0 ? activeTaskCount : workspace.tasks.length} {language === 'zh-CN' ? (activeTaskCount > 0 ? '项进行中' : '项任务') : (activeTaskCount > 0 ? 'active' : 'tasks')}</em>
+                        {activeTask ? <><span className="workbench__task-spinner" /><div><strong>{localizeTaskLabel(activeTask.label, language)}</strong><small>{t(activeTask.phase)} · {Math.round(taskPercent)}%</small></div></> : <><CheckCircleIcon /><div><strong>{t('Ready')}</strong><small>{imports.length ? (language === 'zh-CN' ? `已准备 ${imports.length} 首曲目` : localizeJapanese(language, `${imports.length} tracks prepared`)) : t('No pending transfer')}</small></div></>}
+                        <em>{activeTaskCount > 0 ? activeTaskCount : workspace.tasks.length} {language === 'zh-CN' ? (activeTaskCount > 0 ? '项进行中' : '项任务') : localizeJapanese(language, (activeTaskCount > 0 ? 'active' : 'tasks'))}</em>
                     </button>
-                    <div className="workbench__footer-meter"><span><i style={{ width: `${activeTask ? taskPercent : usedPercent}%` }} /></span><small>{activeTask ? (language === 'zh-CN' ? `已完成 ${Math.round(taskPercent)}%` : `${Math.round(taskPercent)}% complete`) : (language === 'zh-CN' ? `已用 ${capacityUsed} / ${capacityTotal}` : `${capacityUsed} of ${capacityTotal} used`)}</small></div>
+                    <div className="workbench__footer-meter"><span><i style={{ width: `${activeTask ? taskPercent : usedPercent}%` }} /></span><small>{activeTask ? (language === 'zh-CN' ? `已完成 ${Math.round(taskPercent)}%` : localizeJapanese(language, `${Math.round(taskPercent)}% complete`)) : (language === 'zh-CN' ? `已用 ${capacityUsed} / ${capacityTotal}` : localizeJapanese(language, `${capacityUsed} of ${capacityTotal} used`))}</small></div>
                 </footer>
             </main>
 
@@ -1239,7 +1240,7 @@ export const Workbench = () => {
                 <div className="workbench__modal-backdrop" role="presentation" onMouseDown={() => !busy && setWriteReviewOpen(false)}>
                     <section className="workbench__modal workbench__write-modal" role="dialog" aria-modal="true" aria-labelledby="workbench-write-title" onMouseDown={(event) => event.stopPropagation()}>
                         <span className="workbench__eyebrow">{t('WRITE REVIEW')}</span>
-                        <h2 id="workbench-write-title">{language === 'zh-CN' ? `将 ${imports.length} 首曲目录制到 MD` : `Record ${imports.length} track${imports.length === 1 ? '' : 's'} to MD`}</h2>
+                        <h2 id="workbench-write-title">{language === 'zh-CN' ? `将 ${imports.length} 首曲目录制到 MD` : localizeJapanese(language, `Record ${imports.length} track${imports.length === 1 ? '' : 's'} to MD`)}</h2>
                         <p>{t('Review the exact recording mode and capacity calculation before the device starts writing.')}</p>
                         <div className="workbench__write-warning">
                             {t('A track cannot be interrupted safely once transfer starts. Stopping only prevents the next track from starting; keep USB connected until the recording light stops flashing.')}
@@ -1265,7 +1266,7 @@ export const Workbench = () => {
                                         <span>{writePreview.homebrew.requiredCapabilities.map((capability) => t(capability === 'uploadAtrac1' ? 'ATRAC1 restore upload' : 'SP Mono upload')).join(' · ')}</span>
                                     </div>
                                 ) : null}
-                                {selectedEncoderSupport.state === 'unsupported' ? <div className="workbench__write-warning">{language === 'zh-CN' ? `当前版本中的所选编码器无法生成 ${codecLabel(selectedFormat)} 音频。` : `The selected encoder cannot produce ${codecLabel(selectedFormat)} audio in this build.`}</div> : null}
+                                {selectedEncoderSupport.state === 'unsupported' ? <div className="workbench__write-warning">{language === 'zh-CN' ? `当前版本中的所选编码器无法生成 ${codecLabel(selectedFormat)} 音频。` : localizeJapanese(language, `The selected encoder cannot produce ${codecLabel(selectedFormat)} audio in this build.`)}</div> : null}
                                 <label className="workbench__write-option">
                                     <input type="checkbox" checked={enableReplayGain} onChange={(event) => setEnableReplayGain(event.target.checked)} />
                                     <span>{t('Apply ReplayGain')}<small>{t('Normalize perceived loudness while encoding compatible source audio.')}</small></span>
@@ -1304,8 +1305,8 @@ export const Workbench = () => {
                     <section className="workbench__modal" role="dialog" aria-modal="true" aria-labelledby="workbench-group-title" onMouseDown={(event) => event.stopPropagation()}>
                         <span className="workbench__eyebrow">{t('ORGANIZE DISC')}</span>
                         <h2 id="workbench-group-title">{t('Create a group')}</h2>
-                        <p>{language === 'zh-CN' ? `曲目 ${(sortedSelectedTrackIndexes[0] ?? 0) + 1}–${(sortedSelectedTrackIndexes.at(-1) ?? 0) + 1} 将保持当前顺序。` : `Tracks ${(sortedSelectedTrackIndexes[0] ?? 0) + 1}–${(sortedSelectedTrackIndexes.at(-1) ?? 0) + 1} will stay in their current order.`}</p>
-                        <p>{language === 'zh-CN' ? '选择连续且未归组的曲目。取消分组不会删除音频。' : 'Select consecutive ungrouped tracks. Ungrouping does not delete audio.'}</p>
+                        <p>{language === 'zh-CN' ? `曲目 ${(sortedSelectedTrackIndexes[0] ?? 0) + 1}–${(sortedSelectedTrackIndexes.at(-1) ?? 0) + 1} 将保持当前顺序。` : localizeJapanese(language, `Tracks ${(sortedSelectedTrackIndexes[0] ?? 0) + 1}–${(sortedSelectedTrackIndexes.at(-1) ?? 0) + 1} will stay in their current order.`)}</p>
+                        <p>{language === 'zh-CN' ? '选择连续且未归组的曲目。取消分组不会删除音频。' : localizeJapanese(language, 'Select consecutive ungrouped tracks. Ungrouping does not delete audio.')}</p>
                         <div className="workbench__group-picker">{tracks.map(track => <label key={track.index}><input type="checkbox" disabled={track.group !== null || busy} checked={selectedTrackIndexes.includes(track.index)} onChange={event => setSelectedTrackIndexes(current => event.target.checked ? [...current, track.index] : current.filter(index => index !== track.index))} />{track.index + 1}. {track.title} {track.group ? `(${track.group})` : ''}</label>)}</div>
                         <p className="workbench__label-help">{labelText('文件夹用于归类连续曲目，可按专辑命名。组名独立于曲名；不要在组名中使用 //。', 'Groups organize consecutive tracks and can be named after an album. Group names are separate from track titles; avoid // in names.')}</p>
                         <label>{isNetMD ? labelText('普通组名 · 半角', 'Standard group name') : t('Group name')}<input autoFocus value={groupDraft} onChange={(event) => setGroupDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && groupDraft.trim() && canGroupSelection) createGroup(); }} /></label>
@@ -1348,7 +1349,7 @@ export const Workbench = () => {
                             {deleteReview.tracks.slice(0, 6).map((track) => (
                                 <span key={track.index}><b>{String(track.index + 1).padStart(2, '0')}</b>{track.title}</span>
                             ))}
-                            {deleteReview.tracks.length > 6 ? <small>{language === 'zh-CN' ? `另有 ${deleteReview.tracks.length - 6} 首曲目` : `+ ${deleteReview.tracks.length - 6} more tracks`}</small> : null}
+                            {deleteReview.tracks.length > 6 ? <small>{language === 'zh-CN' ? `另有 ${deleteReview.tracks.length - 6} 首曲目` : localizeJapanese(language, `+ ${deleteReview.tracks.length - 6} more tracks`)}</small> : null}
                         </div>
                         <div className="workbench__modal-actions">
                             <button className="secondary-button" onClick={() => setDeleteReview(null)} disabled={busy}>{t('Keep tracks')}</button>

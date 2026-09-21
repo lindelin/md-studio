@@ -1,3 +1,4 @@
+import { localizeJapanese } from '../../i18n';
 import type { ConfigurableServiceDescriptor } from '../../application/service-catalog';
 import type { ImportPreview } from '../../application/import-preview';
 import type { CustomParameters } from '../../custom-parameters';
@@ -145,8 +146,8 @@ export function getSelfTestReadiness(device?: Pick<DeviceSnapshot, 'capabilities
     return { ready: true, reason: 'This disc can run the complete 14-step destructive self-test.' };
 }
 
-export function localizeSelfTestReadinessReason(reason: string, language: 'en' | 'zh-CN') {
-    if (language === 'en') return reason;
+export function localizeSelfTestReadinessReason(reason: string, language: 'en' | 'zh-CN' | 'ja') {
+    if (language !== 'zh-CN') return localizeJapanese(language, reason);
     const missing = reason.match(/^The connected device is missing: (.+)\.$/);
     if (missing) return `当前设备缺少以下能力：${missing[1]}。`;
     const reasons: Record<string, string> = {
@@ -180,8 +181,8 @@ export function buildAdvancedExportFileName(prefix: string, deviceName: string, 
     return `${parts.join('_')}.bin`;
 }
 
-export function localizeTaskLabel(label: string, language: 'en' | 'zh-CN') {
-    if (language === 'en') return label;
+export function localizeTaskLabel(label: string, language: 'en' | 'zh-CN' | 'ja') {
+    if (language !== 'zh-CN') return localizeJapanese(language, label);
     const patterns: [RegExp, (count: string) => string][] = [
         [/^Write (\d+) tracks? to MiniDisc$/, (count) => `将 ${count} 首曲目录制到 MiniDisc`],
         [/^Export (\d+) tracks? with device recovery$/, (count) => `通过设备恢复导出 ${count} 首曲目`],
@@ -200,8 +201,8 @@ export function localizeTaskLabel(label: string, language: 'en' | 'zh-CN') {
     return labels[label] ?? label;
 }
 
-export function localizeTaskMessage(message: string, language: 'en' | 'zh-CN') {
-    if (language === 'en' || !message) return message;
+export function localizeTaskMessage(message: string, language: 'en' | 'zh-CN' | 'ja') {
+    if (language !== 'zh-CN' || !message) return localizeJapanese(language, message);
     const noAudio = message.match(/^The device returned no audio for track (\d+)\.$/);
     if (noAudio) return `设备没有返回曲目 ${noAudio[1]} 的音频。`;
     const messages: Record<string, string> = {
@@ -220,7 +221,7 @@ export function localizeTaskMessage(message: string, language: 'en' | 'zh-CN') {
     return messages[message] ?? message;
 }
 
-export function summarizeTaskResult(result: unknown, language: 'en' | 'zh-CN' = 'en') {
+export function summarizeTaskResult(result: unknown, language: 'en' | 'zh-CN' | 'ja' = 'en') {
     if (!result || typeof result !== 'object' || Array.isArray(result)) return [];
     const record = result as Record<string, unknown>;
     const labels: Record<string, [string, string]> = {
@@ -232,10 +233,10 @@ export function summarizeTaskResult(result: unknown, language: 'en' | 'zh-CN' = 
     };
     const lines: string[] = [];
     for (const [key, label] of Object.entries(labels)) {
-        if (typeof record[key] === 'number') lines.push(`${label[language === 'zh-CN' ? 1 : 0]}: ${record[key]}`);
+        if (typeof record[key] === 'number') lines.push(`${localizeJapanese(language, label[language === 'zh-CN' ? 1 : 0])}: ${record[key]}`);
     }
-    if (Array.isArray(record.files)) lines.push(`${language === 'zh-CN' ? '文件' : 'Files'}: ${record.files.length}`);
-    if (Array.isArray(record.tracks)) lines.push(`${language === 'zh-CN' ? '曲目' : 'Tracks'}: ${record.tracks.length}`);
+    if (Array.isArray(record.files)) lines.push(`${language === 'zh-CN' ? '文件' : localizeJapanese(language, 'Files')}: ${record.files.length}`);
+    if (Array.isArray(record.tracks)) lines.push(`${language === 'zh-CN' ? '曲目' : localizeJapanese(language, 'Tracks')}: ${record.tracks.length}`);
     return lines;
 }
 

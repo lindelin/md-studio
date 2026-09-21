@@ -1,6 +1,6 @@
 import React from 'react';
 import { clearAppPreferences, loadPreference } from '../preferences';
-import { DEFAULT_UI_LANGUAGE_PREFERENCE } from '../i18n';
+import { DEFAULT_UI_LANGUAGE_PREFERENCE, resolveUiLanguage, localizeJapanese } from '../i18n';
 
 export class SettingsResetErrorBoundary extends React.Component<
     {
@@ -24,7 +24,8 @@ export class SettingsResetErrorBoundary extends React.Component<
         if (!this.state.error) return <>{this.props.children}</>;
 
         const message = (this.state.error.stack ?? this.state.error.message).substring(0, 500);
-        const preference = loadPreference<'system' | 'en' | 'zh-CN'>('uiLanguage', DEFAULT_UI_LANGUAGE_PREFERENCE);
+        const preference = loadPreference<'system' | 'en' | 'zh-CN' | 'ja'>('uiLanguage', DEFAULT_UI_LANGUAGE_PREFERENCE);
+        const language = resolveUiLanguage(preference);
         const isChinese = preference === 'zh-CN' || (preference === 'system' && navigator.language.toLowerCase().startsWith('zh'));
         return (
             <main
@@ -37,8 +38,8 @@ export class SettingsResetErrorBoundary extends React.Component<
                     lineHeight: 1.5,
                 }}
             >
-                <h1>{isChinese ? 'MD Studio 无法启动' : 'MD Studio could not start'}</h1>
-                <p>{isChinese ? '请先重新加载应用。如果问题仍然存在，请仅重置本应用保存的设置。' : "Reload the app first. If the problem continues, reset only this app's saved settings."}</p>
+                <h1>{isChinese ? 'MD Studio 无法启动' : localizeJapanese(language, 'MD Studio could not start')}</h1>
+                <p>{isChinese ? '请先重新加载应用。如果问题仍然存在，请仅重置本应用保存的设置。' : localizeJapanese(language, "Reload the app first. If the problem continues, reset only this app's saved settings.")}</p>
                 <pre style={{ overflow: 'auto', padding: 16, background: 'rgba(127, 127, 127, 0.15)' }}>{message}</pre>
                 {this.state.resetFailed ? (
                     <p role="alert" style={{ color: '#b42318', fontWeight: 600 }}>
@@ -49,7 +50,7 @@ export class SettingsResetErrorBoundary extends React.Component<
                 ) : null}
                 <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
                     <button type="button" onClick={() => window.reload()}>
-                        {isChinese ? '重新加载' : 'Reload'}
+                        {isChinese ? '重新加载' : localizeJapanese(language, 'Reload')}
                     </button>
                     <button
                         type="button"
@@ -59,7 +60,7 @@ export class SettingsResetErrorBoundary extends React.Component<
                             else this.setState({ resetFailed: true });
                         }}
                     >
-                        {isChinese ? '重置应用设置并重新加载' : 'Reset app settings and reload'}
+                        {isChinese ? '重置应用设置并重新加载' : localizeJapanese(language, 'Reset app settings and reload')}
                     </button>
                 </div>
             </main>

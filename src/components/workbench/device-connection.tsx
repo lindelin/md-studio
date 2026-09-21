@@ -1,3 +1,4 @@
+import { localizeJapanese } from '../../i18n';
 import React, { useEffect, useRef, useState } from 'react';
 import { DevicesIds } from 'netmd-js/dist/netmd';
 import UsbRoundedIcon from '@mui/icons-material/UsbRounded';
@@ -60,16 +61,16 @@ export function DeviceConnection({ onOpenDriverSettings }: { onOpenDriverSetting
                 if (selected?.id === 'himd-full' && !window.native?.himdFullInterface) setReview(selected);
                 else void connect();
             }}><UsbRoundedIcon />{t(connecting ? 'Connecting…' : 'Connect device')}</button>
-            {window.mdDesktop ? <button className="secondary-button" onClick={onOpenDriverSettings}>{language === 'zh-CN' ? '驱动设置' : 'Driver setup'}</button> : null}
+            {window.mdDesktop ? <button className="secondary-button" onClick={onOpenDriverSettings}>{language === 'zh-CN' ? '驱动设置' : localizeJapanese(language, 'Driver setup')}</button> : null}
         </div>
         {devices !== null ? <div className="workbench__usb-picker">
-            <label>{language === 'zh-CN' ? '选择 MD 设备' : 'Select MD device'}<select value={deviceId} onChange={event => setDeviceId(event.target.value)}>
-                <option value="">{language === 'zh-CN' ? '请选择要连接的设备' : 'Choose a device to connect'}</option>
+            <label>{language === 'zh-CN' ? '选择 MD 设备' : localizeJapanese(language, 'Select MD device')}<select value={deviceId} onChange={event => setDeviceId(event.target.value)}>
+                <option value="">{language === 'zh-CN' ? '请选择要连接的设备' : localizeJapanese(language, 'Choose a device to connect')}</option>
                 {devices.map((device,i) => <option key={device.id} value={device.id}>{device.name} · {device.usbId} · {device.serial || `#${i+1}`}</option>)}
             </select></label>
-            <button className="primary-button" disabled={!deviceId} onClick={() => void selectDevice(deviceId).catch(error => setError(String(error)))}>{language === 'zh-CN' ? '连接选中设备' : 'Connect selected device'}</button>
+            <button className="primary-button" disabled={!deviceId} onClick={() => void selectDevice(deviceId).catch(error => setError(String(error)))}>{language === 'zh-CN' ? '连接选中设备' : localizeJapanese(language, 'Connect selected device')}</button>
             <button className="secondary-button" onClick={() => void selectDevice(null).catch(error => setError(String(error)))}>{t('Cancel')}</button>
-            {devices.length === 0 ? <p>{language === 'zh-CN' ? '设备已拔出，请重新插入或取消。' : 'Devices were unplugged. Reconnect or cancel.'}</p> : null}
+            {devices.length === 0 ? <p>{language === 'zh-CN' ? '设备已拔出，请重新插入或取消。' : localizeJapanese(language, 'Devices were unplugged. Reconnect or cancel.')}</p> : null}
         </div> : null}
         {unavailable ? <p role="alert">{t('The selected connection needs a Chromium browser with WebUSB.')}</p> : null}
         {(error || connection.phase === 'error') ? <p className="workbench__connection-error" role="alert">{error || connection.message}</p> : null}

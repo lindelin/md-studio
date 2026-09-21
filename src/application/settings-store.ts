@@ -6,7 +6,7 @@ import { DEFAULT_UI_LANGUAGE_PREFERENCE } from '../i18n';
 
 export interface UserSettings {
     colorTheme: 'dark' | 'light' | 'system';
-    uiLanguage: 'system' | 'en' | 'zh-CN';
+    uiLanguage: 'system' | 'en' | 'zh-CN' | 'ja';
     notifyWhenFinished: boolean;
     fullWidthSupport: boolean;
     factoryModeUseSlowerExploit: boolean;
@@ -128,7 +128,7 @@ export class SettingsStore {
     private load(): UserSettings {
         return {
             colorTheme: loadPreference('colorTheme', defaults.colorTheme, isOneOf(['dark', 'light', 'system'] as const), this.storage),
-            uiLanguage: loadPreference('uiLanguage', defaults.uiLanguage, isOneOf(['system', 'en', 'zh-CN'] as const), this.storage),
+            uiLanguage: loadPreference('uiLanguage', defaults.uiLanguage, isOneOf(['system', 'en', 'zh-CN', 'ja'] as const), this.storage),
             notifyWhenFinished: loadPreference('notifyWhenFinished', defaults.notifyWhenFinished, isBoolean, this.storage),
             fullWidthSupport: loadPreference('fullWidthSupport', defaults.fullWidthSupport, isBoolean, this.storage),
             factoryModeUseSlowerExploit: loadPreference(
@@ -175,8 +175,8 @@ export class SettingsStore {
             return;
         }
         if (key === 'uiLanguage') {
-            if (value !== 'system' && value !== 'en' && value !== 'zh-CN') {
-                throw new ApplicationError('INVALID_INPUT', 'uiLanguage must be system, en, or zh-CN.');
+            if (value !== 'system' && value !== 'en' && value !== 'zh-CN' && value !== 'ja') {
+                throw new ApplicationError('INVALID_INPUT', 'uiLanguage must be system, en, zh-CN, or ja.');
             }
             return;
         }

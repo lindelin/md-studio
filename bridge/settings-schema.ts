@@ -3,7 +3,7 @@ import type { UserSettings } from '../src/application/settings-store.ts';
 
 const settingsShape = {
     colorTheme: z.enum(['dark', 'light', 'system']).optional(),
-    uiLanguage: z.enum(['system', 'en', 'zh-CN']).optional(),
+    uiLanguage: z.enum(['system', 'en', 'zh-CN', 'ja']).optional(),
     notifyWhenFinished: z.boolean().optional(),
     fullWidthSupport: z.boolean().optional(),
     factoryModeUseSlowerExploit: z.boolean().optional(),

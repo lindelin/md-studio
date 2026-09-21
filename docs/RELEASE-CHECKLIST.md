@@ -1,26 +1,22 @@
-# MD Studio 0.1.0 release checklist
+# MD Studio 1.0.0 release checks
 
-Updated 2026-09-21.
+## Verified locally
 
-## Completed
+- 310 automated tests, including Japanese message coverage, language resolution, task/queue behavior and HTTP MCP tools against an isolated mock device.
+- TypeScript checks for frontend, build configuration and desktop; ESLint; production frontend and Electron compilation.
+- 957 third-party license entries and 5 runtime assets with 12 provenance records verified. Production dependency audit: no reported vulnerabilities at release preparation.
+- Existing Sony MZ-N920 hardware validation covers connection, CLI recording, labels, groups, persistent MCP and background disc operations; see the [MCP evidence](MCP-VALIDATION-2026-09-21.md). This release's language/documentation changes were verified in code, not by new hardware writes.
+- English, Japanese and Simplified Chinese README/manuals. No newly generated screenshots or computer-driven UI tests.
+- Public source/history checked for the developer's local user path and common token/private-key patterns; no matches. This is not a comprehensive security audit.
 
-- Core NetMD connection, import, LP2 writing, title editing and group creation verified on Sony MZ-N920.
-- CLI cached-device connection, local FLAC import, preview, writing and fresh device readback verified on hardware.
-- Cooperative write cancellation stops at the next safe track boundary; UI wording does not claim that an active track stopped.
-- USB loss and application-session recovery preserve the recording plan and report partial-task evidence.
-- Windows driver detection excludes working WinUSB, storage, composite-parent and interface-specific devices.
-- Zadig 2.9 payload is pinned, hash-verified before launch and included with source/license notices.
-- Chinese and English UI, dark/light theme implementation, MD mode labels and project identity are covered by automated checks.
-- Type checks, lint, 307 automated tests, runtime-asset provenance, 959 dependency licenses and production dependency audit pass.
-- x64 NSIS packaging succeeds and contains the application, CLI, metadata Skill, Zadig payload and license materials.
+## Packaging
 
-## Deferred acceptance
+Use `node desktop/prepare-driver.mjs` and `npm run desktop:pack`. The release includes the x64 NSIS installer, three-language manuals and SHA-256 checksums. The Windows installer is unsigned; do not describe it as signed.
 
-- Final MCP client integration test, per the maintainer's decision.
-- Final UI review and release screenshots after the last visual change.
-- Clean-machine installer and uninstall check.
-- Representative Hi-MD and download-capable hardware checks.
+## Remaining acceptance
 
-## Distribution note
+- Clean-machine install/uninstall and a final human review of the Japanese UI.
+- Broader recorder coverage, especially Hi-MD-specific behavior.
+- Windows code signing is not configured.
 
-The local test installer is unsigned because no Windows code-signing certificate is configured. Windows SmartScreen may warn until a trusted certificate and release signing process are added. Do not describe an unsigned build as signed.
+Manual acceptance limitations are also stated in the user manuals and release notes.

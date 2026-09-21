@@ -15,8 +15,8 @@ describe('independent project identity', () => {
         const viteConfig = await readFile(new URL('../vite.config.ts', import.meta.url), 'utf8');
 
         assert.equal(packageJson.name, 'md-studio');
-        assert.match(packageJson.description ?? '', /making MDs/i);
-        assert.match(indexHtml, /<title>MD Studio<\/title>/);
+        assert.match(packageJson.description ?? '', /MD creation/i);
+        assert.match(indexHtml, /<title>MD Studio[^<]*<\/title>/);
         assert.match(viteConfig, /"name": "MD Studio"/);
         assert.match(viteConfig, /"short_name": "MD Studio"/);
     });

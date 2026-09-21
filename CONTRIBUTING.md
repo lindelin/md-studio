@@ -27,7 +27,7 @@ Run `npm run licenses:update` after dependency changes and `npm run runtime-asse
 
 ## Architecture rules
 
-- Treat the existing NetMD, Hi-MD, Network Walkman, encoder, and advanced-device services as the canonical implementation of supported hardware behavior. Reuse them through thin device gateways; do not copy or independently reimplement a working protocol operation in the application, UI, MCP, or CLI layers.
+- Treat the existing NetMD, Hi-MD, encoder, and device services as the canonical implementation of supported hardware behavior. Reuse them through thin device gateways; do not copy or independently reimplement a working protocol operation in the application, UI, MCP, or CLI layers.
 - Change protocol or device-service behavior only for a reproduced defect, a documented missing capability, or a required upstream compatibility update. Keep the change narrow and add regression evidence at the service or gateway boundary.
 - Keep stable protocol behavior behind device gateways. Gateways translate capabilities, parameters, and serializable results; they must not grow into a second device implementation.
 - Put validation, revisions, capabilities, destructive confirmation, serialization, and transactions in the application layer.
@@ -57,3 +57,11 @@ Document material limits honestly. A successful MockMD test is not hardware vali
 ## Security and local automation
 
 Read `SECURITY.md` before changing the bridge, local file gateways, import parsers, or maintenance commands. Keep the bridge loopback-only, bound payload sizes, use opaque handles for local files, and reject malformed commands before dispatch. Never include bridge tokens, private audio, device identifiers, or destructive proof-of-concept data in public logs or issues.
+
+## Windows installer
+
+Run `node desktop/prepare-driver.mjs` to download and verify the bundled driver tool, then `npm run desktop:pack`. This builds the desktop app and NSIS installer; no driver is installed by the build. Run `npm run desktop:dev` for the development desktop.
+
+## Translations
+
+Keep English, Simplified Chinese and Japanese user flows aligned. Japanese messages live in `src/locales/ja.json`; coverage checks run with `npm test`. Do not translate protocol identifiers, device names or exact destructive confirmation tokens. Update all three READMEs and manuals for user-visible workflow changes. Native operating-system menus follow the system locale.

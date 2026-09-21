@@ -1,7 +1,7 @@
 {
     "name": "md-studio",
     "private": true,
-    "version": "0.1.0",
+    "version": "1.0.0",
     "license": "GPL-2.0-only",
     "author": "MD Studio contributors",
     "packageManager": "npm@11.5.1",
@@ -83,7 +83,7 @@
         "prettier": "^3.2.5",
         "vite-plugin-svgr": "^4.3.0"
     },
-    "description": "A local-first studio for making MDs with a bilingual interface, CLI and MCP",
+    "description": "AI-assisted MD creation for Windows: music tags, groups, NetMD and Hi-MD recording, MCP and CLI. English, Japanese and Chinese.",
     "overrides": {
         "expr-eval": "npm:expr-eval-fork@3.0.1"
     },
@@ -101,7 +101,9 @@
             "LICENSE",
             "NOTICE.md",
             "THIRD_PARTY_LICENSES.md",
-            "README.md"
+            "README.md",
+            "README.*.md",
+            "docs/manual/**"
         ],
         "extraResources": [
             {
@@ -135,5 +137,13 @@
             "uninstallDisplayName": "MD Studio",
             "license": "LICENSE"
         }
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/lindelin/md-studio.git"
+    },
+    "homepage": "https://github.com/lindelin/md-studio",
+    "bugs": {
+        "url": "https://github.com/lindelin/md-studio/issues"
     }
 }

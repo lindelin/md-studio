@@ -1,8 +1,9 @@
+import { localizeJapanese } from '../../i18n';
 import React, {useEffect,useState} from 'react';
 import {useI18n} from '../use-i18n';
 export function DesktopConnections() {
     const {language}=useI18n();
-    const text=(zh:string,en:string)=>language === 'zh-CN' ? zh : en;
+    const text=(zh:string,en:string)=>language === 'zh-CN' ? zh : localizeJapanese(language, en);
     const api=window.mdDesktop;
     const [state,setState]=useState({enabled:false,url:'',cli:''});
     const [loaded,setLoaded]=useState(false);

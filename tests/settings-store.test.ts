@@ -197,7 +197,7 @@ describe('SettingsStore', () => {
         );
 
         assert.equal(settings.getSnapshot().revision, 0);
-        assert.equal(settings.getSnapshot().values.uiLanguage, 'zh-CN');
+        assert.equal(settings.getSnapshot().values.uiLanguage, 'system');
         assert.equal(storage.getItem('uiLanguage'), null);
         assert.deepEqual(revisions, []);
     });

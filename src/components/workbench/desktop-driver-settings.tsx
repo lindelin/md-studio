@@ -1,3 +1,4 @@
+import { localizeJapanese } from '../../i18n';
 import React, { useEffect, useState } from 'react';
 import { useI18n } from '../use-i18n';
 
@@ -5,7 +6,7 @@ type DesktopDevice = Awaited<ReturnType<NonNullable<Window['mdDesktop']>['driver
 
 export function DesktopDriverSettings() {
     const { language } = useI18n();
-    const text = (zh: string, en: string) => language === 'zh-CN' ? zh : en;
+    const text = (zh: string, en: string) => language === 'zh-CN' ? zh : localizeJapanese(language, en);
     const api = window.mdDesktop;
     const [devices, setDevices] = useState<DesktopDevice[] | null>(null);
     const [busy, setBusy] = useState(false);
