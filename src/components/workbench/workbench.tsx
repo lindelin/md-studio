@@ -37,7 +37,6 @@ import { calculateVirtualListWindow, scrollOffsetForVirtualIndex } from './workb
 import AlbumIcon from '@mui/icons-material/Album';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CloudDoneIcon from '@mui/icons-material/CloudDone';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import EjectIcon from '@mui/icons-material/Eject';
@@ -889,9 +888,6 @@ export const Workbench = () => {
                     <button aria-label={t('About')} onClick={() => setAboutOpen(true)}><InfoOutlinedIcon /><span>{t('About')}</span></button>
                 </nav>
 
-                <div className="workbench__sidebar-footer">
-                    <CloudDoneIcon /><span>MD Studio v0.1.0<small>{t('Local first · Open source')}</small></span>
-                </div>
             </aside>
 
             <main className="workbench__main">
