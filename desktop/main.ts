@@ -10,6 +10,7 @@ import { stageLocalAudioImport } from '../bridge/local-audio-import';
 import { startMcpHttp, readJson } from './http';
 import { isSupportedMD, protectedMDClasses } from './usb-policy';
 import { scanDrivers } from './drivers';
+import { installUsbDevicePicker } from './usb-device-picker';
 import { loadDesktopPreferences, saveDesktopPreferences, type DesktopPreferences } from './preferences';
 const exec = promisify(execFile);
 const root = app.getAppPath();
@@ -26,15 +27,6 @@ let mcpError = '';
 let tray: Tray;
 let quitting = false;
 let checkingQuit = false;
-let usbChoice: { devices: Electron.USBDevice[]; finish: (id?: string) => void } | undefined;
-function publishUsbChoices() {
-    if (!mainWindow || mainWindow.isDestroyed()) return;
-    mainWindow.webContents.send('desktop:usb-choices', usbChoice?.devices.map(device => ({
-        id: device.deviceId, name: device.productName || 'MD',
-        usbId: `${device.vendorId.toString(16).padStart(4,'0')}:${device.productId.toString(16).padStart(4,'0')}`,
-        serial: device.serialNumber || '',
-    })) ?? null);
-}
 const configFolder = join(app.getPath('appData'), 'MD Studio');
 let runtime: ReturnType<typeof createBridgeRuntime>;
 let driverInstalling = false;
@@ -126,36 +118,9 @@ async function start() {
     session.defaultSession.setPermissionCheckHandler((_contents,permission,origin) => origin === uiOrigin && permission === 'usb');
     session.defaultSession.setDevicePermissionHandler(details => details.origin === uiOrigin && details.deviceType === 'usb' && isSupportedMD(details.device as Electron.USBDevice));
     session.defaultSession.setUSBProtectedClassesHandler(details => protectedMDClasses(details.protectedClasses));
-    session.defaultSession.on('select-usb-device', (event,details,callback) => {
-        event.preventDefault();
-        if (!details.frame || new URL(details.frame.url).origin !== uiOrigin) { callback(); return; }
-        usbChoice?.finish();
-        const devices = details.deviceList.filter(isSupportedMD);
-        if (!devices.length) { callback(); return; }
-        if (devices.length === 1) { callback(devices[0].deviceId); return; }
-        const timer = setTimeout(() => choice.finish(), 120000);
-        const choice = { devices, finish: (id?: string) => {
-            if (usbChoice !== choice) return;
-            clearTimeout(timer); usbChoice = undefined; publishUsbChoices(); callback(id);
-        } };
-        usbChoice = choice;
-        mainWindow.show();
-        publishUsbChoices();
-    });
-    session.defaultSession.on('usb-device-added', (_event,device,contents) => {
-        if (!usbChoice || contents !== mainWindow.webContents || !isSupportedMD(device)) return;
-        if (!usbChoice.devices.some(item => item.deviceId === device.deviceId)) usbChoice.devices.push(device);
-        publishUsbChoices();
-    });
-    session.defaultSession.on('usb-device-removed', (_event,device,contents) => {
-        if (!usbChoice || contents !== mainWindow.webContents) return;
-        usbChoice.devices = usbChoice.devices.filter(item => item.deviceId !== device.deviceId);
-        publishUsbChoices();
-    });
     mainWindow = new BrowserWindow({width:1400,height:950,title:'MD Studio',icon:join(__dirname,'app-icon.png'),webPreferences:{backgroundThrottling:false,preload:join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,additionalArguments:[`--md-bridge=${encodeURIComponent(`ws://127.0.0.1:${runtime.bridge.port}?token=${bridgeToken}`)}`]}});
     secureWindow(mainWindow);
-    mainWindow.webContents.on('did-start-loading', () => usbChoice?.finish());
-    mainWindow.on('closed', () => usbChoice?.finish());
+    const usbPicker = installUsbDevicePicker(session.defaultSession, mainWindow, uiOrigin);
     mainWindow.on('close', event => {
         if (quitting) return;
         event.preventDefault();
@@ -173,12 +138,7 @@ async function start() {
     ]));
     ipcMain.handle('desktop:open-controls',event => { trusted(event); openControl(); });
     ipcMain.handle('desktop:background',event => { trusted(event); mainWindow.hide(); });
-    ipcMain.handle('desktop:select-usb',(event,id) => {
-        trusted(event);
-        if (!usbChoice) throw new Error('Device selection is no longer active');
-        if (id !== null && (typeof id !== 'string' || !usbChoice.devices.some(device => device.deviceId === id))) throw new Error('Device is no longer available');
-        usbChoice.finish(id ?? undefined);
-    });
+    ipcMain.handle('desktop:select-usb',(event,id) => { trusted(event); usbPicker.select(id); });
     ipcMain.handle('desktop:status', event => { trusted(event); return { enabled:Boolean(mcp),url:mcp?.url || '',cli:join(configFolder,'mdstudio.cmd'),error:mcpError }; });
     ipcMain.handle('desktop:mcp',async(event,enabled) => {
         trusted(event); if(typeof enabled !== 'boolean' || mcpChanging) throw new Error('Please wait');

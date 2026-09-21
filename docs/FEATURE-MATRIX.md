@@ -96,7 +96,7 @@ The friendly tool surface is: `minidisc_get_workspace`, `minidisc_list_services`
 ## Release acceptance still open
 
 1. Verify standard export and successful file-result presentation on a download-capable NetMD device.
-2. Verify representative HiMD metadata/export and Network Walkman operations without weakening capability gates.
+2. Verify representative HiMD metadata/export operations without weakening capability gates. Network Walkman support was removed from the MD-only product.
 3. Verify browser audio-input recording.
 4. Verify device-specific advanced backup/recovery and Homebrew write paths only on explicitly disposable media.
 5. Capture final release screenshots only after the last UI acceptance change; repeat the clean-install and release gates afterward.

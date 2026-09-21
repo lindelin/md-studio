@@ -32,7 +32,6 @@ declare global {
             // Services:
             interface?: NetMDService;
             himdFullInterface?: NetMDService;
-            nwInterface?: NetMDService;
 
             reload?: () => void;
 

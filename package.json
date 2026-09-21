@@ -13,7 +13,7 @@
         "start": "npm run dev",
         "dev": "npm run prepare-runtime && vite --configLoader runner",
         "build": "npm run prepare-runtime && npm run typecheck && vite build --configLoader runner",
-        "typecheck": "tsc && tsc -p tsconfig.node.json --noEmit",
+        "typecheck": "tsc && tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.desktop.json",
         "test": "tsx --test",
         "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
         "preview": "vite preview --configLoader runner",
@@ -43,7 +43,6 @@
         "@mui/material": "^5.15.5",
         "async-mutex": "^0.5.0",
         "buffer": "^6.0.3",
-        "clsx": "^2.1.0",
         "events": "^3.3.0",
         "himd-js": "^0.2.13",
         "jconv": "github:asivery/jconv-webminidisc",
@@ -51,8 +50,6 @@
         "netmd-exploits": "^0.5.12",
         "netmd-js": "^4.4.1",
         "netmd-tocmanip": "^0.2.1",
-        "networkwm-js": "^0.2.6",
-        "prettier": "^3.2.5",
         "process": "^0.11.10",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
@@ -60,7 +57,6 @@
         "recorderjs": "github:asivery/Recorderjs",
         "stream-browserify": "^3.0.0",
         "util": "^0.12.5",
-        "vite-plugin-svgr": "^4.3.0",
         "ws": "8.21.3",
         "zod": "4.6.5"
     },
@@ -83,7 +79,9 @@
         "tsx": "4.23.13",
         "typescript": "^5.9.3",
         "vite": "^6.3.5",
-        "vite-plugin-pwa": "^0.21.1"
+        "vite-plugin-pwa": "^0.21.1",
+        "prettier": "^3.2.5",
+        "vite-plugin-svgr": "^4.3.0"
     },
     "description": "A local-first studio for making MDs with a bilingual interface, CLI and MCP",
     "overrides": {
