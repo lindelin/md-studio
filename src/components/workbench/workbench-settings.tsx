@@ -10,6 +10,7 @@ import { useApplicationClient, useApplicationWorkspace, useUpdateApplicationSett
 import { areServiceParametersValid, createDefaultServiceParameters } from './workbench-model';
 import { useI18n } from '../use-i18n';
 import { resolveUiLanguage, translate, type ResolvedUiLanguage } from '../../i18n';
+import { DesktopDriverSettings } from './desktop-driver-settings';
 import {
     getBrowserNotificationPermission,
     requestBrowserNotificationPermission,
@@ -250,6 +251,7 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
                 </div>
                 <div>
                     <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('ENCODING')}</span><h3>{t('ATRAC encoder')}</h3><label className="workbench__settings-field"><span>{t('Encoder')}</span><select value={encoderId ?? ''} disabled={!catalog || busy} onChange={(event) => { const service = catalog?.audioEncoders.find((candidate) => candidate.id === event.target.value); setEncoderId(event.target.value); setEncoderParameters(createDefaultServiceParameters(service)); }}>{catalog?.audioEncoders.map((service) => <option key={service.id} value={service.id} disabled={!service.available}>{service.name}{service.available ? '' : ` · ${t('unavailable')}`}</option>)}</select></label>{selectedEncoder?.description ? <p className="workbench__settings-description">{t(selectedEncoder.description)}</p> : null}{selectedEncoder?.unavailableReason ? <div className="workbench__settings-message is-error">{t(selectedEncoder.unavailableReason)}</div> : null}{selectedEncoder?.parameters.map((parameter) => <ServiceParameter key={parameter.key} descriptor={parameter} value={encoderParameters[parameter.key]} onChange={(value) => setEncoderParameters((current) => ({ ...current, [parameter.key]: value }))} />)}</section>
+                    <DesktopDriverSettings />
                     <NativeSettings />
                 </div>
             </div>

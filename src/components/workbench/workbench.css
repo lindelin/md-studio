@@ -568,3 +568,5 @@
 .workbench__connections small { display:block; overflow-wrap:anywhere; margin-bottom:12px; }
 .workbench__connections pre { white-space:pre-wrap; }
 .workbench__connections-message { overflow-wrap:anywhere; }
+.workbench__driver-settings article { border-top:1px solid var(--studio-border); margin-top:12px; padding-top:12px; }
+.workbench__driver-settings small { display:block; overflow-wrap:anywhere; margin-bottom:12px; }
