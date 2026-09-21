@@ -61,10 +61,6 @@ An active track cannot be interrupted safely on every recorder. Ending a batch s
 
 MCP support is included; final client-specific acceptance remains on the release checklist.
 
-## Web 版 / Web build
-
-网页版只分发静态文件，音频与设备任务仍在浏览器本机执行。USB 连接需要支持 WebUSB 的 Chromium 浏览器以及兼容驱动。CLI 与 MCP 的源码开发桥接方式见 [自动化文档](docs/AUTOMATION.md)。
-
 ## 开发 / Development
 
 要求 Node.js 20.19 或更高版本以及 npm 11。

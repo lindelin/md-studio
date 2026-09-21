@@ -21,7 +21,7 @@ export const AboutDialog = ({ open, onClose }: { open: boolean; onClose(): void 
             <ul>
                 <li><a rel="noopener noreferrer" href="https://www.ffmpeg.org/" target="_blank">FFmpeg</a> {t('and')} <a rel="noopener noreferrer" href="https://github.com/ffmpegjs/FFmpeg" target="_blank">ffmpegjs</a>{t(', to read your audio files (WAV, MP3, OGG, MP4, and more).')}</li>
                 <li><a rel="noopener noreferrer" href="https://github.com/dcherednik/atracdenc/" target="_blank">Atracdenc</a>{t(', to support ATRAC3 encoding (LP2 and LP4).')}</li>
-                <li><a rel="noopener noreferrer" href="https://emscripten.org/" target="_blank">Emscripten</a>{t(', to run FFmpeg and Atracdenc in the browser.')}</li>
+                <li><a rel="noopener noreferrer" href="https://emscripten.org/" target="_blank">Emscripten</a>{t(', to run FFmpeg and Atracdenc locally.')}</li>
                 <li><a rel="noopener noreferrer" href="https://github.com/cybercase/netmd-js" target="_blank">netmd-js</a>{t(', to send commands to NetMD devices with JavaScript.')}</li>
                 <li><a rel="noopener noreferrer" href="https://github.com/asivery/netmd-exploits" target="_blank">netmd-exploits</a>{t(', to download ATRAC through USB and run supported low-level firmware tools.')}</li>
                 <li><a rel="noopener noreferrer" href="https://github.com/asivery/netmd-tocmanip" target="_blank">netmd-tocmanip</a>{t(', to read and edit the table of contents.')}</li>
