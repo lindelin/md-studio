@@ -30,3 +30,5 @@ The exact binary hash and upstream source version are in vendor/zadig/manifest.j
 5. Report UI/driver results before building an installer.
 
 `npm run desktop:pack` is configured for an x64 NSIS installer, but must only be run after the user's development-app acceptance. Installer signing, clean-machine driver installation, Windows ARM64 and installer behavior have not been validated. No installer has been produced in this development stage.
+
+Desktop disables the web PWA service worker and clears only its service-worker/cache storage on startup (not settings). The control window uses an isolated, nonpersistent session with USB permissions denied; it must never own a device connection.

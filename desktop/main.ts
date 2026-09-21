@@ -39,7 +39,7 @@ async function isBusy() {
 }
 function openControl() {
     if (controlWindow && !controlWindow.isDestroyed()) { controlWindow.focus(); return; }
-    controlWindow = new BrowserWindow({ width:850, height:780, parent:mainWindow, title:'MD Studio · 连接与驱动 / Connections', webPreferences:{ preload:join(__dirname,'preload.cjs'), contextIsolation:true, nodeIntegration:false, sandbox:true } });
+    controlWindow = new BrowserWindow({ width:850, height:780, parent:mainWindow, title:'MD Studio · 连接与驱动 / Connections', webPreferences:{ partition:'md-studio-controls', preload:join(__dirname,'preload.cjs'), contextIsolation:true, nodeIntegration:false, sandbox:true } });
     secureWindow(controlWindow);
     void controlWindow.loadURL(`${uiOrigin}/desktop-control.html`);
 }
@@ -49,6 +49,12 @@ function secureWindow(win: BrowserWindow) {
 }
 async function start() {
     await app.whenReady();
+    // Desktop assets are local; a PWA navigation fallback must never replace the control page.
+    await session.defaultSession.clearStorageData({ storages:['serviceworkers','cachestorage'] });
+    const controlsSession = session.fromPartition('md-studio-controls');
+    controlsSession.setPermissionCheckHandler(() => false);
+    controlsSession.setPermissionRequestHandler((_contents,_permission,callback) => callback(false));
+    controlsSession.setDevicePermissionHandler(() => false);
     runtime = createBridgeRuntime({ host:'127.0.0.1', port:0, token:bridgeToken, allowedOrigins:[uiOrigin] });
     await runtime.bridge.ready;
     const staticRoot = resolve(root,'dist');
@@ -57,6 +63,8 @@ async function start() {
         try {
             if (req.headers.host !== '127.0.0.1:5190') { res.writeHead(403).end(); return; }
             const url = new URL(req.url || '/',uiOrigin);
+            if (url.pathname === '/registerSW.js') { res.writeHead(200,{'Content-Type':'text/javascript','Cache-Control':'no-store'}).end('// Service workers are disabled in the desktop host.'); return; }
+            if (url.pathname === '/sw.js') { res.writeHead(404).end(); return; }
             if (url.pathname === '/desktop-command') {
                 if (req.method !== 'POST' || req.headers.authorization !== `Bearer ${commandToken}` || req.headers.origin) { res.writeHead(403).end(); return; }
                 const input = await readJson(req);
