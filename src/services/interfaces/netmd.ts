@@ -191,7 +191,7 @@ export abstract class NetMDService {
     abstract getServiceCapabilities(): Promise<Capability[]>;
     abstract getDeviceStatus(): Promise<DeviceStatus>;
     abstract pair(): Promise<boolean>;
-    abstract connect(): Promise<boolean>;
+    abstract connect(device?: USBDevice): Promise<boolean>;
     abstract listContent(dropCache?: boolean): Promise<Disc>;
     abstract getDeviceName(): Promise<string>;
     abstract finalize(): Promise<void>;
@@ -436,9 +436,11 @@ export class NetMDUSBService extends NetMDService {
         return true;
     }
 
-    async connect() {
+    async connect(device?: USBDevice) {
         this.dropCachedContentList();
-        const iface = await openPairedDevice(navigator.usb, this.logger);
+        // Reuse the upstream connection path, restricted to the selected device.
+        const usb = device ? { getDevices: async () => [device] } as USB : navigator.usb;
+        const iface = await openPairedDevice(usb, this.logger);
         if (iface === null) {
             return false;
         }

@@ -22,6 +22,16 @@ function makeConnector(connect: () => Promise<boolean>, pair: () => Promise<bool
 }
 
 describe('DeviceSessionConnector', () => {
+    it('passes the selected USB device to the cached connection and never substitutes another on failure', async () => {
+        const selected = {} as USBDevice;
+        const fixture = makeConnector(async () => true, async () => { throw new Error('Must not pair another device'); });
+        fixture.service.connect = async device => { assert.equal(device, selected); return true; };
+        const result = await fixture.connector.connect(fixture.service, fixture.spec, false, selected);
+        assert.equal(result.method, 'cached');
+        fixture.service.connect = async () => { throw new Error('Selected device unplugged'); };
+        await assert.rejects(fixture.connector.connect(fixture.service, fixture.spec, false, selected), /Selected device unplugged/);
+        assert.equal(fixture.bindings.netmdService, undefined);
+    });
     it('honors explicit device selection instead of reconnecting a different cached device', async () => {
         let cachedCalls = 0;
         const fixture = makeConnector(async () => { cachedCalls++; return true; }, async () => true);

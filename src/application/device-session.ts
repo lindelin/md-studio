@@ -44,14 +44,14 @@ export class DeviceSessionConnector {
         private readonly cachedConnectionTimeoutMs = 15_000
     ) {}
 
-    async connect(service: NetMDService, spec: MinidiscSpec, chooseDevice = false): Promise<ConnectedDeviceSession | DeviceSessionConnectionFailure> {
+    async connect(service: NetMDService, spec: MinidiscSpec, chooseDevice = false, usbDevice?: USBDevice): Promise<ConnectedDeviceSession | DeviceSessionConnectionFailure> {
         this.bindings.netmdService = service;
         this.bindings.netmdSpec = spec;
         this.bindings.netmdFactoryService = undefined;
 
         let cachedConnectionError: unknown;
         try {
-            const cachedConnection = chooseDevice ? Promise.resolve(false) : service.connect();
+            const cachedConnection = chooseDevice ? Promise.resolve(false) : service.connect(usbDevice);
             const cachedResult = await settleBeforeTimeout(cachedConnection, this.cachedConnectionTimeoutMs);
             if (cachedResult.timedOut) {
                 cachedConnectionError = new CachedDeviceConnectionTimeoutError(this.cachedConnectionTimeoutMs);
@@ -67,6 +67,7 @@ export class DeviceSessionConnector {
                 return { application: this.bindApplication(), method: 'cached' };
             }
         } catch (error) {
+            if (usbDevice) { this.clearFailedBindings(service); throw error; }
             // A remembered WebUSB device can disappear or lose permission. The
             // explicit pairing request is still allowed to recover the session.
             cachedConnectionError = error;

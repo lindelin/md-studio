@@ -24,6 +24,7 @@ export interface ApplicationCommandExecutor {
 
 export interface LocalDeviceConnectionRequest {
     chooseDevice?: boolean;
+    usbDevice?: USBDevice;
     id?: string;
     name: string;
     parameters?: CustomParameters;
