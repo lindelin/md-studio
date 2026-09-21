@@ -4,6 +4,7 @@ async function main() {
     const [verb,...args]=process.argv.slice(2);
     if(!verb || verb === '--help') { console.log(`MD Studio CLI (desktop app must be open)
 status | workspace | imports | tasks
+connect [service index]
 add <audio paths...>
 preview [SP|LP2|LP4|MONO]
 write [SP|LP2|LP4|MONO]
@@ -21,7 +22,12 @@ Write records the current queue and waits for completion.`); return; }
     const modes:Record<string,{codec:string;bitrate:number}>={SP:{codec:'SPS',bitrate:292},LP2:{codec:'AT3',bitrate:132},LP4:{codec:'AT3',bitrate:66},MONO:{codec:'SPM',bitrate:146}};
     const commands:Record<string,string>={status:'disc.refresh',workspace:'workspace.get',imports:'import.list',tasks:'task.list'};
     let result;
-    if(verb === 'add') result=await request({action:'add',paths:args});
+    if(verb === 'connect') {
+        const serviceIndex=args[0] === undefined ? 0 : Number(args[0]);
+        if(!Number.isInteger(serviceIndex) || serviceIndex < 0) throw new Error('Service index must be a non-negative whole number');
+        result=await request({command:{type:'device.connect',serviceIndex}});
+    }
+    else if(verb === 'add') result=await request({action:'add',paths:args});
     else if(verb === 'command' || verb === '--file') result=await request({command:JSON.parse(verb === '--file' ? await readFile(args[0],'utf8') : args.join(' '))});
     else if(verb === 'preview' || verb === 'write') {
         const format=args[0] ? modes[args[0].toUpperCase()] : undefined;

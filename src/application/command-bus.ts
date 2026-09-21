@@ -33,11 +33,13 @@ import { INTERACTIVE_ADVANCED_AUTHORIZATION } from './interactive-authorization'
 import type { ServiceCatalogSnapshot } from './service-catalog';
 import type { ImportPreview } from './import-preview';
 import type { RawTocPatchKind } from '../domain/raw-toc-contract';
+import type { CustomParameters } from '../custom-parameters';
 
 
 export type ApplicationCommand =
     | { type: 'workspace.get' }
     | { type: 'services.get' }
+    | { type: 'device.connect'; serviceIndex?: number }
     | { type: 'disc.refresh'; dropCache?: boolean }
     | { type: 'device.pollStatus' }
     | { type: 'disc.rename'; title: string; fullWidthTitle?: string; expectedRevision?: number }
@@ -153,6 +155,12 @@ export interface CommandFailure {
 export type CommandResult = CommandSuccess | CommandFailure;
 
 export class ApplicationCommandBus {
+    private deviceConnector?: (request: {
+        id?: string;
+        name: string;
+        parameters?: CustomParameters;
+    }) => Promise<{ connected: boolean; method: 'cached' | 'paired' | null; message?: string }>;
+
     constructor(
         private application: MiniDiscApplication | undefined,
         private readonly tasks: TaskManager,
@@ -173,6 +181,10 @@ export class ApplicationCommandBus {
         this.importWriter = importWriter;
         this.trackExporter = trackExporter;
         this.trackRecorder = trackRecorder;
+    }
+
+    configureDeviceConnector(connector: typeof this.deviceConnector) {
+        this.deviceConnector = connector;
     }
 
     async execute(command: ApplicationCommand): Promise<CommandResult> {
@@ -208,6 +220,27 @@ export class ApplicationCommandBus {
             if (command.type === 'services.get') {
                 if (!this.serviceCatalog) throw new Error('The service catalog is unavailable in this application environment.');
                 return { ok: true, services: structuredClone(this.serviceCatalog) };
+            }
+            if (command.type === 'device.connect') {
+                if (!this.deviceConnector || !this.serviceCatalog || !this.workspace) {
+                    throw new ApplicationError('DEVICE_CONNECTION_FAILED', 'Device connection is unavailable in this application environment.');
+                }
+                const serviceIndex = command.serviceIndex ?? 0;
+                const service = this.serviceCatalog.devices[serviceIndex];
+                if (!service?.available) {
+                    throw new ApplicationError('INVALID_INPUT', `Device service ${serviceIndex} is unavailable or unknown.`);
+                }
+                const parameters = Object.fromEntries(
+                    service.parameters.map((parameter) => [parameter.key, parameter.defaultValue])
+                );
+                const connection = await this.deviceConnector({ id: service.id, name: service.name, parameters });
+                if (!connection.connected) {
+                    throw new ApplicationError(
+                        'DEVICE_CONNECTION_FAILED',
+                        connection.message ?? 'The previously authorized MD device could not reconnect.'
+                    );
+                }
+                return { ok: true, workspace: structuredClone(this.workspace.getSnapshot()) };
             }
             if (command.type === 'task.list') return { ok: true, tasks: this.tasks.list() };
             if (command.type === 'task.get') return { ok: true, task: this.tasks.get(command.id) };

@@ -209,6 +209,9 @@ export function getApplicationClient() {
                 },
             },
         );
+        ensureApplicationCommandBus().configureDeviceConnector((request) =>
+            serviceRegistry.applicationClient!.connectLocalDevice(request)
+        );
     }
     return serviceRegistry.applicationClient;
 }
