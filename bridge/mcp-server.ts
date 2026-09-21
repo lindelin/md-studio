@@ -1,5 +1,5 @@
 import { McpServer } from '@modelcontextprotocol/server';
-import { serveStdio } from '@modelcontextprotocol/server/stdio';
+
 import * as z from 'zod/v4';
 import type { ApplicationCommand, CommandResult } from '../src/application/command-bus.ts';
 import { LocalBridgeBroker } from './broker.ts';
@@ -9,16 +9,12 @@ import { startLocalBridgeServer } from './websocket-server.ts';
 import { mcpSettingsChangesSchema } from './settings-schema.ts';
 import { stageLocalAudioImport } from './local-audio-import.ts';
 
+export function createBridgeRuntime(options: Parameters<typeof startLocalBridgeServer>[1] = {}) {
 const localFiles = new LocalFileRegistry();
 const localOutputs = new LocalOutputRegistry();
 const broker = new LocalBridgeBroker(localFiles, localOutputs);
 const pendingLocalFileHandles = new Set<string>();
-const bridge = startLocalBridgeServer(broker, {
-    host: process.env.MINIDISC_BRIDGE_HOST,
-    port: process.env.MINIDISC_BRIDGE_PORT ? Number(process.env.MINIDISC_BRIDGE_PORT) : undefined,
-    token: process.env.MINIDISC_BRIDGE_TOKEN,
-    allowedOrigins: process.env.MINIDISC_ALLOWED_ORIGINS?.split(',').map((origin) => origin.trim()),
-});
+const bridge = startLocalBridgeServer(broker, options);
 
 function asToolResult(result: CommandResult) {
     return {
@@ -486,20 +482,7 @@ function createServer() {
     return server;
 }
 
-async function main() {
-    await bridge.ready;
-    const stdio = serveStdio(createServer);
-    console.error(`MiniDisc MCP bridge listening on ws://${bridge.host}:${bridge.port}`);
-
-    process.on('SIGINT', () => {
-        localFiles.clear();
-        void Promise.allSettled([stdio.close(), bridge.close(), localOutputs.close()]).then(() => process.exit(0));
-    });
+return { broker, bridge, createServer, localFiles, localOutputs,
+    async close() { localFiles.clear(); await Promise.allSettled([bridge.close(), localOutputs.close()]); }
+};
 }
-
-main().catch(async (error) => {
-    console.error(error instanceof Error ? error.message : String(error));
-    localFiles.clear();
-    await Promise.allSettled([bridge.close(), localOutputs.close()]);
-    process.exitCode = 1;
-});

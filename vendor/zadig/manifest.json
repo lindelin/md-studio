@@ -1,0 +1,7 @@
+{
+  "version": "2.9",
+  "url": "https://github.com/pbatard/libwdi/releases/download/v1.5.1/zadig-2.9.exe",
+  "sha256": "4ecaa95df3da3621486a043aef8b3050b8bafe7c901402871e816229ef82039b",
+  "source": "https://github.com/pbatard/libwdi/tree/v1.5.1",
+  "signature": "Verified Valid, Akeo Consulting on development host"
+}

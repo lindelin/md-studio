@@ -25,13 +25,18 @@
         "licenses:check": "node scripts/generate-third-party-notices.mjs --check",
         "audit:production": "npm audit --omit=dev",
         "pretty": "prettier src/**/*.{ts,tsx} --write",
-        "mcp": "tsx bridge/mcp-server.ts",
-        "cli": "tsx bridge/cli.ts"
+        "mcp": "tsx bridge/mcp-stdio.ts",
+        "cli": "tsx bridge/cli.ts",
+        "desktop:prepare": "node desktop/build.mjs",
+        "desktop:dev": "node node_modules/electron/install.js && npm run build && npm run desktop:prepare && electron .",
+        "desktop:pack": "npm run build && npm run desktop:prepare && electron-builder --win nsis --x64",
+        "desktop:typecheck": "tsc -p tsconfig.desktop.json"
     },
     "dependencies": {
         "@emotion/react": "^11.11.1",
         "@emotion/styled": "^11.11.0",
         "@ffmpeg/ffmpeg": "0.6.1",
+        "@modelcontextprotocol/node": "^2.0.0",
         "@modelcontextprotocol/server": "2.0.0",
         "@mui/icons-material": "^5.14.3",
         "@mui/material": "^5.15.5",
@@ -67,6 +72,9 @@
         "@typescript-eslint/eslint-plugin": "^7.5.0",
         "@typescript-eslint/parser": "^7.5.0",
         "@vitejs/plugin-react": "^4.3.4",
+        "electron": "^44.4.3",
+        "electron-builder": "^26.15.3",
+        "esbuild": "^0.28.2",
         "eslint": "^8.55.0",
         "eslint-plugin-react-hooks": "^4.6.0",
         "eslint-plugin-react-refresh": "^0.4.5",
@@ -79,5 +87,43 @@
     "description": "A local-first MiniDisc workspace with a modern UI and shared automation API",
     "overrides": {
         "expr-eval": "npm:expr-eval-fork@3.0.1"
+    },
+    "main": "desktop-build/main.cjs",
+    "build": {
+        "appId": "local.md-studio.desktop",
+        "productName": "MD Studio",
+        "directories": {
+            "output": "release"
+        },
+        "files": [
+            "desktop-build/**",
+            "dist/**",
+            "package.json"
+        ],
+        "extraResources": [
+            {
+                "from": "vendor/zadig",
+                "to": "zadig"
+            },
+            {
+                "from": "skills",
+                "to": "skills"
+            },
+            {
+                "from": "desktop-build",
+                "to": "cli",
+                "filter": [
+                    "cli.cjs",
+                    "mdstudio.cmd"
+                ]
+            }
+        ],
+        "win": {
+            "target": "nsis"
+        },
+        "nsis": {
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true
+        }
     }
 }

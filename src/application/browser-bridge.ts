@@ -253,10 +253,11 @@ export class BrowserApplicationBridge {
 export function startLocalApplicationBridge(localFiles: BrowserLocalFileGateway) {
     const host = window as unknown as LocalBridgeHost;
     replaceActiveLocalApplicationBridge(host);
-    const explicitlyEnabled = loadPreference('minidiscLocalBridgeEnabled', false, isBoolean);
+    const desktopUrl = (window as unknown as { mdDesktop?: { bridgeUrl?: string } }).mdDesktop?.bridgeUrl;
+    const explicitlyEnabled = Boolean(desktopUrl) || loadPreference('minidiscLocalBridgeEnabled', false, isBoolean);
     if (!explicitlyEnabled) return undefined;
 
-    const configuredUrl = readRawPreference('minidiscLocalBridgeUrl') || DEFAULT_BRIDGE_URL;
+    const configuredUrl = desktopUrl || readRawPreference('minidiscLocalBridgeUrl') || DEFAULT_BRIDGE_URL;
     const token = readRawPreference('minidiscLocalBridgeToken');
     let url: URL;
     try {
@@ -267,7 +268,7 @@ export function startLocalApplicationBridge(localFiles: BrowserLocalFileGateway)
         console.warn('Ignored invalid local bridge URL.', error);
         url = new URL(DEFAULT_BRIDGE_URL);
     }
-    if (token) url.searchParams.set('token', token);
+    if (token && !desktopUrl) url.searchParams.set('token', token);
     const bridge = new BrowserApplicationBridge(url.toString());
     localFiles.attach(bridge);
     bridge.start();

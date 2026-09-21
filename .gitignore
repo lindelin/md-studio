@@ -34,3 +34,7 @@ yarn-error.log*
 **/libatrac.so.1
 **/*.o
 **/*.so
+
+/desktop-build/
+/release/
+/vendor/zadig/*.exe

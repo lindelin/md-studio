@@ -937,6 +937,7 @@ export const Workbench = () => {
 
                 {section === 'automation' ? (
                     <section className="workbench__ai" aria-label={language === 'zh-CN' ? 'AI 制作' : 'AI creation'}>
+                        {window.mdDesktop ? <div><h2>{labelText('让 AI 帮你制作 MD', 'Create an MD with AI')}</h2><p>{labelText('桌面版已内置 CLI、MCP 和标签整理 Skill。无需下载源码或安装 Node。打开连接窗口，开启 MCP 后复制地址到支持本地 HTTP MCP 的客户端，再导出并安装 Skill。', 'CLI, MCP and the metadata Skill are bundled. No source checkout or Node installation is needed. Enable MCP in Connections, copy its URL into a local HTTP MCP client, and export the Skill.')}</p><button className="secondary-button" onClick={() => void window.mdDesktop?.openControls()}>{labelText('打开 AI 接入与 CLI', 'Open AI connections and CLI')}</button></div> : <>
                         <header><AutoAwesomeIcon /><div><h2>{language === 'zh-CN' ? '让 AI 帮你制作 MD' : 'Create an MD with AI'}</h2><p>{language === 'zh-CN' ? '告诉 AI 用哪些音乐、怎么编排。曲名、曲序和录制进度会同步显示在这里。' : 'Tell AI which music to use and how to arrange it. Titles, track order and recording progress stay visible here.'}</p></div></header>
                         <div className="workbench__ai-status"><strong>{language === 'zh-CN' ? (localBridgeEnabled ? 'AI 接入已启用' : '尚未启用 AI 接入') : (localBridgeEnabled ? 'AI access enabled' : 'AI access is off')}</strong><p>{language === 'zh-CN' ? (localBridgeEnabled ? '下一步：在 AI 客户端中配置 MCP，并让 AI 检查设备连接。启用开关不代表 AI 已连接。' : '先在设置中启用 AI 接入，再连接你使用的 AI 客户端。') : (localBridgeEnabled ? 'Next: configure MCP in your AI client and ask AI to check the device. Enabling access does not mean a client is connected.' : 'Enable AI access in Settings, then connect your AI client.')}</p></div>
                         <ol className="workbench__ai-steps">
@@ -945,6 +946,7 @@ export const Workbench = () => {
                             <li><h3>{language === 'zh-CN' ? '告诉 AI 制盘要求' : 'Describe your MD'}</h3><p>{language === 'zh-CN' ? '提供本地音频路径、曲序、分组和 SP／LP2／LP4 模式，先审阅计划，再授权录制。' : 'Provide local audio paths, order, groups and SP/LP2/LP4 mode. Review the plan before authorizing recording.'}</p></li>
                         </ol>
                         <div className="workbench__ai-example"><h3>{language === 'zh-CN' ? '可以这样对 AI 说' : 'Try this prompt'}</h3><blockquote>{language === 'zh-CN' ? '把 C:/Music/Album 中的音乐按曲序整理，使用 LP2，碟名设为 Album。先给我检查曲名、分组和容量，等我确认后再写盘。' : 'Arrange the music in C:/Music/Album in track order, use LP2 and name the MD Album. Show me titles, groups and capacity, and wait for my confirmation before recording.'}</blockquote><p>{language === 'zh-CN' ? '这段话发给你使用的 AI 客户端；这里用于设置接入和查看制作结果。' : 'Send this to your AI client. This page sets up access and shows the results.'}</p></div>
+                        </>}
                     </section>
                 ) : null}
 
