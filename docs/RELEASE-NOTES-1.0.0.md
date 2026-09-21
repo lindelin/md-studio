@@ -22,6 +22,8 @@ AI とつくる MD。曲名、日本語の読み方、曲順、グループを�
 
 **MD-Studio-Setup-1.0.0.exe** をダウンロードしてください。ソースコードや Node.js は不要です。標準のエンコード処理と検証済み Zadig を同梱。[日本語マニュアル](https://github.com/lindelin/md-studio/blob/v1.0.0/docs/manual/ja.md)に設定手順と使用例があります。
 
+![MD Studio 日本語インターフェース](https://raw.githubusercontent.com/lindelin/md-studio/main/docs/images/md-studio-ja.png)
+
 ## Notes / 说明 / ご注意
 
 - Windows 10/11 x64. Installer is unsigned / 安装包未签名 / インストーラーは未署名です。SHA-256: `SHA256SUMS.txt`.

@@ -6,7 +6,7 @@
 
 **[Windows 版をダウンロード](https://github.com/lindelin/md-studio/releases/latest)** · **[日本語マニュアル](docs/manual/ja.md)** · **[不具合を報告](https://github.com/lindelin/md-studio/issues)**
 
-![MD Studio のデバイス・設定画面](docs/images/md-studio-english.png)
+![MD Studio の日本語デバイス・編集画面](docs/images/md-studio-ja.png)
 
 初回起動時はシステム言語に従い、設定から日本語・English・简体中文を切り替えられます。
 
