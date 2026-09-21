@@ -8,6 +8,7 @@ import { promisify } from 'node:util';
 import { createBridgeRuntime } from '../bridge/mcp-server';
 import { stageLocalAudioImport } from '../bridge/local-audio-import';
 import { startMcpHttp, readJson } from './http';
+import { isSupportedMD, protectedMDClasses } from './usb-policy';
 import { scanDrivers } from './drivers';
 const exec = promisify(execFile);
 const root = app.getAppPath();
@@ -89,12 +90,14 @@ async function start() {
     await writeFile(join(configFolder,'mdstudio.cmd'), `@echo off\r\nsetlocal\r\nset ELECTRON_RUN_AS_NODE=1\r\n"${process.execPath}" "${join(cliDir,'cli.cjs')}" %*\r\n`);
     await writeFile(join(configFolder,'connection.json'),JSON.stringify({ url:`${uiOrigin}/desktop-command`, token:commandToken }));
     session.defaultSession.setPermissionCheckHandler((_contents,permission,origin) => origin === uiOrigin && permission === 'usb');
-    session.defaultSession.setDevicePermissionHandler(details => details.origin === uiOrigin && details.deviceType === 'usb');
+    session.defaultSession.setDevicePermissionHandler(details => details.origin === uiOrigin && details.deviceType === 'usb' && isSupportedMD(details.device as Electron.USBDevice));
+    session.defaultSession.setUSBProtectedClassesHandler(details => protectedMDClasses(details.protectedClasses));
     session.defaultSession.on('select-usb-device', (event,details,callback) => {
         event.preventDefault();
         if (!details.frame || new URL(details.frame.url).origin !== uiOrigin) { callback(); return; }
-        if (!details.deviceList.length) { callback(); return; }
-        void dialog.showMessageBox(mainWindow,{type:'question',title:'选择 MD / Select MD',message:'选择要连接的设备 / Choose a device',buttons:[...details.deviceList.map(d => `${d.productName || 'USB'} (${d.vendorId.toString(16)}:${d.productId.toString(16)})`),'取消 / Cancel'],cancelId:details.deviceList.length}).then(({response}) => callback(details.deviceList[response]?.deviceId));
+        const devices = details.deviceList.filter(isSupportedMD);
+        if (!devices.length) { callback(); return; }
+        void dialog.showMessageBox(mainWindow,{type:'question',title:'选择 MD / Select MD',message:'选择要连接的设备 / Choose a device',buttons:[...devices.map(d => `${d.productName || 'USB'} (${d.vendorId.toString(16)}:${d.productId.toString(16)})`),'取消 / Cancel'],cancelId:devices.length}).then(({response}) => callback(devices[response]?.deviceId));
     });
     mainWindow = new BrowserWindow({width:1400,height:950,title:'MD Studio',webPreferences:{preload:join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,additionalArguments:[`--md-bridge=${encodeURIComponent(`ws://127.0.0.1:${runtime.bridge.port}?token=${bridgeToken}`)}`]}});
     secureWindow(mainWindow);
