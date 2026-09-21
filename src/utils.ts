@@ -289,7 +289,7 @@ export type DisplayTrack = {
     fullWidthTitle: string;
     group: string | null;
     duration: number;
-    encoding: string;
+    encoding: Track['encoding'];
 
     album?: string;
     artist?: string;
@@ -324,7 +324,7 @@ export function getSortedTracks(disc: Disc | null): DisplayTrack[] {
                     title: track.title ?? `Unknown Title`,
                     fullWidthTitle: track.fullWidthTitle ?? ``,
                     group: group.title ?? null,
-                    encoding: track.encoding.codec,
+                    encoding: { ...track.encoding },
                     duration: track.duration,
 
                     album: track.album,
