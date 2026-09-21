@@ -150,8 +150,6 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
     const [catalog, setCatalog] = useState<ServiceCatalogSnapshot | null>(null);
     const [encoderId, setEncoderId] = useState(settings.audioEncoderId);
     const [encoderParameters, setEncoderParameters] = useState<CustomParameters>(settings.audioExportServiceConfig);
-    const [libraryIndex, setLibraryIndex] = useState(settings.libraryService);
-    const [libraryParameters, setLibraryParameters] = useState<CustomParameters>(settings.libraryServiceConfig);
     const [bridgeEnabled, setBridgeEnabled] = useState(localBridgeEnabled);
     const [status, setStatus] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
@@ -187,19 +185,15 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
     }, [onMessage, t, updateSettings]);
 
     const selectedEncoder = catalog?.audioEncoders.find((service) => service.id === encoderId);
-    const selectedLibrary = libraryIndex === -1 ? undefined : catalog?.libraries[libraryIndex];
     const selectedEncoderIndex = selectedEncoder?.index ?? settings.audioExportService;
     const serviceChangesPending =
         encoderId !== (settings.audioEncoderId ?? catalog?.audioEncoders[settings.audioExportService]?.id ?? null) ||
         selectedEncoderIndex !== settings.audioExportService ||
         !sameParameters(encoderParameters, settings.audioExportServiceConfig) ||
-        libraryIndex !== settings.libraryService ||
-        !sameParameters(libraryParameters, settings.libraryServiceConfig) ||
         bridgeEnabled !== localBridgeEnabled;
     const serviceConfigurationValid =
         Boolean(selectedEncoder?.available) &&
-        areServiceParametersValid(selectedEncoder, encoderParameters) &&
-        (libraryIndex === -1 || areServiceParametersValid(selectedLibrary, libraryParameters));
+        areServiceParametersValid(selectedEncoder, encoderParameters);
 
     const updateBoolean = (key: keyof UserSettings, checked: boolean, message: string) => {
         void apply({ [key]: checked }, message);
@@ -246,8 +240,6 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
                 audioEncoderId: selectedEncoder.id,
                 audioExportService: selectedEncoder.index,
                 audioExportServiceConfig: encoderParameters,
-                libraryService: libraryIndex,
-                libraryServiceConfig: libraryParameters,
             });
             window.reload();
         } catch (error) {
@@ -265,7 +257,7 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
 
     return (
         <section className="workbench__settings" aria-label={t('Settings')}>
-            <header><div><span className="workbench__eyebrow">{t('PREFERENCES')}</span><h2>{t('Workspace settings')}</h2><p>{t('Changes are stored locally. Encoder, Library and automation changes reload the application.')}</p></div>{serviceChangesPending ? <button className="primary-button" disabled={busy || !serviceConfigurationValid} onClick={() => void saveServices()}><RestartAltRoundedIcon /> {t('Save and reload')}</button> : null}</header>
+            <header><div><span className="workbench__eyebrow">{t('PREFERENCES')}</span><h2>{t('Workspace settings')}</h2><p>{t('Changes are stored locally. Encoder and automation changes reload the application.')}</p></div>{serviceChangesPending ? <button className="primary-button" disabled={busy || !serviceConfigurationValid} onClick={() => void saveServices()}><RestartAltRoundedIcon /> {t('Save and reload')}</button> : null}</header>
             {status ? <div className="workbench__settings-message is-error">{status}</div> : null}
             <div className="workbench__settings-columns">
                 <div>
@@ -275,7 +267,6 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
                 </div>
                 <div>
                     <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('ENCODING')}</span><h3>{t('ATRAC encoder')}</h3><label className="workbench__settings-field"><span>{t('Encoder')}</span><select value={encoderId ?? ''} disabled={!catalog || busy} onChange={(event) => { const service = catalog?.audioEncoders.find((candidate) => candidate.id === event.target.value); setEncoderId(event.target.value); setEncoderParameters(createDefaultServiceParameters(service)); }}>{catalog?.audioEncoders.map((service) => <option key={service.id} value={service.id} disabled={!service.available}>{service.name}{service.available ? '' : ` · ${t('unavailable')}`}</option>)}</select></label>{selectedEncoder?.description ? <p className="workbench__settings-description">{t(selectedEncoder.description)}</p> : null}{selectedEncoder?.unavailableReason ? <div className="workbench__settings-message is-error">{t(selectedEncoder.unavailableReason)}</div> : null}{selectedEncoder?.parameters.map((parameter) => <ServiceParameter key={parameter.key} descriptor={parameter} value={encoderParameters[parameter.key]} onChange={(value) => setEncoderParameters((current) => ({ ...current, [parameter.key]: value }))} />)}</section>
-                    <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('LIBRARY')}</span><h3>{t('Music source')}</h3><label className="workbench__settings-field"><span>{t('Library service')}</span><select value={libraryIndex} disabled={!catalog || busy} onChange={(event) => { const index = Number(event.target.value); setLibraryIndex(index); if (index !== -1) setLibraryParameters(createDefaultServiceParameters(catalog?.libraries[index])); }}><option value={-1}>{t('None')}</option>{catalog?.libraries.map((service) => <option key={service.id} value={service.index} disabled={!service.available}>{service.name}</option>)}</select></label>{selectedLibrary?.description ? <p className="workbench__settings-description">{t(selectedLibrary.description)}</p> : null}{selectedLibrary?.parameters.map((parameter) => <ServiceParameter key={parameter.key} descriptor={parameter} value={libraryParameters[parameter.key]} onChange={(value) => setLibraryParameters((current) => ({ ...current, [parameter.key]: value }))} />)}</section>
                     <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('PRIVACY')}</span><h3>{t('Local processing')}</h3><p className="workbench__settings-description">{t('Audio, metadata, transcoding, automation and device communication stay on this computer.')}</p></section>
                     <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('AUTOMATION')}</span><h3>{t('Local MCP and CLI')}</h3><Toggle checked={bridgeEnabled} label={t('Enable local bridge')} description={t('Allow the loopback-only MCP server and CLI to control this browser session.')} onChange={setBridgeEnabled} /><p className="workbench__settings-description">{t('The bridge listens only on this computer. Saving this option reloads the app so the browser endpoint can attach cleanly.')}</p></section>
                     <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('ADVANCED')}</span><h3>{t('Homebrew tools')}</h3><Toggle checked={settings.factoryModeUseSlowerExploit} disabled={busy} label={t('Use slower ATRAC ripping exploit')} description={t('Compatibility option for devices that lock up during fast ripping.')} onChange={(checked) => updateBoolean('factoryModeUseSlowerExploit', checked, 'Ripping preference updated.')} /><Toggle checked={settings.factoryModeNERAWDownload} disabled={busy} label={t('Download raw NERAW streams')} description={t('Preserve sector layout for expert recovery work.')} onChange={(checked) => updateBoolean('factoryModeNERAWDownload', checked, 'Raw stream preference updated.')} /></section>

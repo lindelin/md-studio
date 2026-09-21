@@ -10,7 +10,6 @@ The 0.1.0 release candidate retains the established NetMD and HiMD protocol impl
 -   Disc, track, group, half-width, full-width, and HiMD metadata editing
 -   Playback control, track ordering, deletion, erase, eject, HiMD format, and device flush
 -   Audio import, browser-side transcoding, NetMD upload, supported-device download, recording, and factory tools inherited from Web MiniDisc Pro
--   A session-local folder library that indexes local audio and sends selected tracks through the configured local encoder
 -   Revision-checked application commands and observable long-running tasks
 -   Local MCP tools and a scriptable CLI over a loopback-only browser bridge
 -   Simplified Chinese by default, with complete English support and an immediate, persisted language switch
@@ -99,7 +98,6 @@ The application layer owns validation, revisions, destructive confirmation, seri
 
 Audio files, metadata editing, transcoding, task queues, caches, and device communication run on the user's computer. A hosted web build serves static application files only: it does not upload audio, proxy USB traffic, run encoding jobs, or store disc contents. The desktop build uses the same local application core. The official application contains no remote device adapter, remote encoder, remote library, or external song-recognition client.
 
-The Library can index a folder selected through the browser. Its file handles, metadata index, search, and audio reads stay in the current browser session. Browser security does not let the application silently restore folder access after a reload, so the folder must be selected again; no local path or file content is uploaded or written into browser storage.
 
 Any future network integration must be reviewed as a separate product capability. It must disclose the exact data leaving the computer and cannot become part of recording, device access, or the local automation path by default.
 

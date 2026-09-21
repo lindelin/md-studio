@@ -5,7 +5,6 @@ import { ImportQueue } from '../src/application/import-queue.ts';
 import { SettingsStore } from '../src/application/settings-store.ts';
 import { TaskManager } from '../src/application/task-manager.ts';
 import { WorkspaceStore } from '../src/application/workspace-store.ts';
-import type { LocalLibraryFileReference } from '../src/application/local-library-file.ts';
 import type {
     AdvancedTrackReader,
     AdvancedUploadService,
@@ -318,7 +317,6 @@ describe('InProcessApplicationClient', () => {
             async () => tasks.create('advanced.track-export', 'Advanced export'),
             runAdvancedSession,
             runUploadSession,
-            undefined,
             async (version, operation) => {
                 assert.deepEqual(version, { sessionId: 'session', revision: 3 });
                 const playback: PlaybackSession = {
@@ -342,69 +340,6 @@ describe('InProcessApplicationClient', () => {
         assert.deepEqual(events, ['play']);
     });
 
-    it('captures browser-only library audio processing behind the local client boundary', async () => {
-        const tasks = new TaskManager();
-        const imports = new ImportQueue();
-        const workspace = new WorkspaceStore(tasks, imports, new SettingsStore(null));
-        const requestedPaths: string[] = [];
-        const client = new InProcessApplicationClient(
-            {
-                async execute() {
-                    return { ok: true };
-                },
-            },
-            workspace,
-            imports,
-            async () => tasks.create('track-export', 'Local export'),
-            async () => tasks.create('advanced.memory-export', 'Memory export'),
-            async () => tasks.create('advanced.track-export', 'Advanced export'),
-            runAdvancedSession,
-            runUploadSession,
-            (path) => {
-                requestedPaths.push(path);
-                return async () => Uint8Array.from([1, 2, 3]).buffer;
-            }
-        );
-
-        const processFile = client.createLocalLibraryFileProcessor('Album/Track.flac');
-        const result = await processFile({ format: { codec: 'PCM', bitrate: 1411 }, enableReplayGain: false });
-
-        assert.deepEqual(requestedPaths, ['Album/Track.flac']);
-        assert.deepEqual([...new Uint8Array(result)], [1, 2, 3]);
-    });
-
-    it('keeps local folder files inside the browser client boundary', async () => {
-        const tasks = new TaskManager();
-        const imports = new ImportQueue();
-        const workspace = new WorkspaceStore(tasks, imports, new SettingsStore(null));
-        const selected: LocalLibraryFileReference[][] = [];
-        const client = new InProcessApplicationClient(
-            { async execute() { return { ok: true }; } },
-            workspace,
-            imports,
-            async () => tasks.create('export', 'Local export'),
-            async () => tasks.create('advanced.memory-export', 'Memory export'),
-            async () => tasks.create('advanced.track-export', 'Advanced export'),
-            runAdvancedSession,
-            runUploadSession,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            async (files) => {
-                selected.push(files);
-                return { revision: 1, status: 'ready', database: {}, error: null };
-            }
-        );
-        const file = new File([Uint8Array.from([1])], 'track.wav', { type: 'audio/wav' });
-        const reference = { relativePath: file.name, getFile: () => Promise.resolve(file) };
-
-        const snapshot = await client.loadLocalLibraryFiles([reference]);
-
-        assert.equal(snapshot.status, 'ready');
-        assert.deepEqual(selected, [[reference]]);
-    });
-
     it('routes browser device sessions without exposing protocol services to the UI', async () => {
         const tasks = new TaskManager();
         const imports = new ImportQueue();
@@ -423,7 +358,6 @@ describe('InProcessApplicationClient', () => {
             async () => tasks.create('advanced.track-export', 'Advanced export'),
             runAdvancedSession,
             runUploadSession,
-            undefined,
             undefined,
             undefined,
             {

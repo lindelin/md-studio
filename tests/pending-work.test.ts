@@ -9,7 +9,6 @@ function makeWorkspace(changes: Partial<WorkspaceSnapshot> = {}) {
         imports: { revision: 0, items: [] },
         tasks: [],
         settings: { revision: 0, values: {} },
-        library: { revision: 0, status: 'idle', entryCount: 0, error: null },
         encoder: { revision: 0, status: 'idle', index: null, id: null, name: null, error: null, support: {} },
         ...changes,
     } as WorkspaceSnapshot;

@@ -42,7 +42,6 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import EjectIcon from '@mui/icons-material/Eject';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
-import LibraryMusicIcon from '@mui/icons-material/LibraryMusic';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import QueueMusicIcon from '@mui/icons-material/QueueMusic';
@@ -67,7 +66,6 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import { TopMenu } from '../topmenu';
 import { AboutDialog } from '../about-dialog';
 import { HelpDialog } from '../help-dialog';
-import { WorkbenchLibrary } from './workbench-library';
 import { WorkbenchSettings } from './workbench-settings';
 import { WorkbenchTrackTransfer } from './workbench-track-transfer';
 import { WorkbenchTools } from './workbench-tools';
@@ -81,7 +79,7 @@ import type {
 
 import './workbench.css';
 
-type NavigationSection = 'device' | 'library' | 'settings' | 'automation' | 'tools';
+type NavigationSection = 'device' | 'settings' | 'automation' | 'tools';
 type ContentView = 'plan' | 'disc';
 const PLAN_ROW_HEIGHT = 49;
 type PlanItem =
@@ -954,9 +952,6 @@ export const Workbench = () => {
                     <button aria-label={t('Device')} aria-current={section === 'device' ? 'page' : undefined} className={section === 'device' ? 'is-active' : ''} onClick={() => setSection('device')}>
                         <UsbRoundedIcon /><span>{t('Device')}</span><i className={device ? 'is-online' : ''} />
                     </button>
-                    <button aria-label={t('Library')} aria-current={section === 'library' ? 'page' : undefined} className={section === 'library' ? 'is-active' : ''} onClick={() => setSection('library')}>
-                        <LibraryMusicIcon /><span>{t('Library')}</span>
-                    </button>
                     <button aria-label={t('Import audio')} onClick={open} disabled={!canUpload}><AddRoundedIcon /><span>{t('Import audio')}</span></button>
                     <button aria-label={t('Settings')} aria-current={section === 'settings' ? 'page' : undefined} className={section === 'settings' ? 'is-active' : ''} onClick={() => setSection('settings')}><SettingsRoundedIcon /><span>{t('Settings')}</span></button>
                     <button aria-label={t('Tools')} aria-current={section === 'tools' ? 'page' : undefined} className={`workbench__mobile-only ${section === 'tools' ? 'is-active' : ''}`} onClick={() => setSection('tools')}><TuneRoundedIcon /><span>{t('Tools')}</span></button>
@@ -1027,16 +1022,7 @@ export const Workbench = () => {
                     </section>
                 ) : null}
 
-                {section === 'library' ? (
-                    <WorkbenchLibrary
-                        onImported={(count) => {
-                            setContentView('plan');
-                            setSection('device');
-                            setMessage(language === 'zh-CN' ? `已将 ${count} 首音乐库曲目加入录制计划。` : `${count} library track${count === 1 ? '' : 's'} added to the recording plan.`);
-                        }}
-                        onOpenSettings={() => setSection('settings')}
-                    />
-                ) : section === 'settings' ? (
+                {section === 'settings' ? (
                     <WorkbenchSettings onMessage={setMessage} />
                 ) : section === 'tools' ? (
                     <WorkbenchTools

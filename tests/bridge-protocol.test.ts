@@ -108,7 +108,7 @@ describe('bridge protocol validation', () => {
                     id: 'library-1',
                     command: { type: 'library.refresh' },
                 }),
-            /restricted to the local browser UI/
+            /removed/
         );
     });
 });

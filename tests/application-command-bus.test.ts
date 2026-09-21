@@ -7,22 +7,30 @@ import { TaskManager } from '../src/application/task-manager.ts';
 import { SettingsStore } from '../src/application/settings-store.ts';
 import { WorkspaceStore } from '../src/application/workspace-store.ts';
 import type { TrackRecorder } from '../src/application/track-record.ts';
-import { LibraryCatalog } from '../src/application/library-catalog.ts';
 
 describe('ApplicationCommandBus import writing', () => {
+    it('rejects removed music-library commands without changing direct imports', async () => {
+        const imports = new ImportQueue();
+        imports.add([{ source: { kind: 'browser-file', name: 'track.wav' }, metadata: { title: 'Track' } }]);
+        const before = imports.snapshot();
+        const bus = new ApplicationCommandBus(undefined, new TaskManager(), imports);
+        for (const type of ['library.get', 'library.refresh', 'library.status', 'library.refreshSummary', 'library.list', 'library.search', 'library.import']) {
+            const result = await bus.execute({ type } as any);
+            assert.equal(result.ok, false);
+        }
+        assert.deepEqual(imports.snapshot(), before);
+    });
+
     it('returns a detached copy of the serializable service catalog without a device', async () => {
         const catalog = {
             audioEncoders: [
                 { index: 0, id: 'encoder', name: 'Encoder', available: true, parameters: [] },
             ],
-            libraries: [],
         };
         const bus = new ApplicationCommandBus(
             undefined,
             new TaskManager(),
             new ImportQueue(),
-            undefined,
-            undefined,
             undefined,
             undefined,
             undefined,
@@ -112,56 +120,6 @@ describe('ApplicationCommandBus import writing', () => {
         assert.equal(result.ok && result.workspace?.imports.items[0]?.title, 'Queued');
         assert.equal(result.ok && result.workspace?.settings.values.colorTheme, 'dark');
         assert.deepEqual(result.ok && result.workspace?.tasks, []);
-    });
-
-    it('refreshes the configured library without requiring a device connection', async () => {
-        const database = {
-            'track.wav': { artist: 'Artist', album: 'Album', title: 'Track', duration: 3 },
-        };
-        const catalog = new LibraryCatalog(() => ({
-            async getDatabase() {
-                return database;
-            },
-            async processLocalLibraryFile() {
-                return new ArrayBuffer(0);
-            },
-        }));
-        const bus = new ApplicationCommandBus(
-            undefined,
-            new TaskManager(),
-            new ImportQueue(),
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            undefined,
-            catalog,
-            (paths, expectedLibraryRevision) =>
-                catalog.resolveTracks(paths, expectedLibraryRevision).map((selection) => ({
-                    source: { kind: 'library', name: selection.name, reference: selection.path.join('/') },
-                    metadata: { title: selection.metadata.title, duration: selection.metadata.duration },
-                    payload: { local: true },
-                }))
-        );
-
-        const result = await bus.execute({ type: 'library.refreshSummary' });
-        const page = await bus.execute({ type: 'library.list', limit: 10, expectedRevision: 1 });
-        const search = await bus.execute({ type: 'library.search', query: 'artist', limit: 10, expectedRevision: 1 });
-        const imported = await bus.execute({
-            type: 'library.import',
-            paths: [['track.wav']],
-            expectedLibraryRevision: 1,
-            expectedImportRevision: 0,
-        });
-
-        assert.equal(result.ok && result.libraryState?.status, 'ready');
-        assert.equal(result.ok && result.libraryState?.entryCount, 1);
-        assert.deepEqual(page.ok && page.libraryPage?.items, [
-            { kind: 'track', name: 'track.wav', artist: 'Artist', album: 'Album', title: 'Track', duration: 3 },
-        ]);
-        assert.deepEqual(search.ok && search.librarySearch?.items[0]?.path, ['track.wav']);
-        assert.equal(imported.ok && imported.importQueue?.items[0].kind, 'library');
-        assert.equal(imported.ok && imported.importQueue?.items[0].title, 'Track');
     });
 
     it('returns a structured disconnected error only for commands that need a device', async () => {
@@ -431,15 +389,6 @@ describe('ApplicationCommandBus import writing', () => {
                 },
                 { index: 1, id: 'atracdenc', name: 'Atracdenc', available: true, parameters: [] },
             ],
-            libraries: [
-                {
-                    index: 0,
-                    id: 'browser-folder',
-                    name: 'Local Folder',
-                    available: true,
-                    parameters: [],
-                },
-            ],
             devices: [],
         };
         const bus = new ApplicationCommandBus(
@@ -449,8 +398,6 @@ describe('ApplicationCommandBus import writing', () => {
             undefined,
             undefined,
             settings,
-            undefined,
-            undefined,
             undefined,
             undefined,
             serviceCatalog
@@ -473,15 +420,6 @@ describe('ApplicationCommandBus import writing', () => {
             type: 'settings.update',
             changes: { audioEncoderId: 'remote-atrac' },
         });
-        const localLibrary = await bus.execute({
-            type: 'settings.update',
-            changes: { libraryService: 0 },
-        });
-        const retiredLibrary = await bus.execute({
-            type: 'settings.update',
-            changes: { libraryService: 1 },
-        });
-
         assert.equal(updated.ok && updated.settings?.values.colorTheme, 'dark');
         assert.equal(updated.ok && updated.settings?.values.audioEncoderId, 'atracdenc');
         assert.equal(updated.ok && updated.settings?.values.audioExportService, 1);
@@ -491,9 +429,6 @@ describe('ApplicationCommandBus import writing', () => {
         assert.equal(!unavailableEncoder.ok && unavailableEncoder.error.code, 'INVALID_INPUT');
         assert.equal(retiredEncoder.ok, false);
         assert.equal(!retiredEncoder.ok && retiredEncoder.error.code, 'INVALID_INPUT');
-        assert.equal(localLibrary.ok && localLibrary.settings?.values.libraryService, 0);
-        assert.equal(retiredLibrary.ok, false);
-        assert.equal(!retiredLibrary.ok && retiredLibrary.error.code, 'INVALID_INPUT');
     });
 
     it('reports browser persistence failures to UI and automation clients without advancing settings', async () => {

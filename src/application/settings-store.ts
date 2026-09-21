@@ -14,8 +14,6 @@ export interface UserSettings {
     audioEncoderId: string | null;
     audioExportService: number;
     audioExportServiceConfig: CustomParameters;
-    libraryService: number;
-    libraryServiceConfig: CustomParameters;
     uploadFormat: Record<string, [number, number]>;
     trackTitleFormat: ImportTitleFormat;
 }
@@ -37,8 +35,6 @@ const defaults: UserSettings = {
     audioEncoderId: null,
     audioExportService: 1,
     audioExportServiceConfig: {},
-    libraryService: -1,
-    libraryServiceConfig: {},
     uploadFormat: {},
     trackTitleFormat: 'filename',
 };
@@ -52,8 +48,6 @@ const booleanKeys = new Set<keyof UserSettings>(
                 'audioEncoderId',
                 'audioExportService',
                 'audioExportServiceConfig',
-                'libraryService',
-                'libraryServiceConfig',
                 'uploadFormat',
                 'trackTitleFormat',
             ].includes(key)
@@ -67,8 +61,6 @@ const isAudioEncoderId = (value: unknown): value is string | null =>
     value === null ||
     (typeof value === 'string' && value !== 'remote-atrac' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(value));
 
-const isLibraryServiceIndex = (value: unknown): value is number =>
-    value === -1 || value === 0;
 
 function browserStorage(): Storage | null {
     try {
@@ -83,6 +75,10 @@ export class SettingsStore {
     private readonly listeners = new Set<(snapshot: SettingsSnapshot) => void>();
 
     constructor(private readonly storage: Storage | null = browserStorage()) {
+        // Remove retired catalog preferences without affecting direct audio imports.
+        for (const key of ['libraryService', 'libraryServiceConfig']) {
+            try { this.storage?.removeItem(key); } catch { /* Obsolete preferences are never read. */ }
+        }
         this.snapshot = { revision: 0, values: this.load() };
     }
 
@@ -160,13 +156,6 @@ export class SettingsStore {
                 isPrimitiveRecord,
                 this.storage
             ),
-            libraryService: loadPreference('libraryService', defaults.libraryService, isLibraryServiceIndex, this.storage),
-            libraryServiceConfig: loadPreference(
-                'libraryServiceConfig',
-                defaults.libraryServiceConfig,
-                isPrimitiveRecord,
-                this.storage
-            ),
             uploadFormat: loadPreference('uploadFormat', defaults.uploadFormat, isUploadFormat, this.storage),
             trackTitleFormat: loadPreference(
                 'trackTitleFormat',
@@ -197,14 +186,14 @@ export class SettingsStore {
             }
             return;
         }
-        if (key === 'audioExportService' || key === 'libraryService') {
-            const isValid = key === 'audioExportService' ? isAudioServiceIndex(value) : isLibraryServiceIndex(value);
+        if (key === 'audioExportService') {
+            const isValid = isAudioServiceIndex(value);
             if (!isValid) {
                 throw new ApplicationError('INVALID_INPUT', `${key} must be a valid service index.`);
             }
             return;
         }
-        if (key === 'audioExportServiceConfig' || key === 'libraryServiceConfig') {
+        if (key === 'audioExportServiceConfig') {
             if (!isPrimitiveRecord(value)) {
                 throw new ApplicationError('INVALID_INPUT', `${key} must contain only string, number, or boolean values.`);
             }

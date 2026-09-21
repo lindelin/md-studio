@@ -2,7 +2,7 @@ import { ApplicationError } from './contracts';
 import type { TaskManager, TaskSnapshot } from './task-manager';
 import { INTERACTIVE_HOMEBREW_AUTHORIZATION } from './interactive-authorization';
 
-export type ImportSourceKind = 'browser-file' | 'local-path' | 'library';
+export type ImportSourceKind = 'browser-file' | 'local-path';
 
 export interface ImportSourceDescriptor {
     kind: ImportSourceKind;
@@ -207,7 +207,7 @@ export class ImportQueue {
             throw new ApplicationError('INVALID_INPUT', 'Every import must contain a source and metadata object.');
         }
         this.assertKnownKeys(input.source, SOURCE_KEYS, 'audio source');
-        if (!['browser-file', 'local-path', 'library'].includes(String(input.source.kind))) {
+        if (!['browser-file', 'local-path'].includes(String(input.source.kind))) {
             throw new ApplicationError('INVALID_INPUT', 'The audio source kind is invalid.');
         }
         if (typeof input.source.name !== 'string' || typeof input.source.reference !== 'string') {

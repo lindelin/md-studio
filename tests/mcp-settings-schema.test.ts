@@ -11,8 +11,6 @@ const expectedKeys = [
     'factoryModeNERAWDownload',
     'factoryModeUseSlowerExploit',
     'fullWidthSupport',
-    'libraryService',
-    'libraryServiceConfig',
     'notifyWhenFinished',
     'trackTitleFormat',
     'uiLanguage',

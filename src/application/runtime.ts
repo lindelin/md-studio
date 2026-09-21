@@ -5,12 +5,9 @@ import { MiniDiscApplication } from './minidisc-application';
 import { InProcessApplicationClient } from './application-client';
 import { INTERACTIVE_ADVANCED_AUTHORIZATION } from './interactive-authorization';
 import { BrowserAdvancedTrackExporter } from './advanced-track-export';
-import type { AdaptiveFile } from '../utils';
-import { createDeferredFile } from './deferred-file';
 import { describeDeviceSessionFailure, DeviceSessionConnector } from './device-session';
 import type { MinidiscSpec, NetMDService } from '../services/interfaces/netmd';
 import { loadService } from '../services/interface-service-manager';
-import { LibraryServices } from '../services/library-services';
 
 function connectDeviceSession(service: NetMDService, spec: MinidiscSpec) {
     return new DeviceSessionConnector(serviceRegistry, bindApplicationRuntime).connect(service, spec);
@@ -44,37 +41,6 @@ export function ensureApplicationCommandBus() {
             serviceRegistry.settingsStore,
             serviceRegistry.workspaceStore,
             serviceRegistry.trackRecorder,
-            serviceRegistry.libraryCatalog,
-            (paths, expectedLibraryRevision) => {
-                const selections = serviceRegistry.libraryCatalog.resolveTracks(paths, expectedLibraryRevision);
-                return selections.map((selection) => {
-                    const resolveFile = serviceRegistry.libraryCatalog.createFileResolver(selection.path, expectedLibraryRevision);
-                    const payload: AdaptiveFile | ReturnType<typeof createDeferredFile> = resolveFile
-                        ? createDeferredFile(selection.name, selection.path.join('/'), () => resolveFile())
-                        : {
-                              name: selection.name,
-                              ...selection.metadata,
-                              getForEncoding: serviceRegistry.libraryCatalog.createFileProcessor(selection.path, expectedLibraryRevision),
-                          };
-                    return {
-                        source: {
-                            kind: 'library' as const,
-                            name: selection.name,
-                            reference: selection.path.join('/'),
-                        },
-                        metadata: {
-                            title: selection.metadata.title,
-                            sourceTitle: selection.metadata.title,
-                            artist: selection.metadata.artist,
-                            sourceArtist: selection.metadata.artist,
-                            album: selection.metadata.album,
-                            sourceAlbum: selection.metadata.album,
-                            duration: selection.metadata.duration,
-                        },
-                        payload,
-                    };
-                });
-            },
             serviceRegistry.serviceCatalog
         );
     }
@@ -172,9 +138,6 @@ export function getApplicationClient() {
                     operation,
                     expectedDeviceVersion
                 ),
-            (filePath) => {
-                return serviceRegistry.libraryCatalog.createFileProcessor(filePath.split('/'));
-            },
             (expectedDeviceVersion, operation) => getApplicationRuntime().runPlaybackCaptureSession(expectedDeviceVersion, operation),
             localMediaServices,
             {
@@ -245,15 +208,6 @@ export function getApplicationClient() {
                     serviceRegistry.workspaceStore.setConnection(disconnectedDeviceConnection());
                 },
             },
-            async (files) => {
-                const { indexBrowserFolder } = await import('../services/library/browser-folder-library');
-                await indexBrowserFolder(files);
-                const libraryService = LibraryServices.findIndex((service) => service.id === 'browser-folder');
-                if (libraryService < 0) throw new Error('The local folder library is unavailable.');
-                const current = serviceRegistry.settingsStore.getSnapshot();
-                serviceRegistry.settingsStore.update({ libraryService, libraryServiceConfig: {} }, current.revision);
-                return serviceRegistry.libraryCatalog.refresh();
-            }
         );
     }
     return serviceRegistry.applicationClient;

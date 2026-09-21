@@ -1,6 +1,6 @@
 import type { ApplicationCommand, CommandResult } from './command-bus';
 
-export const BRIDGE_PROTOCOL_VERSION = 3;
+export const BRIDGE_PROTOCOL_VERSION = 4;
 export const BRIDGE_FILE_CHUNK_SIZE = 1024 * 1024;
 const MAX_BASE64_CHARS = Math.ceil(BRIDGE_FILE_CHUNK_SIZE / 3) * 4;
 const BROWSER_ONLY_COMMANDS = new Set([
@@ -10,8 +10,6 @@ const BROWSER_ONLY_COMMANDS = new Set([
     'advanced.setDiscSwapDetectionDisabled',
     'advanced.enableHimdFullMode',
     'advanced.enterServiceMode',
-    'library.get',
-    'library.refresh',
 ]);
 
 export interface BridgeHello {
@@ -114,6 +112,7 @@ export function parseBridgeMessage(value: unknown): BridgeMessage {
             requireId(message.id);
             const command = requireRecord(message.command, 'Bridge command');
             const commandType = requireString(command.type, 'Application command type');
+            if (commandType.startsWith('library.')) throw new Error('Library commands have been removed.');
             if (BROWSER_ONLY_COMMANDS.has(commandType)) {
                 throw new Error(`Application command ${commandType} is restricted to the local browser UI.`);
             }

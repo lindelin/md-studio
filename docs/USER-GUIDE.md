@@ -24,7 +24,6 @@ Only one tab or application can claim a USB interface. If connection fails with 
 - **Device** shows connection, disc capacity, playback, and synchronization state.
 - **Disc** shows tracks already on the inserted disc. Selection drives playback, metadata, groups, export, and maintenance actions.
 - **Recording Plan** contains local audio waiting to be written. Editing this list does not change the disc.
-- **Library** can index a local music folder, then add selected tracks to the recording plan.
 - **Inspector** edits the focused item and applies supported batch metadata to the current selection.
 - **Task Center** shows queued and active work, true completion state, partial results, recovery advice, and completed output files.
 - **Settings** controls defaults and service configuration. Items marked for reload take effect after the page reloads.
@@ -36,16 +35,15 @@ Advanced controls are enabled only when the connected adapter advertises the req
 
 Normal MiniDisc work is local. File import, metadata editing, FFmpeg conversion, ATRAC encoding, queues, caches, exports, MCP/CLI traffic and USB communication stay on this computer. A hosted web version downloads static application files and does not send those jobs to a project server.
 
-Use **Library → Reference local folder** to build a searchable catalog from audio on this computer. Supported Chromium browsers grant a read-only directory handle: the application reads tags for the index and opens a selected track from that local handle only when it is needed. Reloading the page removes that temporary permission, so reference the folder again. The application does not upload the folder, its paths, metadata, or audio. Browsers without the directory-handle API use a file-input compatibility path and may describe the selection as an upload even though this application has no upload destination.
 
-The official application does not include Remote NetMD, a remote ATRAC encoder, a remote music library, or an external song-recognition client. Device access, encoding, the library, and automation therefore remain local without relying on a project server.
+The official application does not include Remote NetMD, a remote ATRAC encoder, a remote music library, or an external song-recognition client. Device access, encoding and automation therefore remain local without relying on a project server.
 
 **Settings → Completion notifications** is also optional and local. Enabling it asks the browser for this site's notification permission at that moment. If permission is unavailable, denied, or later revoked, recording still completes normally and the task result remains in the Task Center; only the desktop notification is skipped.
 
 ## Record audio to a disc
 
 1. Connect the recorder and confirm the correct disc title, capacity, and write-protection state.
-2. Open **Recording Plan**, add local files or choose tracks from **Library**, and arrange the final order.
+2. Open **Recording Plan**, add local audio files, and arrange the final order.
 3. Edit titles, artist, album, groups, and recording format. Use the preview to resolve capacity, title-storage, or codec errors.
 4. Review the exact mode, track count, and capacity in the recording confirmation.
 5. Start the task and watch **Task Center** until it reaches **Succeeded** and the recorder finishes updating its table of contents.

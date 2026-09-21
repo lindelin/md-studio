@@ -3,7 +3,6 @@ import type { ImportQueue, ImportQueueSnapshot } from './import-queue';
 import type { MiniDiscApplication } from './minidisc-application';
 import type { TaskManager, TaskSnapshot } from './task-manager';
 import type { SettingsSnapshot, SettingsStore } from './settings-store';
-import type { LibraryCatalog, LibraryCatalogState } from './library-catalog';
 import type { AudioEncoderManager, AudioEncoderSnapshot } from './audio-encoder-manager';
 
 export interface DeviceConnectionSnapshot {
@@ -19,7 +18,6 @@ export interface WorkspaceSnapshot {
     imports: ImportQueueSnapshot;
     tasks: TaskSnapshot[];
     settings: SettingsSnapshot;
-    library: LibraryCatalogState;
     encoder: AudioEncoderSnapshot;
 }
 
@@ -40,7 +38,6 @@ export class WorkspaceStore {
         private readonly taskManager: TaskManager,
         private readonly importQueue: ImportQueue,
         settingsStore: SettingsStore,
-        libraryCatalog?: LibraryCatalog,
         audioEncoderManager?: AudioEncoderManager
     ) {
         this.snapshot = freezeSnapshot({
@@ -54,7 +51,6 @@ export class WorkspaceStore {
             imports: importQueue.snapshot(),
             tasks: taskManager.list(),
             settings: settingsStore.getSnapshot(),
-            library: libraryCatalog?.getState() ?? { revision: 0, status: 'idle', entryCount: 0, error: null },
             encoder: audioEncoderManager?.getSnapshot() ?? {
                 revision: 0,
                 status: 'idle',
@@ -68,7 +64,6 @@ export class WorkspaceStore {
         taskManager.subscribe(() => this.update({ tasks: taskManager.list() }));
         importQueue.subscribe((imports) => this.update({ imports }));
         settingsStore.subscribe((settings) => this.update({ settings }));
-        libraryCatalog?.subscribe(() => this.update({ library: libraryCatalog.getState() }));
         audioEncoderManager?.subscribe((encoder) => this.update({ encoder }));
     }
 

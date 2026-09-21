@@ -26,15 +26,6 @@ describe('service catalog', () => {
             ],
             [
                 {
-                    id: 'library',
-                    name: 'Library',
-                    customParameters: [
-                        { userFriendlyName: 'Address', varName: 'address', type: 'string', defaultValue: 'https://example.test/' },
-                    ],
-                },
-            ],
-            [
-                {
                     id: 'usb-device',
                     name: 'USB Device',
                     catalogDescription: 'Connect to a device through browser USB.',
@@ -71,7 +62,6 @@ describe('service catalog', () => {
             requiresBrowserUsb: true,
             parameters: [],
         });
-        assert.equal(catalog.libraries[0].id, 'library');
         assert.doesNotThrow(() => JSON.stringify(catalog));
     });
 });

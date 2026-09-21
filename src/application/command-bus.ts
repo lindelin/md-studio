@@ -30,18 +30,10 @@ import { SettingsStore, type SettingsSnapshot, type UserSettingsUpdate } from '.
 import { ApplicationError } from './contracts';
 import type { WorkspaceSnapshot, WorkspaceStore } from './workspace-store';
 import { INTERACTIVE_ADVANCED_AUTHORIZATION } from './interactive-authorization';
-import type {
-    LibraryCatalog,
-    LibraryCatalogPage,
-    LibraryCatalogSearchPage,
-    LibraryCatalogSnapshot,
-    LibraryCatalogState,
-} from './library-catalog';
 import type { ServiceCatalogSnapshot } from './service-catalog';
 import type { ImportPreview } from './import-preview';
 import type { RawTocPatchKind } from '../domain/raw-toc-contract';
 
-export type LibraryImportFactory = (paths: string[][], expectedLibraryRevision?: number) => ImportQueueInput[];
 
 export type ApplicationCommand =
     | { type: 'workspace.get' }
@@ -98,18 +90,6 @@ export type ApplicationCommand =
       }
     | { type: 'settings.get' }
     | { type: 'settings.update'; changes: UserSettingsUpdate; expectedRevision?: number }
-    | { type: 'library.get' }
-    | { type: 'library.refresh' }
-    | { type: 'library.status' }
-    | { type: 'library.refreshSummary' }
-    | { type: 'library.list'; path?: string[]; offset?: number; limit?: number; expectedRevision?: number }
-    | { type: 'library.search'; query: string; offset?: number; limit?: number; expectedRevision?: number }
-    | {
-          type: 'library.import';
-          paths: string[][];
-          expectedLibraryRevision?: number;
-          expectedImportRevision?: number;
-      }
     | { type: 'track.renameMany'; updates: TrackMetadataUpdate[]; expectedRevision?: number }
     | { type: 'track.renameHimdMany'; updates: HiMDTrackMetadataUpdate[]; expectedRevision?: number }
     | { type: 'track.move'; sourceIndex: number; destinationIndex: number; expectedRevision?: number }
@@ -160,10 +140,6 @@ export interface CommandSuccess {
     advancedTocWritePreview?: AdvancedTocWritePreview;
     advancedTocPatch?: AdvancedTocPatchPreview;
     settings?: SettingsSnapshot;
-    library?: LibraryCatalogSnapshot;
-    libraryState?: LibraryCatalogState;
-    libraryPage?: LibraryCatalogPage;
-    librarySearch?: LibraryCatalogSearchPage;
     workspace?: WorkspaceSnapshot;
     services?: ServiceCatalogSnapshot;
     importPreview?: ImportPreview;
@@ -186,8 +162,6 @@ export class ApplicationCommandBus {
         private readonly settings = new SettingsStore(null),
         private readonly workspace?: WorkspaceStore,
         private trackRecorder?: TrackRecorder,
-        private readonly libraryCatalog?: LibraryCatalog,
-        private readonly libraryImportFactory?: LibraryImportFactory,
         private readonly serviceCatalog?: ServiceCatalogSnapshot
     ) {}
 
@@ -219,12 +193,6 @@ export class ApplicationCommandBus {
                               imports: this.imports.snapshot(),
                               tasks: this.tasks.list(),
                               settings: this.settings.getSnapshot(),
-                              library: this.libraryCatalog?.getState() ?? {
-                                  revision: 0,
-                                  status: 'idle',
-                                  entryCount: 0,
-                                  error: null,
-                              },
                               encoder: {
                                   revision: 0,
                                   status: 'idle',
@@ -265,66 +233,7 @@ export class ApplicationCommandBus {
                     changes.audioEncoderId = encoder.id;
                     changes.audioExportService = index;
                 }
-                if (this.serviceCatalog && changes.libraryService !== undefined && changes.libraryService >= 0) {
-                    const library = this.serviceCatalog.libraries[changes.libraryService];
-                    if (!library) {
-                        throw new ApplicationError('INVALID_INPUT', `Unknown library service index: ${changes.libraryService}.`);
-                    }
-                }
                 return { ok: true, settings: this.settings.update(changes, command.expectedRevision) };
-            }
-            if (command.type === 'library.get') {
-                if (!this.libraryCatalog) throw new Error('The library catalog is unavailable in this application environment.');
-                return { ok: true, library: structuredClone(this.libraryCatalog.getSnapshot()) };
-            }
-            if (command.type === 'library.refresh') {
-                if (!this.libraryCatalog) throw new Error('The library catalog is unavailable in this application environment.');
-                return { ok: true, library: structuredClone(await this.libraryCatalog.refresh()) };
-            }
-            if (command.type === 'library.status') {
-                if (!this.libraryCatalog) throw new Error('The library catalog is unavailable in this application environment.');
-                return { ok: true, libraryState: structuredClone(this.libraryCatalog.getState()) };
-            }
-            if (command.type === 'library.refreshSummary') {
-                if (!this.libraryCatalog) throw new Error('The library catalog is unavailable in this application environment.');
-                await this.libraryCatalog.refresh();
-                return { ok: true, libraryState: structuredClone(this.libraryCatalog.getState()) };
-            }
-            if (command.type === 'library.list') {
-                if (!this.libraryCatalog) throw new Error('The library catalog is unavailable in this application environment.');
-                return {
-                    ok: true,
-                    libraryPage: this.libraryCatalog.list(
-                        command.path,
-                        command.offset,
-                        command.limit,
-                        command.expectedRevision
-                    ),
-                };
-            }
-            if (command.type === 'library.search') {
-                if (!this.libraryCatalog) throw new Error('The library catalog is unavailable in this application environment.');
-                return {
-                    ok: true,
-                    librarySearch: this.libraryCatalog.search(
-                        command.query,
-                        command.offset,
-                        command.limit,
-                        command.expectedRevision
-                    ),
-                };
-            }
-            if (command.type === 'library.import') {
-                if (!this.libraryImportFactory) {
-                    throw new Error('Library audio import is unavailable in this application environment.');
-                }
-                return {
-                    ok: true,
-                    importQueue: this.imports.add(
-                        this.libraryImportFactory(command.paths, command.expectedLibraryRevision),
-                        command.expectedImportRevision
-                    ),
-                };
             }
             if (command.type === 'import.add') {
                 return { ok: true, importQueue: this.imports.add(command.inputs, command.expectedRevision) };

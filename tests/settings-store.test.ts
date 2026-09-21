@@ -57,8 +57,6 @@ describe('SettingsStore', () => {
                 audioEncoderId: 'atracdenc',
                 audioExportService: 1,
                 audioExportServiceConfig: { bitrate: 256, normalize: true },
-                libraryService: 0,
-                libraryServiceConfig: {},
                 uploadFormat: { 'Mock NetMD': [1, 2] },
                 trackTitleFormat: 'artist-title',
             },
@@ -73,8 +71,6 @@ describe('SettingsStore', () => {
         assert.equal(reloaded.values.audioEncoderId, 'atracdenc');
         assert.equal(reloaded.values.audioExportService, 1);
         assert.deepEqual(reloaded.values.audioExportServiceConfig, { bitrate: 256, normalize: true });
-        assert.equal(reloaded.values.libraryService, 0);
-        assert.deepEqual(reloaded.values.libraryServiceConfig, {});
         assert.deepEqual(reloaded.values.uploadFormat, { 'Mock NetMD': [1, 2] });
         assert.equal(reloaded.values.trackTitleFormat, 'artist-title');
         assert.deepEqual(revisions, [1]);
@@ -84,10 +80,10 @@ describe('SettingsStore', () => {
         const settings = new SettingsStore(new MemoryStorage());
         const config = { endpoint: 'https://example.test/library' };
 
-        settings.update({ libraryServiceConfig: config });
+        settings.update({ audioExportServiceConfig: config });
         config.endpoint = 'https://mutated.invalid/';
 
-        assert.equal(settings.getSnapshot().values.libraryServiceConfig.endpoint, 'https://example.test/library');
+        assert.equal(settings.getSnapshot().values.audioExportServiceConfig.endpoint, 'https://example.test/library');
     });
 
     it('rejects stale, empty, and malformed updates without changing state', () => {
@@ -156,8 +152,6 @@ describe('SettingsStore', () => {
         assert.equal(snapshot.values.audioExportService, 1);
         assert.equal(snapshot.values.audioEncoderId, null);
         assert.deepEqual(snapshot.values.audioExportServiceConfig, { quality: 'high' });
-        assert.equal(snapshot.values.libraryService, -1);
-        assert.deepEqual(snapshot.values.libraryServiceConfig, {});
         assert.deepEqual(snapshot.values.uploadFormat, {});
         assert.equal(snapshot.values.trackTitleFormat, 'filename');
         assert.equal(storage.getItem('audioExportService'), null);

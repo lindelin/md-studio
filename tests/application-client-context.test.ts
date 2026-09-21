@@ -17,7 +17,6 @@ const snapshot = {
     imports: { revision: 3, items: [] },
     tasks: [],
     settings: { revision: 0, values: { colorTheme: 'dark' } },
-    library: { revision: 0, status: 'idle', entryCount: 0, error: null },
     encoder: { revision: 0, status: 'idle', index: null, id: null, name: null, error: null, support: {} },
 } as WorkspaceSnapshot;
 

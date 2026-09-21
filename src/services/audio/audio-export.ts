@@ -31,8 +31,7 @@ export function getFfmpegInputExtension(fileName: string) {
 /**
  * Shared browser-side FFmpeg lifecycle and PCM/MP3 conversion.
  *
- * Library services use this class directly because ATRAC conversion is handled by
- * their own server. Full audio encoders extend DefaultFfmpegAudioExportService.
+ * Audio encoders extend DefaultFfmpegAudioExportService for local conversion.
  */
 export class FfmpegPcmMp3Transcoder {
     public ffmpegProcess?: FfmpegWorker;

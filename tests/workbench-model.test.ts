@@ -16,15 +16,12 @@ import {
     getDiscMaintenanceConfirmationToken,
     isActiveUninterruptibleWrite,
     isDiscMaintenanceConfirmationValid,
-    libraryPathKey,
     localizeTaskLabel,
     localizeTaskMessage,
     localizeSelfTestReadinessReason,
     resolveRowNavigationIndex,
     summarizeTaskResult,
     taskProgressPercent,
-    toggleLibraryTrackSelection,
-    toggleVisibleLibraryTracks,
     updateOrderedSelection,
 } from '../src/components/workbench/workbench-model';
 
@@ -91,23 +88,6 @@ describe('Studio Workbench service settings', () => {
     });
 });
 
-describe('Studio Workbench library selection', () => {
-    const one = { path: ['Albums', 'One.wav'], title: 'One' };
-    const two = { path: ['Albums', 'Two.wav'], title: 'Two' };
-    const sameNameElsewhere = { path: ['Singles', 'One.wav'], title: 'One' };
-
-    it('uses the full path as the stable track identity', () => {
-        assert.notEqual(libraryPathKey(one.path), libraryPathKey(sameNameElsewhere.path));
-        assert.deepEqual(toggleLibraryTrackSelection([one], sameNameElsewhere), [one, sameNameElsewhere]);
-        assert.deepEqual(toggleLibraryTrackSelection([one, sameNameElsewhere], one), [sameNameElsewhere]);
-    });
-
-    it('adds visible tracks once in display order and removes the visible set together', () => {
-        assert.deepEqual(toggleVisibleLibraryTracks([one], [one, two]), [one, two]);
-        assert.deepEqual(toggleVisibleLibraryTracks([one, sameNameElsewhere, two], [one, two]), [sameNameElsewhere]);
-        assert.deepEqual(toggleVisibleLibraryTracks([one], []), [one]);
-    });
-});
 
 describe('Studio Workbench batch metadata', () => {
     it('applies title fields to the primary row and shared fields to every selected row', () => {

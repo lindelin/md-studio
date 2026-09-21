@@ -13,11 +13,8 @@ import type {
     PlaybackSession,
 } from './contracts';
 import type { AdvancedBadSectorHandler, AdvancedTrackExportRequest } from './advanced-track-export';
-import type { ExportParams } from '../services/audio/audio-export';
 import type { LocalAudioInput } from './browser-audio-input';
 import type { CustomParameters } from '../custom-parameters';
-import type { LibraryCatalogSnapshot } from './library-catalog';
-import type { LocalLibraryFileReference } from './local-library-file';
 
 export type LocalAdvancedMemorySink = (region: AdvancedMemoryRegion, data: Uint8Array) => void | Promise<void>;
 
@@ -71,8 +68,6 @@ export interface ApplicationClient {
         onProgress: (percentage: number) => void,
         isCancelled: () => boolean
     ): Promise<Uint8Array>;
-    createLocalLibraryFileProcessor(filePath: string): (params: ExportParams) => Promise<ArrayBuffer>;
-    loadLocalLibraryFiles(files: LocalLibraryFileReference[]): Promise<LibraryCatalogSnapshot>;
     getWorkspaceSnapshot(): WorkspaceSnapshot;
     subscribe(listener: () => void): () => void;
 }
@@ -98,7 +93,6 @@ export class InProcessApplicationClient implements ApplicationClient {
             operation: (uploadService: DeviceUploadService, advancedUploadService?: AdvancedUploadService) => Promise<T>,
             expectedDeviceVersion?: { sessionId: string; revision: number }
         ) => Promise<{ value: T; snapshot: DeviceSnapshot }>,
-        private readonly localLibraryFileProcessor?: (filePath: string) => (params: ExportParams) => Promise<ArrayBuffer>,
         private readonly localPlaybackCaptureSession?: <T>(
             expectedDeviceVersion: { sessionId: string; revision: number },
             operation: (playback: PlaybackSession) => Promise<T>
@@ -111,7 +105,6 @@ export class InProcessApplicationClient implements ApplicationClient {
             connect(request: LocalDeviceConnectionRequest): Promise<LocalDeviceConnectionResult>;
             disconnect(finalize?: boolean): Promise<void>;
         },
-        private readonly localLibraryLoader?: (files: LocalLibraryFileReference[]) => Promise<LibraryCatalogSnapshot>
     ) {}
 
     execute = (command: ApplicationCommand) => this.commands.execute(command);
@@ -175,18 +168,6 @@ export class InProcessApplicationClient implements ApplicationClient {
             throw new Error('Browser audio input is unavailable in this application environment.');
         }
         return this.localMediaServices.audioInput.captureWav(deviceId, durationMs, onProgress, isCancelled);
-    };
-    createLocalLibraryFileProcessor = (filePath: string) => {
-        if (!this.localLibraryFileProcessor) {
-            throw new Error('The local library is unavailable in this application environment.');
-        }
-        return this.localLibraryFileProcessor(filePath);
-    };
-    loadLocalLibraryFiles = (files: LocalLibraryFileReference[]) => {
-        if (!this.localLibraryLoader) {
-            throw new Error('Local folder selection is unavailable in this application environment.');
-        }
-        return this.localLibraryLoader(files);
     };
     getWorkspaceSnapshot = this.workspace.getSnapshot;
     subscribe = this.workspace.subscribe;

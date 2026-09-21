@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { describe, it } from 'node:test';
-import { LibraryServices } from '../src/services/library-services.ts';
 import { AudioServices } from '../src/services/audio-export-service-manager.ts';
 import { Services } from '../src/services/interface-service-manager.ts';
 
@@ -33,8 +32,6 @@ describe('independent project identity', () => {
     });
 
     it('keeps obsolete upstream integration artifacts and branding out of product-facing services', async () => {
-        const productCopy = LibraryServices.map((service) => service.description ?? '').join('\n');
-        assert.doesNotMatch(productCopy, /Web MiniDisc(?: Pro)?/i);
 
         await assert.rejects(
             () => access(new URL('../webminidisc-song-recognition.user.js', import.meta.url), constants.F_OK),
@@ -51,11 +48,6 @@ describe('independent project identity', () => {
             const source = await readFile(new URL(path, import.meta.url), 'utf8');
             assert.doesNotMatch(source, /minidisc\.wiki\/guides/i);
         }
-    });
-
-    it('offers only the local folder library in the local-only product catalog', () => {
-        assert.deepEqual(LibraryServices.map((service) => service.id), ['browser-folder']);
-        assert.deepEqual(LibraryServices[0].customParameters, undefined);
     });
 
     it('keeps remote services and their dependency out of the local-only release', async () => {

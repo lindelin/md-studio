@@ -22,7 +22,6 @@ export interface ConfigurableServiceDescriptor {
 export interface ServiceCatalogSnapshot {
     devices: ConfigurableServiceDescriptor[];
     audioEncoders: ConfigurableServiceDescriptor[];
-    libraries: ConfigurableServiceDescriptor[];
 }
 
 interface ServicePrototype {
@@ -38,13 +37,11 @@ interface ServicePrototype {
 
 export function createServiceCatalog(
     audioEncoders: readonly ServicePrototype[],
-    libraries: readonly ServicePrototype[],
     devices: readonly ServicePrototype[] = []
 ): ServiceCatalogSnapshot {
     return structuredClone({
         devices: devices.map(toDescriptor),
         audioEncoders: audioEncoders.map(toDescriptor),
-        libraries: libraries.map(toDescriptor),
     });
 }
 
