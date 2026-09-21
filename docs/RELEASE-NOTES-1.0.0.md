@@ -6,11 +6,15 @@ Make MD discs with AI: organize titles, Japanese readings, track order and group
 
 Download **MD-Studio-Setup-1.0.0.exe**. No source checkout or Node.js required. Standard encoding and the verified Zadig installer are included. For setup and examples, see the [English manual](https://github.com/lindelin/md-studio/blob/v1.0.0/docs/manual/en.md).
 
+![MD Studio English interface](https://raw.githubusercontent.com/lindelin/md-studio/main/docs/images/md-studio-english.png)
+
 ## 简体中文
 
 让 AI 帮你制作 MD：整理曲名、日文读音、曲序和分组，检查后再录制。首个公开版本包含 Windows 桌面应用、中日英界面、内置 CLI、固定地址的本地 HTTP MCP 和标签整理 Skill，支持托盘后台运行。
 
 下载 **MD-Studio-Setup-1.0.0.exe** 即可，无需源码或 Node.js。标准编码流程和经过校验的 Zadig 安装器已包含。使用方法见[中文手册](https://github.com/lindelin/md-studio/blob/v1.0.0/docs/manual/zh-CN.md)。
+
+![MD Studio 中文界面](https://raw.githubusercontent.com/lindelin/md-studio/main/docs/images/md-studio-zh-cn.png)
 
 ## 日本語
 
