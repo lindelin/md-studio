@@ -16,9 +16,9 @@ describe('independent project identity', () => {
 
         assert.equal(packageJson.name, 'minidisc-workspace');
         assert.match(packageJson.description ?? '', /MiniDisc workspace/i);
-        assert.match(indexHtml, /<title>MiniDisc Workspace<\/title>/);
-        assert.match(viteConfig, /"name": "MiniDisc Workspace"/);
-        assert.match(viteConfig, /"short_name": "MD Workspace"/);
+        assert.match(indexHtml, /<title>MD Studio<\/title>/);
+        assert.match(viteConfig, /"name": "MD Studio"/);
+        assert.match(viteConfig, /"short_name": "MD Studio"/);
     });
 
     it('keeps a source-controlled version module available before any build step', async () => {

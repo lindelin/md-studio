@@ -107,7 +107,7 @@ export const Welcome = () => {
                 <section className="welcome-workspace__hero">
                     <span className="welcome-workspace__eyebrow">{t('MINIDISC, MODERNIZED')}</span>
                     <h1>{t('Your MiniDisc, organized.')}</h1>
-                    <p>{t('Connect, arrange, record and recover from one focused workspace.')}</p>
+                    <p>{t('Connect, arrange and record MDs with AI in one studio.')}</p>
                     <div className="welcome-workspace__proofs" aria-label={t('Application highlights')}>
                         <span><UsbRoundedIcon />{t('Local USB control')}</span>
                         <span><CheckCircleOutlineRoundedIcon />{t('No account required')}</span>
@@ -157,7 +157,7 @@ export const Welcome = () => {
             <section className="welcome-workspace__features" aria-label={t('Application highlights')}>
                 <article><LibraryMusicRoundedIcon /><div><strong>{t('Built for real collections')}</strong><p>{t('Arrange tracks and groups before recording, with capacity and title checks.')}</p></div></article>
                 <article><CheckCircleOutlineRoundedIcon /><div><strong>{t('One queue for every workflow')}</strong><p>{t('The interface, MCP and CLI share the same plan and task state.')}</p></div></article>
-                <article><SecurityRoundedIcon /><div><strong>{t('Safer advanced tools')}</strong><p>{t('Destructive actions require a review and exact confirmation.')}</p></div></article>
+                <article><SecurityRoundedIcon /><div><strong>{t('AI-assisted MD creation')}</strong><p>{t('Review titles, groups and capacity before recording.')}</p></div></article>
             </section>
 
             <footer className="welcome-workspace__footer">

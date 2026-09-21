@@ -135,45 +135,6 @@ function createServer() {
         async ({ changes, expectedRevision }) => execute({ type: 'settings.update', changes, expectedRevision })
     );
     server.registerTool(
-        'minidisc_get_advanced_device_info',
-        {
-            description: 'Read firmware and supported advanced maintenance capabilities from a factory-capable NetMD device.',
-            inputSchema: z.object({}),
-        },
-        async () => execute({ type: 'advanced.inspect' })
-    );
-    server.registerTool(
-        'minidisc_read_raw_toc',
-        {
-            description:
-                'Read all six raw UTOC sectors without modifying the disc. Returns bounded base64 data and a SHA-256 checksum.',
-            inputSchema: z.object({}),
-        },
-        async () => execute({ type: 'advanced.readToc' })
-    );
-    server.registerTool(
-        'minidisc_preview_raw_toc_write',
-        {
-            description:
-                'Compare a complete six-sector raw UTOC image with the current disc and report changed writable sectors, byte counts, and checksums. This never writes the disc.',
-            inputSchema: z.object({
-                dataBase64: z.string().min(1).max(20_000),
-            }).strict(),
-        },
-        async ({ dataBase64 }) => execute({ type: 'advanced.previewTocWrite', dataBase64 })
-    );
-    server.registerTool(
-        'minidisc_preview_toc_flag_change',
-        {
-            description:
-                'Read the current raw TOC and preview how many tracks and fragments would change when removing SCMS restrictions or marking every track writable. This never writes the disc.',
-            inputSchema: z.object({
-                kind: z.enum(['unrestrict-scms', 'mark-tracks-writable']),
-            }),
-        },
-        async ({ kind }) => execute({ type: 'advanced.previewTocPatch', kind })
-    );
-    server.registerTool(
         'minidisc_rename_disc',
         {
             description: 'Rename the current disc and return its refreshed state.',
@@ -184,37 +145,6 @@ function createServer() {
             }),
         },
         async (input) => execute({ type: 'disc.rename', ...input })
-    );
-    server.registerTool(
-        'minidisc_export_metadata_csv',
-        {
-            description: 'Export current disc, group, track, and HiMD metadata as a round-trippable CSV document.',
-            inputSchema: z.object({}),
-        },
-        async () => execute({ type: 'metadata.exportCsv' })
-    );
-    server.registerTool(
-        'minidisc_plan_metadata_csv',
-        {
-            description:
-                'Validate a metadata CSV against the current disc without writing it. Review track-count and content mismatches before applying.',
-            inputSchema: z.object({ text: z.string().min(1).max(1024 * 1024) }),
-        },
-        async ({ text }) => execute({ type: 'metadata.planCsv', text })
-    );
-    server.registerTool(
-        'minidisc_apply_metadata_csv',
-        {
-            description:
-                'Apply a previously reviewed metadata CSV. includedTrackIndexes are zero-based; an empty list applies only the disc title and preserves current groups.',
-            inputSchema: z.object({
-                text: z.string().min(1).max(1024 * 1024),
-                includedTrackIndexes: z.array(z.number().int().nonnegative()),
-                expectedRevision: z.number().int().nonnegative().optional(),
-            }),
-        },
-        async ({ text, includedTrackIndexes, expectedRevision }) =>
-            execute({ type: 'metadata.applyCsv', text, includedTrackIndexes, expectedRevision })
     );
     server.registerTool(
         'minidisc_rename_tracks',
@@ -305,36 +235,6 @@ function createServer() {
         async (input) => execute({ type: 'track.move', ...input })
     );
     server.registerTool(
-        'minidisc_export_tracks',
-        {
-            description:
-                'Start a background export of MiniDisc tracks into an existing local directory. Read the returned task until it completes.',
-            inputSchema: z.object({
-                indexes: z.array(z.number().int().nonnegative()).min(1),
-                outputDirectory: z.string().min(1),
-                convertToWav: z.boolean().optional(),
-                expectedRevision: z.number().int().nonnegative().optional(),
-            }),
-        },
-        async ({ indexes, outputDirectory, convertToWav, expectedRevision }) => {
-            try {
-                const output = await localOutputs.registerDirectory(outputDirectory);
-                return await execute({
-                    type: 'track.export',
-                    indexes,
-                    outputHandle: output.handle,
-                    convertToWav,
-                    expectedRevision,
-                });
-            } catch (error) {
-                return {
-                    content: [{ type: 'text' as const, text: error instanceof Error ? error.message : String(error) }],
-                    isError: true,
-                };
-            }
-        }
-    );
-    server.registerTool(
         'minidisc_delete_tracks',
         {
             description: 'Permanently delete tracks after explicit user confirmation.',
@@ -408,15 +308,6 @@ function createServer() {
             ]),
         },
         async (command) => execute({ type: 'playback.control', command })
-    );
-    server.registerTool(
-        'minidisc_run_device_self_test',
-        {
-            description:
-                'Run the destructive device diagnostic. It renames content, exercises playback and ordering, deletes a track, and finally erases the entire disc. Use only with a disposable test disc.',
-            inputSchema: z.object({ confirmed: z.literal(true), reason: z.string().min(1) }),
-        },
-        async ({ confirmed, reason }) => execute({ type: 'diagnostics.selfTest', confirmation: { confirmed, reason } })
     );
     server.registerTool(
         'minidisc_list_tasks',

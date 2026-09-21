@@ -89,7 +89,7 @@ The serializable command surface currently contains:
 
 `workspace.get`, `services.get`, `settings.get`, `settings.update`, `disc.refresh`, `device.pollStatus`, `disc.rename`, `disc.erase`, `disc.formatHimd`, `device.flush`, `disc.eject`, `metadata.exportCsv`, `metadata.planCsv`, `metadata.applyCsv`, `advanced.inspect`, `advanced.readToc`, `advanced.previewTocWrite`, `advanced.previewTocPatch`, `advanced.writeToc`, `advanced.applyTocPatch`, `advanced.setSpUploadSpeedup`, `advanced.setDiscSwapDetectionDisabled`, `advanced.enableHimdFullMode`, `advanced.enterServiceMode`, `track.renameMany`, `track.renameHimdMany`, `track.move`, `track.export`, `track.record`, `track.deleteMany`, `group.rename`, `group.create`, `group.deleteMany`, `playback.control`, `diagnostics.selfTest`, `task.list`, `task.get`, `task.cancel`, `import.list`, `import.add`, `import.update`, `import.updateMany`, `import.move`, `import.remove`, `import.clear`, `import.preview`, and `import.write`.
 
-The local MCP server exposes 39 friendly tools over the same command bus. Raw TOC application, device memory reads, recovery export, Homebrew upload authorization and device mode changes remain browser-only because their in-memory capabilities cannot be represented by a JSON client.
+The local MCP server exposes 30 friendly tools over the same command bus. Raw TOC application, device memory reads, recovery export, Homebrew upload authorization and device mode changes remain browser-only because their in-memory capabilities cannot be represented by a JSON client.
 
 The friendly tool surface is: `minidisc_get_workspace`, `minidisc_list_services`, `minidisc_get_status`, `minidisc_get_settings`, `minidisc_update_settings`, `minidisc_get_advanced_device_info`, `minidisc_read_raw_toc`, `minidisc_preview_raw_toc_write`, `minidisc_preview_toc_flag_change`, `minidisc_rename_disc`, `minidisc_export_metadata_csv`, `minidisc_plan_metadata_csv`, `minidisc_apply_metadata_csv`, `minidisc_rename_tracks`, `minidisc_rename_himd_tracks`, `minidisc_create_group`, `minidisc_rename_group`, `minidisc_delete_groups`, `minidisc_move_track`, `minidisc_export_tracks`, `minidisc_delete_tracks`, `minidisc_erase_disc`, `minidisc_format_himd`, `minidisc_flush_device`, `minidisc_eject_disc`, `minidisc_control_playback`, `minidisc_run_device_self_test`, `minidisc_list_tasks`, `minidisc_cancel_task`, `minidisc_get_task`, `minidisc_list_imports`, `minidisc_add_imports`, `minidisc_update_import`, `minidisc_update_imports`, `minidisc_move_import`, `minidisc_remove_imports`, `minidisc_clear_imports`, `minidisc_preview_imports`, and `minidisc_write_imports`.
 
@@ -103,3 +103,8 @@ The friendly tool surface is: `minidisc_get_workspace`, `minidisc_list_services`
 
 
 Local music-library browsing, indexing, settings, and commands were removed at the user's request. Import audio files directly into the recording plan.
+
+
+## MD Studio product scope
+
+The UI now focuses on recording plans, disc metadata/groups and AI-assisted creation. Tools, recovery/export entry points and advanced settings have been removed. The MCP catalog no longer advertises CSV, export, diagnostics or firmware/TOC tools. Internal protocol implementation remains preserved. SP/LP2/LP4 labels reflect the actual selected or device-reported codec.

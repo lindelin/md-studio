@@ -31,3 +31,5 @@
 @media (max-width: 680px) {
     .help-dialog { grid-template-columns: 1fr; }
 }
+
+.help-dialog pre { overflow-x: auto; padding: 16px; background: rgba(127,127,127,.12); border-radius: 6px; white-space: pre; }

@@ -93,7 +93,7 @@ export const AppDialog = ({
             >
                 <header className="app-dialog__header">
                     <div>
-                        <span className="app-dialog__eyebrow">MINIDISC WORKSPACE</span>
+                        <span className="app-dialog__eyebrow">MD STUDIO</span>
                         <h2 id={titleId}>{title}</h2>
                     </div>
                     {showCloseButton ? (

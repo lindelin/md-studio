@@ -62,3 +62,5 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 See the [user guide](USER-GUIDE.md) for device workflows, the [automation guide](AUTOMATION.md) for MCP and CLI, and the repository `NOTICE.md`, `THIRD_PARTY_LICENSES.md`, and `RUNTIME_ASSETS.json` for attribution and redistribution details.
 
 - Removed local music-library browsing, indexing, folder helpers, settings and MCP commands. Direct file import remains available.
+
+- MD Studio: use SP/LP2/LP4 labels, show selected mode and NetMD/Hi-MD explicitly, place notices outside controls, improve button contrast, expose Group navigation/creation, remove the Tools and recovery/export UI, and include bilingual local MCP setup help. Unsupported software eject is presented as Disconnect.

@@ -66,7 +66,7 @@
 .workbench__sidebar-footer span { font-size: 11px; }
 .workbench__sidebar-footer small { display: block; margin-top: 2px; color: #566974; font-size: 9px; }
 
-.workbench__main { position: relative; display: grid; grid-template-rows: 82px 164px minmax(0, 1fr) 70px; min-width: 0; min-height: 0; overflow: hidden; }
+.workbench__main { position: relative; display: grid; grid-template-rows: 82px auto 164px minmax(0, 1fr) 70px; min-width: 0; min-height: 0; overflow: hidden; }
 .workbench__header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--wb-border); padding: 0 30px; background: #101a22; }
 .workbench__eyebrow { display: block; color: #7390a0; font-size: 9px; font-weight: 700; letter-spacing: .16em; }
 .workbench__header h1 { margin: 4px 0 0; font-size: 20px; font-weight: 600; letter-spacing: .01em; }
@@ -151,7 +151,7 @@
 .secondary-button { border: 1px solid #35505f; color: #cfdae0; background: #182832; }
 .secondary-button:hover { color: #fff; border-color: #487083; background: #1b303c; }
 .danger-button { border: 1px solid #713f48; color: #ff9ba0; background: #2a2026; }
-.primary-button:disabled, .secondary-button:disabled, .danger-button:disabled { opacity: .35; cursor: default; filter: none; }
+.primary-button:disabled, .secondary-button:disabled, .danger-button:disabled { opacity: 1; color: #b9c9d4; background: #253744; border-color: #465f70; box-shadow: none; cursor: not-allowed; filter: none; }
 .primary-button svg, .secondary-button svg, .danger-button svg { font-size: 18px; }
 .workbench__compact-button { min-height: 32px; padding-inline: 10px; font-size: 10px; }
 
@@ -345,7 +345,7 @@
 .workbench__self-test-modal { width: min(540px, 100%); }
 .workbench__drop-overlay { position: fixed; z-index: 1500; inset: 22px; display: grid; place-items: center; align-content: center; gap: 18px; border: 2px dashed var(--wb-accent); border-radius: 14px; color: #dff6ff; background: rgba(7,18,26,.92); }
 .workbench__drop-overlay svg { color: var(--wb-accent); font-size: 64px; }
-.workbench__toast { position: fixed; z-index: 1600; right: 28px; bottom: 88px; max-width: 420px; border: 1px solid #365365; border-radius: 6px; padding: 12px 16px; color: #e8f4fa; background: #182a35; box-shadow: 0 12px 30px rgba(0,0,0,.32); cursor: pointer; }
+.workbench__toast { flex: none; align-self: stretch; margin: 8px 28px; border: 1px solid #50748a; border-radius: 6px; padding: 10px 16px; color: #f2f8fc; background: #182a35; cursor: pointer; text-align: left; }
 .workbench__modal-backdrop { position: fixed; z-index: 1700; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(3, 10, 15, .72); backdrop-filter: blur(3px); }
 .workbench__modal { width: min(420px, 100%); border: 1px solid #36586a; border-radius: 9px; padding: 24px; background: #14242e; box-shadow: 0 24px 70px rgba(0,0,0,.5); }
 .workbench__modal h2 { margin: 7px 0 8px; font-size: 20px; }
@@ -466,7 +466,7 @@
     .workbench__nav { display: grid; grid-template-columns: repeat(5, 1fr); }
     .workbench__nav button { min-height: 44px; }
     .workbench__nav .workbench__mobile-only { display: grid !important; }
-    .workbench__main { min-height: 100vh; padding-bottom: 58px; grid-template-rows: 70px auto auto auto; overflow: visible; }
+    .workbench__main { min-height: 100vh; padding-bottom: 58px; grid-template-rows: 70px auto auto auto auto; overflow: visible; }
     .workbench__header { padding: 0 16px; }
     .workbench__header-actions .workbench__status { display: none; }
     .workbench__disc-overview { grid-template-columns: 60px 1fr; min-height: 150px; padding: 20px 18px; }
@@ -514,3 +514,13 @@
     .workbench__toc-tables { overflow: visible; }
     .workbench__toc-selection { overflow: visible; border-top: 1px solid var(--wb-border); border-left: 0; }
 }
+
+.workbench .primary-button:not(:disabled) { color: #041722; font-weight: 700; }
+
+.workbench__notice-slot { min-width: 0; }
+.workbench__notice-slot .workbench__toast { display: block; width: calc(100% - 56px); max-height: 90px; overflow: auto; }
+
+.workbench__groups { display: flex; gap: 8px; overflow-x: auto; flex-shrink: 0; margin-bottom: 12px; }
+.workbench__group-picker { max-height: 240px; overflow: auto; }
+.workbench__group-picker label { display: flex; flex-direction: row; align-items: center; gap: 8px; }
+.workbench__group-picker input { width: auto; }

@@ -84,8 +84,8 @@ export default () => {
         injectRegister: 'script-defer',
         manifestFilename: 'manifest.json',
         manifest: {
-          "short_name": "MD Workspace",
-          "name": "MiniDisc Workspace",
+          "short_name": "MD Studio",
+          "name": "MD Studio",
           "description": "Organize, record, play, and automate NetMD and HiMD MiniDisc devices",
           "icons": [
             {

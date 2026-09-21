@@ -1,6 +1,6 @@
-# MiniDisc Workspace automation guide
+# MD Studio automation guide
 
-MiniDisc Workspace exposes one application model to Studio Workbench, MCP clients, and the CLI. The browser keeps ownership of WebUSB; the local bridge only forwards commands, bounded file chunks, results, and task progress.
+MD Studio exposes one application model to MD Studio, MCP clients, and the CLI. The browser keeps ownership of WebUSB; the local bridge only forwards commands, bounded file chunks, results, and task progress.
 
 ## Start the local bridge
 
@@ -53,20 +53,16 @@ The server currently registers these tools:
 |---|---|
 | Workspace and services | `minidisc_get_workspace`, `minidisc_get_status`, `minidisc_list_services` |
 | Settings | `minidisc_get_settings`, `minidisc_update_settings` |
-| Library | `minidisc_refresh_library`, `minidisc_list_library`, `minidisc_search_library`, `minidisc_import_library_tracks` |
 | Import queue | `minidisc_list_imports`, `minidisc_add_imports`, `minidisc_update_import`, `minidisc_update_imports`, `minidisc_move_import`, `minidisc_remove_imports`, `minidisc_clear_imports`, `minidisc_preview_imports`, `minidisc_write_imports` |
 | Metadata and groups | `minidisc_rename_disc`, `minidisc_rename_tracks`, `minidisc_rename_himd_tracks`, `minidisc_create_group`, `minidisc_rename_group`, `minidisc_delete_groups`, `minidisc_move_track` |
-| CSV metadata | `minidisc_export_metadata_csv`, `minidisc_plan_metadata_csv`, `minidisc_apply_metadata_csv` |
 | Playback and output | `minidisc_control_playback`, `minidisc_export_tracks`, `minidisc_eject_disc`, `minidisc_flush_device` |
-| Destructive maintenance | `minidisc_delete_tracks`, `minidisc_erase_disc`, `minidisc_format_himd`, `minidisc_run_device_self_test` |
-| Advanced read-only review | `minidisc_get_advanced_device_info`, `minidisc_read_raw_toc`, `minidisc_preview_raw_toc_write`, `minidisc_preview_toc_flag_change` |
 | Tasks | `minidisc_list_tasks`, `minidisc_get_task`, `minidisc_cancel_task` |
 
 Tool schemas returned by the MCP server are authoritative. Track indexes in MCP are zero-based. Friendly CLI export track numbers are one-based to match the labels shown in the app.
 
 Raw TOC application, protection-flag application, device memory access, recovery export, and device mode changes remain browser-only. Their commands require an in-memory authorization value that JSON, MCP, and CLI cannot construct. MCP can inspect firmware and preview raw TOC changes without applying them.
 
-The official build exposes only local device, encoder, library, and loopback automation services. Retired online-service setting keys are rejected by MCP and CLI rather than being silently accepted.
+The official build exposes only local device, encoder and loopback automation services. Retired online-service setting keys are rejected by MCP and CLI rather than being silently accepted.
 
 ## CLI examples
 
@@ -77,7 +73,6 @@ npm run cli -- tasks
 npm run cli -- imports
 npm run cli -- write "C:\Music\Track 01.wav" "C:\Music\Track 02.flac"
 npm run cli -- write "C:\Music\Track 01.wav" --codec LP2 --bitrate 132
-npm run cli -- export "C:\Music\MiniDisc export" 1 2 3 --wav
 ```
 
 For any serializable application command:

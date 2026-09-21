@@ -4,6 +4,12 @@ export type ResolvedUiLanguage = Exclude<UiLanguagePreference, 'system'>;
 export const DEFAULT_UI_LANGUAGE_PREFERENCE: UiLanguagePreference = 'zh-CN';
 
 const zhCN: Record<string, string> = {
+    'Disconnect device': '断开设备连接',
+    'Disconnect': '断开连接',
+    'Disconnect USB, then remove the disc using the recorder.': '断开 USB 会话后，请在碟机上手动取出碟片。',
+    'Connect, arrange and record MDs with AI in one studio.': '在工作室中连接碟机、编排曲目，并由 AI 协助制作 MD。',
+    'AI-assisted MD creation': 'AI 协助制作 MD',
+    'Review titles, groups and capacity before recording.': '录制前检查曲名、文件夹分组和容量。',
     'Settings': '设置',
     'DESKTOP': '桌面版',
     'Desktop integration': '桌面版集成',
@@ -755,7 +761,8 @@ export function resolveUiLanguage(preference: UiLanguagePreference, browserLangu
 }
 
 export function translate(language: ResolvedUiLanguage, message: string) {
-    return language === 'zh-CN' ? (zhCN[message] ?? message) : message;
+    const text = language === 'zh-CN' ? (zhCN[message] ?? message) : message;
+    return text.replace(/MiniDisc/gi, 'MD').replace(/工作区/g, '工作室').replace(/Studio Workbench|Workspace|Workbench/gi, 'Studio');
 }
 
 export function hasChineseTranslation(message: string) {

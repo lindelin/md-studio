@@ -1,3 +1,4 @@
+import { recordingModeLabel as codecLabel } from '../../frontend/recording-mode-label';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import {
@@ -9,8 +10,7 @@ import {
     isSequential,
 } from '../../utils';
 import { useApplicationClient, useApplicationWorkspace, useUpdateApplicationSettings } from '../use-application-client';
-import type { AdvancedBadSectorDecision } from '../../application/contracts';
-import { getDefaultRecordingFormat, getRecordingCodec } from '../../application/device-profile';
+import { getRecordingCodec } from '../../application/device-profile';
 import type { ImportQueueItem } from '../../application/import-queue';
 import type { ImportPreview } from '../../application/import-preview';
 import { stageBrowserImports } from '../../application/browser-import-planner';
@@ -50,13 +50,11 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import StopRoundedIcon from '@mui/icons-material/StopRounded';
-import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import UsbRoundedIcon from '@mui/icons-material/UsbRounded';
 import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import KeyboardArrowUpRoundedIcon from '@mui/icons-material/KeyboardArrowUpRounded';
 import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
-import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import CreateNewFolderRoundedIcon from '@mui/icons-material/CreateNewFolderRounded';
 import FolderOffRoundedIcon from '@mui/icons-material/FolderOffRounded';
 import SelectAllRoundedIcon from '@mui/icons-material/SelectAllRounded';
@@ -67,19 +65,11 @@ import { TopMenu } from '../topmenu';
 import { AboutDialog } from '../about-dialog';
 import { HelpDialog } from '../help-dialog';
 import { WorkbenchSettings } from './workbench-settings';
-import { WorkbenchTrackTransfer } from './workbench-track-transfer';
-import { WorkbenchTools } from './workbench-tools';
-import { WorkbenchBadSectorPrompt } from './workbench-bad-sector-prompt';
 import { useI18n } from '../use-i18n';
-import type {
-    AdvancedBadSectorChoice,
-    AdvancedBadSectorPrompt,
-    AdvancedBadSectorPromptHandler,
-} from './workbench-advanced-recovery';
 
 import './workbench.css';
 
-type NavigationSection = 'device' | 'settings' | 'automation' | 'tools';
+type NavigationSection = 'device' | 'settings' | 'automation';
 type ContentView = 'plan' | 'disc';
 const PLAN_ROW_HEIGHT = 49;
 type PlanItem =
@@ -95,18 +85,7 @@ function formatPreviewCapacity(preview: ImportPreview, value: number) {
     return preview.measurementUnits === 'bytes' ? bytesToHumanReadable(value) : formatTimeFromSeconds(value);
 }
 
-function codecLabel(codec?: { codec: string; bitrate: number } | string | null) {
-    if (!codec) return 'Auto';
-    if (typeof codec === 'string') {
-        if (codec === 'SPS') return 'SP Stereo';
-        if (codec === 'SPM') return 'SP Mono';
-        return codec;
-    }
-    if (codec.codec === 'SP') return 'SP Stereo';
-    if (codec.codec === 'LP2') return 'LP2 Stereo';
-    if (codec.codec === 'LP4') return 'LP4 Stereo';
-    return `${codec.codec} ${codec.bitrate}`;
-}
+
 
 function errorMessage(error: unknown) {
     return error instanceof Error ? error.message : String(error);
@@ -143,7 +122,6 @@ export const Workbench = () => {
     const [dirtyDraftFields, setDirtyDraftFields] = useState<WorkbenchDraftField[]>([]);
     const [groupDraft, setGroupDraft] = useState('');
     const [groupDialogOpen, setGroupDialogOpen] = useState(false);
-    const [trackTransferMode, setTrackTransferMode] = useState<'export' | 'record' | 'recovery' | null>(null);
     const [aboutOpen, setAboutOpen] = useState(false);
     const [helpOpen, setHelpOpen] = useState(false);
     const [taskCenterOpen, setTaskCenterOpen] = useState(false);
@@ -160,15 +138,12 @@ export const Workbench = () => {
     const [writePreviewPending, setWritePreviewPending] = useState(false);
     const [enableReplayGain, setEnableReplayGain] = useState(false);
     const [enableGapless, setEnableGapless] = useState(false);
-    const [formatIndex, setFormatIndex] = useState<[number, number]>(device?.recording.defaultFormat ?? [0, 0]);
+    const formatIndex: [number, number] = device ? (workspace.settings.values.uploadFormat[device.recording.specName] ?? device.recording.defaultFormat) : [0, 0];
     const [message, setMessage] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
-    const [badSectorPrompt, setBadSectorPrompt] = useState<AdvancedBadSectorPrompt | null>(null);
     const [planViewport, setPlanViewport] = useState({ scrollTop: 0, height: 0 });
     const [pendingPlanFocusIndex, setPendingPlanFocusIndex] = useState<number | null>(null);
     const planBodyRef = useRef<HTMLDivElement>(null);
-    const badSectorResolver = useRef<((choice: AdvancedBadSectorChoice) => void) | null>(null);
-    const sessionBadSectorDecision = useRef<AdvancedBadSectorDecision | null>(null);
     const previousImportCount = useRef(imports.length);
     const acknowledgedAttentionTaskIds = useRef(
         new Set(
@@ -262,10 +237,6 @@ export const Workbench = () => {
         setDirtyDraftFields([]);
     }, [selectedKey, hasSelectedItem, selectedTitle, selectedAlbum, selectedArtist, selectedFullWidthTitle]);
 
-    useEffect(() => {
-        if (!device) return;
-        setFormatIndex(workspace.settings.values.uploadFormat[device.recording.specName] ?? device.recording.defaultFormat);
-    }, [device, workspace.settings.values.uploadFormat]);
 
     useEffect(() => {
         if (contentView === 'disc') {
@@ -356,13 +327,10 @@ export const Workbench = () => {
     const selectedEncoderSupport = selectedFormat
         ? (workspace.encoder.support[selectedFormat.codec] ?? { state: 'unsupported' as const, gapless: false })
         : { state: 'unsupported' as const, gapless: false };
-    const defaultFormat = device ? getDefaultRecordingFormat(device.recording) : null;
     const capabilities = device?.capabilities ?? [];
     const canUpload = capabilities.includes('track.upload');
     const canEject = capabilities.includes('disc.eject');
     const canPlayback = capabilities.includes('playback.control');
-    const canDownload = capabilities.includes('track.download');
-    const canInspectRecoveryExport = capabilities.includes('advanced.factory');
     const canMoveTrack = capabilities.includes('track.move');
     const canCreateGroup = capabilities.includes('group.create');
     const canDeleteGroup = capabilities.includes('group.delete');
@@ -387,36 +355,6 @@ export const Workbench = () => {
     useEffect(() => {
         if (!selectedEncoderSupport.gapless) setEnableGapless(false);
     }, [selectedEncoderSupport.gapless]);
-
-    useEffect(() => {
-        sessionBadSectorDecision.current = null;
-        setBadSectorPrompt(null);
-        setDeleteReview(null);
-        return () => {
-            badSectorResolver.current?.({ decision: 'abort', rememberForExport: false, rememberForSession: false });
-            badSectorResolver.current = null;
-        };
-    }, [device?.sessionId]);
-
-    const requestBadSectorChoice: AdvancedBadSectorPromptHandler = useCallback((prompt) => {
-        const remembered = sessionBadSectorDecision.current;
-        if (remembered) {
-            return Promise.resolve({ decision: remembered, rememberForExport: true, rememberForSession: true });
-        }
-        badSectorResolver.current?.({ decision: 'abort', rememberForExport: false, rememberForSession: false });
-        return new Promise((resolve) => {
-            badSectorResolver.current = resolve;
-            setBadSectorPrompt(prompt);
-        });
-    }, []);
-
-    const resolveBadSectorChoice = useCallback((choice: AdvancedBadSectorChoice) => {
-        if (choice.rememberForSession) sessionBadSectorDecision.current = choice.decision;
-        const resolve = badSectorResolver.current;
-        badSectorResolver.current = null;
-        setBadSectorPrompt(null);
-        resolve?.(choice);
-    }, []);
 
     useEffect(() => {
         if (!writeReviewOpen || !device || !selectedFormat || imports.length === 0) {
@@ -774,7 +712,6 @@ export const Workbench = () => {
 
     const changeRecordingFormat = (next: [number, number]) => {
         if (!device) return;
-        setFormatIndex(next);
         void run(async () => {
             await updateSettings({
                 uploadFormat: {
@@ -784,25 +721,6 @@ export const Workbench = () => {
             });
             setMessage(t('Recording mode updated for the current device type.'));
         });
-    };
-
-    const openRecoveryTrackTransfer = () => void run(async () => {
-        const result = await execute({ type: 'advanced.inspect' });
-        if (!result.advancedInfo?.capabilities.includes('downloadAtrac')) {
-            throw new Error(t('This device firmware does not support ATRAC recovery export.'));
-        }
-        setTrackTransferMode('recovery');
-    });
-
-    const openTrackTransfer = () => {
-        if (selectedTrackIndexes.length === 0) return;
-        if (canDownload) {
-            setTrackTransferMode('export');
-        } else if (canInspectRecoveryExport) {
-            openRecoveryTrackTransfer();
-        } else {
-            setTrackTransferMode('record');
-        }
     };
 
     const cancelTask = (id: string) => {
@@ -818,7 +736,10 @@ export const Workbench = () => {
     };
 
     const refresh = () => void run(async () => void (await execute({ type: 'disc.refresh', dropCache: true })));
-    const eject = () => void run(async () => void (await execute({ type: 'disc.eject', expectedRevision: device?.revision })));
+    const eject = () => void run(async () => {
+        if (canEject) await execute({ type: 'disc.eject', expectedRevision: device?.revision });
+        await client.disconnectLocalDevice(true);
+    });
     const togglePlayback = (track: DisplayTrack) =>
         void run(async () => {
             const playing = device?.status.track === track.index && device.status.state === 'playing';
@@ -954,7 +875,6 @@ export const Workbench = () => {
                     </button>
                     <button aria-label={t('Import audio')} onClick={open} disabled={!canUpload}><AddRoundedIcon /><span>{t('Import audio')}</span></button>
                     <button aria-label={t('Settings')} aria-current={section === 'settings' ? 'page' : undefined} className={section === 'settings' ? 'is-active' : ''} onClick={() => setSection('settings')}><SettingsRoundedIcon /><span>{t('Settings')}</span></button>
-                    <button aria-label={t('Tools')} aria-current={section === 'tools' ? 'page' : undefined} className={`workbench__mobile-only ${section === 'tools' ? 'is-active' : ''}`} onClick={() => setSection('tools')}><TuneRoundedIcon /><span>{t('Tools')}</span></button>
                 </nav>
 
                 <div className="workbench__sidebar-label">{t('WORKSPACE')}</div>
@@ -962,7 +882,6 @@ export const Workbench = () => {
                     <button aria-label={t('Automation')} aria-current={section === 'automation' ? 'page' : undefined} className={section === 'automation' ? 'is-active' : ''} onClick={() => setSection('automation')}>
                         <AutoAwesomeIcon /><span>{t('Automation')}</span><em>API</em>
                     </button>
-                    <button aria-label={t('Tools')} aria-current={section === 'tools' ? 'page' : undefined} className={section === 'tools' ? 'is-active' : ''} onClick={() => setSection('tools')}><TuneRoundedIcon /><span>{t('Tools')}</span></button>
                 </nav>
 
                 <nav className="workbench__nav workbench__support-nav" aria-label={t('Help')}>
@@ -971,7 +890,7 @@ export const Workbench = () => {
                 </nav>
 
                 <div className="workbench__sidebar-footer">
-                    <CloudDoneIcon /><span>Studio Workbench v0.1.0<small>{t('Local first · Open source')}</small></span>
+                    <CloudDoneIcon /><span>MD Studio v0.1.0<small>{t('Local first · Open source')}</small></span>
                 </div>
             </aside>
 
@@ -979,17 +898,18 @@ export const Workbench = () => {
                 <header className="workbench__header">
                     <div>
                         <span className="workbench__eyebrow">{t('CONNECTED DEVICE')}</span>
-                        <h1>{device?.deviceName || 'MiniDisc Workspace'}</h1>
-                        <small className="workbench__header-subtitle">{device ? `${device.recording.specName} Mode · ${workspace.connection.method === 'cached' ? 'USB' : workspace.connection.method || 'USB'}` : t('Connect a device to begin')}</small>
+                        <h1>{device?.deviceName || 'MD Studio'}</h1>
+                        <small className="workbench__header-subtitle">{device ? `${/hi.?md/i.test(device.recording.specName) ? 'Hi-MD' : 'NetMD'} · USB` : t('Connect a device to begin')}</small>
                     </div>
                     <div className="workbench__header-actions">
                         <span className={`workbench__status ${device ? 'is-online' : ''}`}><i />{t(device ? 'Connected' : 'Disconnected')}</span>
                         <button className="icon-button" aria-label={t('Refresh disc')} onClick={refresh} disabled={!disc || busy}><RefreshRoundedIcon /></button>
-                        <button className="workbench__eject-button" aria-label={t('Eject disc')} onClick={eject} disabled={!disc || !canEject || busy}><EjectIcon /><span>{t('Eject')}</span></button>
+                        <button className="workbench__eject-button" aria-label={t(canEject ? 'Eject disc' : 'Disconnect device')} title={t(canEject ? 'Eject disc' : 'Disconnect USB, then remove the disc using the recorder.')} onClick={eject} disabled={!device || busy || Boolean(activeTask)}><EjectIcon /><span>{t(canEject ? 'Eject' : 'Disconnect')}</span></button>
                         <TopMenu onShowAbout={() => setAboutOpen(true)} onShowHelp={() => setHelpOpen(true)} onShowSettings={() => setSection('settings')} />
                     </div>
                 </header>
 
+                <div className="workbench__notice-slot">{message ? <button className="workbench__toast" aria-live="polite" aria-atomic="true" onClick={() => setMessage(null)}>{t(message)} ×</button> : null}</div>
                 <section className="workbench__disc-overview">
                     <div className="workbench__disc-icon"><AlbumIcon /></div>
                     <div className="workbench__disc-copy">
@@ -1009,7 +929,7 @@ export const Workbench = () => {
                     <dl className="workbench__device-facts">
                         <div><dt>{t('Device')}</dt><dd>{device?.deviceName || '—'}</dd></div>
                         <div><dt>{t('Connection')}</dt><dd>{workspace.connection.phase === 'connected' ? `USB (${workspace.connection.serviceName || 'MiniDisc'})` : '—'}</dd></div>
-                        <div><dt>{t('Mode')}</dt><dd>{defaultFormat?.userFriendlyName || defaultFormat?.codec || '—'}</dd></div>
+                        <div><dt>{t('Mode')}</dt><dd>{codecLabel(selectedFormat)}</dd></div>
                         <div><dt>{t('Disc')}</dt><dd>{disc?.writable ? t('Writable') : disc ? t('Read only') : '—'}</dd></div>
                     </dl>
                 </section>
@@ -1022,17 +942,8 @@ export const Workbench = () => {
                     </section>
                 ) : null}
 
-                {section === 'settings' ? (
+                {section === 'automation' ? null : section === 'settings' ? (
                     <WorkbenchSettings onMessage={setMessage} />
-                ) : section === 'tools' ? (
-                    <WorkbenchTools
-                        onMessage={setMessage}
-                        onTaskStarted={(id, nextMessage) => {
-                            setSelectedTaskId(id);
-                            setTaskCenterOpen(true);
-                            setMessage(nextMessage);
-                        }}
-                    />
                 ) : <div className="workbench__workspace-grid">
                     <section
                         className="workbench__plan"
@@ -1054,6 +965,7 @@ export const Workbench = () => {
                                 ) : null}
                             </div>
                             <div className="workbench__plan-actions">
+                                {contentView === 'disc' ? <button className="secondary-button" onClick={() => { setGroupDraft(''); setGroupDialogOpen(true); }} disabled={!canCreateGroup || busy}><CreateNewFolderRoundedIcon />{language === 'zh-CN' ? '新建文件夹（Group）' : 'New group'}</button> : null}
                                 <span>{language === 'zh-CN' ? `${planItems.length} 首曲目` : `${planItems.length} tracks`} · {formatDuration(contentView === 'plan' && imports.length ? queuedDuration : tracks.reduce((sum, track) => sum + track.duration, 0))}</span>
                                 {contentView === 'disc' && tracks.length > 0 ? <button className="secondary-button workbench__compact-button" onClick={toggleSelectAllTracks}><SelectAllRoundedIcon /> {t(selectedTrackIndexes.length === tracks.length ? 'Clear' : 'Select all')}</button> : null}
                                 {contentView === 'plan' && imports.length > 0 ? <button className="secondary-button workbench__compact-button" onClick={toggleSelectAllImports}><SelectAllRoundedIcon /> {t(selectedImportIds.length === imports.length ? 'Clear' : 'Select all')}</button> : null}
@@ -1062,13 +974,12 @@ export const Workbench = () => {
                             </div>
                         </div>
 
+                        {contentView === 'disc' && disc ? <nav className="workbench__groups" aria-label={language === 'zh-CN' ? 'MD 文件夹' : 'MD groups'}>{disc.groups.filter(group => group.title !== null).map(group => <button className="secondary-button" key={group.index} onClick={() => { setSelectedTrackIndexes(group.tracks.map(track => track.index)); if (group.tracks[0]) setSelectedKey(`track:${group.tracks[0].index}`); }}><CreateNewFolderRoundedIcon />{group.title || (language === 'zh-CN' ? '未命名组' : 'Untitled group')} · {group.tracks.length}</button>)}</nav> : null}
                         {contentView === 'disc' && selectedTrackIndexes.length > 0 ? (
                             <div className="workbench__selection-bar">
                                 <strong>{language === 'zh-CN' ? `已选 ${selectedTrackIndexes.length} 首` : `${selectedTrackIndexes.length} selected`}</strong>
                                 <span>{t('Ctrl/⌘ click toggles · Shift click extends the selection')}</span>
                                 <div>
-                                    <button onClick={openTrackTransfer} disabled={busy || (!canDownload && !canInspectRecoveryExport && !canPlayback)}><DownloadRoundedIcon /> {t(canDownload ? 'Export' : canInspectRecoveryExport ? 'Recovery export' : 'Record')}</button>
-                                    {canDownload && canInspectRecoveryExport ? <button onClick={openRecoveryTrackTransfer} disabled={busy}><DownloadRoundedIcon /> {t('Recovery export')}</button> : null}
                                     <button onClick={() => { setGroupDraft(''); setGroupDialogOpen(true); }} disabled={!canGroupSelection}><CreateNewFolderRoundedIcon /> {t('Group')}</button>
                                     <button onClick={ungroupSelected} disabled={!canDeleteGroup || selectedNamedGroups.length === 0}><FolderOffRoundedIcon /> {t('Ungroup')}</button>
                                 </div>
@@ -1148,7 +1059,7 @@ export const Workbench = () => {
                         ) : (
                             <label>{t('Recorded mode')}<input value={codecLabel(selectedDiscTrack?.encoding)} disabled /></label>
                         )}
-                        <div className="workbench__format-note"><BoltRoundedIcon /><span><strong>{selectedFormat?.codec || defaultFormat?.codec || t('Automatic')}</strong><small>{contentView === 'plan' ? (selectedFormat ? `${selectedFormat.bitrate} kbps` : t('Uses the device default')) : t('Recorded mode is shown in the track list')}</small></span></div>
+                        <div className="workbench__format-note"><BoltRoundedIcon /><span><strong>{codecLabel(selectedFormat)}</strong><small>{contentView === 'plan' ? (selectedFormat ? `${selectedFormat.bitrate} kbps` : t('Uses the device default')) : t('Recorded mode is shown in the track list')}</small></span></div>
                         <div className="workbench__divider" />
                         <button className="danger-button" onClick={removeSelected} disabled={!selected || busy}><DeleteOutlineIcon /> {selected?.kind === 'track' ? (selectedTrackIndexes.length > 1 ? (language === 'zh-CN' ? `删除 ${selectedTrackIndexes.length} 首曲目` : `Delete ${selectedTrackIndexes.length} tracks`) : t('Delete from disc')) : (selectedImportIds.length > 1 ? (language === 'zh-CN' ? `移除 ${selectedImportIds.length} 首曲目` : `Remove ${selectedImportIds.length} tracks`) : t('Remove from plan'))}</button>
                     </aside>
@@ -1253,39 +1164,15 @@ export const Workbench = () => {
             </main>
 
             {isDragActive ? <div className="workbench__drop-overlay"><FolderOpenIcon /><strong>{t('Drop audio to add it to the recording plan')}</strong></div> : null}
-            {message ? <button className="workbench__toast" aria-live="polite" aria-atomic="true" onClick={() => setMessage(null)}>{t(message)}</button> : null}
 
             <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
             <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
-
-            {trackTransferMode && device ? (
-                <WorkbenchTrackTransfer
-                    mode={trackTransferMode}
-                    tracks={selectedTracks}
-                    expectedRevision={device.revision}
-                    requestBadSectorChoice={requestBadSectorChoice}
-                    onClose={() => setTrackTransferMode(null)}
-                    onTaskStarted={(id, nextMessage) => {
-                        setSelectedTaskId(id);
-                        setTaskCenterOpen(true);
-                        setMessage(nextMessage);
-                    }}
-                />
-            ) : null}
-
-            {badSectorPrompt ? (
-                <WorkbenchBadSectorPrompt
-                    key={`${badSectorPrompt.address}:${badSectorPrompt.count}:${badSectorPrompt.seconds}`}
-                    prompt={badSectorPrompt}
-                    onChoose={resolveBadSectorChoice}
-                />
-            ) : null}
 
             {writeReviewOpen ? (
                 <div className="workbench__modal-backdrop" role="presentation" onMouseDown={() => !busy && setWriteReviewOpen(false)}>
                     <section className="workbench__modal workbench__write-modal" role="dialog" aria-modal="true" aria-labelledby="workbench-write-title" onMouseDown={(event) => event.stopPropagation()}>
                         <span className="workbench__eyebrow">{t('WRITE REVIEW')}</span>
-                        <h2 id="workbench-write-title">{language === 'zh-CN' ? `将 ${imports.length} 首曲目录制到 MiniDisc` : `Record ${imports.length} track${imports.length === 1 ? '' : 's'} to MiniDisc`}</h2>
+                        <h2 id="workbench-write-title">{language === 'zh-CN' ? `将 ${imports.length} 首曲目录制到 MD` : `Record ${imports.length} track${imports.length === 1 ? '' : 's'} to MD`}</h2>
                         <p>{t('Review the exact recording mode and capacity calculation before the device starts writing.')}</p>
                         <div className="workbench__write-warning">
                             {t('A track cannot be interrupted safely once transfer starts. Stopping only prevents the next track from starting; keep USB connected until the recording light stops flashing.')}
@@ -1350,8 +1237,10 @@ export const Workbench = () => {
                         <span className="workbench__eyebrow">{t('ORGANIZE DISC')}</span>
                         <h2 id="workbench-group-title">{t('Create a group')}</h2>
                         <p>{language === 'zh-CN' ? `曲目 ${(sortedSelectedTrackIndexes[0] ?? 0) + 1}–${(sortedSelectedTrackIndexes.at(-1) ?? 0) + 1} 将保持当前顺序。` : `Tracks ${(sortedSelectedTrackIndexes[0] ?? 0) + 1}–${(sortedSelectedTrackIndexes.at(-1) ?? 0) + 1} will stay in their current order.`}</p>
-                        <label>{t('Group name')}<input autoFocus value={groupDraft} onChange={(event) => setGroupDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && groupDraft.trim()) createGroup(); }} /></label>
-                        <div className="workbench__modal-actions"><button className="secondary-button" onClick={() => setGroupDialogOpen(false)}>{t('Cancel')}</button><button className="primary-button" onClick={createGroup} disabled={!groupDraft.trim() || busy}>{t('Create group')}</button></div>
+                        <p>{language === 'zh-CN' ? '选择连续且未归组的曲目。取消分组不会删除音频。' : 'Select consecutive ungrouped tracks. Ungrouping does not delete audio.'}</p>
+                        <div className="workbench__group-picker">{tracks.map(track => <label key={track.index}><input type="checkbox" disabled={track.group !== null || busy} checked={selectedTrackIndexes.includes(track.index)} onChange={event => setSelectedTrackIndexes(current => event.target.checked ? [...current, track.index] : current.filter(index => index !== track.index))} />{track.index + 1}. {track.title} {track.group ? `(${track.group})` : ''}</label>)}</div>
+                        <label>{t('Group name')}<input autoFocus value={groupDraft} onChange={(event) => setGroupDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && groupDraft.trim() && canGroupSelection) createGroup(); }} /></label>
+                        <div className="workbench__modal-actions"><button className="secondary-button" onClick={() => setGroupDialogOpen(false)}>{t('Cancel')}</button><button className="primary-button" onClick={createGroup} disabled={!groupDraft.trim() || !canGroupSelection || busy}>{t('Create group')}</button></div>
                     </section>
                 </div>
             ) : null}
