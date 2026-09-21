@@ -1,5 +1,5 @@
 import type { CodecFamily } from '../interfaces/netmd';
-import { getPublicPathFor } from '../../utils';
+import { getAbsolutePublicPathFor } from '../../utils';
 
 type FfmpegWorker = ReturnType<(typeof import('@ffmpeg/ffmpeg'))['createWorker']>;
 
@@ -66,12 +66,12 @@ export class FfmpegPcmMp3Transcoder {
                 this.loglines.push(payload);
                 console.log(payload.action, payload.message);
             },
-            corePath: getPublicPathFor('ffmpeg-core.js'),
-            workerPath: getPublicPathFor('runtime/ffmpeg-worker.min.js'),
+            corePath: getAbsolutePublicPathFor('ffmpeg-core.js'),
+            workerPath: getAbsolutePublicPathFor('runtime/ffmpeg-worker.min.js'),
         });
         this.ffmpegProcess = process;
         try {
-            await process.load();
+            await rejectAfter(process.load(), 15_000, 'FFmpeg worker did not start within 15 seconds.');
         } catch (error) {
             if (this.ffmpegProcess === process) this.releaseFfmpegProcess();
             throw error;
@@ -170,6 +170,20 @@ export class FfmpegPcmMp3Transcoder {
         await this.ffmpegProcess.transcode(this.inFileName, outFileName, ffmpegCommand);
         const { data } = await this.ffmpegProcess.read(outFileName);
         return data.buffer;
+    }
+}
+
+async function rejectAfter<T>(operation: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+        return await Promise.race([
+            operation,
+            new Promise<never>((_resolve, reject) => {
+                timeout = setTimeout(() => reject(new Error(message)), timeoutMs);
+            }),
+        ]);
+    } finally {
+        if (timeout !== undefined) clearTimeout(timeout);
     }
 }
 

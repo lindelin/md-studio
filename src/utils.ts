@@ -259,6 +259,12 @@ export function getPublicPathFor(script: string) {
     return `${import.meta.env.BASE_URL}${script}`;
 }
 
+export function getAbsolutePublicPathFor(script: string) {
+    const path = getPublicPathFor(script);
+    if (typeof window === 'undefined') return path;
+    return new URL(path, window.location.href).href;
+}
+
 export { loadPreference, savePreference } from './preferences';
 
 export function timeToSeekArgs(timeInSecs: number): number[] {
@@ -408,8 +414,8 @@ export async function ffmpegTranscode(data: Uint8Array, inputFormat: string, out
         logger: (payload: any) => {
             console.log(payload.action, payload.message);
         },
-        corePath: getPublicPathFor('ffmpeg-core.js'),
-        workerPath: getPublicPathFor('runtime/ffmpeg-worker.min.js'),
+        corePath: getAbsolutePublicPathFor('ffmpeg-core.js'),
+        workerPath: getAbsolutePublicPathFor('runtime/ffmpeg-worker.min.js'),
     });
     try {
         await ffmpegProcess.load();
