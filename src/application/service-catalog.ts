@@ -41,7 +41,9 @@ export function createServiceCatalog(
 ): ServiceCatalogSnapshot {
     return structuredClone({
         devices: devices.map(toDescriptor),
-        audioEncoders: audioEncoders.map(toDescriptor),
+        // Unavailable encoders are implementation details, not choices the user can act on.
+        // Map before filtering so each descriptor keeps its index in AudioServices.
+        audioEncoders: audioEncoders.map(toDescriptor).filter((service) => service.available),
     });
 }
 

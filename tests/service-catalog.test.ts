@@ -23,6 +23,11 @@ describe('service catalog', () => {
                         },
                     ],
                 },
+                {
+                    id: 'bundled-encoder',
+                    name: 'Bundled encoder',
+                    available: true,
+                },
             ],
             [
                 {
@@ -34,25 +39,13 @@ describe('service catalog', () => {
             ]
         );
 
-        assert.deepEqual(catalog.audioEncoders[0], {
-            index: 0,
-            id: 'encoder',
-            name: 'Encoder',
-            available: false,
-            unavailableReason: 'Not bundled',
-            parameters: [
-                {
-                    key: 'mode',
-                    label: 'Mode',
-                    type: 'enum',
-                    defaultValue: 'fast',
-                    options: [
-                        { label: 'Fast', value: 'fast' },
-                        { label: 'Quality', value: 'quality' },
-                    ],
-                },
-            ],
-        });
+        assert.deepEqual(catalog.audioEncoders, [{
+            index: 1,
+            id: 'bundled-encoder',
+            name: 'Bundled encoder',
+            available: true,
+            parameters: [],
+        }]);
         assert.deepEqual(catalog.devices[0], {
             index: 0,
             id: 'usb-device',

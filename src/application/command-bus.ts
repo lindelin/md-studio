@@ -252,11 +252,11 @@ export class ApplicationCommandBus {
                 if (this.serviceCatalog && (changes.audioEncoderId !== undefined || changes.audioExportService !== undefined)) {
                     const index =
                         changes.audioEncoderId !== undefined
-                            ? this.serviceCatalog.audioEncoders.findIndex(
+                            ? this.serviceCatalog.audioEncoders.find(
                                   (encoder) => encoder.id === changes.audioEncoderId && encoder.available
-                              )
+                              )?.index ?? -1
                             : changes.audioExportService!;
-                    const encoder = this.serviceCatalog.audioEncoders[index];
+                    const encoder = this.serviceCatalog.audioEncoders.find((candidate) => candidate.index === index);
                     if (!encoder?.available) {
                         throw new ApplicationError(
                             'INVALID_INPUT',

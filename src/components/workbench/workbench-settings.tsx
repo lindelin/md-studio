@@ -161,7 +161,7 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
                 return;
             }
             setCatalog(result.services);
-            setEncoderId((current) => current ?? result.services!.audioEncoders[settings.audioExportService]?.id ?? null);
+            setEncoderId((current) => current ?? result.services!.audioEncoders.find((service) => service.index === settings.audioExportService)?.id ?? result.services!.audioEncoders[0]?.id ?? null);
         });
         return () => { active = false; };
     }, [client, settings.audioExportService, t]);
@@ -182,9 +182,10 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
     }, [onMessage, t, updateSettings]);
 
     const selectedEncoder = catalog?.audioEncoders.find((service) => service.id === encoderId);
+    const savedEncoderId = settings.audioEncoderId ?? catalog?.audioEncoders.find((service) => service.index === settings.audioExportService)?.id ?? null;
     const selectedEncoderIndex = selectedEncoder?.index ?? settings.audioExportService;
     const serviceChangesPending =
-        encoderId !== (settings.audioEncoderId ?? catalog?.audioEncoders[settings.audioExportService]?.id ?? null) ||
+        encoderId !== savedEncoderId ||
         selectedEncoderIndex !== settings.audioExportService ||
         !sameParameters(encoderParameters, settings.audioExportServiceConfig);
     const serviceConfigurationValid =
@@ -250,7 +251,7 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
                     <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('METADATA')}</span><h3>{t('Default title rules')}</h3><label className="workbench__settings-field"><span>{t('Imported track title')}</span><select value={settings.trackTitleFormat} disabled={busy} onChange={(event) => void apply({ trackTitleFormat: event.target.value as UserSettings['trackTitleFormat'] }, 'Import title rule updated.')}>{titleFormats.map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}</select></label></section>
                 </div>
                 <div>
-                    <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('ENCODING')}</span><h3>{t('ATRAC encoder')}</h3><label className="workbench__settings-field"><span>{t('Encoder')}</span><select value={encoderId ?? ''} disabled={!catalog || busy} onChange={(event) => { const service = catalog?.audioEncoders.find((candidate) => candidate.id === event.target.value); setEncoderId(event.target.value); setEncoderParameters(createDefaultServiceParameters(service)); }}>{catalog?.audioEncoders.map((service) => <option key={service.id} value={service.id} disabled={!service.available}>{service.name}{service.available ? '' : ` · ${t('unavailable')}`}</option>)}</select></label>{selectedEncoder?.description ? <p className="workbench__settings-description">{t(selectedEncoder.description)}</p> : null}{selectedEncoder?.unavailableReason ? <div className="workbench__settings-message is-error">{t(selectedEncoder.unavailableReason)}</div> : null}{selectedEncoder?.parameters.map((parameter) => <ServiceParameter key={parameter.key} descriptor={parameter} value={encoderParameters[parameter.key]} onChange={(value) => setEncoderParameters((current) => ({ ...current, [parameter.key]: value }))} />)}</section>
+                    <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('ENCODING')}</span><h3>{t('ATRAC encoder')}</h3><label className="workbench__settings-field"><span>{t('Encoder')}</span><select value={encoderId ?? ''} disabled={!catalog || busy || catalog.audioEncoders.length < 2} onChange={(event) => { const service = catalog?.audioEncoders.find((candidate) => candidate.id === event.target.value); setEncoderId(event.target.value); setEncoderParameters(createDefaultServiceParameters(service)); }}>{catalog?.audioEncoders.map((service) => <option key={service.id} value={service.id}>{service.name}</option>)}</select></label>{selectedEncoder?.description ? <p className="workbench__settings-description">{t(selectedEncoder.description)}</p> : null}{selectedEncoder?.parameters.map((parameter) => <ServiceParameter key={parameter.key} descriptor={parameter} value={encoderParameters[parameter.key]} onChange={(value) => setEncoderParameters((current) => ({ ...current, [parameter.key]: value }))} />)}</section>
                     <DesktopDriverSettings />
                     <NativeSettings />
                 </div>

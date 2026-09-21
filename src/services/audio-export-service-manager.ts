@@ -23,7 +23,7 @@ export const AudioServices: AudioServicePrototype[] = [
         id: 'at3re',
         name: 'At3RE',
         load: async () => (await import('./audio/atrac3re-export')).Atrac3REExportService,
-        description: 'Reverse engineered at3tool encoder. Client-side only, has full ATRAC3/3+ support.',
+        description: 'Reverse-engineered at3tool-compatible encoder with ATRAC3/3+ support.',
         available: Boolean(AT3RE_INCLUDED),
         unavailableReason: AT3RE_INCLUDED ? undefined : 'This build does not include the At3RE JavaScript and WebAssembly runtime.',
     },
@@ -31,7 +31,7 @@ export const AudioServices: AudioServicePrototype[] = [
         id: 'atracdenc',
         name: 'Atracdenc',
         load: async () => (await import('./audio/atracdenc-export')).AtracdencAudioExportService,
-        description: 'The standard open-source ATRAC encoder. Its ATRAC3 support is incomplete',
+        description: 'The built-in open-source encoder used for LP2 and LP4 recording.',
         available: true,
     },
 ];
