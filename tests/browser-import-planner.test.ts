@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import { stageBrowserImports } from '../src/application/browser-import-planner.ts';
 import type { ApplicationClient } from '../src/application/application-client.ts';
 import type { ImportQueueInput } from '../src/application/import-queue.ts';
+import { ImportQueue } from '../src/application/import-queue.ts';
 import type { AdaptiveFile } from '../src/utils.ts';
 
 const recordingProfile = {
@@ -27,14 +28,12 @@ describe('browser import planning', () => {
         };
         let captured: ImportQueueInput[] = [];
         let capturedRevision: number | undefined;
+        const queue = new ImportQueue();
         const client = {
             addLocalImports(inputs: ImportQueueInput[], expectedRevision?: number) {
                 captured = inputs;
                 capturedRevision = expectedRevision;
-                return {
-                    revision: expectedRevision! + 1,
-                    items: inputs.map((input, index) => ({ id: `item-${index}`, ...input.source, ...input.metadata })),
-                };
+                return queue.add(inputs, expectedRevision);
             },
         } as Pick<ApplicationClient, 'addLocalImports'>;
 
@@ -44,17 +43,18 @@ describe('browser import planning', () => {
             fullWidthTitles: false,
             supportsFullWidthTitles: false,
             usesHimdTitles: false,
-            expectedRevision: 7,
+            expectedRevision: 0,
         });
 
-        assert.equal(capturedRevision, 7);
+        assert.equal(capturedRevision, 0);
         assert.equal(captured.length, 1);
         assert.equal(captured[0].metadata.title, 'Artist - Album - Source title');
         assert.equal(captured[0].metadata.sourceTitle, 'Source title');
         assert.equal(captured[0].metadata.duration, 123);
         assert.equal(captured[0].payload, adaptive);
         assert.match(captured[0].source.reference, /^browser-file:/);
-        assert.equal(result.importQueue?.revision, 8);
+        assert.equal(Object.hasOwn(captured[0].metadata, 'name'), false);
+        assert.equal(result.importQueue?.revision, 1);
         assert.equal(result.addedCount, 1);
         assert.deepEqual(result.failures, []);
     });

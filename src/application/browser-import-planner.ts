@@ -58,7 +58,11 @@ export async function stageBrowserImports(
                     mimeType: inspected.file instanceof File ? inspected.file.type : undefined,
                 },
                 metadata: {
-                    ...sourceMetadata,
+                    sourceTitle: inspected.title,
+                    artist: inspected.artist,
+                    sourceArtist: inspected.artist,
+                    album: inspected.album,
+                    sourceAlbum: inspected.album,
                     ...formatImportTitle(sourceMetadata, titleFormat, sanitizer, allowFullWidth),
                     duration: inspected.duration,
                     forcedEncoding: inspected.forcedEncoding,

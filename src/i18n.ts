@@ -238,6 +238,8 @@ const zhCN: Record<string, string> = {
     'LOCAL LIBRARY': '本地音乐库',
     'Browse music': '浏览音乐',
     'Choose local folder': '选择本地文件夹',
+    'Reference local folder': '参照本地文件夹',
+    'Reference a local folder without uploading its files.': '参照本地文件夹，文件不会上传。',
     'Reading local folder…': '正在读取本地文件夹…',
     'Configure a library service before opening the library.': '请先选择本地文件夹或配置音乐库服务。',
     'Choose a local music folder to continue.': '请选择本地音乐文件夹以继续。',

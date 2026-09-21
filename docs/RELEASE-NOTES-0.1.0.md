@@ -8,7 +8,8 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 - The interface starts in Simplified Chinese and retains complete English support, including runtime task states, validation, recovery guidance, and advanced maintenance workflows.
 - Browser UI, MCP, and CLI share revision-checked application commands, import queue state, device snapshots, and long-running tasks.
 - Local-path automation reads audio tags and duration before staging, while file bytes remain behind short-lived local handles until conversion starts.
-- The Library can index a browser-selected local folder, search and page its metadata, and add deferred files to the shared recording plan without uploading or persisting folder access.
+- The Library uses read-only local directory handles where supported, searches and pages metadata, and opens selected audio only when needed without uploading or persisting folder access.
+- Browser audio selection keeps the file name in its source descriptor instead of leaking it into editable metadata, so imported files pass the shared command validation and enter the recording plan.
 - Audio, transcoding, caches, task queues, and device traffic stay on the user's computer; hosted builds serve static application files only.
 - The official build is local-only. Remote NetMD, the remote encoder, remote library, external song recognition, and their settings and dependencies have been removed.
 - Writing performs a capacity, title, codec, device-session, and revision preview before creating a task.
@@ -49,7 +50,7 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 
 ## Verification snapshot
 
-- 316 automated tests in 82 suites
+- 318 automated tests in 83 suites
 - Full TypeScript and TSX lint with zero warnings
 - Application and bridge type checks
 - Production Vite/PWA build

@@ -2,6 +2,7 @@ import { ApplicationError } from '../../application/contracts';
 import { getMetadataFromFile, removeExtension } from '../../utils';
 import type { CustomParameters } from '../../custom-parameters';
 import type { LibraryService, LocalDatabase, LocalTrackMetadata } from './library';
+import type { LocalLibraryFileReference } from '../../application/local-library-file';
 
 const MAX_FOLDER_FILES = 20_000;
 const MAX_PATH_DEPTH = 64;
@@ -28,29 +29,26 @@ const AUDIO_EXTENSIONS = new Set([
 
 interface BrowserFolderState {
     database: LocalDatabase;
-    files: Map<string, File>;
+    files: Map<string, LocalLibraryFileReference>;
 }
 
 let activeFolder: BrowserFolderState | null = null;
 
 type MetadataReader = typeof getMetadataFromFile;
 
-export async function indexBrowserFolder(files: readonly File[], readMetadata: MetadataReader = getMetadataFromFile) {
-    const audioFiles = files.filter(isSupportedAudioFile);
-    if (audioFiles.length === 0) {
-        throw new ApplicationError('INVALID_INPUT', 'The selected folder contains no supported audio files.');
-    }
-    if (audioFiles.length > MAX_FOLDER_FILES) {
-        throw new ApplicationError('INVALID_INPUT', `Select a folder containing no more than ${MAX_FOLDER_FILES} audio files.`);
-    }
-
+export async function indexBrowserFolder(files: readonly LocalLibraryFileReference[], readMetadata: MetadataReader = getMetadataFromFile) {
     const nextDatabase = createDirectory();
-    const nextFiles = new Map<string, File>();
-    for (const file of audioFiles) {
-        const path = normalizeBrowserFilePath(file);
-        const reference = path.join('/');
-        if (nextFiles.has(reference)) {
-            throw new ApplicationError('INVALID_INPUT', `The selected folder contains the same audio path more than once: ${reference}.`);
+    const nextFiles = new Map<string, LocalLibraryFileReference>();
+    for (const fileReference of files) {
+        const path = normalizeBrowserFilePath(fileReference.relativePath);
+        const file = await fileReference.getFile();
+        if (!isSupportedAudioFile(file, fileReference.relativePath)) continue;
+        if (nextFiles.size >= MAX_FOLDER_FILES) {
+            throw new ApplicationError('INVALID_INPUT', `Select a folder containing no more than ${MAX_FOLDER_FILES} audio files.`);
+        }
+        const pathReference = path.join('/');
+        if (nextFiles.has(pathReference)) {
+            throw new ApplicationError('INVALID_INPUT', `The selected folder contains the same audio path more than once: ${pathReference}.`);
         }
         const metadata = await readMetadata(file);
         insertTrack(nextDatabase, path, {
@@ -59,7 +57,11 @@ export async function indexBrowserFolder(files: readonly File[], readMetadata: M
             title: normalizeMetadataText(metadata.title, removeExtension(file.name)),
             duration: Number.isFinite(metadata.duration) && metadata.duration > 0 ? metadata.duration : 0,
         });
-        nextFiles.set(reference, file);
+        nextFiles.set(pathReference, fileReference);
+    }
+
+    if (nextFiles.size === 0) {
+        throw new ApplicationError('INVALID_INPUT', 'The selected folder contains no supported audio files.');
     }
 
     activeFolder = { database: nextDatabase, files: nextFiles };
@@ -81,22 +83,21 @@ export class BrowserFolderLibraryService implements LibraryService {
     }
 
     async resolveLocalLibraryFile(filePath: string) {
-        const file = activeFolder?.files.get(filePath);
-        if (!file) {
+        const reference = activeFolder?.files.get(filePath);
+        if (!reference) {
             throw new ApplicationError('INVALID_INPUT', 'The local folder is no longer available. Choose it again.');
         }
-        return file;
+        return reference.getFile();
     }
 }
 
-function isSupportedAudioFile(file: File) {
+function isSupportedAudioFile(file: File, relativePath: string) {
     if (file.type.toLowerCase().startsWith('audio/')) return true;
-    const extension = file.name.split('.').at(-1)?.toLowerCase() ?? '';
+    const extension = relativePath.split('.').at(-1)?.toLowerCase() ?? '';
     return AUDIO_EXTENSIONS.has(extension);
 }
 
-function normalizeBrowserFilePath(file: File) {
-    const rawPath = file.webkitRelativePath || file.name;
+function normalizeBrowserFilePath(rawPath: string) {
     const parts = rawPath.split(/[\\/]/);
     if (
         parts.length === 0 ||

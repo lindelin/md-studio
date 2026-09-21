@@ -5,6 +5,7 @@ import { ImportQueue } from '../src/application/import-queue.ts';
 import { SettingsStore } from '../src/application/settings-store.ts';
 import { TaskManager } from '../src/application/task-manager.ts';
 import { WorkspaceStore } from '../src/application/workspace-store.ts';
+import type { LocalLibraryFileReference } from '../src/application/local-library-file.ts';
 import type {
     AdvancedTrackReader,
     AdvancedUploadService,
@@ -376,7 +377,7 @@ describe('InProcessApplicationClient', () => {
         const tasks = new TaskManager();
         const imports = new ImportQueue();
         const workspace = new WorkspaceStore(tasks, imports, new SettingsStore(null));
-        const selected: File[][] = [];
+        const selected: LocalLibraryFileReference[][] = [];
         const client = new InProcessApplicationClient(
             { async execute() { return { ok: true }; } },
             workspace,
@@ -396,11 +397,12 @@ describe('InProcessApplicationClient', () => {
             }
         );
         const file = new File([Uint8Array.from([1])], 'track.wav', { type: 'audio/wav' });
+        const reference = { relativePath: file.name, getFile: () => Promise.resolve(file) };
 
-        const snapshot = await client.loadLocalLibraryFiles([file]);
+        const snapshot = await client.loadLocalLibraryFiles([reference]);
 
         assert.equal(snapshot.status, 'ready');
-        assert.deepEqual(selected, [[file]]);
+        assert.deepEqual(selected, [[reference]]);
     });
 
     it('routes browser device sessions without exposing protocol services to the UI', async () => {

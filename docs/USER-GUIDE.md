@@ -36,7 +36,7 @@ Advanced controls are enabled only when the connected adapter advertises the req
 
 Normal MiniDisc work is local. File import, metadata editing, FFmpeg conversion, ATRAC encoding, queues, caches, exports, MCP/CLI traffic and USB communication stay on this computer. A hosted web version downloads static application files and does not send those jobs to a project server.
 
-Use **Library → Choose local folder** to build a searchable catalog from audio on this computer. The browser keeps the selected files only for the current page session and passes them to the normal local encoder when recording starts. Reloading the page removes that temporary permission, so choose the folder again. The application does not upload the folder, its paths, metadata, or audio.
+Use **Library → Reference local folder** to build a searchable catalog from audio on this computer. Supported Chromium browsers grant a read-only directory handle: the application reads tags for the index and opens a selected track from that local handle only when it is needed. Reloading the page removes that temporary permission, so reference the folder again. The application does not upload the folder, its paths, metadata, or audio. Browsers without the directory-handle API use a file-input compatibility path and may describe the selection as an upload even though this application has no upload destination.
 
 The official application does not include Remote NetMD, a remote ATRAC encoder, a remote music library, or an external song-recognition client. Device access, encoding, the library, and automation therefore remain local without relying on a project server.
 

@@ -17,6 +17,7 @@ import type { ExportParams } from '../services/audio/audio-export';
 import type { LocalAudioInput } from './browser-audio-input';
 import type { CustomParameters } from '../custom-parameters';
 import type { LibraryCatalogSnapshot } from './library-catalog';
+import type { LocalLibraryFileReference } from './local-library-file';
 
 export type LocalAdvancedMemorySink = (region: AdvancedMemoryRegion, data: Uint8Array) => void | Promise<void>;
 
@@ -71,7 +72,7 @@ export interface ApplicationClient {
         isCancelled: () => boolean
     ): Promise<Uint8Array>;
     createLocalLibraryFileProcessor(filePath: string): (params: ExportParams) => Promise<ArrayBuffer>;
-    loadLocalLibraryFiles(files: File[]): Promise<LibraryCatalogSnapshot>;
+    loadLocalLibraryFiles(files: LocalLibraryFileReference[]): Promise<LibraryCatalogSnapshot>;
     getWorkspaceSnapshot(): WorkspaceSnapshot;
     subscribe(listener: () => void): () => void;
 }
@@ -110,7 +111,7 @@ export class InProcessApplicationClient implements ApplicationClient {
             connect(request: LocalDeviceConnectionRequest): Promise<LocalDeviceConnectionResult>;
             disconnect(finalize?: boolean): Promise<void>;
         },
-        private readonly localLibraryLoader?: (files: File[]) => Promise<LibraryCatalogSnapshot>
+        private readonly localLibraryLoader?: (files: LocalLibraryFileReference[]) => Promise<LibraryCatalogSnapshot>
     ) {}
 
     execute = (command: ApplicationCommand) => this.commands.execute(command);
@@ -181,7 +182,7 @@ export class InProcessApplicationClient implements ApplicationClient {
         }
         return this.localLibraryFileProcessor(filePath);
     };
-    loadLocalLibraryFiles = (files: File[]) => {
+    loadLocalLibraryFiles = (files: LocalLibraryFileReference[]) => {
         if (!this.localLibraryLoader) {
             throw new Error('Local folder selection is unavailable in this application environment.');
         }

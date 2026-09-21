@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
 import { BrowserFolderLibraryService, clearBrowserFolder, indexBrowserFolder } from '../src/services/library/browser-folder-library.ts';
+import { localLibraryReferencesFromFileInput } from '../src/application/local-library-file.ts';
 
 function folderFile(path: string, type = 'audio/wav') {
     const file = new File([Uint8Array.from([1, 2, 3])], path.split('/').at(-1)!, { type });
@@ -24,7 +25,7 @@ describe('BrowserFolderLibraryService', () => {
         const second = folderFile('Music/Album/02 - Second.flac', '');
         const ignored = folderFile('Music/cover.jpg', 'image/jpeg');
 
-        const indexed = await indexBrowserFolder([first, second, ignored], readMetadata);
+        const indexed = await indexBrowserFolder(localLibraryReferencesFromFileInput([first, second, ignored]), readMetadata);
         const service = new BrowserFolderLibraryService({});
         const database = await service.getDatabase();
 
@@ -52,11 +53,14 @@ describe('BrowserFolderLibraryService', () => {
 
     it('publishes a folder atomically and requires a fresh selection after state is cleared', async () => {
         const original = folderFile('First/track.wav');
-        await indexBrowserFolder([original], readMetadata);
+        await indexBrowserFolder(localLibraryReferencesFromFileInput([original]), readMetadata);
         const duplicateA = folderFile('Second/track.wav');
         const duplicateB = folderFile('Second/track.wav');
 
-        await assert.rejects(() => indexBrowserFolder([duplicateA, duplicateB], readMetadata), /same audio path/i);
+        await assert.rejects(
+            () => indexBrowserFolder(localLibraryReferencesFromFileInput([duplicateA, duplicateB]), readMetadata),
+            /same audio path/i
+        );
         const service = new BrowserFolderLibraryService({});
         assert.equal(await service.resolveLocalLibraryFile('First/track.wav'), original);
 
@@ -65,9 +69,12 @@ describe('BrowserFolderLibraryService', () => {
     });
 
     it('rejects unsafe relative paths and folders without supported audio', async () => {
-        await assert.rejects(() => indexBrowserFolder([folderFile('Music/../track.wav')], readMetadata), /invalid audio path/i);
         await assert.rejects(
-            () => indexBrowserFolder([folderFile('Music/readme.txt', 'text/plain')], readMetadata),
+            () => indexBrowserFolder(localLibraryReferencesFromFileInput([folderFile('Music/../track.wav')]), readMetadata),
+            /invalid audio path/i
+        );
+        await assert.rejects(
+            () => indexBrowserFolder(localLibraryReferencesFromFileInput([folderFile('Music/readme.txt', 'text/plain')]), readMetadata),
             /no supported audio files/i
         );
     });

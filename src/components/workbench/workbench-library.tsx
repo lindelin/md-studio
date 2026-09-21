@@ -20,6 +20,8 @@ import {
 import { calculateVirtualListWindow, scrollOffsetForVirtualIndex } from './workbench-virtual-list';
 import { useI18n } from '../use-i18n';
 import type { LocalDatabase, LocalTrackMetadata } from '../../services/library/library';
+import { localLibraryReferencesFromFileInput, type LocalLibraryFileReference } from '../../application/local-library-file';
+import { pickLocalFolderReferences, supportsLocalFolderPicker } from '../../frontend/local-folder-picker';
 
 const PAGE_SIZE = 100;
 const LIBRARY_ROW_HEIGHT = 51;
@@ -59,16 +61,12 @@ export const WorkbenchLibrary = ({
     const listRef = useRef<HTMLDivElement>(null);
     const folderInputRef = useRef<HTMLInputElement>(null);
 
-    const chooseLocalFolder = () => folderInputRef.current?.click();
-
-    const loadLocalFolder = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const files = Array.from(event.currentTarget.files ?? []);
-        event.currentTarget.value = '';
-        if (files.length === 0) return;
+    const loadLocalFolderReferences = async (references: LocalLibraryFileReference[]) => {
+        if (references.length === 0) return;
         setBusy(true);
         setStatus(t('Reading local folder…'));
         try {
-            const snapshot = await client.loadLocalLibraryFiles(files);
+            const snapshot = await client.loadLocalLibraryFiles(references);
             setPath([]);
             setSearchDraft('');
             setSearchQuery('');
@@ -83,6 +81,25 @@ export const WorkbenchLibrary = ({
         } finally {
             setBusy(false);
         }
+    };
+
+    const chooseLocalFolder = async () => {
+        if (!supportsLocalFolderPicker()) {
+            folderInputRef.current?.click();
+            return;
+        }
+        try {
+            const references = await pickLocalFolderReferences();
+            if (references) await loadLocalFolderReferences(references);
+        } catch (error) {
+            setStatus(t(error instanceof Error ? error.message : String(error)));
+        }
+    };
+
+    const loadLocalFolder = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(event.currentTarget.files ?? []);
+        event.currentTarget.value = '';
+        await loadLocalFolderReferences(localLibraryReferencesFromFileInput(files));
     };
 
     const refreshLibrary = useCallback(async () => {
@@ -389,11 +406,11 @@ export const WorkbenchLibrary = ({
                 <div>
                     <span className="workbench__eyebrow">{t('LOCAL LIBRARY')}</span>
                     <h2>{searchQuery ? (language === 'zh-CN' ? `搜索：${searchQuery}` : `Search: ${searchQuery}`) : path.length ? path.at(-1) : t('Browse music')}</h2>
-                    <p>{library.status === 'ready' ? (language === 'zh-CN' ? `已索引 ${library.entryCount} 项 · 当前显示 ${total} 项` : `${library.entryCount} indexed entries · ${total} in this view`) : t('Connect a configured library service to browse audio.')}</p>
+                    <p>{library.status === 'ready' ? (language === 'zh-CN' ? `已索引 ${library.entryCount} 项 · 当前显示 ${total} 项 · 文件保留在本机` : `${library.entryCount} indexed entries · ${total} in this view · files stay on this device`) : t('Reference a local folder without uploading its files.')}</p>
                 </div>
                 <div className="workbench__library-actions">
                     <input ref={folderInputRef} type="file" accept="audio/*,.aea,.oma,.aa3" multiple hidden onChange={(event) => void loadLocalFolder(event)} {...({ webkitdirectory: '', directory: '' } as React.InputHTMLAttributes<HTMLInputElement>)} />
-                    <button className="secondary-button" onClick={chooseLocalFolder} disabled={busy}><FolderOpenRoundedIcon /> {t('Choose local folder')}</button>
+                    <button className="secondary-button" onClick={() => void chooseLocalFolder()} disabled={busy}><FolderOpenRoundedIcon /> {t('Reference local folder')}</button>
                     <button className="secondary-button" onClick={() => void refreshLibrary()} disabled={busy}><RefreshRoundedIcon /> {t('Refresh')}</button>
                     <button className="primary-button" onClick={() => void importSelected()} disabled={busy || selectedTracks.length === 0}><AddRoundedIcon /> {selectedTracks.length ? (language === 'zh-CN' ? `添加 ${selectedTracks.length} 首到计划` : `Add ${selectedTracks.length} to plan`) : t('Add to plan')}</button>
                 </div>
@@ -411,7 +428,7 @@ export const WorkbenchLibrary = ({
                 </form>
             </div>
 
-            {libraryMessage ? <div className={`workbench__library-message ${library.status === 'error' ? 'is-error' : ''}`}><span>{libraryMessage}</span>{library.status === 'error' ? <><button onClick={chooseLocalFolder}>{t('Choose local folder')}</button><button onClick={onOpenSettings}>{t('Open settings')}</button></> : null}</div> : null}
+            {libraryMessage ? <div className={`workbench__library-message ${library.status === 'error' ? 'is-error' : ''}`}><span>{libraryMessage}</span>{library.status === 'error' ? <><button onClick={() => void chooseLocalFolder()}>{t('Reference local folder')}</button><button onClick={onOpenSettings}>{t('Open settings')}</button></> : null}</div> : null}
 
             <div className="workbench__library-content">
                 <div className="workbench__library-browser">
