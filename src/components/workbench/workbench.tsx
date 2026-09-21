@@ -137,7 +137,7 @@ export const Workbench = () => {
     const [writePreviewPending, setWritePreviewPending] = useState(false);
     const [enableReplayGain, setEnableReplayGain] = useState(false);
     const [enableGapless, setEnableGapless] = useState(false);
-    const formatIndex: [number, number] = device ? (workspace.settings.values.uploadFormat[device.recording.specName] ?? device.recording.defaultFormat) : [0, 0];
+    const formatIndex = useMemo<[number, number]>(() => device ? (workspace.settings.values.uploadFormat[device.recording.specName] ?? device.recording.defaultFormat) : [0, 0], [device, workspace.settings.values.uploadFormat]);
     const [message, setMessage] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
     const [planViewport, setPlanViewport] = useState({ scrollTop: 0, height: 0 });
@@ -421,10 +421,6 @@ export const Workbench = () => {
     const sortedSelectedTrackIndexes = useMemo(
         () => [...selectedTrackIndexes].sort((left, right) => left - right),
         [selectedTrackIndexes]
-    );
-    const selectedTracks = useMemo(
-        () => tracks.filter((track) => selectedTrackIndexes.includes(track.index)),
-        [selectedTrackIndexes, tracks]
     );
     const selectedImportCount = selectedImportIds.length;
     const selectedTrackCount = selectedTrackIndexes.length;

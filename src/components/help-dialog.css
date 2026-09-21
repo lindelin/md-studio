@@ -5,15 +5,15 @@
 }
 
 .help-dialog section {
-    border: 1px solid #29414d;
+    border: 1px solid var(--studio-border);
     border-radius: 9px;
     padding: 16px 18px;
-    background: #0d1920;
+    background: var(--studio-surface);
 }
 
 .help-dialog h3 {
     margin: 0 0 10px;
-    color: #e8f3f7;
+    color: var(--studio-text);
     font-size: 13px;
     font-weight: 600;
 }

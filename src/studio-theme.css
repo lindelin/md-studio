@@ -1,0 +1,31 @@
+:root {
+    color-scheme: dark;
+    --studio-surface: #0d151c;
+    --studio-surface-raised: #17252f;
+    --studio-surface-selected: #203b4c;
+    --studio-text: #edf4f9;
+    --studio-muted: #9db2c0;
+    --studio-border: #405b6b;
+    --studio-accent: #39bdfa;
+    --studio-danger: #ff8d96;
+    --studio-warning: #efd18a;
+    --studio-success: #63d8ab;
+}
+:root[data-theme="light"] {
+    color-scheme: light;
+    --studio-surface: #f3f6f9;
+    --studio-surface-raised: #ffffff;
+    --studio-surface-selected: #e3eff8;
+    --studio-text: #172c3a;
+    --studio-muted: #485f70;
+    --studio-border: #b4c5d2;
+    --studio-accent: #006da3;
+    --studio-danger: #ab263c;
+    --studio-warning: #785600;
+    --studio-success: #176d4e;
+}
+/* Filled action buttons keep their contrasting foreground in both themes. */
+.workbench .primary-button:not(:disabled),
+.welcome-workspace__primary:not(:disabled) {
+    color: #041722;
+}

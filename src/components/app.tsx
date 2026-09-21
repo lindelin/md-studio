@@ -1,3 +1,4 @@
+import '../studio-theme.css';
 import Backdrop from '@mui/material/Backdrop';
 import CircularProgress from '@mui/material/CircularProgress';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -65,6 +66,11 @@ const App = () => {
         if (colorTheme === 'dark') return darkTheme;
         return systemIsDarkTheme ? darkTheme : lightTheme;
     }, [colorTheme, systemIsDarkTheme]);
+
+    useEffect(() => {
+        document.documentElement.dataset.theme = theme.palette.mode;
+        document.documentElement.style.colorScheme = theme.palette.mode;
+    }, [theme]);
 
     return <ThemeProvider theme={theme}><InternalApp /></ThemeProvider>;
 };
