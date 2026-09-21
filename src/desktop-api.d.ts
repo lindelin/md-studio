@@ -4,6 +4,8 @@ declare global {
         bridgeUrl?: string;
         openControls(): Promise<void>;
         runInBackground(): Promise<void>;
+        onUsbChoices(callback: (devices: {id:string;name:string;usbId:string;serial:string}[] | null) => void): () => void;
+        selectUsbDevice(id:string | null): Promise<void>;
         onOpenControls(callback: () => void): () => void;
         status(): Promise<{enabled:boolean;url:string;cli:string;error?:string}>;
         setMcp(enabled:boolean): Promise<{enabled:boolean;url:string}>;

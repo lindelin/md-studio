@@ -5,6 +5,8 @@ contextBridge.exposeInMainWorld('mdDesktop', {
     onOpenControls: (callback: () => void) => { const listener = () => callback(); ipcRenderer.on('desktop:show-settings',listener); return () => ipcRenderer.removeListener('desktop:show-settings',listener); },
     openControls: () => ipcRenderer.invoke('desktop:open-controls'),
     runInBackground: () => ipcRenderer.invoke('desktop:background'),
+    onUsbChoices: (callback: (devices: unknown) => void) => { const listener = (_event: unknown, devices: unknown) => callback(devices); ipcRenderer.on('desktop:usb-choices', listener); return () => ipcRenderer.removeListener('desktop:usb-choices', listener); },
+    selectUsbDevice: (id: string | null) => ipcRenderer.invoke('desktop:select-usb', id),
     status: () => ipcRenderer.invoke('desktop:status'),
     setMcp: (enabled: boolean) => ipcRenderer.invoke('desktop:mcp', enabled),
     drivers: () => ipcRenderer.invoke('desktop:drivers'),

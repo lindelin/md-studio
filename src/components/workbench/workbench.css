@@ -576,3 +576,7 @@
 .workbench__connections-message { overflow-wrap:anywhere; }
 .workbench__driver-settings article { border-top:1px solid var(--studio-border); margin-top:12px; padding-top:12px; }
 .workbench__driver-settings small { display:block; overflow-wrap:anywhere; margin-bottom:12px; }
+
+.workbench__usb-picker { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; padding-top: 14px; }
+.workbench__usb-picker label { display: grid; gap: 8px; min-width: 260px; flex: 1; }
+.workbench__usb-picker select { width: 100%; min-height: 40px; padding: 8px; color: var(--studio-text); background: var(--studio-surface); border: 1px solid var(--studio-border); border-radius: 5px; }

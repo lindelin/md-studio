@@ -23,6 +23,7 @@ export interface ApplicationCommandExecutor {
 }
 
 export interface LocalDeviceConnectionRequest {
+    chooseDevice?: boolean;
     id?: string;
     name: string;
     parameters?: CustomParameters;

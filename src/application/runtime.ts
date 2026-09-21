@@ -9,8 +9,8 @@ import { describeDeviceSessionFailure, DeviceSessionConnector } from './device-s
 import type { MinidiscSpec, NetMDService } from '../services/interfaces/netmd';
 import { loadService } from '../services/interface-service-manager';
 
-function connectDeviceSession(service: NetMDService, spec: MinidiscSpec) {
-    return new DeviceSessionConnector(serviceRegistry, bindApplicationRuntime).connect(service, spec);
+function connectDeviceSession(service: NetMDService, spec: MinidiscSpec, chooseDevice = false) {
+    return new DeviceSessionConnector(serviceRegistry, bindApplicationRuntime).connect(service, spec, chooseDevice);
 }
 
 function bindApplicationRuntime() {
@@ -155,7 +155,7 @@ export function getApplicationClient() {
                             return { connected: false, method: null };
                         }
 
-                        const session = await connectDeviceSession(loaded.service, loaded.spec);
+                        const session = await connectDeviceSession(loaded.service, loaded.spec, request.chooseDevice);
                         if (session.cachedConnectionError) console.error(session.cachedConnectionError);
                         if (!session.application) {
                             const message = describeDeviceSessionFailure(session);

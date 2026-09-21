@@ -22,6 +22,15 @@ function makeConnector(connect: () => Promise<boolean>, pair: () => Promise<bool
 }
 
 describe('DeviceSessionConnector', () => {
+    it('honors explicit device selection instead of reconnecting a different cached device', async () => {
+        let cachedCalls = 0;
+        const fixture = makeConnector(async () => { cachedCalls++; return true; }, async () => true);
+        const result = await fixture.connector.connect(fixture.service, fixture.spec, true);
+        assert.equal(cachedCalls, 0);
+        assert.equal(result.method, 'paired');
+        assert.equal(fixture.bindCount(), 1);
+    });
+
     it('uses an already authorized device without opening the pairing flow', async () => {
         let pairCount = 0;
         const fixture = makeConnector(

@@ -44,14 +44,14 @@ export class DeviceSessionConnector {
         private readonly cachedConnectionTimeoutMs = 15_000
     ) {}
 
-    async connect(service: NetMDService, spec: MinidiscSpec): Promise<ConnectedDeviceSession | DeviceSessionConnectionFailure> {
+    async connect(service: NetMDService, spec: MinidiscSpec, chooseDevice = false): Promise<ConnectedDeviceSession | DeviceSessionConnectionFailure> {
         this.bindings.netmdService = service;
         this.bindings.netmdSpec = spec;
         this.bindings.netmdFactoryService = undefined;
 
         let cachedConnectionError: unknown;
         try {
-            const cachedConnection = service.connect();
+            const cachedConnection = chooseDevice ? Promise.resolve(false) : service.connect();
             const cachedResult = await settleBeforeTimeout(cachedConnection, this.cachedConnectionTimeoutMs);
             if (cachedResult.timedOut) {
                 cachedConnectionError = new CachedDeviceConnectionTimeoutError(this.cachedConnectionTimeoutMs);
