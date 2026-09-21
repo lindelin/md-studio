@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('mdDesktop', {
     bridgeUrl: arg ? decodeURIComponent(arg.slice('--md-bridge='.length)) : undefined,
     onOpenControls: (callback: () => void) => { const listener = () => callback(); ipcRenderer.on('desktop:show-settings',listener); return () => ipcRenderer.removeListener('desktop:show-settings',listener); },
     openControls: () => ipcRenderer.invoke('desktop:open-controls'),
+    runInBackground: () => ipcRenderer.invoke('desktop:background'),
     status: () => ipcRenderer.invoke('desktop:status'),
     setMcp: (enabled: boolean) => ipcRenderer.invoke('desktop:mcp', enabled),
     drivers: () => ipcRenderer.invoke('desktop:drivers'),

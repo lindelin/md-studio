@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import { it } from 'node:test';
+import { mkdtemp, readFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { loadDesktopPreferences, saveDesktopPreferences } from '../desktop/preferences';
+import { renameDiscPreservingGroups, replaceDiscTitle } from '../src/services/interfaces/netmd-disc-title';
+it('preserves both raw group lists when renaming a disc, including omitted and empty titles', async () => {
+    const values = ['0;TEST//1-4;A//5-8;B//', '０；ＴＥＳＴ／／１－４；やなぎなぎ／／５－８；Ｒａｙ／／'];
+    const device = { _getDiscTitle: async (fw = false) => values[Number(fw)], setDiscTitle: async (s: string, fw = false) => { values[Number(fw)] = s; } };
+    await renameDiscPreservingGroups(device, 'mcp test', 'ｍｃｐ　ｔｅｓｔ');
+    assert.equal(values[0], '0;mcp test//1-4;A//5-8;B//');
+    assert.equal(values[1], '０；ｍｃｐ　ｔｅｓｔ／／１－４；やなぎなぎ／／５－８；Ｒａｙ／／');
+    const fw = values[1];
+    await renameDiscPreservingGroups(device, 'again');
+    assert.equal(values[1], fw);
+    await renameDiscPreservingGroups(device, '', '');
+    assert.equal(values[0], '1-4;A//5-8;B//');
+    assert.equal(values[1], '１－４；やなぎなぎ／／５－８；Ｒａｙ／／');
+    assert.equal(replaceDiscTitle(values[1], 'ＮＥＷ', true), '０；ＮＥＷ／／' + values[1]);
+    assert.equal(replaceDiscTitle('old', 'new', false), 'new');
+});
+it('keeps MCP identity across restarts and off/on changes', async () => {
+    const folder = await mkdtemp(join(tmpdir(), 'md-preferences-'));
+    const first = await loadDesktopPreferences(folder);
+    assert.equal(first.mcpEnabled, false);
+    await saveDesktopPreferences(folder, { ...first, mcpEnabled: true });
+    assert.deepEqual(await loadDesktopPreferences(folder), { ...first, mcpEnabled: true });
+    await saveDesktopPreferences(folder, { ...first, mcpEnabled: false });
+    assert.equal((await loadDesktopPreferences(folder)).mcpToken, first.mcpToken);
+    assert.ok(await readFile(join(folder, 'desktop-preferences.json'), 'utf8'));
+});

@@ -7,9 +7,9 @@ The desktop window owns WebUSB. Close/disconnect the browser device session firs
 
 ## CLI and MCP
 
-The Connections window copies the CLI launcher generated under `%APPDATA%/MD Studio/mdstudio.cmd`. It uses the bundled Electron runtime as Node. No global Node installation or MCP connection is needed by installed-app users. The desktop window must stay open. Start with `status`, `workspace`, `imports`, `add`, `preview LP2`; `write LP2` is an actual write instruction. `command` / `--file` accept the existing ApplicationCommand JSON for bulk labels, group creation and other supported operations. UI, CLI and MCP share the command bus and its task locking.
+The Connections window copies the CLI launcher generated under `%APPDATA%/MD Studio/mdstudio.cmd`. It uses the bundled Electron runtime as Node. No global Node installation or MCP connection is needed by installed-app users. The application must be running; its window may be closed to the system tray. Start with `status`, `workspace`, `imports`, `add`, `preview LP2`; `write LP2` is an actual write instruction. `command` / `--file` accept the existing ApplicationCommand JSON for bulk labels, group creation and other supported operations. UI, CLI and MCP share the command bus and its task locking.
 
-MCP uses Streamable HTTP on 127.0.0.1:47124 and a random capability URL copied from the window. No LAN binding. The URL is a credential; it rotates on each enable and is not retained across restarts. An HTTP MCP client must run locally or otherwise have access to this host. Host and Origin are checked. Closing MCP stops new requests; submitted device tasks continue in the desktop app. STDIO source entrypoint remains `npm run mcp` for browser-only development; do not start that independent bridge for the desktop session.
+MCP uses Streamable HTTP on 127.0.0.1:47124 and a random capability URL copied from the window. No LAN binding. The URL is a credential. Its random token and enabled state are saved in `%APPDATA%/MD Studio/desktop-preferences.json`; the URL stays unchanged across toggles and app restarts. When enabled, MCP starts automatically with the app. A port conflict is shown in AI access without changing the address. An HTTP MCP client must run locally or otherwise have access to this host. Host and Origin are checked. Closing MCP stops new requests; submitted device tasks continue in the desktop app. STDIO source entrypoint remains `npm run mcp` for browser-only development; do not start that independent bridge for the desktop session.
 
 The Skill export copies a portable folder, not client settings. Install it in the chosen client's skill location. AI reasoning depends on that client; audio processing stays local.
 
@@ -24,11 +24,11 @@ The exact binary hash and upstream source version are in vendor/zadig/manifest.j
 ## Acceptance and packaging
 
 1. Launch desktop locally; connect the test MD manually. Check import, both title fields, groups, LP2 recording and actual playback on hardware.
-2. Enable MCP; connect a local HTTP MCP client, list tools and read workspace. Disable and verify calls fail; re-enable with the new URL.
+2. Enable MCP; connect a local HTTP MCP client, list tools and read workspace. Disable and verify calls fail; re-enable with the same URL and verify the saved client configuration still works.
 3. Run the CLI status/import/preview commands while MCP is off; authorize and test writing separately.
 4. Check driver detection with a working driver; it should offer no replacement. Test installation only on a device needing setup, after reviewing the USB ID.
 5. Report UI/driver results before publishing an installer.
 
 `npm run desktop:pack` creates an x64 NSIS installer under `release/`. Core UI and CLI hardware flows have been accepted. MCP client acceptance, installer signing, clean-machine driver installation, Windows ARM64 and final installer behavior remain release checks until explicitly recorded as complete.
 
-Desktop disables the web PWA service worker and clears only its service-worker/cache storage on startup (not settings). The control window uses an isolated, nonpersistent session with USB permissions denied; it must never own a device connection.
+Desktop disables the web PWA service worker and clears only its service-worker/cache storage on startup (not settings). AI access and driver settings are integrated into the main window. Closing it hides it in the system tray without destroying the USB session. Renderer background throttling is disabled. Use the tray menu to reopen or quit; quitting is blocked while a recording task or driver installation is active.

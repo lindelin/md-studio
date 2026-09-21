@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, dialog, ipcMain, clipboard, session } from 'electron';
+import { app, BrowserWindow, Menu, dialog, ipcMain, clipboard, session, Tray } from 'electron';
 import { createServer } from 'node:http';
 import { readFile, writeFile, mkdir, cp } from 'node:fs/promises';
 import { join, resolve, extname, sep } from 'node:path';
@@ -10,6 +10,7 @@ import { stageLocalAudioImport } from '../bridge/local-audio-import';
 import { startMcpHttp, readJson } from './http';
 import { isSupportedMD, protectedMDClasses } from './usb-policy';
 import { scanDrivers } from './drivers';
+import { loadDesktopPreferences, saveDesktopPreferences, type DesktopPreferences } from './preferences';
 const exec = promisify(execFile);
 const root = app.getAppPath();
 const resources = app.isPackaged ? process.resourcesPath : root;
@@ -20,13 +21,36 @@ let mcpChanging = false;
 const cliDir = app.isPackaged ? join(process.resourcesPath,'cli') : join(root,'desktop-build');
 const bridgeToken = randomBytes(32).toString('hex');
 const commandToken = randomBytes(32).toString('hex');
-let mcpToken = randomBytes(24).toString('hex');
+let preferences: DesktopPreferences;
+let mcpError = '';
+let tray: Tray;
+let quitting = false;
+let checkingQuit = false;
 const configFolder = join(app.getPath('appData'), 'MD Studio');
 let runtime: ReturnType<typeof createBridgeRuntime>;
 let driverInstalling = false;
 if (!app.requestSingleInstanceLock()) app.quit();
 else void start().catch(error => { dialog.showErrorBox('MD Studio', String(error)); app.quit(); });
 app.on('second-instance', () => { mainWindow?.show(); mainWindow?.focus(); });
+app.on('before-quit', event => {
+    if (quitting || !mainWindow || mainWindow.isDestroyed()) return;
+    event.preventDefault();
+    void requestQuit();
+});
+async function requestQuit() {
+    if (checkingQuit) return;
+    checkingQuit = true;
+    try {
+        if (driverInstalling || await isBusy()) {
+            mainWindow.show();
+            await dialog.showMessageBox(mainWindow, { type: 'warning', message: '任务仍在进行，请完成后再退出。 / Finish the active task before quitting.' });
+            return;
+        }
+        quitting = true;
+        app.quit();
+    } catch (error) { dialog.showErrorBox('MD Studio', String(error)); }
+    finally { checkingQuit = false; }
+}
 function trusted(event: Electron.IpcMainInvokeEvent) {
     if (!event.senderFrame || new URL(event.senderFrame.url).origin !== uiOrigin || event.senderFrame !== event.sender.mainFrame) throw new Error('Untrusted window');
 }
@@ -43,10 +67,15 @@ function secureWindow(win: BrowserWindow) {
 }
 async function start() {
     await app.whenReady();
+    preferences = await loadDesktopPreferences(configFolder);
     // Desktop assets are local; a PWA navigation fallback must never replace the control page.
     await session.defaultSession.clearStorageData({ storages:['serviceworkers','cachestorage'] });
     runtime = createBridgeRuntime({ host:'127.0.0.1', port:0, token:bridgeToken, allowedOrigins:[uiOrigin] });
     await runtime.bridge.ready;
+    if (preferences.mcpEnabled) {
+        try { mcp = await startMcpHttp(runtime, preferences.mcpToken); }
+        catch (error) { mcpError = String(error); }
+    }
     const staticRoot = resolve(root,'dist');
     const contentTypes: Record<string,string> = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css', '.json':'application/json', '.wasm':'application/wasm', '.svg':'image/svg+xml', '.png':'image/png' };
     const server = createServer(async (req,res) => {
@@ -95,24 +124,40 @@ async function start() {
         if (!devices.length) { callback(); return; }
         void dialog.showMessageBox(mainWindow,{type:'question',title:'选择 MD / Select MD',message:'选择要连接的设备 / Choose a device',buttons:[...devices.map(d => `${d.productName || 'USB'} (${d.vendorId.toString(16)}:${d.productId.toString(16)})`),'取消 / Cancel'],cancelId:devices.length}).then(({response}) => callback(devices[response]?.deviceId));
     });
-    mainWindow = new BrowserWindow({width:1400,height:950,title:'MD Studio',icon:join(__dirname,'app-icon.png'),webPreferences:{preload:join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,additionalArguments:[`--md-bridge=${encodeURIComponent(`ws://127.0.0.1:${runtime.bridge.port}?token=${bridgeToken}`)}`]}});
+    mainWindow = new BrowserWindow({width:1400,height:950,title:'MD Studio',icon:join(__dirname,'app-icon.png'),webPreferences:{backgroundThrottling:false,preload:join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,additionalArguments:[`--md-bridge=${encodeURIComponent(`ws://127.0.0.1:${runtime.bridge.port}?token=${bridgeToken}`)}`]}});
     secureWindow(mainWindow);
-    let closing = false;
     mainWindow.on('close', event => {
-        if (closing) return;
+        if (quitting) return;
         event.preventDefault();
-        void isBusy().then(busy => {
-            if (busy) { void dialog.showMessageBox(mainWindow,{type:'warning',title:'任务仍在进行 / Task still active',message:'请保持碟机供电和 USB 连接。可在任务中心请求“当前曲目完成后结束批次”，或等待任务完成。 / Keep the recorder powered and USB connected. Use Task Center to end the batch after the current track, or wait for completion.'}); return; }
-            closing = true; mainWindow.close();
-        }).catch(error => dialog.showErrorBox('MD Studio',String(error)));
+        mainWindow.hide();
     });
+    tray = new Tray(join(__dirname, 'app-icon.png'));
+    tray.setToolTip('MD Studio');
+    const showWindow = () => { mainWindow.show(); mainWindow.focus(); };
+    tray.on('double-click', showWindow);
+    tray.setContextMenu(Menu.buildFromTemplate([
+        { label: '打开 MD Studio / Open MD Studio', click: showWindow },
+        { label: '设置 / Settings', click: openControl },
+        { type: 'separator' },
+        { label: '退出 / Quit', click: () => void requestQuit() },
+    ]));
     ipcMain.handle('desktop:open-controls',event => { trusted(event); openControl(); });
-    ipcMain.handle('desktop:status', event => { trusted(event); return { enabled:Boolean(mcp),url:mcp?.url || '',cli:join(configFolder,'mdstudio.cmd') }; });
+    ipcMain.handle('desktop:background',event => { trusted(event); mainWindow.hide(); });
+    ipcMain.handle('desktop:status', event => { trusted(event); return { enabled:Boolean(mcp),url:mcp?.url || '',cli:join(configFolder,'mdstudio.cmd'),error:mcpError }; });
     ipcMain.handle('desktop:mcp',async(event,enabled) => {
         trusted(event); if(typeof enabled !== 'boolean' || mcpChanging) throw new Error('Please wait');
         mcpChanging=true;
-        try { if(enabled && !mcp) { mcpToken=randomBytes(24).toString('hex'); mcp=await startMcpHttp(runtime,mcpToken); }
-            else if(!enabled && mcp) { const old=mcp; mcp=undefined; await old.close(); }
+        try { if(enabled && !mcp) {
+                const started = await startMcpHttp(runtime,preferences.mcpToken);
+                try { await saveDesktopPreferences(configFolder, {...preferences,mcpEnabled:true}); }
+                catch (error) { await started.close(); throw error; }
+                mcp=started;
+            } else {
+                await saveDesktopPreferences(configFolder, {...preferences,mcpEnabled:enabled});
+                if(!enabled && mcp) { const old=mcp; mcp=undefined; await old.close(); }
+            }
+            preferences.mcpEnabled=enabled;
+            mcpError='';
             return {enabled:Boolean(mcp),url:mcp?.url || ''};
         } finally { mcpChanging=false; }
     });
@@ -140,6 +185,6 @@ async function start() {
     ipcMain.handle('desktop:skill',async event => { trusted(event); const result=await dialog.showOpenDialog(mainWindow,{properties:['openDirectory','createDirectory']}); if(result.canceled) return; const source=app.isPackaged ? join(resources,'skills','md-metadata-curator') : join(root,'skills','md-metadata-curator'); await cp(source,join(result.filePaths[0],'md-metadata-curator'),{recursive:true,errorOnExist:true,force:false}); return 'OK'; });
     Menu.setApplicationMenu(Menu.buildFromTemplate([{label:'MD Studio',submenu:[{label:'打开设置 / Open Settings',click:openControl},{role:'quit'}]},{label:'查看 / View',submenu:[{role:'resetZoom'},{role:'zoomIn'},{role:'zoomOut'},{role:'toggleDevTools'}]}]));
     await mainWindow.loadURL(uiOrigin);
-    app.on('will-quit', () => { void mcp?.close(); void runtime.close(); server.close(); });
+    app.on('will-quit', () => { tray?.destroy(); void mcp?.close(); void runtime.close(); server.close(); });
     app.on('window-all-closed',() => app.quit());
 }

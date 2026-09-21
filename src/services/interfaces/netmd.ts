@@ -9,7 +9,6 @@ import {
     getDeviceStatus,
     DeviceStatus as NetMDDeviceStatus,
     Group as NetMDGroup,
-    renameDisc,
     DiscFormat,
     upload,
     rewriteDiscGroups,
@@ -30,6 +29,7 @@ import {
     formatToHiMD,
 } from 'netmd-js';
 import { Logger } from 'netmd-js/dist/logger';
+import { renameDiscPreservingGroups } from './netmd-disc-title';
 import { sanitizeHalfWidthTitle, sanitizeFullWidthTitle, concatUint8Arrays } from 'netmd-js/dist/utils';
 import { asyncMutex, sleep, isSequential, getPublicPathFor } from '../../utils';
 import { recomputeGroupsAfterTrackMove } from '../../domain/disc-layout';
@@ -583,7 +583,7 @@ export class NetMDUSBService extends NetMDService {
             disc.fullWidthTitle = newFullWidthName;
         }
         this.dropCachedContentList();
-        await renameDisc(this.netmdInterface!, newName, newFullWidthName);
+        await renameDiscPreservingGroups(this.netmdInterface!, newName, newFullWidthName);
         this.cachedContentList = disc;
     }
 
