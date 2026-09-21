@@ -15,7 +15,6 @@ const root = app.getAppPath();
 const resources = app.isPackaged ? process.resourcesPath : root;
 const uiOrigin = 'http://127.0.0.1:5190';
 let mainWindow: BrowserWindow;
-let controlWindow: BrowserWindow | undefined;
 let mcp: Awaited<ReturnType<typeof startMcpHttp>> | undefined;
 let mcpChanging = false;
 const cliDir = app.isPackaged ? join(process.resourcesPath,'cli') : join(root,'desktop-build');
@@ -37,12 +36,7 @@ async function isBusy() {
     if (!result.ok) throw new Error('Cannot verify device task state');
     return result.tasks?.some(task => task.status === 'running' || task.status === 'queued') ?? false;
 }
-function openControl() {
-    if (controlWindow && !controlWindow.isDestroyed()) { controlWindow.focus(); return; }
-    controlWindow = new BrowserWindow({ width:850, height:780, parent:mainWindow, title:'MD Studio · 连接与驱动 / Connections', webPreferences:{ partition:'md-studio-controls', preload:join(__dirname,'preload.cjs'), contextIsolation:true, nodeIntegration:false, sandbox:true } });
-    secureWindow(controlWindow);
-    void controlWindow.loadURL(`${uiOrigin}/desktop-control.html`);
-}
+function openControl() { mainWindow.show(); mainWindow.focus(); mainWindow.webContents.send('desktop:show-settings'); }
 function secureWindow(win: BrowserWindow) {
     win.webContents.setWindowOpenHandler(() => ({ action:'deny' }));
     win.webContents.on('will-navigate', (event, url) => { if (new URL(url).origin !== uiOrigin) event.preventDefault(); });
@@ -51,10 +45,6 @@ async function start() {
     await app.whenReady();
     // Desktop assets are local; a PWA navigation fallback must never replace the control page.
     await session.defaultSession.clearStorageData({ storages:['serviceworkers','cachestorage'] });
-    const controlsSession = session.fromPartition('md-studio-controls');
-    controlsSession.setPermissionCheckHandler(() => false);
-    controlsSession.setPermissionRequestHandler((_contents,_permission,callback) => callback(false));
-    controlsSession.setDevicePermissionHandler(() => false);
     runtime = createBridgeRuntime({ host:'127.0.0.1', port:0, token:bridgeToken, allowedOrigins:[uiOrigin] });
     await runtime.bridge.ready;
     const staticRoot = resolve(root,'dist');
@@ -82,9 +72,7 @@ async function start() {
             }
             if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405).end(); return; }
             let file: string;
-            if (url.pathname === '/desktop-control.html') file = join(root,'desktop-build/control.html');
-            else if (url.pathname === '/desktop-control.js') file = join(root,'desktop-build/control.js');
-            else {
+            {
                 file = resolve(staticRoot, '.' + decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname));
                 if (!file.startsWith(staticRoot+sep)) { res.writeHead(403).end(); return; }
             }
@@ -134,7 +122,7 @@ async function start() {
         trusted(event); if (driverInstalling || await isBusy()) throw new Error('设备忙，请稍后重试 / Device busy');
         const device=(await scanDrivers()).find(d => d.id === id);
         if(!device?.eligible) throw new Error('此设备不需要或不适用 WinUSB 安装 / Device not eligible');
-        const answer=await dialog.showMessageBox(controlWindow || mainWindow,{type:'warning',buttons:['取消 / Cancel','打开安装器 / Open installer'],defaultId:0,cancelId:0,message:`${device.name}\n${device.id}`,detail:'将打开 Zadig。请核对这个设备及 USB ID，并选择 WinUSB。更换驱动可能影响旧软件。不要选择其他设备。 / Verify this device and select WinUSB; replacing its driver may affect legacy software.'});
+        const answer=await dialog.showMessageBox(mainWindow,{type:'warning',buttons:['取消 / Cancel','打开安装器 / Open installer'],defaultId:0,cancelId:0,message:`${device.name}\n${device.id}`,detail:'将打开 Zadig。请核对这个设备及 USB ID，并选择 WinUSB。更换驱动可能影响旧软件。不要选择其他设备。 / Verify this device and select WinUSB; replacing its driver may affect legacy software.'});
         if(answer.response !== 1) return {cancelled:true};
         driverInstalling=true;
         try {
@@ -149,7 +137,7 @@ async function start() {
             return {devices:await scanDrivers()};
         } finally {driverInstalling=false;}
     });
-    ipcMain.handle('desktop:skill',async event => { trusted(event); const result=await dialog.showOpenDialog(controlWindow || mainWindow,{properties:['openDirectory','createDirectory']}); if(result.canceled) return; const source=app.isPackaged ? join(resources,'skills','md-metadata-curator') : join(root,'skills','md-metadata-curator'); await cp(source,join(result.filePaths[0],'md-metadata-curator'),{recursive:true,errorOnExist:true,force:false}); return 'OK'; });
+    ipcMain.handle('desktop:skill',async event => { trusted(event); const result=await dialog.showOpenDialog(mainWindow,{properties:['openDirectory','createDirectory']}); if(result.canceled) return; const source=app.isPackaged ? join(resources,'skills','md-metadata-curator') : join(root,'skills','md-metadata-curator'); await cp(source,join(result.filePaths[0],'md-metadata-curator'),{recursive:true,errorOnExist:true,force:false}); return 'OK'; });
     Menu.setApplicationMenu(Menu.buildFromTemplate([{label:'MD Studio',submenu:[{label:'AI、CLI 与驱动 / Connections & drivers',click:openControl},{role:'quit'}]},{label:'查看 / View',submenu:[{role:'resetZoom'},{role:'zoomIn'},{role:'zoomOut'},{role:'toggleDevTools'}]}]));
     await mainWindow.loadURL(uiOrigin);
     app.on('will-quit', () => { void mcp?.close(); void runtime.close(); server.close(); });

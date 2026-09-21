@@ -42,7 +42,7 @@ describe('independent project identity', () => {
     it('keeps product help inside the independent application', async () => {
         for (const path of [
             '../src/components/topmenu.tsx',
-            '../src/components/welcome.tsx',
+            '../src/components/workbench/device-connection.tsx',
             '../src/components/workbench/workbench.tsx',
         ]) {
             const source = await readFile(new URL(path, import.meta.url), 'utf8');

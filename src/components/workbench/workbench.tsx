@@ -1,3 +1,5 @@
+import { DesktopConnections } from './desktop-connections';
+import { DeviceConnection } from './device-connection';
 import { useBrowserPreferences } from '../../frontend/use-browser-preferences';
 import { recordingModeLabel as codecLabel } from '../../frontend/recording-mode-label';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -112,6 +114,7 @@ export const Workbench = () => {
     const imports = workspace.imports.items;
     const tracks = useMemo(() => getSortedTracks(disc), [disc]);
     const [section, setSection] = useState<NavigationSection>('device');
+    useEffect(() => window.mdDesktop?.onOpenControls(() => setSection('automation')), []);
     const [contentView, setContentView] = useState<ContentView>(imports.length > 0 ? 'plan' : 'disc');
     const [selectedKey, setSelectedKey] = useState<string | null>(null);
     const [selectedTrackIndexes, setSelectedTrackIndexes] = useState<number[]>([]);
@@ -877,18 +880,13 @@ export const Workbench = () => {
                     <button aria-label={t('Device')} aria-current={section === 'device' ? 'page' : undefined} className={section === 'device' ? 'is-active' : ''} onClick={() => setSection('device')}>
                         <UsbRoundedIcon /><span>{t('Device')}</span><i className={device ? 'is-online' : ''} />
                     </button>
-                    <button aria-label={t('Import audio')} onClick={open} disabled={!canUpload}><AddRoundedIcon /><span>{t('Import audio')}</span></button>
-                    <button aria-label={t('Settings')} aria-current={section === 'settings' ? 'page' : undefined} className={section === 'settings' ? 'is-active' : ''} onClick={() => setSection('settings')}><SettingsRoundedIcon /><span>{t('Settings')}</span></button>
-                </nav>
-
-                <div className="workbench__sidebar-label">{t('WORKSPACE')}</div>
-                <nav className="workbench__nav" aria-label={t('Workspace tools')}>
                     <button aria-label={language === 'zh-CN' ? 'AI 制作' : 'AI creation'} aria-current={section === 'automation' ? 'page' : undefined} className={section === 'automation' ? 'is-active' : ''} onClick={() => setSection('automation')}>
                         <AutoAwesomeIcon /><span>{language === 'zh-CN' ? 'AI 制作' : 'AI creation'}</span>
                     </button>
                 </nav>
 
                 <nav className="workbench__nav workbench__support-nav" aria-label={t('Help')}>
+                    <button aria-label={t('Settings')} aria-current={section === 'settings' ? 'page' : undefined} className={section === 'settings' ? 'is-active' : ''} onClick={() => setSection('settings')}><SettingsRoundedIcon /><span>{t('Settings')}</span></button>
                     <button aria-label={t('Help & Support')} onClick={() => setHelpOpen(true)}><HelpOutlineRoundedIcon /><span>{t('Help & Support')}</span></button>
                     <button aria-label={t('About')} onClick={() => setAboutOpen(true)}><InfoOutlinedIcon /><span>{t('About')}</span></button>
                 </nav>
@@ -898,9 +896,9 @@ export const Workbench = () => {
             <main className="workbench__main">
                 <header className="workbench__header">
                     <div>
-                        <span className="workbench__eyebrow">{t('CONNECTED DEVICE')}</span>
+                        <span className="workbench__eyebrow">{device ? t('CONNECTED DEVICE') : t('Disconnected')}</span>
                         <h1>{device?.deviceName || 'MD Studio'}</h1>
-                        <small className="workbench__header-subtitle">{device ? `${/hi.?md/i.test(device.recording.specName) ? 'Hi-MD' : 'NetMD'} · USB` : t('Connect a device to begin')}</small>
+                        <small className="workbench__header-subtitle">{device ? `${/hi.?md/i.test(device.recording.specName) ? 'Hi-MD' : 'NetMD'} · USB` : ''}</small>
                     </div>
                     <div className="workbench__header-actions">
                         <span className={`workbench__status ${device ? 'is-online' : ''}`}><i />{t(device ? 'Connected' : 'Disconnected')}</span>
@@ -911,7 +909,7 @@ export const Workbench = () => {
                 </header>
 
                 <div className="workbench__notice-slot">{message ? <button className="workbench__toast" aria-live="polite" aria-atomic="true" onClick={() => setMessage(null)}>{t(message)} ×</button> : null}</div>
-                <section className="workbench__disc-overview">
+                {!device ? <DeviceConnection /> : <section className="workbench__disc-overview">
                     <div className="workbench__disc-icon"><AlbumIcon /></div>
                     <div className="workbench__disc-copy">
                         <span className="workbench__eyebrow">{t('CURRENT MINIDISC')}</span>
@@ -933,11 +931,11 @@ export const Workbench = () => {
                         <div><dt>{labelText('设备模式', 'Device mode')}</dt><dd>{device ? (isNetMD ? 'NetMD' : 'Hi-MD') : '—'}</dd></div>
                         <div><dt>{t('Disc')}</dt><dd>{disc?.writable ? t('Writable') : disc ? t('Read only') : '—'}</dd></div>
                     </dl>
-                </section>
+                </section>}
 
                 {section === 'automation' ? (
                     <section className="workbench__ai" aria-label={language === 'zh-CN' ? 'AI 制作' : 'AI creation'}>
-                        {window.mdDesktop ? <div><h2>{labelText('让 AI 帮你制作 MD', 'Create an MD with AI')}</h2><p>{labelText('桌面版已内置 CLI、MCP 和标签整理 Skill。无需下载源码或安装 Node。打开连接窗口，开启 MCP 后复制地址到支持本地 HTTP MCP 的客户端，再导出并安装 Skill。', 'CLI, MCP and the metadata Skill are bundled. No source checkout or Node installation is needed. Enable MCP in Connections, copy its URL into a local HTTP MCP client, and export the Skill.')}</p><button className="secondary-button" onClick={() => void window.mdDesktop?.openControls()}>{labelText('打开 AI 接入与 CLI', 'Open AI connections and CLI')}</button></div> : <>
+                        {window.mdDesktop ? <DesktopConnections /> : <>
                         <header><AutoAwesomeIcon /><div><h2>{language === 'zh-CN' ? '让 AI 帮你制作 MD' : 'Create an MD with AI'}</h2><p>{language === 'zh-CN' ? '告诉 AI 用哪些音乐、怎么编排。曲名、曲序和录制进度会同步显示在这里。' : 'Tell AI which music to use and how to arrange it. Titles, track order and recording progress stay visible here.'}</p></div></header>
                         <div className="workbench__ai-status"><strong>{language === 'zh-CN' ? (localBridgeEnabled ? 'AI 接入已启用' : '尚未启用 AI 接入') : (localBridgeEnabled ? 'AI access enabled' : 'AI access is off')}</strong><p>{language === 'zh-CN' ? (localBridgeEnabled ? '下一步：在 AI 客户端中配置 MCP，并让 AI 检查设备连接。启用开关不代表 AI 已连接。' : '先在设置中启用 AI 接入，再连接你使用的 AI 客户端。') : (localBridgeEnabled ? 'Next: configure MCP in your AI client and ask AI to check the device. Enabling access does not mean a client is connected.' : 'Enable AI access in Settings, then connect your AI client.')}</p></div>
                         <ol className="workbench__ai-steps">
@@ -1019,7 +1017,7 @@ export const Workbench = () => {
                                 }
                             >
                                 {planItems.length === 0 ? (
-                                    <div className="workbench__empty"><QueueMusicIcon /><h3>{t(contentView === 'plan' ? 'Your recording plan is empty' : 'This MiniDisc is empty')}</h3><p>{t(contentView === 'plan' ? 'Import audio to prepare titles, order and recording modes before writing the disc.' : 'Add audio to begin building this disc.')}</p><button className="primary-button" onClick={open} disabled={!canUpload}><FolderOpenIcon /> {t('Choose audio files')}</button></div>
+                                    <div className="workbench__empty"><QueueMusicIcon /><h3>{t(!device ? 'Disconnected' : contentView === 'plan' ? 'Your recording plan is empty' : 'This MiniDisc is empty')}</h3><p>{t(!device ? 'Connect a device to begin' : contentView === 'plan' ? 'Import audio to prepare titles, order and recording modes before writing the disc.' : 'Add audio to begin building this disc.')}</p><button className="primary-button" onClick={open} disabled={!canUpload}><FolderOpenIcon /> {t('Choose audio files')}</button></div>
                                 ) : planWindow.virtualized ? (
                                     <div className="workbench__virtual-list" style={{ height: planWindow.totalHeight }}>
                                         <div className="workbench__virtual-list-window" style={{ transform: `translateY(${planWindow.offset}px)` }}>
@@ -1033,7 +1031,7 @@ export const Workbench = () => {
 
                     <aside className="workbench__inspector">
                         <div className="workbench__inspector-heading"><div><span className="workbench__eyebrow">{t('INSPECTOR')}</span><h2>{selected ? (activeSelectionCount > 1 ? (language === 'zh-CN' ? `已选择 ${activeSelectionCount} 首曲目` : `${activeSelectionCount} tracks selected`) : (language === 'zh-CN' ? `曲目 ${selected.index + 1}` : `Track ${selected.index + 1}`)) : t('No selection')}</h2></div><MoreHorizIcon /></div>
-                        <div className="workbench__label-context"><strong>{isNetMD ? 'NetMD' : 'Hi-MD'} · {selected?.kind === 'import' ? labelText('待录制标签', 'Planned labels') : labelText('碟片标签', 'Disc labels')}</strong><p>{selected?.kind === 'import' ? labelText('保存到待录制列表，写盘时才写入 MD。', 'Saved to the recording plan; written to the MD during recording.') : labelText('保存会直接修改 MD 上的标签。', 'Saving updates the labels on the MD.')}</p></div>
+                        <div className="workbench__label-context"><strong>{device ? (isNetMD ? 'NetMD' : 'Hi-MD') : '—'} · {selected?.kind === 'import' ? labelText('待录制标签', 'Planned labels') : labelText('碟片标签', 'Disc labels')}</strong><p>{selected?.kind === 'import' ? labelText('保存到待录制列表，写盘时才写入 MD。', 'Saved to the recording plan; written to the MD during recording.') : labelText('保存会直接修改 MD 上的标签。', 'Saving updates the labels on the MD.')}</p></div>
                         <label>{isNetMD ? labelText('普通标题 · 半角', 'Standard title · half-width') : labelText('曲名', 'Track title')}<input value={draft.title} disabled={!selected} placeholder={isNetMD ? 'Blue Sky / ｻｸﾗ' : labelText('歌曲原名', 'Original track title')} onChange={(event) => updateDraftField('title', event.target.value)} /></label>
                         {hasFullWidth ? <label>{labelText('全角标题 · 英文全角／日文原文', 'Full-width title · English / Japanese')}<input value={draft.fullWidthTitle} placeholder="Ｂｌｕｅ　Ｓｋｙ / 桜" disabled={!selected} onChange={(event) => updateDraftField('fullWidthTitle', event.target.value)} /></label> : null}
                         {isNetMD ? titleGuide : <p className="workbench__label-help">{labelText('Hi-MD 可分别保存曲名、艺术家和专辑，保留英文或日文原文即可。', 'Hi-MD stores title, artist and album separately. Keep their original spelling.')}</p>}

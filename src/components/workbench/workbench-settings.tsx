@@ -10,8 +10,6 @@ import { useApplicationClient, useApplicationWorkspace, useUpdateApplicationSett
 import { areServiceParametersValid, createDefaultServiceParameters } from './workbench-model';
 import { useI18n } from '../use-i18n';
 import { resolveUiLanguage, translate, type ResolvedUiLanguage } from '../../i18n';
-import { browserPreferences } from '../../frontend/browser-preferences-store';
-import { useBrowserPreferences } from '../../frontend/use-browser-preferences';
 import {
     getBrowserNotificationPermission,
     requestBrowserNotificationPermission,
@@ -146,11 +144,9 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
     const updateSettings = useUpdateApplicationSettings();
     const workspace = useApplicationWorkspace();
     const settings = workspace.settings.values;
-    const { localBridgeEnabled } = useBrowserPreferences();
     const [catalog, setCatalog] = useState<ServiceCatalogSnapshot | null>(null);
     const [encoderId, setEncoderId] = useState(settings.audioEncoderId);
     const [encoderParameters, setEncoderParameters] = useState<CustomParameters>(settings.audioExportServiceConfig);
-    const [bridgeEnabled, setBridgeEnabled] = useState(localBridgeEnabled);
     const [status, setStatus] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
     const [notificationPermission, setNotificationPermission] = useState(getBrowserNotificationPermission);
@@ -189,8 +185,7 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
     const serviceChangesPending =
         encoderId !== (settings.audioEncoderId ?? catalog?.audioEncoders[settings.audioExportService]?.id ?? null) ||
         selectedEncoderIndex !== settings.audioExportService ||
-        !sameParameters(encoderParameters, settings.audioExportServiceConfig) ||
-        bridgeEnabled !== localBridgeEnabled;
+        !sameParameters(encoderParameters, settings.audioExportServiceConfig);
     const serviceConfigurationValid =
         Boolean(selectedEncoder?.available) &&
         areServiceParametersValid(selectedEncoder, encoderParameters);
@@ -230,12 +225,7 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
         if (!selectedEncoder || !serviceConfigurationValid) return;
         setBusy(true);
         setStatus(null);
-        let bridgePersisted = false;
         try {
-            if (bridgeEnabled !== localBridgeEnabled) {
-                browserPreferences.setLocalBridgeEnabled(bridgeEnabled);
-                bridgePersisted = true;
-            }
             await updateSettings({
                 audioEncoderId: selectedEncoder.id,
                 audioExportService: selectedEncoder.index,
@@ -243,13 +233,6 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
             });
             window.reload();
         } catch (error) {
-            if (bridgePersisted) {
-                try {
-                    browserPreferences.setLocalBridgeEnabled(localBridgeEnabled);
-                } catch {
-                    // Keep the original error visible; a failed rollback will be retried on the next explicit save.
-                }
-            }
             setStatus(t(error instanceof Error ? error.message : String(error)));
             setBusy(false);
         }
@@ -257,7 +240,7 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
 
     return (
         <section className="workbench__settings" aria-label={t('Settings')}>
-            <header><div><span className="workbench__eyebrow">{t('PREFERENCES')}</span><h2>{t('Workspace settings')}</h2><p>{t('Changes are stored locally. Encoder and automation changes reload the application.')}</p></div>{serviceChangesPending ? <button className="primary-button" disabled={busy || !serviceConfigurationValid} onClick={() => void saveServices()}><RestartAltRoundedIcon /> {t('Save and reload')}</button> : null}</header>
+            <header><div><span className="workbench__eyebrow">{t('PREFERENCES')}</span><h2>{t('Workspace settings')}</h2><p>{t('Changes are stored locally. Encoder changes reload the application.')}</p></div>{serviceChangesPending ? <button className="primary-button" disabled={busy || !serviceConfigurationValid} onClick={() => void saveServices()}><RestartAltRoundedIcon /> {t('Save and reload')}</button> : null}</header>
             {status ? <div className="workbench__settings-message is-error">{status}</div> : null}
             <div className="workbench__settings-columns">
                 <div>
@@ -267,8 +250,6 @@ export const WorkbenchSettings = ({ onMessage }: { onMessage(message: string): v
                 </div>
                 <div>
                     <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('ENCODING')}</span><h3>{t('ATRAC encoder')}</h3><label className="workbench__settings-field"><span>{t('Encoder')}</span><select value={encoderId ?? ''} disabled={!catalog || busy} onChange={(event) => { const service = catalog?.audioEncoders.find((candidate) => candidate.id === event.target.value); setEncoderId(event.target.value); setEncoderParameters(createDefaultServiceParameters(service)); }}>{catalog?.audioEncoders.map((service) => <option key={service.id} value={service.id} disabled={!service.available}>{service.name}{service.available ? '' : ` · ${t('unavailable')}`}</option>)}</select></label>{selectedEncoder?.description ? <p className="workbench__settings-description">{t(selectedEncoder.description)}</p> : null}{selectedEncoder?.unavailableReason ? <div className="workbench__settings-message is-error">{t(selectedEncoder.unavailableReason)}</div> : null}{selectedEncoder?.parameters.map((parameter) => <ServiceParameter key={parameter.key} descriptor={parameter} value={encoderParameters[parameter.key]} onChange={(value) => setEncoderParameters((current) => ({ ...current, [parameter.key]: value }))} />)}</section>
-                    <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('PRIVACY')}</span><h3>{t('Local processing')}</h3><p className="workbench__settings-description">{t('Audio, metadata, transcoding, automation and device communication stay on this computer.')}</p></section>
-                    {window.mdDesktop ? <section className="workbench__settings-card"><h3>AI · CLI · MCP</h3><button className="secondary-button" onClick={() => void window.mdDesktop?.openControls()}>{t('Open settings')}</button></section> : <section className="workbench__settings-card"><span className="workbench__eyebrow">{t('AUTOMATION')}</span><h3>{t('Local MCP and CLI')}</h3><Toggle checked={bridgeEnabled} label={t('Enable local bridge')} description={t('Allow the loopback-only MCP server and CLI to control this browser session.')} onChange={setBridgeEnabled} /><p className="workbench__settings-description">{t('The bridge listens only on this computer. Saving this option reloads the app so the browser endpoint can attach cleanly.')}</p></section>}
                     <NativeSettings />
                 </div>
             </div>

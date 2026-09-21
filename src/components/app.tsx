@@ -6,9 +6,8 @@ import { createTheme, ThemeProvider } from '@mui/material/styles';
 import React, { lazy, Suspense, useEffect, useMemo } from 'react';
 import { useThemeDetector } from '../frontend-utils';
 import { resolveUiLanguage } from '../i18n';
-import { useApplicationSettings, useApplicationWorkspace } from './use-application-client';
+import { useApplicationSettings } from './use-application-client';
 
-const Welcome = lazy(() => import('./welcome'));
 const Workbench = lazy(() => import('./workbench/workbench'));
 
 const themeCommons = {
@@ -41,13 +40,11 @@ const lightTheme = createTheme({
 });
 
 const InternalApp = () => {
-    const workspace = useApplicationWorkspace();
-    const connected = workspace.connection.phase === 'connected' && workspace.device !== null;
     return (
         <>
             <CssBaseline />
             <Suspense fallback={<Backdrop open><CircularProgress color="info" /></Backdrop>}>
-                {connected ? <Workbench /> : <Welcome />}
+                <Workbench />
             </Suspense>
         </>
     );
