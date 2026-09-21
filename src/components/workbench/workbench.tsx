@@ -122,6 +122,7 @@ export const Workbench = () => {
     const [draft, setDraft] = useState({ title: '', album: '', artist: '', fullWidthTitle: '' });
     const [dirtyDraftFields, setDirtyDraftFields] = useState<WorkbenchDraftField[]>([]);
     const [groupDraft, setGroupDraft] = useState('');
+    const [groupFullWidthDraft, setGroupFullWidthDraft] = useState('');
     const [groupDialogOpen, setGroupDialogOpen] = useState(false);
     const [aboutOpen, setAboutOpen] = useState(false);
     const [helpOpen, setHelpOpen] = useState(false);
@@ -427,6 +428,10 @@ export const Workbench = () => {
     const selectedImportCount = selectedImportIds.length;
     const selectedTrackCount = selectedTrackIndexes.length;
     const activeSelectionCount = selected?.kind === 'import' ? selectedImportCount : selectedTrackCount;
+    const isNetMD = device?.recording.titleStorage === 'netmd-toc';
+    const hasFullWidth = isNetMD && capabilities.includes('metadata.fullWidth');
+    const labelText = (zh: string, en: string) => language === 'zh-CN' ? zh : en;
+    const titleGuide = <p className="workbench__label-help">{labelText('普通标题：半角英文或半角片假名，如 Blue Sky、ｻｸﾗ。全角标题：全角英文或日文原文，如 Ｂｌｕｅ　Ｓｋｙ、桜。汉字读音需确认，不能只转换全半角。', 'Standard title: half-width English or katakana, e.g. Blue Sky or ｻｸﾗ. Full-width title: full-width English or original Japanese, e.g. Ｂｌｕｅ　Ｓｋｙ or 桜. Confirm kanji readings before creating the standard title.')}</p>;
     const supportsSharedMetadata = selected?.kind === 'import' || capabilities.includes('metadata.himd');
     const metadataApplyCount = supportsSharedMetadata ? Math.max(activeSelectionCount, 1) : 1;
     const selectedDiscTrack = selected?.kind === 'track' ? selected.item : null;
@@ -475,7 +480,8 @@ export const Workbench = () => {
 
     useEffect(() => {
         setGroupDraft(selectedGroup?.title ?? '');
-    }, [selectedGroup?.index, selectedGroup?.title]);
+        setGroupFullWidthDraft(selectedGroup?.fullWidthTitle ?? '');
+    }, [selectedGroup?.index, selectedGroup?.title, selectedGroup?.fullWidthTitle]);
 
     const updateDraftField = (field: WorkbenchDraftField, value: string) => {
         setDraft((current) => ({ ...current, [field]: value }));
@@ -676,6 +682,7 @@ export const Workbench = () => {
                 firstTrack: sortedSelectedTrackIndexes[0],
                 trackCount: sortedSelectedTrackIndexes.length,
                 title: groupDraft.trim(),
+                fullWidthTitle: hasFullWidth ? groupFullWidthDraft : undefined,
                 expectedRevision: device.revision,
             });
             setGroupDialogOpen(false);
@@ -700,7 +707,7 @@ export const Workbench = () => {
         void run(async () => {
             await execute({
                 type: 'group.rename',
-                update: { index: selectedGroup.index, title: groupDraft },
+                update: { index: selectedGroup.index, title: groupDraft, fullWidthTitle: hasFullWidth ? groupFullWidthDraft : undefined },
                 expectedRevision: device.revision,
             });
             setMessage(t('Group name updated.'));
@@ -964,7 +971,7 @@ export const Workbench = () => {
                                 ) : null}
                             </div>
                             <div className="workbench__plan-actions">
-                                {contentView === 'disc' ? <button className="secondary-button" onClick={() => { setGroupDraft(''); setGroupDialogOpen(true); }} disabled={!canCreateGroup || busy}><CreateNewFolderRoundedIcon />{language === 'zh-CN' ? '新建文件夹（Group）' : 'New group'}</button> : null}
+                                {contentView === 'disc' ? <button className="secondary-button" onClick={() => { setGroupDraft(''); setGroupFullWidthDraft(''); setGroupDialogOpen(true); }} disabled={!canCreateGroup || busy}><CreateNewFolderRoundedIcon />{language === 'zh-CN' ? '新建文件夹（Group）' : 'New group'}</button> : null}
                                 <span>{language === 'zh-CN' ? `${planItems.length} 首曲目` : `${planItems.length} tracks`} · {formatDuration(contentView === 'plan' && imports.length ? queuedDuration : tracks.reduce((sum, track) => sum + track.duration, 0))}</span>
                                 {contentView === 'disc' && tracks.length > 0 ? <button className="secondary-button workbench__compact-button" onClick={toggleSelectAllTracks}><SelectAllRoundedIcon /> {t(selectedTrackIndexes.length === tracks.length ? 'Clear' : 'Select all')}</button> : null}
                                 {contentView === 'plan' && imports.length > 0 ? <button className="secondary-button workbench__compact-button" onClick={toggleSelectAllImports}><SelectAllRoundedIcon /> {t(selectedImportIds.length === imports.length ? 'Clear' : 'Select all')}</button> : null}
@@ -979,7 +986,7 @@ export const Workbench = () => {
                                 <strong>{language === 'zh-CN' ? `已选 ${selectedTrackIndexes.length} 首` : `${selectedTrackIndexes.length} selected`}</strong>
                                 <span>{t('Ctrl/⌘ click toggles · Shift click extends the selection')}</span>
                                 <div>
-                                    <button onClick={() => { setGroupDraft(''); setGroupDialogOpen(true); }} disabled={!canGroupSelection}><CreateNewFolderRoundedIcon /> {t('Group')}</button>
+                                    <button onClick={() => { setGroupDraft(''); setGroupFullWidthDraft(''); setGroupDialogOpen(true); }} disabled={!canGroupSelection}><CreateNewFolderRoundedIcon /> {t('Group')}</button>
                                     <button onClick={ungroupSelected} disabled={!canDeleteGroup || selectedNamedGroups.length === 0}><FolderOffRoundedIcon /> {t('Ungroup')}</button>
                                 </div>
                             </div>
@@ -1024,19 +1031,27 @@ export const Workbench = () => {
 
                     <aside className="workbench__inspector">
                         <div className="workbench__inspector-heading"><div><span className="workbench__eyebrow">{t('INSPECTOR')}</span><h2>{selected ? (activeSelectionCount > 1 ? (language === 'zh-CN' ? `已选择 ${activeSelectionCount} 首曲目` : `${activeSelectionCount} tracks selected`) : (language === 'zh-CN' ? `曲目 ${selected.index + 1}` : `Track ${selected.index + 1}`)) : t('No selection')}</h2></div><MoreHorizIcon /></div>
-                        <label>{t('Title')}<input value={draft.title} disabled={!selected} onChange={(event) => updateDraftField('title', event.target.value)} /></label>
-                        <label>{t('Artist')}<input value={draft.artist} disabled={!selected || !supportsSharedMetadata} onChange={(event) => updateDraftField('artist', event.target.value)} /></label>
-                        <label>{t('Album')}<input value={draft.album} disabled={!selected || !supportsSharedMetadata} onChange={(event) => updateDraftField('album', event.target.value)} /></label>
-                        {device?.recording.titleStorage === 'netmd-toc' ? <label>{t('Full-width title')}<input value={draft.fullWidthTitle} disabled={!selected} onChange={(event) => updateDraftField('fullWidthTitle', event.target.value)} /></label> : null}
-                        {activeSelectionCount > 1 ? <p className="workbench__selection-note">{supportsSharedMetadata ? 'Title fields apply to the focused row. Artist and Album apply to all selected tracks.' : 'This device stores per-track titles. Metadata edits apply to the focused row.'}</p> : null}
-                        <button className="secondary-button workbench__save" onClick={saveInspector} disabled={!selected || busy || dirtyDraftFields.length === 0}><CheckCircleIcon /> {metadataApplyCount > 1 ? (language === 'zh-CN' ? `应用到 ${metadataApplyCount} 首曲目` : `Apply to ${metadataApplyCount} tracks`) : t('Apply metadata')}</button>
-                        {selectedGroup ? (
-                            <>
-                                <div className="workbench__divider" />
-                                <label>{t('Group name')}<input value={groupDraft} onChange={(event) => setGroupDraft(event.target.value)} /></label>
-                                <button className="secondary-button workbench__save" onClick={renameSelectedGroup} disabled={!canRenameGroup || busy || groupDraft === (selectedGroup.title ?? '')}><CheckCircleIcon /> {t('Apply group name')}</button>
-                            </>
-                        ) : null}
+                        <div className="workbench__label-context"><strong>{isNetMD ? 'NetMD' : 'Hi-MD'} · {selected?.kind === 'import' ? labelText('待录制标签', 'Planned labels') : labelText('碟片标签', 'Disc labels')}</strong><p>{selected?.kind === 'import' ? labelText('保存到待录制列表，写盘时才写入 MD。', 'Saved to the recording plan; written to the MD during recording.') : labelText('保存会直接修改 MD 上的标签。', 'Saving updates the labels on the MD.')}</p></div>
+                        <label>{isNetMD ? labelText('普通标题 · 半角', 'Standard title · half-width') : labelText('曲名', 'Track title')}<input value={draft.title} disabled={!selected} placeholder={isNetMD ? 'Blue Sky / ｻｸﾗ' : labelText('歌曲原名', 'Original track title')} onChange={(event) => updateDraftField('title', event.target.value)} /></label>
+                        {hasFullWidth ? <label>{labelText('全角标题 · 英文全角／日文原文', 'Full-width title · English / Japanese')}<input value={draft.fullWidthTitle} placeholder="Ｂｌｕｅ　Ｓｋｙ / 桜" disabled={!selected} onChange={(event) => updateDraftField('fullWidthTitle', event.target.value)} /></label> : null}
+                        {isNetMD ? titleGuide : <p className="workbench__label-help">{labelText('Hi-MD 可分别保存曲名、艺术家和专辑，保留英文或日文原文即可。', 'Hi-MD stores title, artist and album separately. Keep their original spelling.')}</p>}
+                        {hasFullWidth && selected?.kind === 'import' && !workspace.settings.values.fullWidthSupport ? <div className="workbench__label-warning"><p>{labelText('全角标题录制尚未开启：填写的全角标题不会随音频写入。', 'Full-width recording is off: these titles will not be written with the audio.')}</p><button className="secondary-button" disabled={busy} onClick={() => void run(async () => { await updateSettings({ fullWidthSupport: true }); })}>{labelText('启用全角标题录制', 'Enable full-width titles')}</button></div> : null}
+                        {supportsSharedMetadata ? <details className="workbench__source-labels" open={!isNetMD}>
+                            <summary>{isNetMD ? labelText('来源信息 · 不作为独立标签写入', 'Source information · not separate disc fields') : labelText('艺术家与专辑', 'Artist and album')}</summary>
+                            {isNetMD ? <p className="workbench__label-help">{labelText('用于 AI 整理与编排。普通 MD 没有独立艺术家、专辑字段；可把专辑用作碟名或分组名。', 'Used for AI curation. NetMD has no separate artist or album fields; an album can become a disc or group name.')}</p> : null}
+                            <label>{t('Artist')}<input value={draft.artist} disabled={!selected} onChange={(event) => updateDraftField('artist', event.target.value)} /></label>
+                            <label>{t('Album')}<input value={draft.album} disabled={!selected} onChange={(event) => updateDraftField('album', event.target.value)} /></label>
+                        </details> : isNetMD ? <p className="workbench__label-help">{labelText('普通 MD 没有独立艺术家和专辑字段。可用碟名或分组名表达专辑。', 'NetMD has no separate artist or album fields. Use the disc or group name for an album.')}</p> : null}
+                        {activeSelectionCount > 1 ? <p className="workbench__selection-note">{supportsSharedMetadata ? labelText('标题仅修改当前曲目；艺术家、专辑应用到所有选中曲目。', 'Titles apply to the focused track; artist and album apply to all selected tracks.') : labelText('标题仅修改当前曲目。', 'Titles apply to the focused track only.')}</p> : null}
+                        <button className="secondary-button workbench__save" onClick={saveInspector} disabled={!selected || busy || dirtyDraftFields.length === 0}><CheckCircleIcon /> {metadataApplyCount > 1 ? labelText(`保存到 ${metadataApplyCount} 首曲目`, `Save to ${metadataApplyCount} tracks`) : selected?.kind === 'import' ? labelText('保存到待录制列表', 'Save to recording plan') : labelText('保存碟片标签', 'Save disc labels')}</button>
+                        <button className="secondary-button workbench__ai-label-link" onClick={() => setSection('automation')}><AutoAwesomeIcon />{labelText('了解如何让 AI 整理标签', 'How to curate labels with AI')}</button>
+                        {selectedGroup ? <>
+                            <div className="workbench__divider" />
+                            <h3 className="workbench__label-subheading">{labelText('所属文件夹（Group）', 'Group')}</h3>
+                            <label>{isNetMD ? labelText('普通组名 · 半角', 'Standard group name') : t('Group name')}<input value={groupDraft} onChange={(event) => setGroupDraft(event.target.value)} /></label>
+                            {hasFullWidth ? <label>{labelText('全角组名', 'Full-width group name')}<input value={groupFullWidthDraft} onChange={(event) => setGroupFullWidthDraft(event.target.value)} /></label> : null}
+                            <button className="secondary-button workbench__save" onClick={renameSelectedGroup} disabled={!canRenameGroup || busy || (groupDraft === (selectedGroup.title ?? '') && (!hasFullWidth || groupFullWidthDraft === (selectedGroup.fullWidthTitle ?? '')))}><CheckCircleIcon />{labelText('保存组名', 'Save group name')}</button>
+                        </> : null}
                         <div className="workbench__divider" />
                         {contentView === 'plan' ? (
                             <label>{t('Recording mode')}
@@ -1221,8 +1236,9 @@ export const Workbench = () => {
                         <span className="workbench__eyebrow">{t('DISC METADATA')}</span>
                         <h2 id="workbench-disc-title">{t('Edit MiniDisc title')}</h2>
                         <p>{t("The original device service applies the title using the connected recorder's character rules.")}</p>
-                        <label>{t('Disc title')}<input autoFocus value={discTitleDraft} onChange={(event) => setDiscTitleDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !busy) saveDiscTitle(); }} /></label>
-                        {canRenameFullWidthDisc ? <label className="workbench__modal-field">{t('Full-width title')}<input value={discFullWidthTitleDraft} onChange={(event) => setDiscFullWidthTitleDraft(event.target.value)} /></label> : null}
+                        <label>{isNetMD ? labelText('普通碟名 · 半角', 'Standard disc name') : t('Disc title')}<input autoFocus value={discTitleDraft} onChange={(event) => setDiscTitleDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !busy) saveDiscTitle(); }} /></label>
+                        {isNetMD ? titleGuide : null}
+                        {canRenameFullWidthDisc ? <label className="workbench__modal-field">{labelText('全角碟名', 'Full-width disc name')}<input value={discFullWidthTitleDraft} onChange={(event) => setDiscFullWidthTitleDraft(event.target.value)} /></label> : null}
                         <div className="workbench__modal-actions">
                             <button className="secondary-button" onClick={() => setDiscEditorOpen(false)} disabled={busy}>{t('Cancel')}</button>
                             <button className="primary-button" onClick={saveDiscTitle} disabled={busy || (discTitleDraft === (disc.title ?? '') && (!canRenameFullWidthDisc || discFullWidthTitleDraft === (disc.fullWidthTitle ?? '')))}><CheckCircleIcon /> {t('Save title')}</button>
@@ -1238,7 +1254,10 @@ export const Workbench = () => {
                         <p>{language === 'zh-CN' ? `曲目 ${(sortedSelectedTrackIndexes[0] ?? 0) + 1}–${(sortedSelectedTrackIndexes.at(-1) ?? 0) + 1} 将保持当前顺序。` : `Tracks ${(sortedSelectedTrackIndexes[0] ?? 0) + 1}–${(sortedSelectedTrackIndexes.at(-1) ?? 0) + 1} will stay in their current order.`}</p>
                         <p>{language === 'zh-CN' ? '选择连续且未归组的曲目。取消分组不会删除音频。' : 'Select consecutive ungrouped tracks. Ungrouping does not delete audio.'}</p>
                         <div className="workbench__group-picker">{tracks.map(track => <label key={track.index}><input type="checkbox" disabled={track.group !== null || busy} checked={selectedTrackIndexes.includes(track.index)} onChange={event => setSelectedTrackIndexes(current => event.target.checked ? [...current, track.index] : current.filter(index => index !== track.index))} />{track.index + 1}. {track.title} {track.group ? `(${track.group})` : ''}</label>)}</div>
-                        <label>{t('Group name')}<input autoFocus value={groupDraft} onChange={(event) => setGroupDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && groupDraft.trim() && canGroupSelection) createGroup(); }} /></label>
+                        <p className="workbench__label-help">{labelText('文件夹用于归类连续曲目，可按专辑命名。组名独立于曲名；不要在组名中使用 //。', 'Groups organize consecutive tracks and can be named after an album. Group names are separate from track titles; avoid // in names.')}</p>
+                        <label>{isNetMD ? labelText('普通组名 · 半角', 'Standard group name') : t('Group name')}<input autoFocus value={groupDraft} onChange={(event) => setGroupDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && groupDraft.trim() && canGroupSelection) createGroup(); }} /></label>
+                        {hasFullWidth ? <label className="workbench__modal-field">{labelText('全角组名', 'Full-width group name')}<input value={groupFullWidthDraft} onChange={(event) => setGroupFullWidthDraft(event.target.value)} /></label> : null}
+                        {isNetMD ? titleGuide : null}
                         <div className="workbench__modal-actions"><button className="secondary-button" onClick={() => setGroupDialogOpen(false)}>{t('Cancel')}</button><button className="primary-button" onClick={createGroup} disabled={!groupDraft.trim() || !canGroupSelection || busy}>{t('Create group')}</button></div>
                     </section>
                 </div>
