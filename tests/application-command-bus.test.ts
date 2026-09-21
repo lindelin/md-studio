@@ -11,7 +11,7 @@ import type { TrackRecorder } from '../src/application/track-record.ts';
 describe('ApplicationCommandBus import writing', () => {
     it('rejects removed music-library commands without changing direct imports', async () => {
         const imports = new ImportQueue();
-        imports.add([{ source: { kind: 'browser-file', name: 'track.wav' }, metadata: { title: 'Track' } }]);
+        imports.add([{ source: { kind: 'browser-file', name: 'track.wav', reference: 'track.wav' }, metadata: { title: 'Track' } }]);
         const before = imports.snapshot();
         const bus = new ApplicationCommandBus(undefined, new TaskManager(), imports);
         for (const type of ['library.get', 'library.refresh', 'library.status', 'library.refreshSummary', 'library.list', 'library.search', 'library.import']) {
