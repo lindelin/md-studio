@@ -7,7 +7,7 @@ import { useApplicationClient, useApplicationWorkspace } from '../use-applicatio
 import { useI18n } from '../use-i18n';
 import { AppDialog } from '../app-dialog';
 
-export function DeviceConnection() {
+export function DeviceConnection({ onOpenDriverSettings }: { onOpenDriverSettings: () => void }) {
     const {t, language} = useI18n();
     const client = useApplicationClient();
     const {connection} = useApplicationWorkspace();
@@ -35,7 +35,7 @@ export function DeviceConnection() {
                 if (selected?.id === 'himd-full' && !window.native?.himdFullInterface) setReview(selected);
                 else void connect();
             }}><UsbRoundedIcon />{t(connecting ? 'Connecting…' : 'Connect device')}</button>
-            {window.mdDesktop ? <button className="secondary-button" onClick={() => void window.mdDesktop?.openControls()}>{language === 'zh-CN' ? '驱动设置' : 'Driver setup'}</button> : null}
+            {window.mdDesktop ? <button className="secondary-button" onClick={onOpenDriverSettings}>{language === 'zh-CN' ? '驱动设置' : 'Driver setup'}</button> : null}
         </div>
         {unavailable ? <p role="alert">{t('The selected connection needs a Chromium browser with WebUSB.')}</p> : null}
         {(error || connection.phase === 'error') ? <p className="workbench__connection-error" role="alert">{error || connection.message}</p> : null}

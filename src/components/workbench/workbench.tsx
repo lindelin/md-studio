@@ -118,7 +118,13 @@ export const Workbench = () => {
     const imports = workspace.imports.items;
     const tracks = useMemo(() => getSortedTracks(disc), [disc]);
     const [section, setSection] = useState<NavigationSection>('device');
-    useEffect(() => window.mdDesktop?.onOpenControls(() => setSection('automation')), []);
+    useEffect(() => window.mdDesktop?.onOpenControls(() => setSection('settings')), []);
+    const openDriverSettings = useCallback(() => {
+        setSection('settings');
+        window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+            document.getElementById('desktop-driver-settings')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }));
+    }, []);
     const [contentView, setContentView] = useState<ContentView>(imports.length > 0 ? 'plan' : 'disc');
     const [selectedKey, setSelectedKey] = useState<string | null>(null);
     const [selectedTrackIndexes, setSelectedTrackIndexes] = useState<number[]>([]);
@@ -956,7 +962,7 @@ export const Workbench = () => {
                 </header>
 
                 <div className="workbench__notice-slot">{message ? <button className="workbench__toast" aria-live="polite" aria-atomic="true" onClick={() => setMessage(null)}>{t(message)} ×</button> : null}</div>
-                {!device ? <DeviceConnection /> : <section className="workbench__disc-overview">
+                {!device ? <DeviceConnection onOpenDriverSettings={openDriverSettings} /> : <section className="workbench__disc-overview">
                     <div className="workbench__disc-icon"><AlbumIcon /></div>
                     <div className="workbench__disc-copy">
                         <span className="workbench__eyebrow">{t('CURRENT MINIDISC')}</span>

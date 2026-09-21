@@ -37,7 +37,7 @@ export function DesktopDriverSettings() {
     }
 
     return (
-        <section className="workbench__settings-card workbench__driver-settings">
+        <section id="desktop-driver-settings" className="workbench__settings-card workbench__driver-settings">
             <h3>{text('设备驱动', 'Device driver')}</h3>
             <p>{text('连接碟机后会自动检测。NetMD 需要 WinUSB；Hi-MD 存储接口和复合设备不会被替换。', 'Detection runs automatically after connecting a recorder. NetMD needs WinUSB; Hi-MD storage interfaces and composite devices are never replaced.')}</p>
             <button className="secondary-button" disabled={busy} onClick={() => void run(async () => setDevices(await api.drivers()))}>
