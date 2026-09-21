@@ -1,3 +1,4 @@
+import { useBrowserPreferences } from '../../frontend/use-browser-preferences';
 import { recordingModeLabel as codecLabel } from '../../frontend/recording-mode-label';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
@@ -102,6 +103,7 @@ function formatTaskTimestamp(timestamp?: string) {
 
 export const Workbench = () => {
     const { language, t } = useI18n();
+    const { localBridgeEnabled } = useBrowserPreferences();
     const client = useApplicationClient();
     const workspace = useApplicationWorkspace();
     const updateSettings = useUpdateApplicationSettings();
@@ -874,8 +876,8 @@ export const Workbench = () => {
 
                 <div className="workbench__sidebar-label">{t('WORKSPACE')}</div>
                 <nav className="workbench__nav" aria-label={t('Workspace tools')}>
-                    <button aria-label={t('Automation')} aria-current={section === 'automation' ? 'page' : undefined} className={section === 'automation' ? 'is-active' : ''} onClick={() => setSection('automation')}>
-                        <AutoAwesomeIcon /><span>{t('Automation')}</span><em>API</em>
+                    <button aria-label={language === 'zh-CN' ? 'AI 制作' : 'AI creation'} aria-current={section === 'automation' ? 'page' : undefined} className={section === 'automation' ? 'is-active' : ''} onClick={() => setSection('automation')}>
+                        <AutoAwesomeIcon /><span>{language === 'zh-CN' ? 'AI 制作' : 'AI creation'}</span>
                     </button>
                 </nav>
 
@@ -927,10 +929,15 @@ export const Workbench = () => {
                 </section>
 
                 {section === 'automation' ? (
-                    <section className="workbench__focus-panel">
-                        <AutoAwesomeIcon />
-                        <div><span className="workbench__eyebrow">{t('AUTOMATION')}</span><h2>{t('Application commands are ready')}</h2><p>{t('The same workspace powers this interface, the local MCP bridge and the CLI. Local bridge access remains off until you enable it in Settings.')}</p></div>
-                        <button className="secondary-button" onClick={() => setSection('settings')}>{t('Open settings')}</button>
+                    <section className="workbench__ai" aria-label={language === 'zh-CN' ? 'AI 制作' : 'AI creation'}>
+                        <header><AutoAwesomeIcon /><div><h2>{language === 'zh-CN' ? '让 AI 帮你制作 MD' : 'Create an MD with AI'}</h2><p>{language === 'zh-CN' ? '告诉 AI 用哪些音乐、怎么编排。曲名、曲序和录制进度会同步显示在这里。' : 'Tell AI which music to use and how to arrange it. Titles, track order and recording progress stay visible here.'}</p></div></header>
+                        <div className="workbench__ai-status"><strong>{language === 'zh-CN' ? (localBridgeEnabled ? 'AI 接入已启用' : '尚未启用 AI 接入') : (localBridgeEnabled ? 'AI access enabled' : 'AI access is off')}</strong><p>{language === 'zh-CN' ? (localBridgeEnabled ? '下一步：在 AI 客户端中配置 MCP，并让 AI 检查设备连接。启用开关不代表 AI 已连接。' : '先在设置中启用 AI 接入，再连接你使用的 AI 客户端。') : (localBridgeEnabled ? 'Next: configure MCP in your AI client and ask AI to check the device. Enabling access does not mean a client is connected.' : 'Enable AI access in Settings, then connect your AI client.')}</p></div>
+                        <ol className="workbench__ai-steps">
+                            <li><h3>{language === 'zh-CN' ? '启用 AI 接入' : 'Enable AI access'}</h3><p>{language === 'zh-CN' ? '在设置中打开开关，保存后重新连接碟机。' : 'Turn on access in Settings, save, and reconnect the recorder.'}</p><button className="secondary-button" onClick={() => setSection('settings')}>{language === 'zh-CN' ? '前往接入设置' : 'Open access settings'}</button></li>
+                            <li><h3>{language === 'zh-CN' ? '连接你的 AI 客户端' : 'Connect your AI client'}</h3><p>{language === 'zh-CN' ? '使用支持本地 MCP 的客户端。按指南添加配置，并保持此页面打开。' : 'Use a client supporting local MCP. Follow the setup guide and keep this page open.'}</p><button className="secondary-button" onClick={() => setHelpOpen(true)}>{language === 'zh-CN' ? '查看 MCP 配置指南' : 'MCP setup guide'}</button></li>
+                            <li><h3>{language === 'zh-CN' ? '告诉 AI 制盘要求' : 'Describe your MD'}</h3><p>{language === 'zh-CN' ? '提供本地音频路径、曲序、分组和 SP／LP2／LP4 模式，先审阅计划，再授权录制。' : 'Provide local audio paths, order, groups and SP/LP2/LP4 mode. Review the plan before authorizing recording.'}</p></li>
+                        </ol>
+                        <div className="workbench__ai-example"><h3>{language === 'zh-CN' ? '可以这样对 AI 说' : 'Try this prompt'}</h3><blockquote>{language === 'zh-CN' ? '把 C:/Music/Album 中的音乐按曲序整理，使用 LP2，碟名设为 Album。先给我检查曲名、分组和容量，等我确认后再写盘。' : 'Arrange the music in C:/Music/Album in track order, use LP2 and name the MD Album. Show me titles, groups and capacity, and wait for my confirmation before recording.'}</blockquote><p>{language === 'zh-CN' ? '这段话发给你使用的 AI 客户端；这里用于设置接入和查看制作结果。' : 'Send this to your AI client. This page sets up access and shows the results.'}</p></div>
                     </section>
                 ) : null}
 

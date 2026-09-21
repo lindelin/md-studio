@@ -28,7 +28,7 @@ export const HelpDialog = ({ open, onClose }: HelpDialogProps) => {
                 <section>
                     <h3>{zh ? '用 AI 接管制作（MCP）' : 'Make an MD with AI (MCP)'}</h3>
                     <ol>
-                        <li>{zh ? '保持此页面打开，在页面中连接碟机。在设置中启用“本地桥接”，保存后重新连接设备。' : 'Keep this page open and connect the recorder. Enable the local bridge in Settings, save, then reconnect.'}</li>
+                        <li>{zh ? '保持此页面打开，在页面中连接碟机。在设置的“AI 接入（MCP）”中打开“允许 AI 协助制作 MD”，保存后重新连接设备。' : 'Keep this page open and connect the recorder. Enable the local bridge in Settings, save, then reconnect.'}</li>
                         <li>{zh ? '在支持本地 STDIO MCP 的 AI 客户端中添加下方配置，把 C:/MD-Studio 替换为本项目所在文件夹。需要本机已安装 Node.js 并完成 npm install。' : 'Add the configuration below to an AI client supporting local STDIO MCP. Replace C:/MD-Studio with this project folder. Install Node.js and run npm install first.'}</li>
                     </ol>
                     <pre>{JSON.stringify({ mcpServers: { 'md-studio': { command: 'cmd.exe', args: ['/c', 'npm', '--prefix', 'C:/MD-Studio', 'run', 'mcp'] } } }, null, 2)}</pre>
