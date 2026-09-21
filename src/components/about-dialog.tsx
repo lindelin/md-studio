@@ -28,11 +28,6 @@ export const AboutDialog = ({ open, onClose }: { open: boolean; onClose(): void 
                 <li><a rel="noopener noreferrer" href="https://github.com/glaubitz/linux-minidisc" target="_blank">linux-minidisc</a>{t(', which made the netmd-js project possible.')}</li>
                 <li><a rel="noopener noreferrer" href="https://material-ui.com/" target="_blank">Material UI</a>{t(', to build the user interface.')}</li>
             </ul>
-            <p><strong>{t('Attribution')}</strong></p>
-            <ul>
-                <li>{t('MiniDisc logo from')} <a rel="noopener noreferrer" href="https://en.wikipedia.org/wiki/MiniDisc" target="_blank">Wikipedia</a></li>
-                <li>{t('MiniDisc icon from')} <a rel="noopener noreferrer" href="https://www.deviantart.com/blinkybill/art/Sony-MiniDisc-Plastic-Icon-473812540" target="_blank">BlinkyBill</a></li>
-            </ul>
             <p className="app-dialog__version">
                 {t('Version')} #{GIT_HASH} {(GIT_DIFF as unknown) === '0' ? '' : `(${GIT_DIFF} ${t('diff lines ahead')})`} · {t('Built on')} {BUILD_DATE}
             </p>

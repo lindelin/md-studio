@@ -95,7 +95,7 @@ async function start() {
         if (!devices.length) { callback(); return; }
         void dialog.showMessageBox(mainWindow,{type:'question',title:'选择 MD / Select MD',message:'选择要连接的设备 / Choose a device',buttons:[...devices.map(d => `${d.productName || 'USB'} (${d.vendorId.toString(16)}:${d.productId.toString(16)})`),'取消 / Cancel'],cancelId:devices.length}).then(({response}) => callback(devices[response]?.deviceId));
     });
-    mainWindow = new BrowserWindow({width:1400,height:950,title:'MD Studio',webPreferences:{preload:join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,additionalArguments:[`--md-bridge=${encodeURIComponent(`ws://127.0.0.1:${runtime.bridge.port}?token=${bridgeToken}`)}`]}});
+    mainWindow = new BrowserWindow({width:1400,height:950,title:'MD Studio',icon:join(__dirname,'app-icon.png'),webPreferences:{preload:join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,additionalArguments:[`--md-bridge=${encodeURIComponent(`ws://127.0.0.1:${runtime.bridge.port}?token=${bridgeToken}`)}`]}});
     secureWindow(mainWindow);
     let closing = false;
     mainWindow.on('close', event => {

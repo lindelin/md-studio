@@ -872,7 +872,7 @@ export const Workbench = () => {
             <input {...getInputProps()} />
             <aside className="workbench__sidebar">
                 <div className="workbench__brand">
-                    <span className="workbench__brand-mark"><AlbumIcon /></span>
+                    <span className="workbench__brand-mark"><img src="/MiniDisc192.png" alt="" /></span>
                     <span><strong>{t('Studio Workbench')}</strong><small>{t('MiniDisc Management')}</small></span>
                 </div>
 

@@ -82,8 +82,6 @@ const zhCN: Record<string, string> = {
     ', to read and edit the table of contents.': '，用于读取和编辑目录表。',
     ', which made the netmd-js project possible.': '，它为 netmd-js 项目奠定了基础。',
     ', to build the user interface.': '，用于构建用户界面。',
-    'MiniDisc logo from': 'MiniDisc 标志来源：',
-    'MiniDisc icon from': 'MiniDisc 图标来源：',
     'Version': '版本',
     'diff lines ahead': '行差异',
     'Built on': '构建日期',
