@@ -80,8 +80,6 @@ const originalApplicationTitle = document.title;
                     console.error('Failed to finalize the disconnected USB device', error);
                 });
                 document.title = originalApplicationTitle;
-            } else {
-                console.log("The device disconnected isn't connected to this webapp");
             }
         };
     }

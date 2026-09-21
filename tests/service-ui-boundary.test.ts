@@ -32,4 +32,15 @@ describe('device service UI boundary', () => {
         assert.doesNotMatch(source, /Object\.defineProperty\(window,\s*['"](?:interface|exploits|exploitStateManager|tocmanip|getToC)['"]/);
         assert.doesNotMatch(source, /\(window\s+as\s+any\)\.himd\s*=/);
     });
+
+    it('does not enable verbose device protocol logging in production', () => {
+        const serviceCatalog = readFileSync(
+            path.resolve('src/services/interface-service-manager.ts'),
+            'utf8'
+        );
+
+        assert.doesNotMatch(serviceCatalog, /debug:\s*true/);
+        assert.doesNotMatch(serviceCatalog, /Given parameters:/);
+        assert.match(serviceCatalog, /import\.meta\.env\?\.DEV === true/);
+    });
 });

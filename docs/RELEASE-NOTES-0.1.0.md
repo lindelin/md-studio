@@ -32,6 +32,7 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 - Encoder output is validated for ATRAC container, codec, bitrate, and non-empty frames before upload.
 - Completion notifications request browser permission only from the explicit Settings switch. Unsupported, denied, or failed notifications cannot change a successful write result or prevent the completed imports from leaving the queue.
 - Browser workers, playback readiness, and cached reconnects have bounded failure paths.
+- Verbose NetMD and HiMD protocol tracing is limited to development builds so normal recordings do not flood the production console with device traffic.
 - Local bridge messages, file chunks, output paths, origins, and tokens are bounded and validated.
 - The vulnerable transitive `expr-eval` package used by the exploit assembler is replaced at lockfile resolution with the API-compatible patched `expr-eval-fork@3.0.1`; CI and release builds require a clean production dependency audit.
 - Raw TOC writes require a preview, exact checksums, current session/revision, and browser-only authorization; MCP and CLI can preview but cannot apply them.
@@ -48,7 +49,7 @@ MiniDisc Workspace 0.1.0 is the first independent release derived from Web MiniD
 
 ## Verification snapshot
 
-- 315 automated tests in 82 suites
+- 316 automated tests in 82 suites
 - Full TypeScript and TSX lint with zero warnings
 - Application and bridge type checks
 - Production Vite/PWA build

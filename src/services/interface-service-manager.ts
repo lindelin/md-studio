@@ -6,6 +6,8 @@ import type { Codec, MinidiscSpec, NetMDService, RecordingCodec } from './interf
 // the full implementation remains behind the dynamic NetworkWMService import.
 import { DeviceIds } from 'networkwm-js/dist/devices.js';
 
+const deviceProtocolDebuggingEnabled = import.meta.env?.DEV === true;
+
 export interface LoadedService {
     service: NetMDService;
     spec: MinidiscSpec;
@@ -37,7 +39,7 @@ export const Services: ServicePrototype[] = [
         load: async () => {
             const { DefaultMinidiscSpec, NetMDUSBService } = await import('./interfaces/netmd');
             return {
-                service: window.native?.interface ?? new NetMDUSBService({ debug: true }),
+                service: window.native?.interface ?? new NetMDUSBService({ debug: deviceProtocolDebuggingEnabled }),
                 spec: new DefaultMinidiscSpec(),
             };
         },
@@ -50,7 +52,7 @@ export const Services: ServicePrototype[] = [
         getConnectName: () => 'Connect to HiMD (metadata and export)',
         load: async () => {
             const { HiMDRestrictedService, HiMDSpec } = await import('./interfaces/himd');
-            return { service: new HiMDRestrictedService({ debug: true }), spec: new HiMDSpec() };
+            return { service: new HiMDRestrictedService({ debug: deviceProtocolDebuggingEnabled }), spec: new HiMDSpec() };
         },
         requiresChrome: true,
     },
@@ -65,7 +67,7 @@ export const Services: ServicePrototype[] = [
                 return { service: window.native.himdFullInterface, spec: new HiMDSpec() };
             }
             const { HiMDFullService, HiMDSpec } = await import('./interfaces/himd');
-            return { service: new HiMDFullService({ debug: true }), spec: new HiMDSpec() };
+            return { service: new HiMDFullService({ debug: deviceProtocolDebuggingEnabled }), spec: new HiMDSpec() };
         },
         requiresChrome: true,
     },
@@ -105,7 +107,6 @@ export const Services: ServicePrototype[] = [
         getConnectName: () => 'Connect to MockMD',
         description: React.createElement('p', null, 'Test NetMD interface. It does nothing'),
         load: async (parameters) => {
-            console.log(`Given parameters: ${JSON.stringify(parameters)}`);
             const [{ NetMDMockService }, { DefaultMinidiscSpec }] = await Promise.all([
                 import('./interfaces/netmd-mock'),
                 import('./interfaces/netmd'),
@@ -189,7 +190,6 @@ export const Services: ServicePrototype[] = [
         getConnectName: () => 'Connect to MockMD (bytes)',
         description: React.createElement('p', null, 'Test NetMD interface. It does nothing'),
         load: async (parameters) => {
-            console.log(`Given parameters: ${JSON.stringify(parameters)}`);
             const [{ NetMDMockService }, { DefaultMinidiscSpec }, { HiMDSpec }] = await Promise.all([
                 import('./interfaces/netmd-mock'),
                 import('./interfaces/netmd'),
